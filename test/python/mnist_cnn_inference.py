@@ -205,7 +205,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--select_device',
         type=str,
-        default='NGRAPH',
+        default='NGRAPH_CPU',
         help='select device to execute on')
     parser.add_argument(
         '--num_eval_cycles',
