@@ -55,19 +55,20 @@ else()
 endif()
 message( STATUS "TensorFlow_DIR: " ${TensorFlow_DIR} )
 
-execute_process(
-    COMMAND 
-    python -c "import tensorflow as tf; print(tf.__cxx11_abi_flag__)"
-    RESULT_VARIABLE result
-    OUTPUT_VARIABLE TEMP
-    ERROR_VARIABLE ERR
-)
-if( NOT ${result} )
-  string(REGEX REPLACE "\n$" "" TensorFlow_CXX_ABI "${TEMP}")
-else()
-   message( FATAL_ERROR "Cannot determine TensorFlow __cxx11_abi_flag__\n" ${ERR} )
-endif()
-message( STATUS "TensorFlow_CXX_ABI: " ${TensorFlow_CXX_ABI} )
+# TODO: check compiler maybe
+#execute_process(
+#    COMMAND 
+#    python -c "import tensorflow as tf; print(tf.__cxx11_abi_flag__)"
+#    RESULT_VARIABLE result
+#    OUTPUT_VARIABLE TEMP
+#    ERROR_VARIABLE ERR
+#)
+#if( NOT ${result} )
+#  string(REGEX REPLACE "\n$" "" TensorFlow_CXX_ABI "${TEMP}")
+#else()
+#   message( FATAL_ERROR "Cannot determine TensorFlow __cxx11_abi_flag__\n" ${ERR} )
+#endif()
+#message( STATUS "TensorFlow_CXX_ABI: " ${TensorFlow_CXX_ABI} )
 
 execute_process(
     COMMAND 
@@ -97,7 +98,7 @@ find_package_handle_standard_args(
   REQUIRED_VARS 
     TensorFlow_DIR  
     TensorFlow_INCLUDE_DIR   
-    TensorFlow_CXX_ABI  
+#     TensorFlow_CXX_ABI  
     TensorFlow_GIT_VERSION  
     TensorFlow_FRAMEWORK_LIBRARY
 )
