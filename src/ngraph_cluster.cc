@@ -193,7 +193,11 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
-        for (auto node : cluster_map[dst]->nodes) {
+        // using cluster_map[dst]->nodes in the loop directly appears to
+        // invalidate the iterator when `node` == `dst`
+        // this happens with clang but not gcc
+        auto nodes = cluster_map[dst]->nodes;
+        for (auto node : nodes) {
           cluster_map[src]->nodes.insert(node);
           cluster_map[node] = cluster_map[src];
         }
