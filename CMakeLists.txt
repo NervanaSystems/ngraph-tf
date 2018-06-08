@@ -20,7 +20,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 # set(CMAKE_CXX_COMPILER "clang++")
 include(ExternalProject)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare -fsanitize=address -fsanitize=undefined")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare")
 
 # These variables are undocumented but useful.
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
