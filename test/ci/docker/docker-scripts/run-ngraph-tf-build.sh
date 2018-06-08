@@ -95,6 +95,18 @@ ln -s /tmp/bazel-cache "$HOME/.cache"
 
 xtime="$(date)"
 echo  ' '
+echo  "===== Setting Up Virtual Environment for Tensorflow Wheel at ${xtime} ====="
+echo  ' '
+
+# Make sure the bash shell prompt variables are set, as virtualenv crashes
+# if PS2 is not set.
+PS1='prompt> '
+PS2='prompt-more> '
+virtualenv --system-site-packages -p "${PYTHON_BIN_PATH}" "${venv_dir}"
+source "${venv_dir}/bin/activate"
+
+xtime="$(date)"
+echo  ' '
 echo  "===== Configuring Tensorflow Build at ${xtime} ====="
 echo  ' '
 
@@ -123,7 +135,10 @@ echo  ' '
 
 cd "${tf_dir}"
 
-bazel build --verbose_failures ${BAZEL_BUILD_EXTRA_FLAGS:-} //tensorflow/tools/pip_package:build_pip_package | tee tensorflow-build-log.txt
+# TODO: remove this older BRIDGE 2.0 build command when appropriate
+#bazel build --verbose_failures ${BAZEL_BUILD_EXTRA_FLAGS:-} //tensorflow/tools/pip_package:build_pip_package | tee tensorflow-build-log.txt
+
+bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package
 
 xtime="$(date)"
 echo  ' '
@@ -134,34 +149,21 @@ bazel-bin/tensorflow/tools/pip_package/build_pip_package "${WHEEL_BUILD_DIR}"
 
 xtime="$(date)"
 echo  ' '
-echo  "===== Setting Up Virtual Environment for Tensorflow Wheel at ${xtime} ====="
-echo  ' '
-
-# Make sure the bash shell prompt variables are set, as virtualenv crashes
-# if PS2 is not set.
-PS1='prompt> '
-PS2='prompt-more> '
-virtualenv --system-site-packages -p "${PYTHON_BIN_PATH}" "${venv_dir}"
-source "${venv_dir}/bin/activate"
-
-xtime="$(date)"
-echo  ' '
 echo  "===== Installing Tensorflow Wheel at ${xtime} ====="
 echo  ' '
 
 set -x
-echo ' '
-echo 'Proxy settings in exports:'
-export | grep -i proxy
-echo ' '
-echo 'Building the wheel:'
 cd "${tf_dir}"
 declare WHEEL_FILE="$(find "${WHEEL_BUILD_DIR}" -name '*.whl')"
 # If installing into the OS, use:
 # sudo --preserve-env --set-home pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
 # Here we are installing into a virtual environment, so DO NOT USE SUDO!!!
-pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
+# TODO: remove this older BRIDGE 2.0 build command when appropriate
+#pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
+pip install -U "${WHEEL_FILE}"
 set +x
+
+# TODO: Build tensorflow unit-tests here?
 
 # TODO: reenable when appropriate
 #xtime="$(date)"
