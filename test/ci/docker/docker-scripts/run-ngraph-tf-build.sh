@@ -18,9 +18,9 @@ export PYTHON_BIN_PATH="/usr/bin/python$PYTHON_VERSION_NUMBER"
 
 
 # Set up some important known directories
-bridge_dir='/home/dockuser/bridge'
+bridge_dir='/home/dockuser/ngraph-tf'
 bbuild_dir="${bridge_dir}/BUILD-BRIDGE"
-tf_dir='/home/dockuser/tf'
+tf_dir='/home/dockuser/tensorflow'
 ci_dir="${bridge_dir}/test/ci/docker"
 venv_dir="/tmp/venv_python${PYTHON_VERSION_NUMBER}"
 # TODO: remove these lines when appropriate
@@ -163,26 +163,38 @@ declare WHEEL_FILE="$(find "${WHEEL_BUILD_DIR}" -name '*.whl')"
 pip install -U "${WHEEL_FILE}"
 set +x
 
-# TODO: Build tensorflow unit-tests here?
+xtime="$(date)"
+echo  ' '
+echo  "===== Starting Tensorflow C++ Library Build at ${xtime} ====="
+echo  ' '
 
-# TODO: reenable when appropriate
-#xtime="$(date)"
-#echo  ' '
-#echo  "===== Starting nGraph TensorFlow Bridge Build at ${xtime} ====="
-#echo  ' '
-#
+cd "${tf_dir}"
+bazel build --config=opt //tensorflow:libtensorflow_cc.so
+
+xtime="$(date)"
+echo  ' '
+echo  "===== Starting nGraph TensorFlow Bridge Build at ${xtime} ====="
+echo  ' '
+
+# TODO: remove or reinstate if appropriate
 ## Temporary kludge.  See check for ~/ngraph_dist above for more
 ## detailed comments.
 #ln -s "${bridge_dir}/ngraph_dist" "${HOME}/ngraph_dist"
-#
-#cd "${bridge_dir}"
-#
-#mkdir "${bbuild_dir}"
-#cd "${bbuild_dir}"
-#cmake ..
-#make -j16
+
+cd "${bridge_dir}"
+
+mkdir "${bbuild_dir}"
+cd "${bbuild_dir}"
+cmake ..
+make
+
+# TODO: remove or reinstate if appropriate
+# make -j16
+
+# TODO: remove or reinstate if appropriate
 #make install
-#
+
+# TODO: remove or reinstate if appropriate
 #xtime="$(date)"
 #echo  ' '
 #echo  "===== Run Sanity Check for Plugins at ${xtime} ====="
@@ -190,7 +202,10 @@ set +x
 #
 #cd "${bridge_dir}/test"
 #python install_test.py
-#
+
+# TODO: save bridge shared library
+
+# TODO: remove when appropriate
 #xtime="$(date)"
 #echo  ' '
 #echo  "===== Saving plugins_dist.tgz at ${xtime} ====="
@@ -200,7 +215,7 @@ set +x
 #
 #if [ ! -d "${plugins_src}" ] ; then
 #    ( >&2 echo '***** Error: *****' )
-#    ( >&2 echo "PLUGINS SOURCE directory does not exist -- this likely indicates a build failuire: ${plugins_src}" )
+#    ( >&2 echo "PLUGINS SOURCE directory does not exist -- this likely indicatesa build failuire: ${plugins_src}" )
 #    exit 1
 #fi
 #
@@ -212,7 +227,8 @@ set +x
 ## like an absolute path (to avoid making non-portable tarballs)
 #tar czf "${plugins_tarball}" plugins
 #set +x
-#
+
+# TODO: reenable when appropriate
 #xtime="$(date)"
 #echo  ' '
 #echo  "===== Run Bridge CI Test Scripts at ${xtime} ====="

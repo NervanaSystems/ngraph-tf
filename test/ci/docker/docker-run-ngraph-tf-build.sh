@@ -29,8 +29,8 @@ set -u  # No unset variables after this point
 # container
 bridge_dir="$(realpath ../../..)"
 
-bridge_mountpoint='/home/dockuser/bridge'
-tf_mountpoint='/home/dockuser/tf'
+bridge_mountpoint='/home/dockuser/ngraph-tf'
+tf_mountpoint='/home/dockuser/tensorflow'
 
 RUNASUSER_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-as-user.sh"
 BUILD_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-ngraph-tf-build.sh"
