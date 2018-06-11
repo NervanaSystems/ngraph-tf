@@ -23,10 +23,10 @@ bbuild_dir="${bridge_dir}/BUILD-BRIDGE"
 tf_dir='/home/dockuser/tensorflow'
 ci_dir="${bridge_dir}/test/ci/docker"
 venv_dir="/tmp/venv_python${PYTHON_VERSION_NUMBER}"
-# TODO: remove these lines when appropriate
-#plugins_src="${venv_dir}/lib/python2.7/site-packages/tensorflow/plugins"
-#plugins_dir="${bridge_dir}/plugins"  # Directory to save plugin artifacts in
-#plugins_tarball="plugins_dist.tgz"  # Tarball artifact to send to Artifactory
+ngraph_dist_dir="${bbuild_dir}/ngraph/ngraph_dist"
+libngraph_so="${bbuild_dir}/src/libngraph_device.so"
+libngraph_dist_dir="${bridge_dir}/libngraph_dist"  # Directory to save plugin artifacts in
+libngraph_tarball="${bridge_dir}/libngraph_dist.tgz"  # Tarball artifact to send to Artifactory
 
 # HOME is expected to be /home/dockuser.  See script run-as-user.sh, which
 # sets this up.
@@ -36,7 +36,7 @@ venv_dir="/tmp/venv_python${PYTHON_VERSION_NUMBER}"
 export WHEEL_BUILD_DIR="${tf_dir}/BUILD_WHEEL"
 
 # Point to the ngraph dynamic libraries
-export LD_LIBRARY_PATH="${bridge_dir}/ngraph_dist/lib"
+export LD_LIBRARY_PATH="${libngraph_dist_dir}:${libngraph_dist_dir}/ngraph_dist/lib"
 
 echo "In $(basename ${0}):"
 echo ''
@@ -45,10 +45,10 @@ echo "  bbuild_dir=${bbuild_dir}"
 echo "  tf_dir=${tf_dir}"
 echo "  ci_dir=${ci_dir}"
 echo "  venv_dir=${venv_dir}"
-# TODO: remove when appropriate
-#echo "  plugins_src=${plugins_src}"
-#echo "  plugins_dir=${plugins_dir}"
-#echo "  plugins_tarball=${plugins_tarball}"
+echo "  ngraph_dist_dir=${ngraph_dist_dir}"
+echo "  libngraph_so=${libngraph_so}"
+echo "  libngraph_dist_dir=${libngraph_dist_dir}"
+echo "  libngraph_tarball=${libngraph_tarball}"
 echo ''
 echo "  HOME=${HOME}"
 echo "  PYTHON_VERSION_NUMBER=${PYTHON_VERSION_NUMBER}"
@@ -77,12 +77,17 @@ if [ -d "${venv_dir}" ] ; then
     exit 1
 fi
 
-# TODO: remove when appropriate
-#if [ -d "${plugins_dir}" ] ; then
-#    ( >&2 echo '***** Error: *****' )
-#    ( >&2 echo "Plugins build directory already exists -- please remove it before calling this script: ${plugins_src}" )
-#    exit 1
-#fi
+if [ -d "${libngraph_dist_dir}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "libngraph_dist directory already exists -- please remove it before calling this script: ${libngraph_dist_dir}" )
+    exit 1
+fi
+
+if [ -f "${libngraph_tarball}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "libngraph distribution directory already exists -- please remove it before calling this script: ${libngraph_tarball}" )
+    exit 1
+fi
 
 # Make sure the Bazel cache is in /tmp, as docker images have too little space
 # in the root filesystem, where /home (and $HOME/.cache) is.  Even though we
@@ -135,9 +140,6 @@ echo  ' '
 
 cd "${tf_dir}"
 
-# TODO: remove this older BRIDGE 2.0 build command when appropriate
-#bazel build --verbose_failures ${BAZEL_BUILD_EXTRA_FLAGS:-} //tensorflow/tools/pip_package:build_pip_package | tee tensorflow-build-log.txt
-
 bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package
 
 xtime="$(date)"
@@ -158,8 +160,6 @@ declare WHEEL_FILE="$(find "${WHEEL_BUILD_DIR}" -name '*.whl')"
 # If installing into the OS, use:
 # sudo --preserve-env --set-home pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
 # Here we are installing into a virtual environment, so DO NOT USE SUDO!!!
-# TODO: remove this older BRIDGE 2.0 build command when appropriate
-#pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
 pip install -U "${WHEEL_FILE}"
 set +x
 
@@ -176,59 +176,53 @@ echo  ' '
 echo  "===== Starting nGraph TensorFlow Bridge Build at ${xtime} ====="
 echo  ' '
 
-# TODO: remove or reinstate if appropriate
-## Temporary kludge.  See check for ~/ngraph_dist above for more
-## detailed comments.
-#ln -s "${bridge_dir}/ngraph_dist" "${HOME}/ngraph_dist"
-
 cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
 cmake ..
-make
+make -j16
 
-# TODO: remove or reinstate if appropriate
-# make -j16
+xtime="$(date)"
+echo  ' '
+echo  "===== Creating libngraph_dist.tgz at ${xtime} ====="
+echo  ' '
 
-# TODO: remove or reinstate if appropriate
-#make install
+cd "${bridge_dir}"
 
-# TODO: remove or reinstate if appropriate
-#xtime="$(date)"
-#echo  ' '
-#echo  "===== Run Sanity Check for Plugins at ${xtime} ====="
-#echo  ' '
-#
-#cd "${bridge_dir}/test"
-#python install_test.py
+if [ ! -d "${ngraph_dist_dir}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "ngraph_dist directory does not exist -- this likely indicatesa build failure: ${ngraph_dist_dir}" )
+    exit 1
+fi
 
-# TODO: save bridge shared library
+if [ ! -f "${libngraph_so}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "libngraph_device.so file does not exist -- this likely indicatesa build failure: ${libngraph_so}" )
+    exit 1
+fi
 
-# TODO: remove when appropriate
-#xtime="$(date)"
-#echo  ' '
-#echo  "===== Saving plugins_dist.tgz at ${xtime} ====="
-#echo  ' '
-#
-#cd "${bridge_dir}"
-#
-#if [ ! -d "${plugins_src}" ] ; then
-#    ( >&2 echo '***** Error: *****' )
-#    ( >&2 echo "PLUGINS SOURCE directory does not exist -- this likely indicatesa build failuire: ${plugins_src}" )
-#    exit 1
-#fi
-#
-#set -x
-#cp -rv "${plugins_src}" "${plugins_dir}"
-#pwd
-#ls -l
-## We use the directory name only here because tar (understandably) does not
-## like an absolute path (to avoid making non-portable tarballs)
-#tar czf "${plugins_tarball}" plugins
-#set +x
+set -x
 
-# TODO: reenable when appropriate
+# Create the directory for libngraph distibution
+mkdir "${libngraph_dist_dir}"
+
+# Copy the ngraph_dist directory into the libngraph distribution directory
+cp -r "${ngraph_dist_dir}" "${libngraph_dist_dir}/ngraph_dist"
+
+# Copy the libngraph_device.so file into the libngraph distribution directory
+cp "${libngraph_so}" "${libngraph_dist_dir}"
+
+pwd
+ls -l
+
+# We use the directory name only here because tar (understandably) does not
+# like an absolute path (to avoid making non-portable tarballs)
+tar czf "${libngraph_tarball}" libngraph_dist
+
+set +x
+
+# FUTURE: reenable when CI tests are available
 #xtime="$(date)"
 #echo  ' '
 #echo  "===== Run Bridge CI Test Scripts at ${xtime} ====="
@@ -239,6 +233,17 @@ make
 #export USER_PLUGIN_PATH="${bbuild_dir}/src/libngraph_plugin.so"
 #export TF_ROOT="${tf_dir}"
 #"${bridge_dir}/test/ci/run-premerge-ci-checks.sh"
+
+xtime="$(date)"
+echo  ' '
+echo  "===== Run Sanity Check for Plugins at ${xtime} ====="
+echo  ' '
+
+cd "${bridge_dir}/test"
+
+# LD_LIBRARY_PATH is set at the beginning of this script
+
+python install_test.py
 
 xtime="$(date)"
 echo  ' '
