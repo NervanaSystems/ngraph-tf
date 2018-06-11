@@ -31,16 +31,9 @@
 
 6. `vim CMakeFiles/ext_ngraph.dir/build.make` and replace `$(nproc)` with something more reasonable, like 4 or 6.  Otherwise you may experience the sheer joy of running out of processes and locking up your machine. (*TODO*: figure out why that happens even when `nproc` exists and should return 8.)
 7. `make -j 4` (or maybe 6)
-8. Symlink dylibs to so's. (*TODO*: actually name libraries correctly in the first place):
-
-	```
-	ln -s libngraph_device.dylib src/libngraph_device.so
-	ln -s libiomp5.dylib ngraph/ngraph_dist/lib/libiomp5.so
-	```
-
-9. `cd test && make -j 4`
-10. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `$LD_LIBRARY_PATH` and `$DYLD_LIBRARY_PATH`
-11. `./gtest_ngtf`
+8. `cd test && make -j 4`
+9. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `$LD_LIBRARY_PATH` and `$DYLD_LIBRARY_PATH`
+10. `./gtest_ngtf`
 
 ## Debugging
 
