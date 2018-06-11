@@ -60,8 +60,8 @@ target_link_libraries( ${LIB_NAME} tensorflow_framework_lib )
 target_link_libraries( ${LIB_NAME} ngraph_lib )
 
 target_compile_definitions( 
-    ${LIB_NAME} PRIVATE 
-    #    _GLIBCXX_USE_CXX11_ABI=${TensorFlow_CXX_ABI} 
+    ${LIB_NAME} PRIVATE
+    _GLIBCXX_USE_CXX11_ABI=${TensorFlow_CXX_ABI}
 )
 
 target_include_directories(${LIB_NAME} PUBLIC "${NGRAPH_DIR}/include")
