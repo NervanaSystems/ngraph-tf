@@ -196,8 +196,8 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
         // using cluster_map[dst]->nodes in the loop directly appears to
         // invalidate the iterator when `node` == `dst`
         // this happens with clang but not gcc
-        auto nodes = cluster_map[dst]->nodes;
-        for (auto node : nodes) {
+        auto cluster_dst = cluster_map[dst];
+        for (auto node : cluster_dst->nodes) {
           cluster_map[src]->nodes.insert(node);
           cluster_map[node] = cluster_map[src];
         }
