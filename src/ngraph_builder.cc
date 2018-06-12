@@ -1199,8 +1199,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           ng::builder::numpy_transpose(ng_input, ng_axis_order);
     }
-
-   else if (op->type_string() == "Squeeze") {
+    // -------
+    // Squeeze
+    // -------
+    else if (op->type_string() == "Squeeze") {
       if (op->num_inputs() < 1) {
         return tf::errors::InvalidArgument(
             "Number of inputs should be 1 for Squeeze");
