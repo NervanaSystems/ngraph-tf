@@ -34,7 +34,7 @@ import pytest
 
 import unittest
 
-from ctypes import *
+from ctypes import cdll
 cdll.LoadLibrary(
     'libngraph_device.so'
 )
