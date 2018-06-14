@@ -1136,7 +1136,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // ---
     // Sign
     // ---
-    if (op->type_string() == "Sign") {
+    else if (op->type_string() == "Sign") {
       TF_RETURN_IF_ERROR(TranslateUnOp<ngraph::op::Sign>(op, ng_op_map));
     }
     // -------
