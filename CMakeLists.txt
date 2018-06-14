@@ -39,6 +39,7 @@ execute_process(
 if(NPROC_RESULT)
   set(NUM_MAKE_PROCESSES 1)
 else()
+  # There will be a newline in the output, so strip all non-numeric chars.
   string(REGEX REPLACE [^0-9] "" NUM_MAKE_PROCESSES "${NPROC_OUT}")
 endif()
 
