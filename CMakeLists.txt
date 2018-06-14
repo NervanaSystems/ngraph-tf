@@ -26,6 +26,22 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
+# Invoke "nproc" to determine how many CPU cores we have, and set
+# NUM_MAKE_PROCESSES accordingly so we know what number to pass to make -j.
+# (Defaults to 1 if we cannot execute nproc).
+execute_process(
+    COMMAND nproc
+    RESULT_VARIABLE NPROC_RESULT
+    OUTPUT_VARIABLE NPROC_OUT
+    ERROR_VARIABLE NPROC_ERR
+)
+
+if(NPROC_RESULT)
+  set(NUM_MAKE_PROCESSES 1)
+else()
+  string(REGEX REPLACE [^0-9] "" NUM_MAKE_PROCESSES "${NPROC_OUT}")
+endif()
+
 # Find and build ngraph
 ExternalProject_Add(
     ext_ngraph
@@ -37,7 +53,7 @@ ExternalProject_Add(
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
     SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
     BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
-    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j $(nproc) ngraph
+    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
     UPDATE_COMMAND ""
     INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
 )
