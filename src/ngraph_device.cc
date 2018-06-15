@@ -32,8 +32,14 @@ limitations under the License.
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
+#ifdef __APPLE__
+#define EXT "dylib"
+#else
+#define EXT "so"
+#endif
+
 namespace ngraph_bridge {
-extern const char* const DEVICE_NGRAPH_CPU = "NGRAPH_CPU";
+extern const char* const DEVICE_NGRAPH = "NGRAPH";
 }
 
 namespace tensorflow {
@@ -58,11 +64,11 @@ class NGraphDeviceContext : public tf::DeviceContext {
                              StatusCallback done) const override {
     if (cpu_tensor->NumElements() > 0) {
       NGRAPH_VLOG(3) << "CopyCPUTensorToDevice "
-               << reinterpret_cast<const void*>(
-                      cpu_tensor->tensor_data().data())
-               << " " << reinterpret_cast<const void*>(
-                             device_tensor->tensor_data().data())
-               << " " << cpu_tensor->NumElements();
+                     << reinterpret_cast<const void*>(
+                            cpu_tensor->tensor_data().data())
+                     << " " << reinterpret_cast<const void*>(
+                                   device_tensor->tensor_data().data())
+                     << " " << cpu_tensor->NumElements();
 
       void* src_ptr = const_cast<void*>(DMAHelper::base(cpu_tensor));
       const int64 total_bytes = cpu_tensor->TotalBytes();
@@ -93,9 +99,9 @@ class NGraphDeviceContext : public tf::DeviceContext {
     if (device_tensor->NumElements() > 0) {
       NGRAPH_VLOG(3) << "CopyDeviceTensorToCPU "
                      << reinterpret_cast<const void*>(
-                          device_tensor->tensor_data().data())
-                     << " "
-                     << reinterpret_cast<const void*>(cpu_tensor->tensor_data().data())
+                            device_tensor->tensor_data().data())
+                     << " " << reinterpret_cast<const void*>(
+                                   cpu_tensor->tensor_data().data())
                      << device_tensor->NumElements();
       NGRAPH_VLOG(3) << device_tensor->DebugString();
       // done(errors::Internal("Unrecognized device type in device-to-CPU
@@ -137,7 +143,8 @@ class NGraphDevice : public Device {
     device_context_map->resize(graph->num_node_ids());
 
     for (Node* n : graph->nodes()) {
-      // NGRAPH_VLOG(3) << n->id() << " : " << n->type_string() << " : " << n->name();
+      // NGRAPH_VLOG(3) << n->id() << " : " << n->type_string() << " : " <<
+      // n->name();
       m_device_context->Ref();
       (*device_context_map)[n->id()] = m_device_context;
     }
@@ -174,8 +181,8 @@ class NGraphDeviceFactory : public DeviceFactory {
   Status CreateDevices(const SessionOptions& options, const string& name_prefix,
                        std::vector<Device*>* devices) override {
     DeviceAttributes attr;
-    attr.set_name(strings::StrCat(name_prefix, "/device:NGRAPH_CPU:0"));
-    attr.set_device_type(ngraph_bridge::DEVICE_NGRAPH_CPU);
+    attr.set_name(strings::StrCat(name_prefix, "/device:NGRAPH:0"));
+    attr.set_device_type(ngraph_bridge::DEVICE_NGRAPH);
 
     devices->push_back(new NGraphDevice(attr));
     return Status::OK();
@@ -183,8 +190,8 @@ class NGraphDeviceFactory : public DeviceFactory {
 };
 
 // Assumes the default priority is '50'.
-REGISTER_LOCAL_DEVICE_FACTORY(ngraph_bridge::DEVICE_NGRAPH_CPU,
-                              NGraphDeviceFactory, 50);
+REGISTER_LOCAL_DEVICE_FACTORY(ngraph_bridge::DEVICE_NGRAPH, NGraphDeviceFactory,
+                              50);
 
 #include <dlfcn.h>
 static bool InitModule() {
@@ -204,15 +211,15 @@ static bool InitModule() {
   size_t loc = dso_path.find_last_of("/\\");
   std::string ngraph_directory = dso_path.substr(0, loc);
 
-  auto handle = dlopen((ngraph_directory + "/libiomp5.so").c_str(),
+  auto handle = dlopen((ngraph_directory + "/libiomp5." EXT).c_str(),
                        RTLD_NOW | RTLD_GLOBAL);
   if (handle == nullptr) {
     NGRAPH_VLOG(0) << "Error loading the plugin library. "
-               "nGraph device won't be available";
+                      "nGraph device won't be available";
     return false;
   }
 
-  handle = dlopen((ngraph_directory + "/libngraph.so").c_str(),
+  handle = dlopen((ngraph_directory + "/libngraph." EXT).c_str(),
                   RTLD_NOW | RTLD_GLOBAL);
   if (handle == nullptr) {
     NGRAPH_VLOG(0) << "Error loading the plugin library. "

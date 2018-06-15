@@ -36,11 +36,12 @@
 using namespace std;
 namespace ngraph_bridge {
 
-extern const char* const DEVICE_NGRAPH_CPU;
+extern const char* const DEVICE_NGRAPH;
 
 #define MINIMUM_CLUSTER_NODES 2
 
-tf::Status NGraphClusterPass::Run(const tf::GraphOptimizationPassOptions& options) {
+tf::Status NGraphClusterPass::Run(
+    const tf::GraphOptimizationPassOptions& options) {
   // TODO(amprocte): Remove this when we have proper support for graphs with
   // cycles.
   if (std::getenv("NGRAPH_TF_SKIP_CLUSTERING") != nullptr) {
@@ -106,6 +107,7 @@ bool NGraphClusterPass::IsNGraphNode(const tf::Node* node) {
         "Prod",
         "RealDiv",
         "Relu",
+        "Relu6",
         "ReluGrad",
         "ReluGrad",
         "Reshape",
@@ -130,7 +132,7 @@ bool NGraphClusterPass::IsNGraphNode(const tf::Node* node) {
       return false;
     }
 
-    return (parsed.has_type && parsed.type == DEVICE_NGRAPH_CPU);
+    return (parsed.has_type && parsed.type == DEVICE_NGRAPH);
   }
 }
 
@@ -139,7 +141,8 @@ bool NGraphClusterPass::IsClusterable(const tf::Node* node) {
 }
 
 bool NGraphClusterPass::CanBeOutsideCluster(const tf::Node* node) {
-  return (!IsClusterable(node) || s_can_be_outside_cluster_ops.count(node->type_string()) > 0);
+  return (!IsClusterable(node) ||
+          s_can_be_outside_cluster_ops.count(node->type_string()) > 0);
 }
 
 tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
@@ -184,7 +187,8 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
         continue;
       }
 
-      if (!IsNGraphNode(src) || !IsNGraphNode(dst) || !IsClusterable(src) || !IsClusterable(dst)) {
+      if (!IsNGraphNode(src) || !IsNGraphNode(dst) || !IsClusterable(src) ||
+          !IsClusterable(dst)) {
         continue;
       }
 
@@ -193,7 +197,11 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
-        for (auto node : cluster_map[dst]->nodes) {
+        // using cluster_map[dst]->nodes in the loop directly appears to
+        // invalidate the iterator when `node` == `dst`
+        // this happens with clang but not gcc
+        auto cluster_dst = cluster_map[dst];
+        for (auto node : cluster_dst->nodes) {
           cluster_map[src]->nodes.insert(node);
           cluster_map[node] = cluster_map[src];
         }
@@ -233,8 +241,9 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
       bool is_trivial = cluster->nodes.size() < MINIMUM_CLUSTER_NODES;
 
       seen.insert(cluster);
-      NGRAPH_VLOG(2) << "cluster " << cluster_idx << ": " << cluster->nodes.size()
-                     << " nodes" << (is_trivial ? " (trivial)" : "");
+      NGRAPH_VLOG(2) << "cluster " << cluster_idx << ": "
+                     << cluster->nodes.size() << " nodes"
+                     << (is_trivial ? " (trivial)" : "");
 
       for (auto node : cluster->nodes) {
         if (!IsNGraphNode(node)) {
@@ -244,9 +253,10 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
         }
 
         if (!IsClusterable(node)) {
-          return tf::errors::InvalidArgument(
-              "Node ", node->DebugString(),
-              " is not a clusterable node but was placed in an nGraph cluster.");
+          return tf::errors::InvalidArgument("Node ", node->DebugString(),
+                                             " is not a clusterable node but "
+                                             "was placed in an nGraph "
+                                             "cluster.");
         }
 
         NGRAPH_VLOG(2) << ">> cluster " << cluster_idx << ": " << node
@@ -286,4 +296,3 @@ namespace tensorflow {
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 105,
                       ngraph_bridge::NGraphClusterPass);
 }  // namespace tensorflow
-

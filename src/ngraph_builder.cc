@@ -170,7 +170,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
     ng::Shape ng_shape;
-    TFTensorShapeToNGraphShape(inputs[index], &ng_shape);
+    TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(inputs[index], &ng_shape));
 
     auto ng_param = make_shared<ng::op::Parameter>(ng_et, ng_shape);
     ng_op_map[parm->name()] = ng_param;
@@ -310,8 +310,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             ng_avgpool, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
       }
 
-      NGRAPH_VLOG(3) << "avgpool outshape: {" << ng::join(ng_avgpool->get_shape())
-               << "}";
+      NGRAPH_VLOG(3) << "avgpool outshape: {"
+                     << ng::join(ng_avgpool->get_shape()) << "}";
 
       ng_op_map[op->name()] = ng_avgpool;
     }
@@ -756,6 +756,20 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     else if (op->type_string() == "Equal") {
       TF_RETURN_IF_ERROR(TranslateBinOp<ngraph::op::Equal>(op, ng_op_map));
     }
+    // --------
+    // Floor
+    // --------
+    else if (op->type_string() == "Floor") {
+      if (op->num_inputs() != 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Floor");
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      auto ng_input = ng_op_map.at(tf_input->name());
+      ng_op_map[op->name()] = make_shared<ng::op::Floor>(ng_input);
+    }
     // --------------
     // FusedBatchNorm
     // --------------
@@ -1009,8 +1023,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             ng_maxpool, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
       }
 
-      NGRAPH_VLOG(3) << "maxpool outshape: {" << ng::join(ng_maxpool->get_shape())
-               << "}";
+      NGRAPH_VLOG(3) << "maxpool outshape: {"
+                     << ng::join(ng_maxpool->get_shape()) << "}";
 
       ng_op_map[op->name()] = ng_maxpool;
     }
@@ -1151,6 +1165,27 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] = make_shared<ng::op::Relu>(ng_input);
     }
+    // ----
+    // Relu6
+    // ----
+    else if (op->type_string() == "Relu6") {
+      if (op->num_inputs() != 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Relu6");
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+
+      auto ng_input = ng_op_map.at(tf_input->name());
+      auto constant_6 = make_shared<ng::op::Constant>(
+          ng_input->get_element_type(), 
+          ng_input->get_shape(),
+          std::vector<std::string>(ng::shape_size(ng_input->get_shape()),"6"));
+      auto relu6_op = make_shared<ng::op::Minimum>(make_shared<ng::op::Relu>(ng_input), constant_6);
+
+      ng_op_map[op->name()] = relu6_op;
+    }
     // -------
     // Reshape
     // -------
@@ -1232,6 +1267,68 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] =
           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_shape);
+    }
+    // -------
+    // Squeeze
+    // -------
+    else if (op->type_string() == "Squeeze") {
+      if (op->num_inputs() < 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs should be 1 for Squeeze");
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input)); 
+      auto ng_input = ng_op_map.at(tf_input->name());
+
+      std::vector<tf::int32> tf_axis;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "squeeze_dims", 
+                             &tf_axis));
+      std::set<int> axis_set(tf_axis.begin(), tf_axis.end()); 
+ 
+      size_t input_dims = ng_input->get_shape().size();
+ 
+      ng::Shape input_shape = ng_input->get_shape();
+      std::vector<int> dims;
+ 
+      if (axis_set.size() == 0) {
+      for (size_t i = 0; i < input_dims; i++) {
+          if (input_shape[i] > 1) {
+              dims.push_back(input_shape[i]);
+          }
+        }
+      }
+      else {
+      for (size_t i = 0; i < input_dims; i++) {
+            bool skip= false;
+            if (axis_set.find(i) != axis_set.end()) {
+	       if (input_shape[i] == 1) {
+                  skip = true;
+               } else {
+                  throw tensorflow::errors::InvalidArgument(
+                      "Tried to explicitly squeeze "
+                      "dimension ",
+                      i, " but dimension was not 1: ", input_shape[i]);  
+               }
+            }
+            if (!skip) { 
+               dims.push_back(input_shape[i]);
+            }
+         }
+      }
+
+      ng::Shape output_shape(dims.size());
+      for (size_t i = 0;i < dims.size(); ++i) {
+         output_shape[i] = dims[i];
+      }
+
+      ng::AxisVector ng_axis_order(ng_input->get_shape().size());
+      for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
+         ng_axis_order[i] = i;
+      }
+
+      ng_op_map[op->name()] =
+          make_shared<ng::op::Reshape>(ng_input, ng_axis_order, output_shape);
     }
     // ---
     // Sum
@@ -1326,12 +1423,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           ng::builder::numpy_transpose(ng_input, ng_axis_order);
     }
+
     // -----------------------------
     // Catch-all for unsupported ops
     // -----------------------------
     else {
-      NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " (" << op->type_string()
-               << ")";
+      NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
+                     << op->type_string() << ")";
       NGRAPH_VLOG(3) << op->def().DebugString();
       return tf::errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
                                          op->type_string(), ")");
