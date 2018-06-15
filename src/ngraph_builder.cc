@@ -605,7 +605,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // -----
     // DepthwiseConv2D
     // -----
-    else if (op->type_string() == "DepthwiseConv2D") {
+    else if (op->type_string() == "DepthwiseConv2dNative") {
       if (op->num_inputs() != 2) {
         return tf::errors::InvalidArgument(
             "Number of inputs is not 2 for DepthwiseConv2d");
