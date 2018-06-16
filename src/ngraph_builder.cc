@@ -38,7 +38,7 @@ static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
   tf::TensorShapeProto shape_proto;
 
   TF_RETURN_IF_ERROR(
-      ValuesFromConstNode<T,VecT>(op->def(), &shape_proto, &const_values));
+      ValuesFromConstNode<T, VecT>(op->def(), &shape_proto, &const_values));
 
   tf::TensorShape const_shape(shape_proto);
   ng::Shape ng_shape;
@@ -483,7 +483,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         //   break;
         case tf::DataType::DT_BOOL:
           TF_RETURN_IF_ERROR(
-              MakeConstOp<bool,char>(op, ng::element::boolean, &ng_node));
+              MakeConstOp<bool, char>(op, ng::element::boolean, &ng_node));
           break;
         default:
           return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
@@ -722,7 +722,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::CoordinateDiff ng_padding_above{0, 0};
 
       if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i ++) {
+        for (size_t i = 0; i < 2; i++) {
           size_t image_size = ng_image_shape[i];
           size_t filter_shape = ng_kernel_shape[i];
           size_t filter_stride = ng_strides[i];
@@ -753,19 +753,20 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       for (size_t i = 0; i < input_shape[1]; i++) {
         const std::vector<size_t> lower_bound{0, i, 0, 0};
-        const std::vector<size_t> upper_bound{
-            input_shape[0], i, input_shape[2], input_shape[3]};
-        auto ng_sliced_input = make_shared<ng::op::Slice>(
-            ng_input, lower_bound, upper_bound);
+        const std::vector<size_t> upper_bound{input_shape[0], i, input_shape[2],
+                                              input_shape[3]};
+        auto ng_sliced_input =
+            make_shared<ng::op::Slice>(ng_input, lower_bound, upper_bound);
         auto ng_conv = make_shared<ng::op::Convolution>(
-            ng_sliced_input, ng_filter, ng_strides, 
-            ng_dilations, ng_padding_below,ng_padding_above);
+            ng_sliced_input, ng_filter, ng_strides, ng_dilations,
+            ng_padding_below, ng_padding_above);
         ng_args.push_back(ng_conv);
       }
 
-      size_t ng_concatenation_axis = 1; // channel axis
-      std::shared_ptr<ng::Node> ng_concat = make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
- 
+      size_t ng_concatenation_axis = 1;  // channel axis
+      std::shared_ptr<ng::Node> ng_concat =
+          make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
+
       if (is_nhwc) {
         auto& s = ng_concat->get_shape();
         ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
@@ -839,7 +840,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (tf::GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) !=
           tf::Status::OK()) {
         NGRAPH_VLOG(3) << "epsilon attribute not present, setting to zero";
-        tf_epsilon = 0;  // FIXME(amprocte):
+        tf_epsilon = 0;  // FIXME(amprocte): is this the right default?
       }
 
       NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
@@ -1102,7 +1103,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Mul
     // ---
     else if (op->type_string() == "Mul") {
-      TF_RETURN_IF_ERROR(TranslateBinaryOp<ngraph::op::Multiply>(op, ng_op_map));
+      TF_RETURN_IF_ERROR(
+          TranslateBinaryOp<ngraph::op::Multiply>(op, ng_op_map));
     }
     // ----
     // NoOp
@@ -1196,10 +1198,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       auto ng_input = ng_op_map.at(tf_input->name());
       auto constant_6 = make_shared<ng::op::Constant>(
-          ng_input->get_element_type(), 
-          ng_input->get_shape(),
-          std::vector<std::string>(ng::shape_size(ng_input->get_shape()),"6"));
-      auto relu6_op = make_shared<ng::op::Minimum>(make_shared<ng::op::Relu>(ng_input), constant_6);
+          ng_input->get_element_type(), ng_input->get_shape(),
+          std::vector<std::string>(ng::shape_size(ng_input->get_shape()), "6"));
+      auto relu6_op = make_shared<ng::op::Minimum>(
+          make_shared<ng::op::Relu>(ng_input), constant_6);
 
       ng_op_map[op->name()] = relu6_op;
     }
@@ -1314,53 +1316,52 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       tf::Node* tf_input;
-      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input)); 
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
       auto ng_input = ng_op_map.at(tf_input->name());
 
       std::vector<tf::int32> tf_axis;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "squeeze_dims", 
-                             &tf_axis));
-      std::set<int> axis_set(tf_axis.begin(), tf_axis.end()); 
- 
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "squeeze_dims", &tf_axis));
+      std::set<int> axis_set(tf_axis.begin(), tf_axis.end());
+
       size_t input_dims = ng_input->get_shape().size();
- 
+
       ng::Shape input_shape = ng_input->get_shape();
       std::vector<int> dims;
- 
+
       if (axis_set.size() == 0) {
-      for (size_t i = 0; i < input_dims; i++) {
+        for (size_t i = 0; i < input_dims; i++) {
           if (input_shape[i] > 1) {
-              dims.push_back(input_shape[i]);
+            dims.push_back(input_shape[i]);
+          }
+        }
+      } else {
+        for (size_t i = 0; i < input_dims; i++) {
+          bool skip = false;
+          if (axis_set.find(i) != axis_set.end()) {
+            if (input_shape[i] == 1) {
+              skip = true;
+            } else {
+              throw tensorflow::errors::InvalidArgument(
+                  "Tried to explicitly squeeze "
+                  "dimension ",
+                  i, " but dimension was not 1: ", input_shape[i]);
+            }
+          }
+          if (!skip) {
+            dims.push_back(input_shape[i]);
           }
         }
       }
-      else {
-      for (size_t i = 0; i < input_dims; i++) {
-            bool skip= false;
-            if (axis_set.find(i) != axis_set.end()) {
-	       if (input_shape[i] == 1) {
-                  skip = true;
-               } else {
-                  throw tensorflow::errors::InvalidArgument(
-                      "Tried to explicitly squeeze "
-                      "dimension ",
-                      i, " but dimension was not 1: ", input_shape[i]);  
-               }
-            }
-            if (!skip) { 
-               dims.push_back(input_shape[i]);
-            }
-         }
-      }
 
       ng::Shape output_shape(dims.size());
-      for (size_t i = 0;i < dims.size(); ++i) {
-         output_shape[i] = dims[i];
+      for (size_t i = 0; i < dims.size(); ++i) {
+        output_shape[i] = dims[i];
       }
 
       ng::AxisVector ng_axis_order(ng_input->get_shape().size());
       for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
-         ng_axis_order[i] = i;
+        ng_axis_order[i] = i;
       }
 
       ng_op_map[op->name()] =

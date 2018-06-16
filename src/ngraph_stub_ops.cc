@@ -45,7 +45,7 @@ class NGraphStubOp : public OpKernel {
 };
 
 #define REGISTER_NGRAPH_STUB(builder) \
-  REGISTER_KERNEL_BUILDER(builder, NGraphStubOp);
+  REGISTER_KERNEL_BUILDER(builder.Label("ngraph"), NGraphStubOp);
 
 //
 // Please keep these in alphabetical order.
@@ -117,10 +117,10 @@ REGISTER_NGRAPH_STUB(Name("Sign")
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
 REGISTER_NGRAPH_STUB(Name("Snapshot")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
-                         .TypeConstraint("T",{DT_FLOAT,DT_INT32}));
+                         .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
 REGISTER_NGRAPH_STUB(Name("Squeeze")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
-                         .TypeConstraint("T",{DT_FLOAT,DT_INT32}));
+                         .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
 REGISTER_NGRAPH_STUB(Name("Sum")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T")

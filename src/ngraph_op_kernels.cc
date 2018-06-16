@@ -111,19 +111,39 @@ class NGraphIdentityOp : public OpKernel {
   bool IsExpensive() override { return false; }
 };
 
+// TODO(amprocte): Figure out how to avoid the need to register both labeled
+// and unlabeled versions of these. (It maybe that in the confirmation pass
+// we should just skip these ops, because the placer is going to give them to
+// us anyway, which is the whole reason we want to register them as "real"
+// (non-stub) kernels in the first place.)
+
+REGISTER_KERNEL_BUILDER(
+    Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH).Label("ngraph"),
+    NGraphNoOp);
 REGISTER_KERNEL_BUILDER(Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH),
                         NGraphNoOp);
 
 REGISTER_KERNEL_BUILDER(Name("Const")
                             .Device(ngraph_bridge::DEVICE_NGRAPH)
-                            .TypeConstraint("dtype", {DT_FLOAT, DT_INT32,
-                                                      DT_BOOL}),
+                            .TypeConstraint("dtype",
+                                            {DT_FLOAT, DT_INT32, DT_BOOL})
+                            .Label("ngraph"),
+                        NGraphConstOp);
+REGISTER_KERNEL_BUILDER(Name("Const")
+                            .Device(ngraph_bridge::DEVICE_NGRAPH)
+                            .TypeConstraint("dtype",
+                                            {DT_FLOAT, DT_INT32, DT_BOOL}),
                         NGraphConstOp);
 
 #define REGISTER_IDENTITY(T)                                        \
   REGISTER_KERNEL_BUILDER(Name("Identity")                          \
                               .Device(ngraph_bridge::DEVICE_NGRAPH) \
                               .TypeConstraint<T>("T"),              \
+                          NGraphIdentityOp);                        \
+  REGISTER_KERNEL_BUILDER(Name("Identity")                          \
+                              .Device(ngraph_bridge::DEVICE_NGRAPH) \
+                              .TypeConstraint<T>("T")               \
+                              .Label("ngraph"),                     \
                           NGraphIdentityOp);
 
 REGISTER_IDENTITY(float);
