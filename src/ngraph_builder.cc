@@ -86,40 +86,6 @@ static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
   return tf::Status::OK();
 }
 
-template <typename T>
-static tf::Status GetDataFromConstant(std::shared_ptr<ng::Node> ng_node,
-                                      std::vector<T>* data) {
-  if (ng_node->description() != "Constant") {
-    return tf::errors::Unimplemented(
-        "Tried to get constant data from a non-constant node");
-  }
-
-  auto ng_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_node);
-
-  size_t n_items = ng::shape_size(ng_const->get_shape());
-
-  data->clear();
-  data->resize(n_items);
-
-  // TODO(amprocte): support more data types here
-  if (ng_const->get_element_type() == ng::element::i64) {
-    const tf::int64* p = (const tf::int64*)ng_const->get_data_ptr();
-    for (size_t i = 0; i < n_items; i++) {
-      (*data)[i] = T(p[i]);
-    }
-  } else if (ng_const->get_element_type() == ng::element::i32) {
-    const tf::int32* p = (const tf::int32*)ng_const->get_data_ptr();
-    for (size_t i = 0; i < n_items; i++) {
-      (*data)[i] = T(p[i]);
-    }
-  } else {
-    return tf::errors::Unimplemented(
-        "Cannot get data from const node with element type that is not int32 "
-        "or int64");
-  }
-  return tf::Status::OK();
-}
-
 tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                                    const tf::Graph* input_graph,
                                    shared_ptr<ng::Function>& ng_function) {
@@ -407,16 +373,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       auto ng_axis_op = ng_op_map.at(tf_axis_node->name());
 
-      //
-      // Extract the desired concatenation axis from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., paddings
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(GetDataFromConstant(ng_axis_op, &constant_values));
+      tf::int64 concat_axis;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_concat_static_axis", &concat_axis));
 
-      size_t ng_concatenation_axis = constant_values[0];
+      tf::Node* tf_first_arg;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_first_arg));
+
+      if (concat_axis < 0) {
+        concat_axis += tf::int64(ng_op_map[tf_first_arg->name()]->get_shape().size());
+      }
 
       ng::NodeVector ng_args;
 
@@ -427,7 +392,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       ng_op_map[op->name()] =
-          make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
+          make_shared<ng::op::Concat>(ng_args, size_t(concat_axis));
     }
     // -----
     // Const
@@ -1074,20 +1039,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "keep_dims is not implemented for Mean");
       }
 
-      //
-      // Extract the desired reduction axes from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., paddings
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(GetDataFromConstant(ng_axes_op, &constant_values));
+      std::vector<tf::int64> mean_axes;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
 
       size_t input_rank = ng_input->get_shape().size();
 
       ng::AxisSet ng_reduction_axes;
 
-      for (auto i : constant_values) {
+      for (auto i : mean_axes) {
         if (i < 0) {
           ng_reduction_axes.insert(input_rank + i);
         } else {
@@ -1129,30 +1088,24 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_paddings_op = ng_op_map.at(tf_paddings_node->name());
 
-      //
-      // Extract the desired paddings from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., paddings
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(GetDataFromConstant(ng_paddings_op, &constant_values));
+      std::vector<tf::int64> paddings;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_pad_static_paddings", &paddings));
 
-      NGRAPH_VLOG(3) << "{" << ng::join(constant_values) << "}";
+      NGRAPH_VLOG(3) << "{" << ng::join(paddings) << "}";
 
-      if (constant_values.size() % 2 != 0) {
+      if (paddings.size() % 2 != 0) {
         return tf::errors::InvalidArgument(
             "Constant node for paddings does not have an even number of "
             "elements");
       }
 
-      ng::Shape padding_below(constant_values.size() / 2);
-      ng::Shape padding_above(constant_values.size() / 2);
-      ng::Shape padding_interior(constant_values.size() / 2);
+      ng::Shape padding_below(paddings.size() / 2);
+      ng::Shape padding_above(paddings.size() / 2);
+      ng::Shape padding_interior(paddings.size() / 2);
 
-      for (size_t i = 0; i < constant_values.size() / 2; i++) {
-        padding_below[i] = constant_values[2 * i];
-        padding_above[i] = constant_values[2 * i + 1];
+      for (size_t i = 0; i < paddings.size() / 2; i++) {
+        padding_below[i] = paddings[2 * i];
+        padding_above[i] = paddings[2 * i + 1];
         padding_interior[i] = 0;
       }
 
@@ -1222,18 +1175,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_shape_op = ng_op_map.at(tf_shape_node->name());
 
-      //
-      // Extract the desired output shape from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., shapes
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(GetDataFromConstant(ng_shape_op, &constant_values));
+      std::vector<tf::int64> shape;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
 
-      NGRAPH_VLOG(3) << "{" << ng::join(ng_shape_op->get_shape()) << "}";
-
-      size_t output_rank = ng::shape_size(ng_shape_op->get_shape());
+      size_t output_rank = shape.size();
       size_t num_input_elements = ng::shape_size(ng_input->get_shape());
 
       //
@@ -1244,7 +1189,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       size_t product_of_rest = 1;
       bool seen_inferred = false;
       for (size_t i = 0; i < output_rank; i++) {
-        if (constant_values[i] == -1) {
+        if (shape[i] == -1) {
           if (seen_inferred) {
             return tf::errors::InvalidArgument(
                 "Multiple -1 dimensions in result shape");
@@ -1252,7 +1197,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           inferred_pos = i;
           seen_inferred = true;
         } else {
-          product_of_rest *= constant_values[i];
+          product_of_rest *= shape[i];
         }
       }
 
@@ -1260,13 +1205,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         if (num_input_elements % product_of_rest != 0) {
           NGRAPH_VLOG(3) << tf_input->name();
           NGRAPH_VLOG(3) << "{" << ng::join(ng_input->get_shape()) << "}";
-          NGRAPH_VLOG(3) << "{" << ng::join(constant_values) << "}";
+          NGRAPH_VLOG(3) << "{" << ng::join(shape) << "}";
           return tf::errors::InvalidArgument(
               "Product of known dimensions (", product_of_rest,
               ") does not evenly divide the number of input elements (",
               num_input_elements, ")");
         }
-        constant_values[inferred_pos] = num_input_elements / product_of_rest;
+        shape[inferred_pos] = num_input_elements / product_of_rest;
       }
 
       //
@@ -1276,7 +1221,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_shape(output_rank);
 
       for (size_t i = 0; i < output_rank; i++) {
-        ng_shape[i] = constant_values[i];
+        ng_shape[i] = shape[i];
       }
 
       ng::AxisVector ng_axis_order(ng_input->get_shape().size());
@@ -1394,20 +1339,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "keep_dims is not implemented for Sum");
       }
 
-      //
-      // Extract the desired reduction axes from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., paddings
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(GetDataFromConstant(ng_axes_op, &constant_values));
+      std::vector<tf::int64> sum_axes;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_sum_static_axes", &sum_axes));
 
       size_t input_rank = ng_input->get_shape().size();
 
       ng::AxisSet ng_reduction_axes;
 
-      for (auto i : constant_values) {
+      for (auto i : sum_axes) {
         if (i < 0) {
           ng_reduction_axes.insert(input_rank + i);
         } else {
@@ -1436,22 +1375,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_permutation_op = ng_op_map.at(tf_permutation_node->name());
 
-      //
-      // Extract the desired permutation from the input constant.
-      // TODO(amprocte): need to support more complex cases here, i.e., shapes
-      // that are not constant but can be determined once parameter shapes are
-      // known.
-      //
-      std::vector<tf::int64> constant_values;
-      TF_RETURN_IF_ERROR(
-          GetDataFromConstant(ng_permutation_op, &constant_values));
+      std::vector<tf::int64> permutation;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_transpose_static_permutation", &permutation));
 
       ng::AxisVector ng_axis_order;
-      ng_axis_order.reserve(constant_values.size());
+      ng_axis_order.reserve(permutation.size());
 
-      NGRAPH_VLOG(3) << ng::join(constant_values);
+      NGRAPH_VLOG(3) << ng::join(permutation);
 
-      for (auto i : constant_values) {
+      for (auto i : permutation) {
         ng_axis_order.push_back(i);
       }
 
