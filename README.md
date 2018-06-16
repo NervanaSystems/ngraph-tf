@@ -45,8 +45,11 @@ TensorFlow [prepare environment] for linux.
    install the binary TensorFlow wheel and skip this section.
 
    ```
-   git clone https://github.com/tensorflow/tensorflow.git
-   cd tensorflow
+   $ git clone https://github.com/tensorflow/tensorflow.git
+   $ cd tensorflow
+   $ git checkout v1.8.0
+   $ git status
+   HEAD detached at v1.8.0
    ```
 2. When setting up and activating the virtual environment with TensorFlow 
    frameworks, you must use a specific kind of venv designed for 
@@ -113,14 +116,33 @@ with nGraph backends.
 
 ### Running tests
 
-In order to run the unit tests, you need a copy of the [tensorflow] source tree.
-We assume that you have done that using the instructions above. 
+In order to run the unit tests, you need a copy of the [tensorflow] source tree
+and build the [tensorflow] C++ library using the step 6 mentioned above.
+
+You also need `pytest` installed:
+```
+pip install pytest
+```
 
 Now you need to build the tensorflow C++ library using the following instructions:
 1. Go to the ngraph-tf/build/test directory
     ```
     cd build/test
     ./gtest_ngtf
+    cd python
+    pytest
+    ```
+
+Next is to run a few DL models to validate the end-to-end functionality.
+
+2. Go to the ngraph-tf/examples directory and run the following models. First 
+setup the `LD_LIBRARY_PATH` to point to the build/src where the `libngraph_device.so`
+is found.
+    ```
+    export LD_LIBRARY_PATH=build/src
+    cd examples
+    python ...
+    <TBD>
     ```
 
 <!--
@@ -140,7 +162,8 @@ TODO
 
 ### Installation
 
-1. Build TensorFlow and its framework for unit tests:
+1. Build TensorFlow and its framework for unit tests. This step is identical to 
+how you would build TensorFlow for Linux mentioned above.
 
 	```
 	git clone git@github.com:tensorflow/tensorflow.git
@@ -160,12 +183,14 @@ TODO
 	pushd ngraph-tf.git
 	ln -s ../tensorflow
 	mkdir build && cd build
-	cmake -DNGRAPH_USE_PREBUILT_LLVM=False -DCMAKE_BUILD_TYPE=Debug ..
+	cmake -DNGRAPH_USE_PREBUILT_LLVM=False ..
 	```
 
-3. `vim CMakeFiles/ext_ngraph.dir/build.make` and replace `$(nproc)` with something more reasonable for your machine, otherwise `Make` will spawn unlimited processes and lock up your machine.  (*TODO*: figure out why that happens even when `nproc` exists and should return the number of cores.)
-4. `make -j <your-core-count>`
+Note: If you want to build a version with no optimization for debugging
+then you can use the `-DCMAKE_BUILD_TYPE=Debug` flag during the cmake step
+mentioned above.
 
+3. `make -j <your-core-count>`
 
 ### Running tests
 
