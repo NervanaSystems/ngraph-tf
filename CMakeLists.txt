@@ -63,16 +63,10 @@ ExternalProject_Add(
     INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
 )
 
-set( NGRAPH_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 
 # Find TensorFlow
 find_package(TensorFlow REQUIRED)
-
-# Set the Install Prefix, rpath etc. here (cannot be done in the sub directories)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    set(CMAKE_INSTALL_PREFIX ${TensorFlow_DIR})
-endif()
-MESSAGE("INSTALL DIR: ${CMAKE_INSTALL_PREFIX}")
 
 add_library(tensorflow_framework_lib SHARED IMPORTED)
 set_target_properties( 

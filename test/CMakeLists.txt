@@ -59,13 +59,14 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E create_symlink 
         ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy.pbtxt 
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy.pbtxt
-)
-add_custom_command( 
-    TARGET gtest_ngtf
-    PRE_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink 
         ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy_launchop.pbtxt 
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy_launchop.pbtxt
+
 )
+# add_custom_command( 
+#     TARGET gtest_ngtf
+#     PRE_BUILD
+# )
 
 add_subdirectory(python)
