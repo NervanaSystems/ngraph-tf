@@ -206,9 +206,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     }
 
     // Execute the nGraph function.
-    NGRAPH_VLOG(0) << "call starting for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "call starting for cluster " << m_ngraph_cluster;
     backend->call(ng_function, outputs, ng_inputs);
-    NGRAPH_VLOG(0) << "call done for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "call done for cluster " << m_ngraph_cluster;
 
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {

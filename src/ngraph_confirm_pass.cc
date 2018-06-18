@@ -158,7 +158,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // IF YOU ARE ADDING A NEW OP IMPLEMENTATION, ADD A CONFIRMATION FUNCTION
     // FOR THE OP HERE.
     {
-      tf::lock_mutex l(init_mu);
+      tf::mutex_lock l(init_mu);
 
       if (!initialized) {
         // Trivial confirmation function which always accepts placement.
