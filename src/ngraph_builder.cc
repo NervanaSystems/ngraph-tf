@@ -374,13 +374,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_axis_op = ng_op_map.at(tf_axis_node->name());
 
       tf::int64 concat_axis;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_concat_static_axis", &concat_axis));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_concat_static_axis", &concat_axis));
 
       tf::Node* tf_first_arg;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_first_arg));
 
       if (concat_axis < 0) {
-        concat_axis += tf::int64(ng_op_map[tf_first_arg->name()]->get_shape().size());
+        concat_axis +=
+            tf::int64(ng_op_map[tf_first_arg->name()]->get_shape().size());
       }
 
       ng::NodeVector ng_args;
@@ -1040,7 +1042,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       std::vector<tf::int64> mean_axes;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
 
       size_t input_rank = ng_input->get_shape().size();
 
@@ -1089,7 +1092,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_paddings_op = ng_op_map.at(tf_paddings_node->name());
 
       std::vector<tf::int64> paddings;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_pad_static_paddings", &paddings));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_pad_static_paddings", &paddings));
 
       NGRAPH_VLOG(3) << "{" << ng::join(paddings) << "}";
 
@@ -1176,7 +1180,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_shape_op = ng_op_map.at(tf_shape_node->name());
 
       std::vector<tf::int64> shape;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
 
       size_t output_rank = shape.size();
       size_t num_input_elements = ng::shape_size(ng_input->get_shape());
@@ -1340,7 +1345,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       std::vector<tf::int64> sum_axes;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_sum_static_axes", &sum_axes));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_sum_static_axes", &sum_axes));
 
       size_t input_rank = ng_input->get_shape().size();
 
@@ -1376,7 +1382,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_permutation_op = ng_op_map.at(tf_permutation_node->name());
 
       std::vector<tf::int64> permutation;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_transpose_static_permutation", &permutation));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_transpose_static_permutation", &permutation));
 
       ng::AxisVector ng_axis_order;
       ng_axis_order.reserve(permutation.size());
