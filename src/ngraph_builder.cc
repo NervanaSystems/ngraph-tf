@@ -1459,7 +1459,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           ng::builder::numpy_transpose(ng_input, ng_axis_order);
     }
+    // ---------
+    // Sigmoid
+    // ---------
+    else if (op->type_string() == "Sigmoid") {
+      if (op->num_inputs() != 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Sigmoid");
+      }
+      
+      tf::Node* tf_input;
 
+    }
     // -----------------------------
     // Catch-all for unsupported ops
     // -----------------------------
