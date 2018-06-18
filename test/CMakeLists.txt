@@ -64,9 +64,11 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy_launchop.pbtxt
 
 )
-# add_custom_command( 
-#     TARGET gtest_ngtf
-#     PRE_BUILD
-# )
+add_custom_command( 
+    TARGET gtest_ngtf
+    PRE_BUILD
+    COMMAND bazel build --config=opt //tensorflow:libtensorflow_cc.so
+        WORKING_DIRECTORY ${TensorFlow_SRC_DIR}/
+)
 
 add_subdirectory(python)

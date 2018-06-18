@@ -75,6 +75,23 @@ set_target_properties(
     ${TensorFlow_DIR}/libtensorflow_framework.so
 )
 
+# Need to setup the RPATH here - else it won't work.
+# During installation, a Python pip package is created which when
+# installed the is located in the same level as the tensorflow directory
+# site-packages/
+#     /ngraph
+#       libngraph_device.so
+#       ...
+#     /tensorflow
+#       libtensorflow_framework.so
+#       python/
+#           _pywrap....so
+# Therefore we are setting two entries in the RPATH:
+# 1. $ORIGIN/.
+# 2. $ORIGIN/../tensorflow/
+# 
+set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
+
 # Add the directories to be built
 add_subdirectory(logging)
 add_subdirectory(src)
