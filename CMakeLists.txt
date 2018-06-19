@@ -77,7 +77,7 @@ set_target_properties(
 
 # Need to setup the RPATH here - else it won't work.
 # During installation, a Python pip package is created which when
-# installed the is located in the same level as the tensorflow directory
+# installed is located in the same level as the tensorflow directory
 # site-packages/
 #     /ngraph
 #       libngraph_device.so

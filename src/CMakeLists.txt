@@ -84,7 +84,7 @@ endif()
 # First install the libngraph_device.so
 install(TARGETS ngraph_device DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")  
 
-# Next install all the ther pre-requisites
+# Next install all the other prerequisites
 install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" )
 
 # Now create the Python pip package
