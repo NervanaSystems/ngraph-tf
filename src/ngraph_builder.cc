@@ -1260,6 +1260,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(TranslateUnaryOp<ngraph::op::Sign>(op, ng_op_map));
     }
     // --------
+    // Slice
+    // --------
+    else if (op->type_string() == "Slice") {
+      if (op->num_inputs() != 3) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 3 for Slice");
+      }
+    }
+    // --------
     // Snapshot
     // --------
     else if (op->type_string() == "Snapshot") {
