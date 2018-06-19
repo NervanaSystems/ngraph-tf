@@ -19,8 +19,11 @@ import os
 import shutil
 
 import pytest
-import ngraph
-
+from common import LIBNGRAPH_DEVICE
+@pytest.fixture(scope='session', autouse=True)
+def load_ngraph_device():
+    cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_DEVICE))
+ 
 @pytest.fixture(scope='session', autouse=True)
 def cleanup():
     yield
