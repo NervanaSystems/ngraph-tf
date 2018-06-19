@@ -129,3 +129,6 @@ REGISTER_NGRAPH_STUB(Name("Transpose")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T")
                          .TypeConstraint("Tperm", {DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("Sigmoid")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
