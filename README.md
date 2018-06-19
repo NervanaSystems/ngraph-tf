@@ -83,7 +83,7 @@ TensorFlow [prepare environment] for linux.
     ```
     in which case you need to install enum34:
     ```
-    pip install enum43
+    pip install enum34
     ```
 
 5. Install the pip package, replacing the `tensorflow-1.*` with your 
