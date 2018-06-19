@@ -1,8 +1,13 @@
 import platform
 
 import tensorflow as tf
+
+
 __all__ = ['LIBNGRAPH_DEVICE', 'NgraphTest']
+
+
 _ext = 'dylib' if platform.system() == 'Darwin' else 'so'
+
 LIBNGRAPH_DEVICE = 'libngraph_device.' + _ext
 
 

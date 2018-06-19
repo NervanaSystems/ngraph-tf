@@ -19,6 +19,7 @@ import os
 import shutil
 
 import pytest
+
 from common import LIBNGRAPH_DEVICE
 
 
