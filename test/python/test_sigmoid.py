@@ -20,21 +20,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-import tensorflow as tf
-from tensorflow.python.client import device_lib
-
 from common import NgraphTest
-import ngraph
+import tensorflow as tf
+import numpy as np
 
 class TestSigmoid(NgraphTest):
     log_placement = False
 
     def test_sigmoid(self):
-        print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
-
-        # Get the list of devices
-        device_lib.list_local_devices()
 
         x = tf.placeholder(tf.float32, shape=(2, 3))
         y = tf.placeholder(tf.float32, shape=(2, 3))
@@ -63,5 +56,8 @@ class TestSigmoid(NgraphTest):
                     })
                 print("result:", result_b)
                 print("expected:", expected)
-                np.testing.assert_allclose(result_b, expected, atol=1e-5,
-                                           verbose=True)
+                atol = 1e-5
+                error = np.absolute(result_b-expected)
+                assert np.amax(error) <= atol
+
+                
