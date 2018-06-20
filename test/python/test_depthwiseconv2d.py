@@ -23,6 +23,8 @@ from __future__ import print_function
 import pytest
 
 import tensorflow as tf
+from tensorflow.python.framework import constant_op
+from tensorflow.python.ops import nn_ops
 
 from common import NgraphTest
 
@@ -30,3 +32,24 @@ class TestDepthwiseConv2dOperations(NgraphTest):
     def test_depthwise_conv2d(self):
         print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
 
+        tensor_in_sizes = [1, 2, 3, 2]
+        filter_in_sizes = [2, 2, 2, 2]
+        total_size_1 = 1
+        total_size_2 = 1
+        for s in tensor_in_sizes:
+            total_size_1 *= s
+        for s in filter_in_sizes:
+            total_size_2 *= s
+        x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
+        x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
+
+        with tf.device(self.test_device):
+            with tf.Session(config=self.config) as sess:
+                t1 = constant_op.constant(x1, shape=tensor_in_sizes)
+                t1.set_shape(tensor_in_sizes)
+                t2 = constant_op.constant(x2, shape=filter_in_sizes)
+                conv = nn_ops.depthwise_conv2d_native(
+                    t1, t2, strides=[1, 1, 1, 1], padding="VALID")
+                value = sess.run(conv)
+
+        print("depthwise conv value = ", value)
