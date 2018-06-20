@@ -33,7 +33,7 @@ class TestSigmoid(NgraphTest):
         y = tf.placeholder(tf.float32, shape=(2, 3))
         z = tf.placeholder(tf.float32, shape=(2, 3))
 
-        with tf.device("/device:NGRAPH:0"):
+        with tf.device(self.test_device):
             a = x + y + z
             b = tf.nn.sigmoid(a)
 
