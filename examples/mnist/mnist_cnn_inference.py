@@ -33,13 +33,15 @@ import sys
 import tempfile
 import getpass
 import time
+import numpy as np
 
 from tensorflow.examples.tutorials.mnist import input_data
 
 import tensorflow as tf
-import ngraph
 
 FLAGS = None
+
+import ngraph
 
 def deepnn_inference(x):
     """deepnn builds the graph for a deep net for classifying digits.
@@ -164,9 +166,11 @@ def train_mnist_cnn(FLAGS):
         merged = tf.summary.merge_all()
         train_writer = tf.summary.FileWriter(graph_location)
         train_writer.add_graph(tf.get_default_graph())
-
+        saver = tf.train.Saver()
         with tf.Session(config=config) as sess:
-            sess.run(tf.global_variables_initializer())
+            saver.restore(sess,FLAGS.model_dir)
+            #sess.run(tf.global_variables_initializer())
+            test_accuracy_final=0
             num_eval_cycles = FLAGS.num_eval_cycles
 
             for i in range(num_eval_cycles):
@@ -179,13 +183,17 @@ def train_mnist_cnn(FLAGS):
                         y_: batch[1],
                         keep_prob: 0.5
                     })
-                    
+                test_accuracy_final=test_accuracy_final+test_accuracy
+                reference_accucary = 0.9612
                 print('step %d, test_accuracy %g, %g sec for infernce step' % (i, test_accuracy, time.time() - t ))
                 train_writer.add_summary(summary, i)
-
+            test_accuracy_final=test_accuracy_final/num_eval_cycles
             print( "Inference  finished")
-
-            return test_accuracy
+            print (test_accuracy_final)
+            print ('Reference accuracy %g' % (reference_accucary))
+            assert (reference_accucary-test_accuracy_final)/reference_accucary < 0.05
+            print("The validation accuracy is within 5% of the trained reference data!")
+            return test_accuracy_final
 
 def main(_):
     train_mnist_cnn(FLAGS)
@@ -206,7 +214,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_eval_cycles',
         type=int,
-        default=100,
+        default=78,
         help='Number of training iterations')
 
     parser.add_argument(
@@ -214,6 +222,13 @@ if __name__ == '__main__':
         type=int,
         default=128,
         help='Batch Size')
+
+    parser.add_argument(
+            '--model_dir',
+            type=str,
+            default='./mnist_trained/',
+            help='enter model dir')
+
 
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
