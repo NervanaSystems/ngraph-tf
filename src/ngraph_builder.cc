@@ -612,11 +612,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_filter = ng_op_map.at(tf_filter->name());
 
       std::vector<tf::int32> tf_strides;
-      std::vector<tf::int32> tf_rate;
+      std::vector<tf::int32> tf_dilations;
       std::string tf_padding_type;
       std::string tf_data_format;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "rate", &tf_rate));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
       TF_RETURN_IF_ERROR(
@@ -630,7 +630,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       bool is_nhwc = (tf_data_format == "NHWC");
 
       NGRAPH_VLOG(3) << ng::join(tf_strides);
-      NGRAPH_VLOG(3) << ng::join(tf_rate);
+      NGRAPH_VLOG(3) << ng::join(tf_dilations);
       NGRAPH_VLOG(3) << tf_padding_type;
       NGRAPH_VLOG(3) << tf_data_format;
 
@@ -651,8 +651,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_strides[0] = tf_strides[1];
         ng_strides[1] = tf_strides[2];
 
-        ng_dilations[0] = tf_rate[0];
-        ng_dilations[1] = tf_rate[1];
+        ng_dilations[0] = tf_dilations[0];
+        ng_dilations[1] = tf_dilations[1];
 
         ng_image_shape[0] = s[1];
         ng_image_shape[1] = s[2];
@@ -662,8 +662,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_strides[0] = tf_strides[1];
         ng_strides[1] = tf_strides[2];
 
-        ng_dilations[0] = tf_rate[0];
-        ng_dilations[1] = tf_rate[1];
+        ng_dilations[0] = tf_dilations[0];
+        ng_dilations[1] = tf_dilations[1];
 
         ng_image_shape[0] = s[2];
         ng_image_shape[1] = s[3];
