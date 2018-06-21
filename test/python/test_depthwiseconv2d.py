@@ -29,7 +29,8 @@ from tensorflow.python.ops import nn_ops
 from common import NgraphTest
 
 class TestDepthwiseConv2dOperations(NgraphTest):
-    def test_depthwise_conv2d(self):
+    @pytest.mark.parametrize("padding", ("VALID", "SAME"))
+    def test_depthwise_conv2d(self, padding):
         print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
 
         tensor_in_sizes = [1, 2, 3, 2]
@@ -49,7 +50,7 @@ class TestDepthwiseConv2dOperations(NgraphTest):
                 t1.set_shape(tensor_in_sizes)
                 t2 = constant_op.constant(x2, shape=filter_in_sizes)
                 conv = nn_ops.depthwise_conv2d_native(
-                    t1, t2, strides=[1, 1, 1, 1], padding="VALID")
+                    t1, t2, strides=[1, 1, 1, 1], padding=padding)
                 value = sess.run(conv)
 
         with tf.Session(config=self.config) as sess:
@@ -57,7 +58,7 @@ class TestDepthwiseConv2dOperations(NgraphTest):
             t1.set_shape(tensor_in_sizes)
             t2 = constant_op.constant(x2, shape=filter_in_sizes)
             conv = nn_ops.depthwise_conv2d_native(
-                t1, t2, strides=[1, 1, 1, 1], padding="VALID")
+                t1, t2, strides=[1, 1, 1, 1], padding=padding)
             expected= sess.run(conv)
 
         assert (value == expected).all()
