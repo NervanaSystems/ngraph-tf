@@ -52,4 +52,12 @@ class TestDepthwiseConv2dOperations(NgraphTest):
                     t1, t2, strides=[1, 1, 1, 1], padding="VALID")
                 value = sess.run(conv)
 
-        print("depthwise conv value = ", value)
+        with tf.Session(config=self.config) as sess:
+            t1 = constant_op.constant(x1, shape=tensor_in_sizes)
+            t1.set_shape(tensor_in_sizes)
+            t2 = constant_op.constant(x2, shape=filter_in_sizes)
+            conv = nn_ops.depthwise_conv2d_native(
+                t1, t2, strides=[1, 1, 1, 1], padding="VALID")
+            expected= sess.run(conv)
+
+        assert (value == expected).all()
