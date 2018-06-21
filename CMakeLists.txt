@@ -90,6 +90,7 @@ set_target_properties(
 # 1. $ORIGIN/.
 # 2. $ORIGIN/../tensorflow/
 # 
+set(CMAKE_MACOSX_RPATH 1)
 set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 
 # Add the directories to be built
