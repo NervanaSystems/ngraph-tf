@@ -1313,6 +1313,36 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
       ng_op_map[op->name()] = ng_op_map.at(tf_arg->name());
     }
+    // --------- 
+    // Softmax  
+    // ---------
+    else if (op->type_string() == "Softmax") {
+      if (op->num_inputs() != 1) { 
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Softmax");  
+      }
+ 
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+
+      auto ng_input = ng_op_map.at(tf_input->name()); 
+      auto ng_input_shape = ng_input->get_shape();
+
+      std::string tf_data_format;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "Softmax data format is neither NHWC nor NCHW");
+      }
+      // We apply softmax on the C axis
+      ng::AxisSet ng_axes_softmax;
+
+      if (tf_data_format == "NHWC") ng_axes_softmax.insert(ng_input_shape.size()-1);
+      else if (tf_data_format == "NCHW") ng_axes_softmax.insert(1);
+
+      ng_op_map[op->name()] = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
+    }
     // -------
     // Squeeze
     // -------
@@ -1455,36 +1485,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] =
           ng::builder::numpy_transpose(ng_input, ng_axis_order);
-    }
-    // --------- 
-    // Softmax  
-    // ---------
-    else if (op->type_string() == "Softmax") {
-      if (op->num_inputs() != 1) { 
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Softmax");  
-      }
- 
-      tf::Node* tf_input;
-      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
-
-      auto ng_input = ng_op_map.at(tf_input->name()); 
-      auto ng_input_shape = ng_input->get_shape();
-
-      std::string tf_data_format;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
-      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
-        return tf::errors::InvalidArgument(
-            "Softmax data format is neither NHWC nor NCHW");
-      }
-      // We apply softmax on the C axis
-      ng::AxisSet ng_axes_softmax
-
-      if (tf_data_format == "NHWC") ng_axes_softmax.insert(ng_input_shape.size()-1);
-      else if (tf_data_format == "NCHW") ng_axes_softmax.insert(1);
-
-      ng_op_map[op->name()] = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
     }
     // -----------------------------
     // Catch-all for unsupported ops
