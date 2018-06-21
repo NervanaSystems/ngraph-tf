@@ -616,7 +616,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       std::string tf_padding_type;
       std::string tf_data_format;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
       TF_RETURN_IF_ERROR(
@@ -722,20 +723,22 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       for (size_t i = 0; i < input_shape[1]; i++) {
         const std::vector<size_t> lower_bound{0, i, 0, 0};
-        const std::vector<size_t> upper_bound{
-            input_shape[0], i+1, input_shape[2], input_shape[3]};
+        const std::vector<size_t> upper_bound{input_shape[0], i + 1,
+                                              input_shape[2], input_shape[3]};
         auto ng_sliced_input =
             make_shared<ng::op::Slice>(ng_input, lower_bound, upper_bound);
 
         const std::vector<size_t> f_lower_bound{0, i, 0, 0};
         const std::vector<size_t> f_upper_bound{
-            filter_shape[0], i+1, filter_shape[2], filter_shape[3]};
+            filter_shape[0], i + 1, filter_shape[2], filter_shape[3]};
         auto ng_sliced_filter =
             make_shared<ng::op::Slice>(ng_filter, f_lower_bound, f_upper_bound);
 
         NGRAPH_VLOG(3) << "depthwise conv 2d.";
-        NGRAPH_VLOG(3) << "sliced shape " << ng::join(ng_sliced_input->get_shape());
-        NGRAPH_VLOG(3) << "filter shape " << ng::join(ng_sliced_filter->get_shape());
+        NGRAPH_VLOG(3) << "sliced shape "
+                       << ng::join(ng_sliced_input->get_shape());
+        NGRAPH_VLOG(3) << "filter shape "
+                       << ng::join(ng_sliced_filter->get_shape());
 
         auto ng_conv = make_shared<ng::op::Convolution>(
             ng_sliced_input, ng_sliced_filter, ng_strides, ng_dilations,
