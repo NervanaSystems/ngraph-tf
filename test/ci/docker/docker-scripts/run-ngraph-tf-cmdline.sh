@@ -241,8 +241,8 @@ echo "  TF_WHEEL=${TF_WHEEL_MKLDNN}"
 
 # ----- Report on Optional Mounted Directories ---------------------------------
 
-if [ -d "${HOME}/models" ] ; then
-    echo "NG_TF_MODELS_REPO mounted at ${HOME}/models"
+if [ -d "${HOME}/ngraph-models" ] ; then
+    echo "NG_TF_MODELS_REPO mounted at ${HOME}/ngraph-models"
 else
     echo "NG_TF_MODELS_REPO was not specified, and thus is not mounted"
 fi

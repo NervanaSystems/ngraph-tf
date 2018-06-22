@@ -55,7 +55,7 @@ IMAGE_CLASS='ngraph_tf_ci'
 # Set up optional volume mounts
 volume_mounts=''
 if [ ! -z "${NG_TF_MODELS_REPO}" ] ; then
-  volume_mounts="${volume_mounts} -v ${NG_TF_MODELS_REPO}:/home/dockuser/models"
+  volume_mounts="${volume_mounts} -v ${NG_TF_MODELS_REPO}:/home/dockuser/ngraph-models"
 fi
 if [ ! -z "${NG_TF_PRETRAINED}" ] ; then
   volume_mounts="${volume_mounts} -v ${NG_TF_PRETRAINED}:/home/dockuser/trained"
