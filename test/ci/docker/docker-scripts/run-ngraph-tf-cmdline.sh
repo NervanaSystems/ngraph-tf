@@ -157,7 +157,7 @@ setup_MNIST_dataset() {
 
     xtime="$(date)"
     echo  ' '
-    echo  "===== Locating MNIST Dataset for Daily Validation at ${xtime} ====="
+    echo  "===== Locating MNIST Dataset for Model Run at ${xtime} ====="
     echo  ' '
 
     # Obtain a local copy of the dataset used by the Tensorflow's
@@ -190,7 +190,7 @@ setup_CIFAR10_dataset() {
 
     xtime="$(date)"
     echo  ' '
-    echo  "===== Locating CIFAR10 Dataset for Daily Validation at ${xtime} ====="
+    echo  "===== Locating CIFAR10 Dataset for Model Run at ${xtime} ====="
     echo  ' '
 
     # Copy cifar10 data from /dataset to /tmp directory (in Docker container).
@@ -289,7 +289,7 @@ esac
 
 xtime="$(date)"
 echo ' '
-echo "===== Running Tensorflow Daily Validation on CPU-Backend at ${xtime} ====="
+echo "===== Running NGraph-TF Model Run(s) on CPU-Backend at ${xtime} ====="
 
 cd "${HOME}/bridge"
 
@@ -315,7 +315,7 @@ deactivate
 
 xtime="$(date)"
 echo ' '
-echo "===== Completed NGraph-Tensorflow-Bridge Validation Test for [${CMDLINE}] at ${xtime} ====="
+echo "===== Completed NGraph-TF Model Run(s) for [${CMDLINE}] at ${xtime} ====="
 echo ' '
 
 exit 0
