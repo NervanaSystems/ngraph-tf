@@ -20,6 +20,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import pytest
+
 import tensorflow as tf
 
 from common import NgraphTest
@@ -52,3 +54,15 @@ class TestCastOperations(NgraphTest):
       with tf.Session(config=self.config) as sess:
         (result,) = sess.run((out,), feed_dict={val: test_input})
         assert (result == expected).all()
+
+  def test_cast_fail(self):
+    print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
+
+    val = tf.placeholder(tf.float32, shape=(1,))
+
+    with tf.device(self.test_device):
+      out = tf.cast(val, dtype=tf.string)
+
+      with tf.Session(config=self.config) as sess:
+        with pytest.raises(tf.errors.InvalidArgumentError):
+            sess.run((out,), feed_dict={val: (5.5,)})

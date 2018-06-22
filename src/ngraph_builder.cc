@@ -30,6 +30,18 @@
 
 namespace ngraph_bridge {
 
+const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP = {
+    { tf::DataType::DT_FLOAT, ng::element::f32 },
+    { tf::DataType::DT_DOUBLE, ng::element::f64 },
+    { tf::DataType::DT_INT8, ng::element::i8 },
+    { tf::DataType::DT_INT16, ng::element::i16 },
+    { tf::DataType::DT_INT32, ng::element::i32 },
+    { tf::DataType::DT_INT64, ng::element::i64 },
+    { tf::DataType::DT_UINT8, ng::element::u8 },
+    { tf::DataType::DT_UINT16, ng::element::u16 },
+    { tf::DataType::DT_BOOL, ng::element::boolean }
+};
+
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
@@ -375,44 +387,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       tf::DataType dtype;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "DstT", &dtype));
 
-      switch (dtype) {
-        case tf::DataType::DT_FLOAT:
+      try {
           ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::f32);
-          break;
-        case tf::DataType::DT_DOUBLE:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::f64);
-          break;
-        case tf::DataType::DT_INT8:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::i8);
-          break;
-        case tf::DataType::DT_INT16:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::i16);
-          break;
-        case tf::DataType::DT_INT32:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::i32);
-          break;
-        case tf::DataType::DT_INT64:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::i64);
-          break;
-        case tf::DataType::DT_UINT8:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::u8);
-          break;
-        case tf::DataType::DT_UINT16:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::u16);
-          break;
-        case tf::DataType::DT_BOOL:
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, ng::element::boolean);
-          break;
-        default:
+                  ng_input, TF_NGRAPH_TYPE_MAP.at(dtype));
+      } catch(const std::out_of_range&) {
           return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
                                            tf::DataType_Name(dtype));
       }
