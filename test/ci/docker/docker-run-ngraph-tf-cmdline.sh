@@ -67,7 +67,7 @@ if [ ! -z "${NG_TF_DATASET}" ] ; then
   optional_env="${optional_env} --env NG_TF_DATASET=${NG_TF_DATASET}"
 fi
 if [ ! -z "${NG_TF_LOG_ID}" ] ; then
-  optional_env="${optional_env} --env NG_TF_DATASET=${NG_TF_LOG_ID}"
+  optional_env="${optional_env} --env NG_TF_LOG_ID=${NG_TF_LOG_ID}"
 fi
 
 

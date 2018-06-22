@@ -8,8 +8,11 @@ if [ -z "${CMDLINE}" ] ; then
     exit
 fi
 
-# NG_TF_DATASET can be an empty string, or not set
-# NG_TF_LOG_ID can be an empty string, or not set
+# NG_TF_DATASET can be an empty string, or not set, but make sure it has a value
+if [ -z "${NG_TF_DATASET}" ] ; then  NG_TF_DATASET='' ; fi
+
+# NG_TF_LOG_ID can be an empty string, or not set, but make sure it has a value
+if [ -z "${NG_TF_LOG_ID}" ] ; then  NG_TF_LOG_ID='' ; fi
 
 
 set -e  # Make sure we exit on any command that returns non-zero
