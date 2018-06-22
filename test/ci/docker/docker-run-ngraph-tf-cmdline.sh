@@ -58,7 +58,7 @@ if [ ! -z "${NG_TF_MODELS_REPO}" ] ; then
   volume_mounts="${volume_mounts} -v ${NG_TF_MODELS_REPO}:/home/dockuser/models"
 fi
 if [ ! -z "${NG_TF_PRETRAINED}" ] ; then
-  volume_mounts="${volume_mounts} -v ${NG_TF_PRETRAINED}:/home/dockuser/pretrained"
+  volume_mounts="${volume_mounts} -v ${NG_TF_PRETRAINED}:/home/dockuser/trained"
 fi
 
 # Find the top-level bridge directory, so we can mount it into the docker
