@@ -247,10 +247,10 @@ else
     echo "NG_TF_MODELS_REPO was not specified, and thus is not mounted"
 fi
 
-if [ -d "${HOME}/pretrained" ] ; then
-    echo "NG_TF_PRETRAINED mounted at ${HOME}/pretrained"
+if [ -d /aipg_trained_dataset ] ; then
+    echo "NG_TF_TRAINED mounted at /aipg_trained_dataset"
 else
-    echo "NG_TF_PRETRAINED was not specified, and thus is not mounted"
+    echo "NG_TF_TRAINED was not specified, and thus is not mounted"
 fi
 
 # ----- Install Dataset and Run Pytest Script ----------------------------------
@@ -263,9 +263,9 @@ setup_tf_and_ngraph_plugin
 # If a dataset is requested, then set it up
 case "${NG_TF_DATASET}" in
     aipg_trained_dataset)
-        # Results can be accessed in /home/dockuser/trained
-        if [ -z "${NG_TF_PRETRAINED}" ] ; then
-            ( >&2 echo "FATAL ERROR: aipg_trained_datase selected, but NG_TF_PRETRAINED left unset and therefore is not mounted" )
+        # Results can be accessed in /aipg_trained_dataset
+        if [ ! -d "/aipg_trained_dataset" ] ; then
+            ( >&2 echo "FATAL ERROR: aipg_trained_datase selected, but /aipg_trained_dataset is not mounted" )
             exit 1
         fi
         ;;

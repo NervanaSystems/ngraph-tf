@@ -9,7 +9,7 @@
 # Script environment variable parameters:
 #
 # NG_TF_MODELS_REPO  Optional: Directory that models repo is clone into
-# NG_TF_PRETRAINED   Optional: Directory that pretrained models are in
+# NG_TF_TRAINED      Optional: Directory that pretrained models are in
 # NG_TF_DATASET      Optional: Dataset to prepare for run
 # NG_TF_LOG_ID       Optional: String to included in name of log
 
@@ -32,8 +32,8 @@ if [ -z "${NG_TF_MODELS_REPO}" ] ; then
     NG_TF_MODELS_REPO=''  # Make sure this is set, for use below
 fi
 
-if [ -z "${NG_TF_PRETRAINED}" ] ; then
-    NG_TF_PRETRAINED=''  # Make sure this is set, for use below
+if [ -z "${NG_TF_TRAINED}" ] ; then
+    NG_TF_TRAINED=''  # Make sure this is set, for use below
 fi
 
 if [ -z "${NG_TF_DATASET}" ] ; then
@@ -57,8 +57,8 @@ volume_mounts=''
 if [ ! -z "${NG_TF_MODELS_REPO}" ] ; then
   volume_mounts="${volume_mounts} -v ${NG_TF_MODELS_REPO}:/home/dockuser/ngraph-models"
 fi
-if [ ! -z "${NG_TF_PRETRAINED}" ] ; then
-  volume_mounts="${volume_mounts} -v ${NG_TF_PRETRAINED}:/home/dockuser/trained"
+if [ ! -z "${NG_TF_TRAINED}" ] ; then
+  volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/aipg_trained_dataset"
 fi
 
 # Find the top-level bridge directory, so we can mount it into the docker
