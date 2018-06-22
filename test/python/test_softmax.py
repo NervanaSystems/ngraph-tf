@@ -27,7 +27,7 @@ import numpy as np
 class TestSoftmax(NgraphTest):
     log_placement = False
 
-    def test_softmax_NHWC(self):
+    def test_softmax_2D(self):
 
         x = tf.placeholder(tf.float32, shape=(2, 3))
         config = tf.ConfigProto(
