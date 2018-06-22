@@ -293,8 +293,8 @@ echo "===== Running NGraph-TF Model Run(s) on CPU-Backend at ${xtime} ====="
 
 cd "${HOME}/bridge"
 
-if [ -z "${NG_TF_LOG_ID}.txt" ] ; then
-     logfile="${PWD}/log_validation_cmdline.txt"
+if [ -z "${NG_TF_LOG_ID}" ] ; then
+     logfile="${PWD}/log_run_cmdline.txt"
 else
      logfile="${PWD}/log_${NG_TF_LOG_ID}.txt"
 fi
