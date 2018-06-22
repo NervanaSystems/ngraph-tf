@@ -360,6 +360,64 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] = ng_add;
     }
     // --------
+    // Cast
+    // --------
+    else if (op->type_string() == "Cast") {
+      if (op->num_inputs() != 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Cast");
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      auto ng_input = ng_op_map.at(tf_input->name());
+
+      tf::DataType dtype;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "DstT", &dtype));
+
+      switch (dtype) {
+        case tf::DataType::DT_FLOAT:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::f32);
+          break;
+        case tf::DataType::DT_DOUBLE:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::f64);
+          break;
+        case tf::DataType::DT_INT8:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::i8);
+          break;
+        case tf::DataType::DT_INT16:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::i16);
+          break;
+        case tf::DataType::DT_INT32:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::i32);
+          break;
+        case tf::DataType::DT_INT64:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::i64);
+          break;
+        case tf::DataType::DT_UINT8:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::u8);
+          break;
+        case tf::DataType::DT_UINT16:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::u16);
+          break;
+        case tf::DataType::DT_BOOL:
+          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                  ng_input, ng::element::boolean);
+          break;
+        default:
+          return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
+                                           tf::DataType_Name(dtype));
+      }
+    }
+    // --------
     // ConcatV2
     // --------
     else if (op->type_string() == "ConcatV2") {
