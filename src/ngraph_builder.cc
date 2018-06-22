@@ -1321,7 +1321,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument(
             "Number of inputs is not 1 for Softmax");  
       }
- 
+      cout<<"Inside softmax op"<<endl; 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
 
@@ -1337,9 +1337,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
       // We apply softmax on the C axis
       ng::AxisSet ng_axes_softmax;
+      auto shape_size = ng::shape_size(ng_input_shape);
 
-      if (tf_data_format == "NHWC") ng_axes_softmax.insert(ng_input_shape.size()-1);
-      else if (tf_data_format == "NCHW") ng_axes_softmax.insert(1);
+      if (tf_data_format == "NHWC") {
+        ng_axes_softmax.insert(3);
+      }
+      else if (tf_data_format == "NCHW") {
+        ng_axes_softmax.insert(1);
+      }
 
       ng_op_map[op->name()] = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
     }
@@ -1403,6 +1408,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] =
           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, output_shape);
+    }
+    // ---
+    // Subtract
+    // ---
+    else if (op->type_string() == "Sub") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp<ngraph::op::Subtract>(op, ng_op_map));
     }
     // ---
     // Sum
