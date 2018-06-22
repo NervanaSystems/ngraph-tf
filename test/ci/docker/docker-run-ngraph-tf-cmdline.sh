@@ -61,6 +61,16 @@ if [ ! -z "${NG_TF_TRAINED}" ] ; then
   volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/aipg_trained_dataset"
 fi
 
+# Set up optional environment variables
+optional_env=''
+if [ ! -z "${NG_TF_DATASET}" ] ; then
+  optional_env="${optional_env} --env NG_TF_DATASET=${NG_TF_DATASET}"
+fi
+if [ ! -z "${NG_TF_LOG_ID}" ] ; then
+  optional_env="${optional_env} --env NG_TF_DATASET=${NG_TF_LOG_ID}"
+fi
+
+
 # Find the top-level bridge directory, so we can mount it into the docker
 # container
 bridge_dir="$(realpath ../../..)"
@@ -92,8 +102,7 @@ docker run --rm \
        --env RUN_CMD="${BUILD_SCRIPT}" \
        --env HOST_HOSTNAME="${HOSTNAME}" \
        --env CMDLINE="${CMDLINE}" \
-       --env NG_TF_DATASET="${NG_TF_DATASET}" \
-       --env NG_TF_LOG_ID="${NG_TF_LOG_ID}" \
+       ${optional_env} \
        ${docker_http_proxy} ${docker_https_proxy} \
        ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
