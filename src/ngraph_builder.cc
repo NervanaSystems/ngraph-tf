@@ -1321,11 +1321,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument(
             "Number of inputs is not 1 for Softmax");  
       }
-      cout<<"Inside softmax op"<<endl; 
+
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
 
-      auto ng_input = ng_op_map.at(tf_input->name()); 
+      try {
+        ng_op_map.at(tf_input->name()); 
+      }
+      catch (const std::out_of_range& err) {
+        std::cerr << "Out of Range error: " << err.what() << std::endl; 
+        throw;
+      }
+      auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_input_shape = ng_input->get_shape();
 
       // We apply softmax on the 2nd dimension by following TF
