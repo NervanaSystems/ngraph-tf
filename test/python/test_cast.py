@@ -29,8 +29,6 @@ from common import NgraphTest
 
 class TestCastOperations(NgraphTest):
   def test_cast_1d(self):
-    print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
-
     val = tf.placeholder(tf.float32, shape=(1,))
 
     with tf.device(self.test_device):
@@ -44,8 +42,6 @@ class TestCastOperations(NgraphTest):
     test_input = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
     expected = ((1, 2, 3), (4, 5, 6))
 
-    print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
-
     val = tf.placeholder(tf.float32, shape=(2, 3))
 
     with tf.device(self.test_device):
@@ -56,8 +52,6 @@ class TestCastOperations(NgraphTest):
         assert (result == expected).all()
 
   def test_cast_fail(self):
-    print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
-
     val = tf.placeholder(tf.float32, shape=(1,))
 
     with tf.device(self.test_device):
