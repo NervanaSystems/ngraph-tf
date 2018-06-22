@@ -262,6 +262,13 @@ setup_tf_and_ngraph_plugin
 
 # If a dataset is requested, then set it up
 case "${NG_TF_DATASET}" in
+    aipg_trained_dataset)
+        # Results can be accessed in /home/dockuser/trained
+        if [ -z "${NG_TF_PRETRAINED}" ] ; then
+            ( >&2 echo "FATAL ERROR: aipg_trained_datase selected, but NG_TF_PRETRAINED left unset and therefore is not mounted" )
+            exit 1
+        fi
+        ;;
     mnist)
         setup_MNIST_dataset    # Results can be accessed in /dataset/mnist
         ;;
