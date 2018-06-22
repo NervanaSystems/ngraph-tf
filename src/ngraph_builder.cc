@@ -1328,23 +1328,16 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name()); 
       auto ng_input_shape = ng_input->get_shape();
 
-      std::string tf_data_format;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
-      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
-        return tf::errors::InvalidArgument(
-            "Softmax data format is neither NHWC nor NCHW");
-      }
-      // We apply softmax on the C axis
+      // We apply softmax on the 2nd dimension by following TF
+      // And we restrict the softmax input argument to be 2D for now
       ng::AxisSet ng_axes_softmax;
-      auto shape_size = ng::shape_size(ng_input_shape);
+      auto shape_size = ng_input_shape.size();
 
-      if (tf_data_format == "NHWC") {
-        ng_axes_softmax.insert(3);
+      if (shape_size !=2) {
+        return tf::errors::InvalidArgument("TF Softmax logits must be 2-dimensional");
       }
-      else if (tf_data_format == "NCHW") {
-        ng_axes_softmax.insert(1);
-      }
+
+      ng_axes_softmax.insert(1);
 
       ng_op_map[op->name()] = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
     }
