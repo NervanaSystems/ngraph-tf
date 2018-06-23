@@ -1328,9 +1328,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       try {
         ng_op_map.at(tf_input->name()); 
       }
-      catch (const std::out_of_range& err) {
-        std::cerr << "Out of Range error: " << err.what() << std::endl; 
-        throw;
+      catch (const std::out_of_range&) {
+        return tf::errors::NotFound(tf_input->name(), " is not found in the ng_op_map");
       }
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_input_shape = ng_input->get_shape();
