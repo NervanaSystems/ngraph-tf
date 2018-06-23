@@ -382,18 +382,23 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
-      auto ng_input = ng_op_map.at(tf_input->name());
-
-      tf::DataType dtype;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "DstT", &dtype));
-
       try {
-          ng_op_map[op->name()] = make_shared<ng::op::Convert>(
-                  ng_input, TF_NGRAPH_TYPE_MAP.at(dtype));
+          auto ng_input = ng_op_map.at(tf_input->name());
+          tf::DataType dtype;
+          TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "DstT", &dtype));
+
+          try {
+              ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                      ng_input, TF_NGRAPH_TYPE_MAP.at(dtype));
+          } catch(const std::out_of_range&) {
+              return tf::errors::Unimplemented(
+                      "Unsupported TensorFlow data type: ",
+                      tf::DataType_Name(dtype));
+          }
       } catch(const std::out_of_range&) {
-          return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
-                                           tf::DataType_Name(dtype));
+          return tf::errors::NotFound("Input not found: ", tf_input->name());
       }
+
     }
     // --------
     // ConcatV2
