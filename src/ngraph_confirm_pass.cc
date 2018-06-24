@@ -271,6 +271,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Sign"] = always;
+        confirmation_functions["Slice"] = always;
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Squeeze"] = always;
 

@@ -1267,6 +1267,29 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument(
             "Number of inputs is not 3 for Slice");
       }
+
+      tf::Node* tf_input;
+      tf::Node* tf_begin;
+      tf::Node* tf_size;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_begin));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_size));
+
+      auto ng_input = ng_op_map.at(tf_input->name());
+      auto ng_begin = ng_op_map.at(tf_begin->name());
+      auto ng_size = ng_op_map.at(tf_size->name());
+
+      // TODO support -1 in size
+      auto lower_vec = dynamic_pointer_cast<ng::op::Constant>(ng_begin)->get_vector<int>();
+      auto size_vec = dynamic_pointer_cast<ng::op::Constant>(ng_size)->get_vector<int>();
+      std::vector<int> upper_vec(lower_vec.size());
+      std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(), upper_vec.begin(), std::plus<int>());
+
+      std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
+      std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
+      auto ng_slice = make_shared<ng::op::Slice>(ng_input, l, u);
+      ng_op_map[op->name()] = ng_slice;
+
     }
     // --------
     // Snapshot
