@@ -831,7 +831,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto dim_vec =
           dynamic_pointer_cast<ng::op::Constant>(ng_dim)->get_vector<int>();
       if (dim_vec.size() != 1) {
-        return tf::errors::InvalidArgument("The size of argument dim is not 1");
+        return tf::errors::InvalidArgument("The size of argument dim is not 1 for ExpandDims");
       }
 
       auto& shape = ng_input->get_shape();
