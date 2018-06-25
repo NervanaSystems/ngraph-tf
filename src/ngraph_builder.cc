@@ -813,6 +813,38 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(TranslateUnaryOp<ngraph::op::Exp>(op, ng_op_map));
     }
     // --------
+    // ExpandDims
+    // --------
+    else if (op->type_string() == "ExpandDims") {
+      if (op->num_inputs() != 2) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 2 for ExpandDims");
+      }
+
+      tf::Node* tf_input;
+      tf::Node* tf_dim;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_dim));
+
+      auto ng_input = ng_op_map.at(tf_input->name());
+      auto ng_dim = ng_op_map.at(tf_dim->name());
+      auto dim_vec =
+          dynamic_pointer_cast<ng::op::Constant>(ng_dim)->get_vector<int>();
+      if (dim_vec.size() != 1) {
+        return tf::errors::InvalidArgument("The size of argument dim is not 1");
+      }
+
+      auto& shape = ng_input->get_shape();
+      auto out_shape = shape;
+      out_shape.insert(out_shape.begin() + size_t(dim_vec[0]), 1);
+      std::vector<size_t> shape_dimensions(shape.size());
+      std::iota(shape_dimensions.begin(), shape_dimensions.end(), 0);
+      std::shared_ptr<ng::Node> ng_expand_dim =
+          make_shared<ng::op::Reshape>(ng_input, shape_dimensions, out_shape);
+
+      ng_op_map[op->name()] = ng_expand_dim;
+    }
+    // --------
     // Floor
     // --------
     else if (op->type_string() == "Floor") {
