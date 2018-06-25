@@ -826,35 +826,31 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_dim));
 
-      try {
-        auto ng_input = ng_op_map.at(tf_input->name());
-      }
-      catch(const std::out_of_range&) {
+      auto ng_input = ng_op_map.find(tf_input->name());
+      if (ng_input == ng_op_map.end()) {
         return tf::errors::InvalidArgument("Missing input: " + tf_input->name());
       }
-      try {
-        auto ng_dim = ng_op_map.at(tf_dim->name());
-      }
-      catch(const std::out_of_range&) {
+      auto ng_dim = ng_op_map.find(tf_dim->name());
+      if (ng_dim == ng_op_map.end()) {
         return tf::errors::InvalidArgument("Missing input: " + tf_dim->name());
       }
 
-      auto dim_vec =
-          dynamic_pointer_cast<ng::op::Constant>(ng_dim)->get_vector<int>();
-      if (dim_vec == nullptr) {
+      auto ng_dim_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_dim->second);
+      if (ng_dim_const == nullptr) {
         return tf::errors::InvalidArgument("The argument dim is null for ExpandDims");
       }
+      auto dim_vec = ng_dim_const->get_vector<int>();
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument("The size of argument dim is not 1 for ExpandDims");
       }
 
-      auto& shape = ng_input->get_shape();
+      auto& shape = ng_input->second->get_shape();
       auto out_shape = shape;
       out_shape.insert(out_shape.begin() + size_t(dim_vec[0]), 1);
       std::vector<size_t> shape_dimensions(shape.size());
       std::iota(shape_dimensions.begin(), shape_dimensions.end(), 0);
       std::shared_ptr<ng::Node> ng_expand_dim =
-          make_shared<ng::op::Reshape>(ng_input, shape_dimensions, out_shape);
+          make_shared<ng::op::Reshape>(ng_input->second, shape_dimensions, out_shape);
 
       ng_op_map[op->name()] = ng_expand_dim;
     }
