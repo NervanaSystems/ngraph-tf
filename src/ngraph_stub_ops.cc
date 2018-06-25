@@ -63,6 +63,10 @@ REGISTER_NGRAPH_STUB(Name("AvgPool")
 REGISTER_NGRAPH_STUB(Name("BiasAdd")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T"));
+REGISTER_NGRAPH_STUB(Name("Cast")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint("SrcT", {DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_BOOL})
+                         .TypeConstraint("DstT", {DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_BOOL}));
 REGISTER_NGRAPH_STUB(Name("ConcatV2")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_INT32, DT_FLOAT})
@@ -141,10 +145,19 @@ REGISTER_NGRAPH_STUB(Name("Reshape")
 REGISTER_NGRAPH_STUB(Name("Sign")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
+REGISTER_NGRAPH_STUB(Name("Sigmoid")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
+REGISTER_NGRAPH_STUB(Name("Softmax")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
 REGISTER_NGRAPH_STUB(Name("Snapshot")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
 REGISTER_NGRAPH_STUB(Name("Squeeze")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("Sub")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
 REGISTER_NGRAPH_STUB(Name("Sum")
@@ -155,6 +168,3 @@ REGISTER_NGRAPH_STUB(Name("Transpose")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T")
                          .TypeConstraint("Tperm", {DT_INT32, DT_INT64}));
-REGISTER_NGRAPH_STUB(Name("Sigmoid")
-                         .Device(ngraph_bridge::DEVICE_NGRAPH)
-                         .TypeConstraint<float>("T"));

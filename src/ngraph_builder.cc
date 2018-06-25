@@ -30,6 +30,18 @@
 
 namespace ngraph_bridge {
 
+const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP = {
+    { tf::DataType::DT_FLOAT, ng::element::f32 },
+    { tf::DataType::DT_DOUBLE, ng::element::f64 },
+    { tf::DataType::DT_INT8, ng::element::i8 },
+    { tf::DataType::DT_INT16, ng::element::i16 },
+    { tf::DataType::DT_INT32, ng::element::i32 },
+    { tf::DataType::DT_INT64, ng::element::i64 },
+    { tf::DataType::DT_UINT8, ng::element::u8 },
+    { tf::DataType::DT_UINT16, ng::element::u16 },
+    { tf::DataType::DT_BOOL, ng::element::boolean }
+};
+
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
@@ -358,6 +370,35 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_add = ng_input + ng_bias_broadcasted;
 
       ng_op_map[op->name()] = ng_add;
+    }
+    // --------
+    // Cast
+    // --------
+    else if (op->type_string() == "Cast") {
+      if (op->num_inputs() != 1) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Cast");
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      try {
+          auto ng_input = ng_op_map.at(tf_input->name());
+          tf::DataType dtype;
+          TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "DstT", &dtype));
+
+          try {
+              ng_op_map[op->name()] = make_shared<ng::op::Convert>(
+                      ng_input, TF_NGRAPH_TYPE_MAP.at(dtype));
+          } catch(const std::out_of_range&) {
+              return tf::errors::Unimplemented(
+                      "Unsupported TensorFlow data type: ",
+                      tf::DataType_Name(dtype));
+          }
+      } catch(const std::out_of_range&) {
+          return tf::errors::NotFound("Input not found: ", tf_input->name());
+      }
+
     }
     // --------
     // ConcatV2
@@ -1351,6 +1392,40 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
       ng_op_map[op->name()] = ng_op_map.at(tf_arg->name());
     }
+    // --------- 
+    // Softmax  
+    // ---------
+    else if (op->type_string() == "Softmax") {
+      if (op->num_inputs() != 1) { 
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 1 for Softmax");  
+      }
+
+      tf::Node* tf_input;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+
+      try {
+        ng_op_map.at(tf_input->name()); 
+      }
+      catch (const std::out_of_range&) {
+        return tf::errors::NotFound(tf_input->name(), " is not found in the ng_op_map");
+      }
+      auto ng_input = ng_op_map.at(tf_input->name());
+      auto ng_input_shape = ng_input->get_shape();
+
+      // We apply softmax on the 2nd dimension by following TF
+      // And we restrict the softmax input argument to be 2D for now
+      ng::AxisSet ng_axes_softmax;
+      auto shape_size = ng_input_shape.size();
+
+      if (shape_size !=2) {
+        return tf::errors::InvalidArgument("TF Softmax logits must be 2-dimensional");
+      }
+
+      ng_axes_softmax.insert(1);
+
+      ng_op_map[op->name()] = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
+    }
     // -------
     // Squeeze
     // -------
@@ -1411,6 +1486,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] =
           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, output_shape);
+    }
+    // ---
+    // Subtract
+    // ---
+    else if (op->type_string() == "Sub") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp<ngraph::op::Subtract>(op, ng_op_map));
     }
     // ---
     // Sum
