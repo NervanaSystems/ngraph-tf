@@ -29,7 +29,6 @@ from common import NgraphTest
 class TestExpandDims(NgraphTest):
     @pytest.mark.parametrize("axis", ([0, 2, 3]))
     def test_expand_dims(self, axis):
-        print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
         s = [2, 3, 5]
         val = tf.ones(s, tf.float32)
 

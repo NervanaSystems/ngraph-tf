@@ -826,10 +826,24 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_dim));
 
-      auto ng_input = ng_op_map.at(tf_input->name());
-      auto ng_dim = ng_op_map.at(tf_dim->name());
+      try {
+        auto ng_input = ng_op_map.at(tf_input->name());
+      }
+      catch(const std::out_of_range&) {
+        return tf::errors::InvalidArgument("Missing input: " + tf_input->name());
+      }
+      try {
+        auto ng_dim = ng_op_map.at(tf_dim->name());
+      }
+      catch(const std::out_of_range&) {
+        return tf::errors::InvalidArgument("Missing input: " + tf_dim->name());
+      }
+
       auto dim_vec =
           dynamic_pointer_cast<ng::op::Constant>(ng_dim)->get_vector<int>();
+      if (dim_vec == nullptr) {
+        return tf::errors::InvalidArgument("The argument dim is null for ExpandDims");
+      }
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument("The size of argument dim is not 1 for ExpandDims");
       }
