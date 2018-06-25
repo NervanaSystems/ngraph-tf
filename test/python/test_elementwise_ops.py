@@ -145,7 +145,7 @@ class TestElementwiseOperations(NgraphTest):
 
   @pytest.mark.parametrize(("v1", "v2", "expected"),
                            ((True, True, [True]), (True, False, ([False],)), 
-			  (1.0, -2.0, ([True],)), (False, 100, ([False],)), 
+                           (1.0, -2.0, ([True],)), (False, 100, ([False],)), 
                            ([ False, True, False], [True], (np.array([[False,  True, False]]),))
 ))                            
   def test_logical_and(self, v1, v2, expected):
