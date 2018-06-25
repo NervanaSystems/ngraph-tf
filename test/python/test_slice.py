@@ -33,7 +33,6 @@ from common import NgraphTest
 
 class TestSliceOperations(NgraphTest):
   def test_slice_and_strided_slice(self):
-    print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
 
     with tf.device(self.test_device):
       inp = np.random.rand(4, 4).astype("f")
