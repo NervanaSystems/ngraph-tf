@@ -128,6 +128,9 @@ REGISTER_NGRAPH_STUB(Name("Snapshot")
 REGISTER_NGRAPH_STUB(Name("Squeeze")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("StridedSlice")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
 REGISTER_NGRAPH_STUB(Name("Sum")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32})

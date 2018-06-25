@@ -274,6 +274,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Slice"] = always;
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Squeeze"] = always;
+        confirmation_functions["StridedSlice"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.

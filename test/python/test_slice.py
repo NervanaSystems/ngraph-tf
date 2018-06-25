@@ -32,7 +32,7 @@ from common import NgraphTest
 
 
 class TestSliceOperations(NgraphTest):
-  def test_slice(self):
+  def test_slice_and_strided_slice(self):
     print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
 
     with tf.device(self.test_device):
@@ -42,11 +42,12 @@ class TestSliceOperations(NgraphTest):
             [float(x) for x in inp.ravel(order="C")],
             shape=[4, 4],
             dtype=dtypes.float32)
+        # slice
         slice_t = array_ops.slice(a, [0, 0], [2, 2])
-        slice_val = sess.run([slice_t])
-        #slice2_t = a[:2, :2]
-        #slice_val, slice2_val = sess.run([slice_t, slice2_t])
+        # strided slice
+        slice2_t = a[:2, :2] 
 
-    print(slice_val)
-    #print(slice2_val)
+        slice_val, slice2_val = sess.run([slice_t, slice2_t])
 
+    np.testing.assert_array_equal(slice_val, inp[:2, :2])
+    np.testing.assert_array_equal(slice2_val, inp[:2, :2])
