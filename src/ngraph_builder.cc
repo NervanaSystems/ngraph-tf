@@ -1285,6 +1285,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     else if (op->type_string() == "Prod") {
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+
+      try {
+        ng_op_map.at(tf_input->name()); 
+      }
+      catch (const std::out_of_range&) {
+        return tf::errors::InvalidArgument("Missing input: " + tf_input->name());
+      }
+
       auto ng_input = ng_op_map.at(tf_input->name());
 
       ng::AxisSet ng_axis_set;
