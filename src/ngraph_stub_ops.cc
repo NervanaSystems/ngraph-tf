@@ -65,8 +65,13 @@ REGISTER_NGRAPH_STUB(Name("BiasAdd")
                          .TypeConstraint<float>("T"));
 REGISTER_NGRAPH_STUB(Name("Cast")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
-                         .TypeConstraint("SrcT", {DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_BOOL})
-                         .TypeConstraint("DstT", {DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_BOOL}));
+                         .TypeConstraint("SrcT", {DT_FLOAT, DT_DOUBLE, DT_INT8,
+                                                  DT_INT16, DT_INT32, DT_INT64,
+                                                  DT_UINT8, DT_UINT16, DT_BOOL})
+                         .TypeConstraint("DstT",
+                                         {DT_FLOAT, DT_DOUBLE, DT_INT8,
+                                          DT_INT16, DT_INT32, DT_INT64,
+                                          DT_UINT8, DT_UINT16, DT_BOOL}));
 REGISTER_NGRAPH_STUB(Name("ConcatV2")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_INT32, DT_FLOAT})
@@ -134,6 +139,9 @@ REGISTER_NGRAPH_STUB(Name("Pad")
 REGISTER_NGRAPH_STUB(Name("Pow")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("Prod")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
 REGISTER_NGRAPH_STUB(Name("Relu")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T"));
@@ -145,6 +153,9 @@ REGISTER_NGRAPH_STUB(Name("Reshape")
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64,
                                                DT_BOOL})
                          .TypeConstraint("Tshape", {DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("Slice")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
 REGISTER_NGRAPH_STUB(Name("Sign")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32}));
@@ -160,6 +171,9 @@ REGISTER_NGRAPH_STUB(Name("Snapshot")
 REGISTER_NGRAPH_STUB(Name("Squeeze")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));
+REGISTER_NGRAPH_STUB(Name("StridedSlice")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint<float>("T"));
 REGISTER_NGRAPH_STUB(Name("Sub")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64}));

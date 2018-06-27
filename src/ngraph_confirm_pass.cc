@@ -261,6 +261,35 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Pow"] = always;
+
+        // Constraints: "keep_dims" is not supported, reduction-axes input
+        // must be Const.
+        confirmation_functions["Prod"] = [](tf::Node* n, bool* result) {
+          bool tf_keep_dims;
+
+          if (tf::GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
+              tf::Status::OK()) {
+            if (tf_keep_dims) {
+              *result = false;
+              return tf::Status::OK();
+            }
+          }
+
+          tf::Node* tf_axes_node;
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
+
+          std::vector<tf::int64> tf_static_axes;
+          if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_prod_static_axes", tf_static_axes);
+          *result = true;
+          return tf::Status::OK();
+        };
+
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
 
@@ -283,9 +312,11 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
+        confirmation_functions["Slice"] = always;
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
         confirmation_functions["Squeeze"] = always;
+        confirmation_functions["StridedSlice"] = always;
         confirmation_functions["Sub"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
