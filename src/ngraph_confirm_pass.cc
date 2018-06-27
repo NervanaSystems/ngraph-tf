@@ -203,10 +203,17 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
+        confirmation_functions["ExpandDims"] = always;
         confirmation_functions["Floor"] = always;
         confirmation_functions["FusedBatchNorm"] = always;
+        confirmation_functions["Greater"] = always;
+        confirmation_functions["GreaterEqual"] = always;
+        confirmation_functions["Less"] = always;
+        confirmation_functions["LessEqual"] = always;
         confirmation_functions["Log"] = always;
+        confirmation_functions["LogicalAnd"] = always;
         confirmation_functions["MatMul"] = always;
+        confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
