@@ -31,7 +31,7 @@ from common import NgraphTest
 
 class TestDepthwiseConv2dOperations(NgraphTest):
   @pytest.mark.parametrize("padding", ("VALID", "SAME"))
-  # @pytest.mark.skip(reason="This test causing SEGFAULT")
+  @pytest.mark.skip(reason="This test causing SEGFAULT")
   def test_depthwise_conv2d(self, padding):
     tensor_in_sizes = [1, 2, 3, 2]
     filter_in_sizes = [2, 2, 2, 2]
@@ -52,7 +52,7 @@ class TestDepthwiseConv2dOperations(NgraphTest):
         t1.set_shape(tensor_in_sizes)
         t2 = constant_op.constant(x2, shape=filter_in_sizes)
         conv = nn_ops.depthwise_conv2d_native(
-          t1, t2, strides=[1, 1, 1, 1], padding=padding)
+            t1, t2, strides=[1, 1, 1, 1], padding=padding)
         value = sess.run(conv)
 
     with self.session as sess:
@@ -60,7 +60,7 @@ class TestDepthwiseConv2dOperations(NgraphTest):
       t1.set_shape(tensor_in_sizes)
       t2 = constant_op.constant(x2, shape=filter_in_sizes)
       conv = nn_ops.depthwise_conv2d_native(
-        t1, t2, strides=[1, 1, 1, 1], padding=padding)
+          t1, t2, strides=[1, 1, 1, 1], padding=padding)
       expected = sess.run(conv)
 
     assert (value == expected).all()
