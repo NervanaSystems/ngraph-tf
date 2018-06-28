@@ -13,42 +13,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow bridge slice operation test
 
 """
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pytest
-
-import tensorflow as tf
+import numpy as np
+from tensorflow.python.framework import constant_op
+from tensorflow.python.framework import dtypes
+from tensorflow.python.ops import array_ops
 
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
-    val = tf.placeholder(tf.float32, shape=(1,))
-
+class TestSliceOperations(NgraphTest):
+  def test_slice_and_strided_slice(self):
     with self.device:
-      out = tf.abs(val)
-
+      inp = np.random.rand(4, 4).astype("f")
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (test_input,)})
-        assert result[0] == expected
+        a = constant_op.constant(
+            [float(x) for x in inp.ravel(order="C")],
+            shape=[4, 4],
+            dtype=dtypes.float32)
+        # slice
+        slice_t = array_ops.slice(a, [0, 0], [2, 2])
+        # strided slice
+        slice2_t = a[:2, :2]
 
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
+        slice_val, slice2_val = sess.run([slice_t, slice2_t])
 
-    val = tf.placeholder(tf.float32, shape=(2, 3))
-
-    with self.device:
-      out = tf.abs(val)
-
-      with self.session as sess:
-        (result,) = sess.run((out,), feed_dict={val: test_input})
-        assert (result == expected).all()
+    np.testing.assert_array_equal(slice_val, inp[:2, :2])
+    np.testing.assert_array_equal(slice2_val, inp[:2, :2])

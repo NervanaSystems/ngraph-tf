@@ -179,6 +179,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Add"] = always;
         confirmation_functions["AvgPool"] = always;
         confirmation_functions["BiasAdd"] = always;
+        confirmation_functions["Cast"] = always;
 
         // Constraint: axis selection input must be Const.
         confirmation_functions["ConcatV2"] = [](tf::Node* n, bool* result) {
@@ -199,16 +200,20 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
-
-        // TODO: The DepthwiseConv2dNative implementation does not work yet, so
-        // placement is rejected for now. Change this to "always" (or whatever
-        // else is appropriate) once DepthwiseConv2dNative works.
-        confirmation_functions["DepthwiseConv2dNative"] = never;
-
+        confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
+        confirmation_functions["Exp"] = always;
+        confirmation_functions["ExpandDims"] = always;
         confirmation_functions["Floor"] = always;
         confirmation_functions["FusedBatchNorm"] = always;
+        confirmation_functions["Greater"] = always;
+        confirmation_functions["GreaterEqual"] = always;
+        confirmation_functions["Less"] = always;
+        confirmation_functions["LessEqual"] = always;
+        confirmation_functions["Log"] = always;
+        confirmation_functions["LogicalAnd"] = always;
         confirmation_functions["MatMul"] = always;
+        confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
@@ -255,6 +260,36 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           return tf::Status::OK();
         };
 
+        confirmation_functions["Pow"] = always;
+
+        // Constraints: "keep_dims" is not supported, reduction-axes input
+        // must be Const.
+        confirmation_functions["Prod"] = [](tf::Node* n, bool* result) {
+          bool tf_keep_dims;
+
+          if (tf::GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
+              tf::Status::OK()) {
+            if (tf_keep_dims) {
+              *result = false;
+              return tf::Status::OK();
+            }
+          }
+
+          tf::Node* tf_axes_node;
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
+
+          std::vector<tf::int64> tf_static_axes;
+          if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_prod_static_axes", tf_static_axes);
+          *result = true;
+          return tf::Status::OK();
+        };
+
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
 
@@ -275,9 +310,14 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           return tf::Status::OK();
         };
 
+        confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
+        confirmation_functions["Slice"] = always;
         confirmation_functions["Snapshot"] = always;
+        confirmation_functions["Softmax"] = always;
         confirmation_functions["Squeeze"] = always;
+        confirmation_functions["StridedSlice"] = always;
+        confirmation_functions["Sub"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
@@ -305,6 +345,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           return tf::Status::OK();
         };
 
+        confirmation_functions["Tanh"] = always;
         // Constraint: permutation input must be Const.
         confirmation_functions["Transpose"] = [](tf::Node* n, bool* result) {
           tf::Node* tf_permutation_node;

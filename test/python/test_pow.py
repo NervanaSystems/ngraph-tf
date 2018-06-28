@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow bridge pow operation test
 
 """
 from __future__ import absolute_import
@@ -22,33 +22,37 @@ from __future__ import print_function
 
 import pytest
 
+import numpy as np
 import tensorflow as tf
 
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
-    val = tf.placeholder(tf.float32, shape=(1,))
+class TestPowOperations(NgraphTest):
+  @pytest.mark.parametrize(("lhs", "rhs"),
+                           ((1.4, 1.0), (-0.5, 2), (5, -1.1)))
+  def test_pow_1d(self, lhs, rhs):
+    val1 = tf.placeholder(tf.float32, shape=(1,))
+    val2 = tf.placeholder(tf.float32, shape=(1,))
+    expected = lhs**rhs
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.pow(val1, val2)
 
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (test_input,)})
+        result = sess.run((out,), feed_dict={val1: (lhs,), val2: (rhs,)})
         assert result[0] == expected
 
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
+  def test_pow_2d(self):
+    lhs = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
+    rhs = ((5.0, 4.0, 3.0), (2.0, 1.0, 0.0))
 
-    val = tf.placeholder(tf.float32, shape=(2, 3))
+    val1 = tf.placeholder(tf.float32, shape=(2, 3))
+    val2 = tf.placeholder(tf.float32, shape=(2, 3))
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.pow(val1, val2)
 
       with self.session as sess:
-        (result,) = sess.run((out,), feed_dict={val: test_input})
-        assert (result == expected).all()
+        result = sess.run(out, feed_dict={val1: lhs, val2: rhs})
+        assert (result == np.power(lhs, rhs)).all()

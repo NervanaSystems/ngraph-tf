@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow bridge log operation test
 
 """
 from __future__ import absolute_import
@@ -22,33 +22,44 @@ from __future__ import print_function
 
 import pytest
 
+import numpy as np
 import tensorflow as tf
 
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
+class TestLogOperations(NgraphTest):
+  @pytest.mark.parametrize("test_input", (4, 0.5, 5.6))
+  def test_log_1d(self, test_input):
     val = tf.placeholder(tf.float32, shape=(1,))
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.log(val)
 
       with self.session as sess:
         result = sess.run((out,), feed_dict={val: (test_input,)})
-        assert result[0] == expected
+        assert result[0] == np.log(test_input)
 
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
+  def test_log_2d(self):
+    test_input = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
 
     val = tf.placeholder(tf.float32, shape=(2, 3))
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.log(val)
 
       with self.session as sess:
-        (result,) = sess.run((out,), feed_dict={val: test_input})
-        assert (result == expected).all()
+        result = sess.run(out, feed_dict={val: test_input})
+        assert np.allclose(result, np.log(test_input))
+
+  def test_log_nan(self):
+    test_input = -4
+
+    val = tf.placeholder(tf.float32, shape=(1,))
+
+    with self.device:
+      out = tf.log(val)
+
+      with self.session as sess:
+        result = sess.run((out,), feed_dict={val: (test_input,)})
+        assert np.isnan(result[0])

@@ -13,42 +13,35 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow relu6 test
 
 """
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pytest
-
 import tensorflow as tf
+import numpy as np
 
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
-    val = tf.placeholder(tf.float32, shape=(1,))
+class TestSoftmax(NgraphTest):
+  def test_softmax_2d(self):
+    x = tf.placeholder(tf.float32, shape=(2, 3))
 
+    # input value and expected value
+    x_np = np.random.rand(2, 3)
+    one_only_on_dim = list(x_np.shape)
+    dim = len(x_np.shape) - 1
+    one_only_on_dim[dim] = 1
+    y_np = np.exp(x_np)
+    a_np = y_np / np.reshape(np.sum(y_np, dim), one_only_on_dim)
+    expected = a_np
     with self.device:
-      out = tf.abs(val)
-
+      a = tf.nn.softmax(x)
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (test_input,)})
-        assert result[0] == expected
-
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
-
-    val = tf.placeholder(tf.float32, shape=(2, 3))
-
-    with self.device:
-      out = tf.abs(val)
-
-      with self.session as sess:
-        (result,) = sess.run((out,), feed_dict={val: test_input})
-        assert (result == expected).all()
+        (result_a) = sess.run((a), feed_dict={x: x_np})
+    atol = 1e-5
+    error = np.absolute(result_a - expected)
+    assert np.amax(error) <= atol

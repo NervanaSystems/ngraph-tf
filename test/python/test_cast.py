@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow bridge cast operation test
 
 """
 from __future__ import absolute_import
@@ -27,28 +27,36 @@ import tensorflow as tf
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
+class TestCastOperations(NgraphTest):
+  def test_cast_1d(self):
     val = tf.placeholder(tf.float32, shape=(1,))
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.cast(val, dtype=tf.int32)
 
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (test_input,)})
-        assert result[0] == expected
+        result = sess.run((out,), feed_dict={val: (5.5,)})
+        assert result[0] == 5
 
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
+  def test_cast_2d(self):
+    test_input = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
+    expected = ((1, 2, 3), (4, 5, 6))
 
     val = tf.placeholder(tf.float32, shape=(2, 3))
 
     with self.device:
-      out = tf.abs(val)
+      out = tf.cast(val, dtype=tf.int32)
 
       with self.session as sess:
         (result,) = sess.run((out,), feed_dict={val: test_input})
         assert (result == expected).all()
+
+  def test_cast_fail(self):
+    val = tf.placeholder(tf.float32, shape=(1,))
+
+    with self.device:
+      out = tf.cast(val, dtype=tf.string)
+
+      with self.session as sess:
+        with pytest.raises(tf.errors.InvalidArgumentError):
+          sess.run((out,), feed_dict={val: (5.5,)})

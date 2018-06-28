@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge abs operation test
+"""nGraph TensorFlow bridge cast operation test
 
 """
 from __future__ import absolute_import
@@ -27,28 +27,17 @@ import tensorflow as tf
 from common import NgraphTest
 
 
-class TestAbsOperations(NgraphTest):
-  @pytest.mark.parametrize(("test_input", "expected"),
-                           ((1.4, 1.4), (-0.5, 0.5), (-1, 1)))
-  def test_abs_1d(self, test_input, expected):
-    val = tf.placeholder(tf.float32, shape=(1,))
+class TestExpandDims(NgraphTest):
+  @pytest.mark.parametrize("axis", ([0, 2, 3]))
+  def test_expand_dims(self, axis):
+    shape = [2, 3, 5]
+    val = tf.ones(shape, tf.float32)
 
     with self.device:
-      out = tf.abs(val)
-
+      out = tf.expand_dims(val, axis)
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (test_input,)})
-        assert result[0] == expected
+        result = sess.run(out)
 
-  def test_abs_2d(self):
-    test_input = ((1.5, -2.5, -3.5), (-4.5, -5.5, 6.5))
-    expected = ((1.5, 2.5, 3.5), (4.5, 5.5, 6.5))
-
-    val = tf.placeholder(tf.float32, shape=(2, 3))
-
-    with self.device:
-      out = tf.abs(val)
-
-      with self.session as sess:
-        (result,) = sess.run((out,), feed_dict={val: test_input})
-        assert (result == expected).all()
+    shape.insert(axis, 1)
+    expected = tuple(shape)
+    assert result.shape == expected
