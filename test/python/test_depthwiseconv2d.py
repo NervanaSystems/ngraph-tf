@@ -30,21 +30,19 @@ from common import NgraphTest
 
 
 class TestDepthwiseConv2dOperations(NgraphTest):
-  @pytest.mark.parametrize("padding", ("VALID", "SAME"))
-  @pytest.mark.skip(reason="This test causing SEGFAULT")
-  def test_depthwise_conv2d(self, padding):
-    tensor_in_sizes = [1, 2, 3, 2]
-    filter_in_sizes = [2, 2, 2, 2]
-    total_size_1 = 1
-    total_size_2 = 1
+    @pytest.mark.parametrize("padding", ("VALID", "SAME"))
+    def test_depthwise_conv2d(self, padding):
+        tensor_in_sizes = [1, 2, 3, 2]
+        filter_in_sizes = [2, 2, 2, 2]
+        total_size_1 = 1
+        total_size_2 = 1
+        for s in tensor_in_sizes:
+            total_size_1 *= s
+        for s in filter_in_sizes:
+            total_size_2 *= s
 
-    for s in tensor_in_sizes:
-      total_size_1 *= s
-    for s in filter_in_sizes:
-      total_size_2 *= s
-
-    x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
-    x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
+        x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
+        x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
 
     with self.device:
       with tf.Session(config=self.config) as sess:
