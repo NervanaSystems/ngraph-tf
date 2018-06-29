@@ -40,24 +40,25 @@ class TestDepthwiseConv2dOperations(NgraphTest):
             total_size_1 *= s
         for s in filter_in_sizes:
             total_size_2 *= s
+
         x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
         x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
 
-        with tf.device(self.test_device):
-            with tf.Session(config=self.config) as sess:
-                t1 = constant_op.constant(x1, shape=tensor_in_sizes)
-                t1.set_shape(tensor_in_sizes)
-                t2 = constant_op.constant(x2, shape=filter_in_sizes)
-                conv = nn_ops.depthwise_conv2d_native(
-                    t1, t2, strides=[1, 1, 1, 1], padding=padding)
-                value = sess.run(conv)
+    with self.device:
+      with tf.Session(config=self.config) as sess:
+        t1 = constant_op.constant(x1, shape=tensor_in_sizes)
+        t1.set_shape(tensor_in_sizes)
+        t2 = constant_op.constant(x2, shape=filter_in_sizes)
+        conv = nn_ops.depthwise_conv2d_native(
+            t1, t2, strides=[1, 1, 1, 1], padding=padding)
+        value = sess.run(conv)
 
-        with tf.Session(config=self.config) as sess:
-            t1 = constant_op.constant(x1, shape=tensor_in_sizes)
-            t1.set_shape(tensor_in_sizes)
-            t2 = constant_op.constant(x2, shape=filter_in_sizes)
-            conv = nn_ops.depthwise_conv2d_native(
-                t1, t2, strides=[1, 1, 1, 1], padding=padding)
-            expected = sess.run(conv)
+    with self.session as sess:
+      t1 = constant_op.constant(x1, shape=tensor_in_sizes)
+      t1.set_shape(tensor_in_sizes)
+      t2 = constant_op.constant(x2, shape=filter_in_sizes)
+      conv = nn_ops.depthwise_conv2d_native(
+          t1, t2, strides=[1, 1, 1, 1], padding=padding)
+      expected = sess.run(conv)
 
-        assert (value == expected).all()
+    assert (value == expected).all()
