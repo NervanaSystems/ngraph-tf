@@ -1516,7 +1516,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument("Missing input: " + tf_size->name());
       }
 
-      // TODO support -1 in size
       auto ng_begin_const =
           std::dynamic_pointer_cast<ng::op::Constant>(ng_begin->second);
       if (ng_begin_const == nullptr) {
@@ -1532,6 +1531,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "The argument size is null for Slice");
       }
       auto size_vec = ng_size_const->get_vector<int>();
+
+      auto& input_shape = ng_input->second->get_shape();
+      std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
+                     size_vec.begin(), [](int first, int second) {
+                       if (first < 0) {
+                         return second + first + 1;
+                       }
+                       return first;
+                     });
 
       std::vector<int> upper_vec(lower_vec.size());
       std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
@@ -1692,7 +1700,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                                            tf_stride->name());
       }
 
-      // TODO support -1 in size
       auto ng_begin_const =
           std::dynamic_pointer_cast<ng::op::Constant>(ng_begin->second);
       if (ng_begin_const == nullptr) {
@@ -1709,6 +1716,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
       auto size_vec = ng_size_const->get_vector<int>();
 
+      auto& input_shape = ng_input->second->get_shape();
+      std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
+                     size_vec.begin(), [](int first, int second) {
+                       if (first < 0) {
+                         return second + first + 1;
+                       }
+                       return first;
+                     });
       std::vector<int> upper_vec(lower_vec.size());
       std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
                      upper_vec.begin(), std::plus<int>());
