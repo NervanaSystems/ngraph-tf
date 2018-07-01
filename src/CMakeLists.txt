@@ -91,4 +91,7 @@ install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX
 # Now create the Python pip package
 install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
+if(APPLE)
+    install(CODE "execute_process(COMMAND install_name_tool -change libngraph.0.3.dylib @rpath/libngraph.0.3.dylib ${CMAKE_INSTALL_PREFIX}/lib/libngraph_device.dylib)")
+endif()
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../contrib/python/CreatePipWhl.cmake")
