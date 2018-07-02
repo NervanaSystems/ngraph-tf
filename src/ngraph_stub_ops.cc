@@ -151,7 +151,7 @@ REGISTER_NGRAPH_STUB(Name("Relu6")
 REGISTER_NGRAPH_STUB(Name("Reshape")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint("T", {DT_FLOAT, DT_INT32, DT_INT64,
-                                               DT_BOOL})
+                                               DT_BOOL, DT_UINT8})
                          .TypeConstraint("Tshape", {DT_INT32, DT_INT64}));
 REGISTER_NGRAPH_STUB(Name("Slice")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)

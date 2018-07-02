@@ -55,9 +55,7 @@ tf::Status NGraphClusterPass::Run(
 
   tf::Graph* graph = options.graph->get();
 
-  TF_RETURN_IF_ERROR(IdentifyClusters(graph));
-
-  return tf::Status::OK();
+  return IdentifyClusters(graph);
 }
 
 // TODO(amprocte): do we need to look at job name, replica, task?
@@ -152,6 +150,7 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
   for (auto node : graph->op_nodes()) {
     int new_index = gc.NewNode();
+    NGRAPH_VLOG(5) << "Creating cycle graph node: " << new_index << " for " << node->name() << "[" << node->type_string() << "]";
     cluster_map[node] = std::make_shared<Cluster>();
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
@@ -167,13 +166,15 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
     }
 
     if (!gc.InsertEdge(cluster_map[src]->index, cluster_map[dst]->index)) {
-      return tf::errors::InvalidArgument(
+      NGRAPH_VLOG(5) << "Failing due to cycle";
+      return tf::errors::Unimplemented(
           "Input graph has a cycle (inserting an edge from ",
           src->DebugString(), " to ", dst->DebugString(),
           " would create a cycle)");
     }
   }
 
+  NGRAPH_VLOG(2) << "Starting contraction";
   bool changed;
 
   do {
@@ -189,6 +190,7 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
       if (!IsNGraphNode(src) || !IsNGraphNode(dst) || !IsClusterable(src) ||
           !IsClusterable(dst)) {
+        NGRAPH_VLOG(5) << "Skipping: " << src->name() << " -> " << dst->name();
         continue;
       }
 
@@ -209,7 +211,9 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
       }
     }
   } while (changed);
+  NGRAPH_VLOG(2) << "Contraction done";
 
+  NGRAPH_VLOG(2) << "Starting tagging";
   std::set<Cluster*> seen;
 
   for (auto kv : cluster_map) {
@@ -270,6 +274,7 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
       }
     }
   }
+  NGRAPH_VLOG(2) << "Tagging done";
 
   return tf::Status::OK();
 }

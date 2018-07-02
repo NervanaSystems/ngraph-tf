@@ -201,7 +201,23 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Conv2D"] = always;
         confirmation_functions["DepthwiseConv2dNative"] = always;
-        confirmation_functions["Equal"] = always;
+        // Constraint: T must not be DT_STRING.
+        confirmation_functions["Equal"] = [](tf::Node* n, bool* result) {
+          tf::DataType dtype;
+
+          if (tf::GetNodeAttr(n->attrs(), "T", &dtype) !=
+              tf::Status::OK()) {
+            dtype = tf::DT_INT32;
+          }
+
+          if (dtype == tf::DT_STRING) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["Exp"] = always;
         confirmation_functions["ExpandDims"] = always;
         confirmation_functions["Floor"] = always;
@@ -219,13 +235,6 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
         confirmation_functions["Mean"] = [](tf::Node* n, bool* result) {
-          bool tf_keep_dims;
-
-          if (tf::GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) !=
-              tf::Status::OK()) {
-            tf_keep_dims = false;
-          }
-
           tf::Node* tf_axes_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
@@ -294,9 +303,22 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Relu6"] = always;
 
         // Constraint: shape input must be Const.
+        // Constraint: type must not be DT_STRING.
         confirmation_functions["Reshape"] = [](tf::Node* n, bool* result) {
           tf::Node* tf_shape_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
+
+          tf::DataType dtype;
+
+          if (tf::GetNodeAttr(n->attrs(), "T", &dtype) !=
+              tf::Status::OK()) {
+            dtype = tf::DT_INT32;
+          }
+
+          if (dtype == tf::DT_STRING) {
+            *result = false;
+            return tf::Status::OK();
+          }
 
           std::vector<tf::int64> tf_static_shape;
           if (ExtractConstantData(tf_shape_node, &tf_static_shape) !=
@@ -319,17 +341,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["StridedSlice"] = always;
         confirmation_functions["Sub"] = always;
 
-        // Constraints: "keep_dims" is not supported, reduction-axes input
-        // must be Const.
+        // Constraints: reduction-axes input must be Const.
         confirmation_functions["Sum"] = [](tf::Node* n, bool* result) {
-          // For now, the "keep_dims" option is not supported.
-          bool tf_keep_dims;
-
-          if (tf::GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) !=
-              tf::Status::OK()) {
-            tf_keep_dims = false;
-          }
-
           tf::Node* tf_axes_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
