@@ -85,6 +85,9 @@ TensorFlow [prepare environment] for linux.
     pip install enum34
     ```
 
+    You may also need to install a Python package named ```mock``` to prevent an import 
+    error during the build process.
+
 5. Install the pip package, replacing the `tensorflow-1.*` with your 
    version of TensorFlow:
 
