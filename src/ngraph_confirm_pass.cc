@@ -200,6 +200,21 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
+        confirmation_functions["Concat2DBackpropInput"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_input_sizes;
+          TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
+
+          std::vector<tf::int32> tf_static_input_sizes;
+          if (ExtractConstantData(tf_input_sizes, &tf_static_input_sizes) !=
+                  tf::Status::OK() || tf_static_input_sizes.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_static_input_sizes", tf_static_input_sizes);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;

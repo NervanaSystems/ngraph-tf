@@ -633,6 +633,58 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] = ng_conv;
     }
+    // ------
+    // Conv2DBackpropInput
+    // ------
+    else if (op->type_string() == "Conv2DBackpropInput") {
+      if (op->num_inputs() != 3) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 3 for Conv2DBackpropInput");
+      }
+
+      tf::Node *tf_first_arg, *tf_filter, *tf_out_backprop;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_first_arg));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_filter));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_out_backprop));
+      auto ng_filter = ng_op_map.at(tf_filter->name());
+      auto ng_out_backprop = ng_op_map.at(tf_out_backprop->name());
+
+      // TODO: refactor me
+      std::vector<tf::int32> tf_strides;
+      std::vector<tf::int32> tf_dilations;
+      std::string tf_padding_type;
+      std::string tf_data_format;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "DepthwiseConv2D data format is neither NHWC nor NCHW");
+      }
+
+      // TODO: use_cudnn_on_gpu
+
+      std::vector<tf::int32> tf_input_sizes;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(),
+            "_ngraph_static_input_sizes", &tf_input_sizes));
+
+      bool is_nhwc = (tf_data_format == "NHWC");
+
+      NGRAPH_VLOG(3) << ng::join(tf_strides);
+      NGRAPH_VLOG(3) << ng::join(tf_dilations);
+      NGRAPH_VLOG(3) << tf_padding_type;
+      NGRAPH_VLOG(3) << tf_data_format;
+
+      ng::Strides ng_strides(2);
+      ng::Strides ng_dilations(2);
+      ng::Shape ng_image_shape(2);
+      ng::Shape ng_kernel_shape(2);
+    }
     // -----
     // DepthwiseConv2D
     // -----
