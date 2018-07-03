@@ -21,7 +21,8 @@ from wheel.bdist_wheel import bdist_wheel
 # https://stackoverflow.com/questions/45150304/how-to-force-a-python-wheel-to-be-platform-specific-when-building-it
 class BinaryBdistWheel(bdist_wheel):
     def finalize_options(self):
-        super(BinaryBdistWheel, self).finalize_options()
+        # bdist_wheel is old-style class in python 2, so can't `super`
+        bdist_wheel.finalize_options(self)
         self.root_is_pure = False
 
     def get_tag(self):
