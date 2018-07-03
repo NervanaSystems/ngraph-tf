@@ -156,6 +156,18 @@ tf::Status TFDataTypeToNGraphElementType(tf::DataType tf_dt,
 tf::Status TFTensorShapeToNGraphShape(const tf::TensorShape& tf_shape,
                                       ngraph::Shape* ng_shape);
 
+// Returns a pointer to a set containing all TensorFlow dtypes supported by the
+// nGraph bridge. This set is a singleton object.
+const std::set<tf::DataType>* NGraphDTypes();
+
+// Returns a pointer to a set containing all *numeric* TensorFlow dtypes
+// supported by the nGraph bridge. This set is a singleton object.
+const std::set<tf::DataType>* NGraphNumericDTypes();
+
+// Returns a pointer to a set containing all data types that can be used for
+// axis/tensor indices. This set is a singleton object.
+const std::set<tf::DataType>* NGraphIndexDTypes();
+
 }  // namespace ngraph_bridge
 
 #endif

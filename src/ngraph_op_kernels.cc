@@ -114,18 +114,20 @@ class NGraphIdentityOp : public OpKernel {
 REGISTER_KERNEL_BUILDER(Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH),
                         NGraphNoOp);
 
+// A bit of unfortuante silliness here: TypeConstraint takes a gtl::ArraySlice
+// for the allowed types, but NGraphDTypes is an std::set and there is
+// apparently no easy way to get into ArraySlice short of converting that set
+// to an std::vector.
 REGISTER_KERNEL_BUILDER(Name("Const")
                             .Device(ngraph_bridge::DEVICE_NGRAPH)
-                            .TypeConstraint("dtype",
-                                            {DT_FLOAT, DT_INT32, DT_BOOL}),
+                            .TypeConstraint("dtype",std::vector<DataType>(
+                                                      ngraph_bridge::NGraphDTypes()->begin(),
+                                                      ngraph_bridge::NGraphDTypes()->end())),
                         NGraphConstOp);
 
-#define REGISTER_IDENTITY(T)                                        \
-  REGISTER_KERNEL_BUILDER(Name("Identity")                          \
-                              .Device(ngraph_bridge::DEVICE_NGRAPH) \
-                              .TypeConstraint<T>("T"),              \
-                          NGraphIdentityOp);
-
-REGISTER_IDENTITY(float);
-REGISTER_IDENTITY(int32);
-REGISTER_IDENTITY(int64);
+REGISTER_KERNEL_BUILDER(Name("Identity")
+                            .Device(ngraph_bridge::DEVICE_NGRAPH)
+                            .TypeConstraint("T",std::vector<DataType>(
+                                                    ngraph_bridge::NGraphDTypes()->begin(),
+                                                    ngraph_bridge::NGraphDTypes()->end())),
+                        NGraphIdentityOp);
