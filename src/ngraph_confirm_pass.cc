@@ -162,7 +162,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
     // DT_INT16.
     //
-    static std::map<std::string, std::map<std::string, std::set<tf::DataType>>> type_constraint_map;
+    static std::map<std::string, std::map<std::string, std::set<tf::DataType>>>
+        type_constraint_map;
 
     //
     // A map of op types (e.g. "Add") to confirmation functions. These can be
@@ -221,7 +222,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["ConcatV2"]["T"] = *NGraphDTypes();
         type_constraint_map["ConcatV2"]["Tidx"] = *NGraphIndexDTypes();
         type_constraint_map["Conv2D"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["DepthwiseConv2dNative"]["T"] = *NGraphNumericDTypes();
+        type_constraint_map["DepthwiseConv2dNative"]["T"] =
+            *NGraphNumericDTypes();
         type_constraint_map["Equal"]["T"] = *NGraphDTypes();
         type_constraint_map["Exp"]["T"] = *NGraphNumericDTypes();
         type_constraint_map["ExpandDims"]["T"] = *NGraphDTypes();
@@ -483,8 +485,9 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
           tf::DataType dt;
 
-          if (tf::GetNodeAttr(node->attrs(), type_attr_name, &dt) != tf::Status::OK()
-              || allowed_types.count(dt) == 0) {
+          if (tf::GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
+                  tf::Status::OK() ||
+              allowed_types.count(dt) == 0) {
             type_constraints_ok = false;
             break;
           }

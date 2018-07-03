@@ -118,16 +118,18 @@ REGISTER_KERNEL_BUILDER(Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH),
 // for the allowed types, but NGraphDTypes is an std::set and there is
 // apparently no easy way to get into ArraySlice short of converting that set
 // to an std::vector.
-REGISTER_KERNEL_BUILDER(Name("Const")
-                            .Device(ngraph_bridge::DEVICE_NGRAPH)
-                            .TypeConstraint("dtype",std::vector<DataType>(
-                                                      ngraph_bridge::NGraphDTypes()->begin(),
-                                                      ngraph_bridge::NGraphDTypes()->end())),
-                        NGraphConstOp);
+REGISTER_KERNEL_BUILDER(
+    Name("Const")
+        .Device(ngraph_bridge::DEVICE_NGRAPH)
+        .TypeConstraint("dtype", std::vector<DataType>(
+                                     ngraph_bridge::NGraphDTypes()->begin(),
+                                     ngraph_bridge::NGraphDTypes()->end())),
+    NGraphConstOp);
 
-REGISTER_KERNEL_BUILDER(Name("Identity")
-                            .Device(ngraph_bridge::DEVICE_NGRAPH)
-                            .TypeConstraint("T",std::vector<DataType>(
-                                                    ngraph_bridge::NGraphDTypes()->begin(),
-                                                    ngraph_bridge::NGraphDTypes()->end())),
-                        NGraphIdentityOp);
+REGISTER_KERNEL_BUILDER(
+    Name("Identity")
+        .Device(ngraph_bridge::DEVICE_NGRAPH)
+        .TypeConstraint(
+            "T", std::vector<DataType>(ngraph_bridge::NGraphDTypes()->begin(),
+                                       ngraph_bridge::NGraphDTypes()->end())),
+    NGraphIdentityOp);

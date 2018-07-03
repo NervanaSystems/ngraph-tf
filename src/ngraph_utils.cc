@@ -140,39 +140,22 @@ tf::Status TFTensorShapeToNGraphShape(const tf::TensorShape& tf_shape,
   return tf::Status::OK();
 }
 
-const std::set<tf::DataType>* NGraphDTypes()
-{
-  static std::set<tf::DataType> result = {tf::DT_FLOAT,
-                                          tf::DT_DOUBLE,
-                                          tf::DT_INT8,
-                                          tf::DT_INT16,
-                                          tf::DT_INT32,
-                                          tf::DT_INT64,
-                                          tf::DT_UINT8,
-                                          tf::DT_UINT16,
-                                          tf::DT_UINT32,
-                                          tf::DT_UINT64,
-                                          tf::DT_BOOL};
+const std::set<tf::DataType>* NGraphDTypes() {
+  static std::set<tf::DataType> result = {
+      tf::DT_FLOAT,  tf::DT_DOUBLE, tf::DT_INT8,  tf::DT_INT16,
+      tf::DT_INT32,  tf::DT_INT64,  tf::DT_UINT8, tf::DT_UINT16,
+      tf::DT_UINT32, tf::DT_UINT64, tf::DT_BOOL};
   return &result;
 }
 
-const std::set<tf::DataType>* NGraphNumericDTypes()
-{
-  static std::set<tf::DataType> result = {tf::DT_FLOAT,
-                                          tf::DT_DOUBLE,
-                                          tf::DT_INT8,
-                                          tf::DT_INT16,
-                                          tf::DT_INT32,
-                                          tf::DT_INT64,
-                                          tf::DT_UINT8,
-                                          tf::DT_UINT16,
-                                          tf::DT_UINT32,
-                                          tf::DT_UINT64};
+const std::set<tf::DataType>* NGraphNumericDTypes() {
+  static std::set<tf::DataType> result = {
+      tf::DT_FLOAT, tf::DT_DOUBLE, tf::DT_INT8,   tf::DT_INT16,  tf::DT_INT32,
+      tf::DT_INT64, tf::DT_UINT8,  tf::DT_UINT16, tf::DT_UINT32, tf::DT_UINT64};
   return &result;
 }
 
-const std::set<tf::DataType>* NGraphIndexDTypes()
-{
+const std::set<tf::DataType>* NGraphIndexDTypes() {
   static std::set<tf::DataType> result = {tf::DT_INT32, tf::DT_INT64};
   return &result;
 }

@@ -44,10 +44,10 @@ class NGraphStubOp : public OpKernel {
   }
 };
 
-#define REGISTER_NGRAPH_STUB(name)                              \
-  REGISTER_KERNEL_BUILDER(Name(name)                             \
-                           .Device(ngraph_bridge::DEVICE_NGRAPH) \
-                           .Label("ngraph"), NGraphStubOp);
+#define REGISTER_NGRAPH_STUB(name)                                     \
+  REGISTER_KERNEL_BUILDER(                                             \
+      Name(name).Device(ngraph_bridge::DEVICE_NGRAPH).Label("ngraph"), \
+      NGraphStubOp);
 
 //
 // Please keep these in alphabetical order.
