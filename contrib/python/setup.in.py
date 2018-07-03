@@ -26,7 +26,7 @@ class BinaryBdistWheel(bdist_wheel):
         self.root_is_pure = False
 
     def get_tag(self):
-        _, _, plat = super(BinaryBdistWheel, self).get_tag()
+        _, _, plat = bdist_wheel.get_tag(self)
         return ('py2.py3', 'none', plat)
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
