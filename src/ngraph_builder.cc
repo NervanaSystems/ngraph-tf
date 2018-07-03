@@ -1581,7 +1581,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto size_vec = ng_size_const->get_vector<int>();
 
       auto& input_shape = ng_input->second->get_shape();
-      NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
       if (std::any_of(size_vec.begin(), size_vec.end(), [](int i){ return i <= 0; })) {
         std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
@@ -1729,11 +1729,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       tf::Node* tf_input;
       tf::Node* tf_begin;
-      tf::Node* tf_size;
+      tf::Node* tf_end;
       tf::Node* tf_stride;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_begin));
-      TF_RETURN_IF_ERROR(op->input_node(2, &tf_size));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_end));
       TF_RETURN_IF_ERROR(op->input_node(3, &tf_stride));
 
       auto ng_input = ng_op_map.find(tf_input->name());
@@ -1746,9 +1746,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument("Missing input: " +
                                            tf_begin->name());
       }
-      auto ng_size = ng_op_map.find(tf_size->name());
-      if (ng_size == ng_op_map.end()) {
-        return tf::errors::InvalidArgument("Missing input: " + tf_size->name());
+      auto ng_end = ng_op_map.find(tf_end->name());
+      if (ng_end == ng_op_map.end()) {
+        return tf::errors::InvalidArgument("Missing input: " + tf_end->name());
       }
       auto ng_stride = ng_op_map.find(tf_stride->name());
       if (ng_stride == ng_op_map.end()) {
@@ -1764,20 +1764,21 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
       auto lower_vec = ng_begin_const->get_vector<int>();
 
-      auto ng_size_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_size->second);
-      if (ng_size_const == nullptr) {
+      auto ng_end_const =
+          std::dynamic_pointer_cast<ng::op::Constant>(ng_end->second);
+      if (ng_end_const == nullptr) {
         return tf::errors::InvalidArgument(
             "The argument size is null for StridedSlice");
       }
-      auto size_vec = ng_size_const->get_vector<int>();
+      auto end_vec = ng_end_const->get_vector<int>();
+
+      NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
 
       auto& input_shape = ng_input->second->get_shape();
-      NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
-      NGRAPH_VLOG(3) << "Size input for StridedSlice: " << ng::join(size_vec);
-      if (std::any_of(size_vec.begin(), size_vec.end(), [](int i){ return i <= 0; })) {
-        std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
-                       size_vec.begin(), [](int first, int second) {
+      if (std::any_of(end_vec.begin(), end_vec.end(), [](int i){ return i <= 0; })) {
+        std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
+                       end_vec.begin(), [](int first, int second) {
                          if (first < 0) {
                            return second + first + 1;
                          } else if (first == 0) {
@@ -1786,12 +1787,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                            return first;
                          }
                        });
-        NGRAPH_VLOG(3) << "Transform size input for StridedSlice: " << ng::join(size_vec);
+        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: " << ng::join(end_vec);
       }
-
-      std::vector<int> upper_vec(lower_vec.size());
-      std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
-                     upper_vec.begin(), std::plus<int>());
 
       auto ng_stride_const =
           std::dynamic_pointer_cast<ng::op::Constant>(ng_stride->second);
@@ -1802,7 +1799,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto stride_vec = ng_stride_const->get_vector<int>();
 
       std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
-      std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
+      std::vector<size_t> u(end_vec.begin(), end_vec.end());
       std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
       auto ng_strided_slice =
           make_shared<ng::op::Slice>(ng_input->second, l, u, s);
