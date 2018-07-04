@@ -121,15 +121,11 @@ REGISTER_KERNEL_BUILDER(Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH),
 REGISTER_KERNEL_BUILDER(
     Name("Const")
         .Device(ngraph_bridge::DEVICE_NGRAPH)
-        .TypeConstraint("dtype", std::vector<DataType>(
-                                     ngraph_bridge::NGraphDTypes()->begin(),
-                                     ngraph_bridge::NGraphDTypes()->end())),
+        .TypeConstraint("dtype", ngraph_bridge::NGraphDTypes()),
     NGraphConstOp);
 
 REGISTER_KERNEL_BUILDER(
     Name("Identity")
         .Device(ngraph_bridge::DEVICE_NGRAPH)
-        .TypeConstraint(
-            "T", std::vector<DataType>(ngraph_bridge::NGraphDTypes()->begin(),
-                                       ngraph_bridge::NGraphDTypes()->end())),
+        .TypeConstraint("T", ngraph_bridge::NGraphDTypes()),
     NGraphIdentityOp);

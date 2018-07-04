@@ -34,13 +34,13 @@ extern const char* const DEVICE_NGRAPH;
 // For example, we can only handle Reshape if the "shape" input is a constant,
 // so this is okay:
 //
-//   Foo       Const[2,4,2]
+//   ...       Const[2,4,2]
 //     \       /
 //      Reshape                     (1)
 //
 // but this is not:
 //
-//   Foo       Placeholder
+//   ...       Placeholder
 //     \       /
 //      Reshape                     (2)
 //
@@ -55,33 +55,47 @@ extern const char* const DEVICE_NGRAPH;
 // will check every node that has a requested placement on NGRAPH, and make
 // sure that it conforms to certain (op-dependent) constraints. If the
 // constraints are satisfied, we will tag the node with a "_kernel" value of
-// "ngraph". The stub kernels, in turn, are registered with the constraint
-// that _kernel="ngraph". This means that during the placement pass, our
-// kernels will not be allowed for nodes we did not mark during this pass, and
-// placement will fall back on CPU.
+// "ngraph", along with some op-specific metadata (if applicable). The stub
+// kernels, in turn, are registered with the constraint that _kernel="ngraph".
+// This means that during the placement pass, our kernels will not be allowed
+// for nodes we did not mark during this pass, and placement will fall back on
+// CPU.
 //
-// There are two pieces here. The first is a type constraint checker, which
-// supplants the type checking machinery usually used with
-// REGISTER_KERNEL_BUILDER. The second is a set of finer-grained per-op checks
-// called "confirmation functions".
+// Taking Reshape as an example, the pass ensures that the "shape" input is
+// constant, and if so, it adds to the Reshape node the "_kernel=ngraph"
+// attribute, along with some metadata recording the value of the constant.
+// Thus graph (1) is transformed as follows:
+//
+//   ...       Const[2,4,2][_kernel="ngraph"]
+//     \       /
+//      Reshape[_kernel="ngraph",
+//              _ngraph_reshape_static_shape={2,4,2}]
+//
+// while graph (2) would be left unchanged, meaning that soft placement will
+// fall back on non-nGraph implementations.
+//
+// Internally, there are two pieces. The first is a type constraint checker,
+// which supplants the type checking machinery usually used with
+// REGISTER_KERNEL_BUILDER. This ensures that any constraints on the data types
+// of input tensors are satisfied---for example, we do not support DT_STRING.
+// The second part is a set of finer-grained per-op checks called "confirmation
+// functions", implementing more specific checks like the one described for
+// Reshape above.
 //
 // The confirmation functions are implemented as callbacks of the type:
 //
 //      std::function<tf::Status(tf::Node*, bool*)>.
 //
-// A confirmation function should return true/false by reference through its
-// second parameter: true if placement is "accepted", and false if it is
-// "rejected". For example, the confirmation function for "Reshape" will return
-// true for (1) above, and false for (2) above.
+// A confirmation function returns true/false by reference through its second
+// parameter: true if placement is "accepted", and false if it is "rejected".
+// For example, the confirmation function for "Reshape" will return true
+// for (1) above, and false for (2).
 //
 // A confirmation function can also, as a side effect, add attributes to the
-// node being checked, which can be used later in ngraph_builder. In this case,
-// the "Reshape" confirmation function extracts the tensor data from the Const
-// input node, and adds an attribute to the "Reshape" node with the name
-// "_ngraph_reshape_static_shape", which is an array of int values (here, the
-// values [2,4,2]). (Note that in general such attributes will need to start
-// with "_" to mark them as "internal" or "system" attributes, as otherwise
-// TensorFlow attempts to validate them as against the op schema.)
+// node being checked, which can be used later in ngraph_builder. (Note that in
+// general such attributes will need to start with "_" to mark them as
+// "internal" or "system" attributes, as otherwise TensorFlow attempts to
+// validate them as against the op schema.)
 //
 class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
  public:
@@ -162,7 +176,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
     // DT_INT16.
     //
-    static std::map<std::string, std::map<std::string, std::set<tf::DataType>>>
+    static std::map<std::string, std::map<std::string, tf::gtl::ArraySlice<tf::DataType>>>
         type_constraint_map;
 
     //
@@ -213,59 +227,59 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         //
         // Initialize type constraint map.
         //
-        type_constraint_map["Abs"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Add"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["AvgPool"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["BiasAdd"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Cast"]["SrcT"] = *NGraphDTypes();
-        type_constraint_map["Cast"]["DstT"] = *NGraphDTypes();
-        type_constraint_map["ConcatV2"]["T"] = *NGraphDTypes();
-        type_constraint_map["ConcatV2"]["Tidx"] = *NGraphIndexDTypes();
-        type_constraint_map["Conv2D"]["T"] = *NGraphNumericDTypes();
+        type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["BiasAdd"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Cast"]["SrcT"] = NGraphDTypes();
+        type_constraint_map["Cast"]["DstT"] = NGraphDTypes();
+        type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
+        type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
         type_constraint_map["DepthwiseConv2dNative"]["T"] =
-            *NGraphNumericDTypes();
-        type_constraint_map["Equal"]["T"] = *NGraphDTypes();
-        type_constraint_map["Exp"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["ExpandDims"]["T"] = *NGraphDTypes();
-        type_constraint_map["Floor"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["FusedBatchNorm"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Greater"]["T"] = *NGraphDTypes();
-        type_constraint_map["GreaterEqual"]["T"] = *NGraphDTypes();
-        type_constraint_map["Less"]["T"] = *NGraphDTypes();
-        type_constraint_map["LessEqual"]["T"] = *NGraphDTypes();
-        type_constraint_map["Log"]["T"] = *NGraphNumericDTypes();
+            NGraphNumericDTypes();
+        type_constraint_map["Equal"]["T"] = NGraphDTypes();
+        type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["ExpandDims"]["T"] = NGraphDTypes();
+        type_constraint_map["Floor"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["FusedBatchNorm"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Greater"]["T"] = NGraphDTypes();
+        type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+        type_constraint_map["Less"]["T"] = NGraphDTypes();
+        type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
+        type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
         // LogicalAnd has no type attributes, ("T", if it existed, would always
         // be bool).
-        type_constraint_map["MatMul"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Maximum"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["MaxPool"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Mean"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Mean"]["Tidx"] = *NGraphIndexDTypes();
-        type_constraint_map["Mul"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Pad"]["T"] = *NGraphDTypes();
-        type_constraint_map["Pad"]["Tpaddings"] = *NGraphIndexDTypes();
-        type_constraint_map["Pow"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Prod"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Prod"]["Tidx"] = *NGraphIndexDTypes();
-        type_constraint_map["Relu"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Relu6"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Reshape"]["T"] = *NGraphDTypes();
-        type_constraint_map["Reshape"]["Tshape"] = *NGraphIndexDTypes();
-        type_constraint_map["Slice"]["T"] = *NGraphDTypes();
-        type_constraint_map["Slice"]["Index"] = *NGraphIndexDTypes();
-        type_constraint_map["Sign"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Sigmoid"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Softmax"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Snapshot"]["T"] = *NGraphDTypes();
-        type_constraint_map["Squeeze"]["T"] = *NGraphDTypes();
-        type_constraint_map["StridedSlice"]["T"] = *NGraphDTypes();
-        type_constraint_map["StridedSlice"]["Index"] = *NGraphIndexDTypes();
-        type_constraint_map["Sub"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Sum"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Sum"]["Tidx"] = *NGraphIndexDTypes();
-        type_constraint_map["Tanh"]["T"] = *NGraphNumericDTypes();
-        type_constraint_map["Transpose"]["T"] = *NGraphDTypes();
-        type_constraint_map["Transpose"]["Tperm"] = *NGraphIndexDTypes();
+        type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Pad"]["T"] = NGraphDTypes();
+        type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
+        type_constraint_map["Pow"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Relu6"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Reshape"]["T"] = NGraphDTypes();
+        type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
+        type_constraint_map["Slice"]["T"] = NGraphDTypes();
+        type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
+        type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
+        type_constraint_map["Squeeze"]["T"] = NGraphDTypes();
+        type_constraint_map["StridedSlice"]["T"] = NGraphDTypes();
+        type_constraint_map["StridedSlice"]["Index"] = NGraphIndexDTypes();
+        type_constraint_map["Sub"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Sum"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Sum"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["Tanh"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Transpose"]["T"] = NGraphDTypes();
+        type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
 
         //
         // Initialize confirmation function map.
@@ -487,7 +501,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
           if (tf::GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
                   tf::Status::OK() ||
-              allowed_types.count(dt) == 0) {
+              std::find(allowed_types.begin(), allowed_types.end(), dt) == allowed_types.end()) {
             type_constraints_ok = false;
             break;
           }
