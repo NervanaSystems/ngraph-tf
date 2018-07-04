@@ -176,7 +176,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
     // DT_INT16.
     //
-    static std::map<std::string, std::map<std::string, tf::gtl::ArraySlice<tf::DataType>>>
+    static std::map<std::string,
+                    std::map<std::string, tf::gtl::ArraySlice<tf::DataType>>>
         type_constraint_map;
 
     //
@@ -501,7 +502,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
           if (tf::GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
                   tf::Status::OK() ||
-              std::find(allowed_types.begin(), allowed_types.end(), dt) == allowed_types.end()) {
+              std::find(allowed_types.begin(), allowed_types.end(), dt) ==
+                  allowed_types.end()) {
             type_constraints_ok = false;
             break;
           }

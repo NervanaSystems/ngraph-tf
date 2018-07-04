@@ -114,14 +114,13 @@ class NGraphIdentityOp : public OpKernel {
 REGISTER_KERNEL_BUILDER(Name("NoOp").Device(ngraph_bridge::DEVICE_NGRAPH),
                         NGraphNoOp);
 
-REGISTER_KERNEL_BUILDER(
-    Name("Const")
-        .Device(ngraph_bridge::DEVICE_NGRAPH)
-        .TypeConstraint("dtype", ngraph_bridge::NGraphDTypes()),
-    NGraphConstOp);
+REGISTER_KERNEL_BUILDER(Name("Const")
+                            .Device(ngraph_bridge::DEVICE_NGRAPH)
+                            .TypeConstraint("dtype",
+                                            ngraph_bridge::NGraphDTypes()),
+                        NGraphConstOp);
 
-REGISTER_KERNEL_BUILDER(
-    Name("Identity")
-        .Device(ngraph_bridge::DEVICE_NGRAPH)
-        .TypeConstraint("T", ngraph_bridge::NGraphDTypes()),
-    NGraphIdentityOp);
+REGISTER_KERNEL_BUILDER(Name("Identity")
+                            .Device(ngraph_bridge::DEVICE_NGRAPH)
+                            .TypeConstraint("T", ngraph_bridge::NGraphDTypes()),
+                        NGraphIdentityOp);
