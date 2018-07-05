@@ -321,23 +321,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Conv2D"] = always;
         confirmation_functions["DepthwiseConv2dNative"] = always;
-        // Constraint: T must not be DT_STRING.
-        confirmation_functions["Equal"] = [](tf::Node* n, bool* result) {
-          tf::DataType dtype;
-
-          if (tf::GetNodeAttr(n->attrs(), "T", &dtype) !=
-              tf::Status::OK()) {
-            dtype = tf::DT_INT32;
-          }
-
-          if (dtype == tf::DT_STRING) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          *result = true;
-          return tf::Status::OK();
-        };
+        confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
         confirmation_functions["ExpandDims"] = always;
         confirmation_functions["Floor"] = always;
@@ -423,22 +407,9 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Relu6"] = always;
 
         // Constraint: shape input must be Const.
-        // Constraint: type must not be DT_STRING.
         confirmation_functions["Reshape"] = [](tf::Node* n, bool* result) {
           tf::Node* tf_shape_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
-
-          tf::DataType dtype;
-
-          if (tf::GetNodeAttr(n->attrs(), "T", &dtype) !=
-              tf::Status::OK()) {
-            dtype = tf::DT_INT32;
-          }
-
-          if (dtype == tf::DT_STRING) {
-            *result = false;
-            return tf::Status::OK();
-          }
 
           std::vector<tf::int64> tf_static_shape;
           if (ExtractConstantData(tf_shape_node, &tf_static_shape) !=
