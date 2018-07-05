@@ -204,7 +204,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           tf::Node* tf_input_sizes;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
 
-          std::vector<tf::int32> tf_static_input_sizes;
+          std::vector<tf::int32> tf_static_input_sizes(4);
           if (ExtractConstantData(tf_input_sizes, &tf_static_input_sizes) !=
                   tf::Status::OK() || tf_static_input_sizes.size() != 4) {
             *result = false;
