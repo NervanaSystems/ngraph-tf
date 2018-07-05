@@ -64,7 +64,7 @@ endif()
 # 
 set(CMAKE_MACOSX_RPATH 1)
 if(APPLE)
-    set(CMAKE_INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../tensorflow;@loader_path/")
+    set(CMAKE_INSTALL_RPATH "@loader_path/;@loader_path/../tensorflow;")
 else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()

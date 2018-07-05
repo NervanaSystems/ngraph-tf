@@ -32,6 +32,8 @@ if (PYTHON)
     
     # Copy the ngraph libraries from install
     foreach(DEP_FILE ${NGRAPH_LIB_FILES})
+        get_filename_component(foo ${DEP_FILE} REALPATH)
+        message(STATUS ${foo})
         get_filename_component(lib_file_real_path ${DEP_FILE} ABSOLUTE)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)
         set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n")
@@ -42,7 +44,7 @@ if (PYTHON)
 
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
     configure_file(${INIT_PY_IN} ${INIT_PY})
-   
+    
     execute_process(
         COMMAND ${PYTHON} "setup.py" "bdist_wheel"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python/
