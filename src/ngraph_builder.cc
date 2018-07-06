@@ -666,7 +666,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "Conv2DBackpropInput data format is neither NHWC nor NCHW");
       }
 
-      std::vector<tf::int32> tf_input_sizes;
+      std::vector<tf::int64> tf_input_sizes;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(),
             "_ngraph_static_input_sizes", &tf_input_sizes));
       if (std::any_of(tf_input_sizes.begin(), tf_input_sizes.end(),
@@ -686,6 +686,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Strides ng_dilations(2);
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
+      ng::Shape ng_batch_shape(4);
 
 
       ng_strides[0] = tf_strides[1];
@@ -696,9 +697,17 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (is_nhwc) {
         ng_image_shape[0] = tf_input_sizes[1];
         ng_image_shape[1] = tf_input_sizes[2];
+        ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
+                           static_cast<unsigned long>(tf_input_sizes[1]),
+                           static_cast<unsigned long>(tf_input_sizes[2]),
+                           static_cast<unsigned long>(tf_input_sizes[3]) };
       } else {
         ng_image_shape[0] = tf_input_sizes[2];
         ng_image_shape[1] = tf_input_sizes[3];
+        ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
+                           static_cast<unsigned long>(tf_input_sizes[3]),
+                           static_cast<unsigned long>(tf_input_sizes[1]),
+                           static_cast<unsigned long>(tf_input_sizes[2]) };
       }
 
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
@@ -748,8 +757,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::shared_ptr<ng::Node> ng_data =
         make_shared<ng::op::ConvolutionBackpropData>(
-            ng_batch_shape, ng_filters, ng_output_backprop, ng_strides,
-            ng_dilations, ng_padding_below, ng_padding_above);
+            ng_batch_shape, ng_filter, ng_out_backprop, ng_strides,
+            ng_dilations, ng_padding_below, ng_padding_above,
+            ng::Strides(ng_batch_shape.size() - 2, 1));
 
       ng_op_map[op->name()] = ng_data;
     }
