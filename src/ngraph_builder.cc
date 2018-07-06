@@ -1186,11 +1186,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         tf_keep_dims = false;
       }
 
-      if (tf_keep_dims) {
-        return tf::errors::Unimplemented(
-            "keep_dims is not implemented for Mean");
-      }
-
       std::vector<tf::int64> mean_axes;
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
