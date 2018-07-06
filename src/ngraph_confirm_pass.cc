@@ -237,6 +237,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
         type_constraint_map["DepthwiseConv2dNative"]["T"] =
             NGraphNumericDTypes();
         type_constraint_map["Equal"]["T"] = NGraphDTypes();
@@ -320,7 +321,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
-        confirmation_functions["Concat2DBackpropInput"] = [](tf::Node* n, bool* result) {
+        confirmation_functions["Conv2DBackpropInput"] = [](tf::Node* n, bool* result) {
           tf::Node* tf_input_sizes;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
 
