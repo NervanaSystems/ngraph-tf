@@ -642,14 +642,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "Number of inputs is not 3 for Conv2DBackpropInput");
       }
 
-      tf::Node *tf_first_arg, *tf_filter, *tf_out_backprop;
-      TF_RETURN_IF_ERROR(op->input_node(0, &tf_first_arg));
+      tf::Node *tf_filter, *tf_out_backprop;
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_filter));
       TF_RETURN_IF_ERROR(op->input_node(2, &tf_out_backprop));
       auto ng_filter = ng_op_map.at(tf_filter->name());
       auto ng_out_backprop = ng_op_map.at(tf_out_backprop->name());
 
-      // TODO: refactor me
+      // TODO: refactor me to be less redundant with other convolution ops
       std::vector<tf::int32> tf_strides;
       std::vector<tf::int32> tf_dilations;
       std::string tf_padding_type;
@@ -664,14 +663,17 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
         return tf::errors::InvalidArgument(
-            "DepthwiseConv2D data format is neither NHWC nor NCHW");
+            "Conv2DBackpropInput data format is neither NHWC nor NCHW");
       }
-
-      // TODO: use_cudnn_on_gpu
 
       std::vector<tf::int32> tf_input_sizes;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(),
             "_ngraph_static_input_sizes", &tf_input_sizes));
+      if (std::any_of(tf_input_sizes.begin(), tf_input_sizes.end(),
+            [](tf::int32 size) { return size <= 0; })) {
+        return tf::errors::InvalidArgument(
+            "Conv2DBackpropInput input sizes must be positive integers");
+      }
 
       bool is_nhwc = (tf_data_format == "NHWC");
 
@@ -684,7 +686,74 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Strides ng_dilations(2);
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
+
+
+      ng_strides[0] = tf_strides[1];
+      ng_strides[1] = tf_strides[2];
+      ng_dilations[0] = tf_dilations[0];
+      ng_dilations[1] = tf_dilations[1];
+
+      if (is_nhwc) {
+        ng_image_shape[0] = tf_input_sizes[1];
+        ng_image_shape[1] = tf_input_sizes[2];
+      } else {
+        ng_image_shape[0] = tf_input_sizes[2];
+        ng_image_shape[1] = tf_input_sizes[3];
+      }
+
+      NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+      NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+      NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+      {
+        auto& s = ng_filter->get_shape();
+        ng::Shape reshaped_shape{s[3], s[2], s[0], s[1]};
+        ng_filter = make_shared<ng::op::Reshape>(
+            ng_filter, ng::AxisVector{3, 2, 0, 1}, reshaped_shape);
+
+        ng_kernel_shape[0] = s[0];
+        ng_kernel_shape[1] = s[1];
+      }
+
+      NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+      ng::CoordinateDiff ng_padding_below{0, 0};
+      ng::CoordinateDiff ng_padding_above{0, 0};
+
+      if (tf_padding_type == "SAME") {
+        for (size_t i = 0; i < 2; i++) {
+          size_t image_size = ng_image_shape[i];
+          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_stride = ng_strides[i];
+
+          tf::int64 padding_needed;
+          if (image_size % filter_stride == 0) {
+            padding_needed = filter_shape - filter_stride;
+          } else {
+            padding_needed = filter_shape - (image_size % filter_stride);
+          }
+          if (padding_needed < 0) {
+            padding_needed = 0;
+          }
+
+          size_t padding_lhs = padding_needed / 2;
+          size_t padding_rhs = padding_needed - padding_lhs;
+          ng_padding_below[i] = padding_lhs;
+          ng_padding_above[i] = padding_rhs;
+        }
+      }
+
+      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+      std::shared_ptr<ng::Node> ng_data =
+        make_shared<ng::op::ConvolutionBackpropData>(
+            ng_batch_shape, ng_filters, ng_output_backprop, ng_strides,
+            ng_dilations, ng_padding_below, ng_padding_above);
+
+      ng_op_map[op->name()] = ng_data;
     }
+
     // -----
     // DepthwiseConv2D
     // -----
