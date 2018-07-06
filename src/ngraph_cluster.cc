@@ -165,6 +165,11 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
       continue;
     }
 
+    // Skip NextIteration
+    if (src->IsNextIteration() || dst->IsNextIteration()) {
+      continue;
+    }
+
     if (!gc.InsertEdge(cluster_map[src]->index, cluster_map[dst]->index)) {
       NGRAPH_VLOG(5) << "Failing due to cycle";
       return tf::errors::Unimplemented(
@@ -251,13 +256,13 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
       for (auto node : cluster->nodes) {
         if (!IsNGraphNode(node)) {
-          return tf::errors::InvalidArgument(
+          return tf::errors::Internal(
               "Node ", node->DebugString(),
               " is not an nGraph node but was placed in an nGraph cluster.");
         }
 
         if (!IsClusterable(node)) {
-          return tf::errors::InvalidArgument("Node ", node->DebugString(),
+          return tf::errors::Internal("Node ", node->DebugString(),
                                              " is not a clusterable node but "
                                              "was placed in an nGraph "
                                              "cluster.");
@@ -282,7 +287,12 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 // clang-format off
 const std::set<std::string> NGraphClusterPass::s_unclusterable_ops{
     "Assign",
+    "Enter",
+    "Exit",
     "IsVariableInitialized",
+    "Merge",
+    "NextIteration",
+    "Switch",
     "VariableV2",
 };
 // clang-format on
