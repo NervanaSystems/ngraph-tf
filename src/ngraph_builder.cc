@@ -1776,6 +1776,17 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
 
       auto& input_shape = ng_input->second->get_shape();
+      NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
+      if (input_shape.size() != end_vec.size()) {
+        NGRAPH_VLOG(3) << tf_input->DebugString();
+        NGRAPH_VLOG(3) << tf_begin->DebugString();
+        NGRAPH_VLOG(3) << tf_end->DebugString();
+      }
+
+      NGRAPH_VLOG(3) << "op: " << op->DebugString();
+      NGRAPH_VLOG(3) << tf_begin->DebugString();
+      NGRAPH_VLOG(3) << tf_end->DebugString();
+
       if (std::any_of(end_vec.begin(), end_vec.end(), [](int i){ return i <= 0; })) {
         std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
                        end_vec.begin(), [](int first, int second) {
