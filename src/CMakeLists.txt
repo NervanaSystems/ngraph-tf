@@ -73,13 +73,13 @@ target_compile_definitions(
 target_include_directories(${LIB_NAME} PUBLIC "${NGRAPH_INSTALL_DIR}/include")
 target_include_directories(${LIB_NAME} PUBLIC "${NGRAPH_DEVICE_INCLUDE_PATH}")
 
-# add_custom_target( 
-#     fix_rpath_apple
-#     ALL
-#     COMMAND ${CMAKE_COMMAND} -E 
-#     echo $<TARGET_FILE:ngraph_lib> > ${CMAKE_BINARY_DIR}/ngraph_lib_info.txt
-#     VERBATIM
-# )    
+add_custom_target( 
+    dump_ngraph_so_name
+    ALL
+    COMMAND ${CMAKE_COMMAND} -E 
+    echo $<TARGET_FILE:ngraph_lib> > ${CMAKE_BINARY_DIR}/ngraph_lib_so_name.txt
+    VERBATIM
+)    
 
 #------------------------------------------------------------------------------
 #installation 
@@ -99,14 +99,4 @@ install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX
 # Now create the Python pip package
 install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
-
-if(APPLE)
-    # Note: This is hardcoded for now until the nGraph library sets the 
-    # loader path properly
-    install(CODE "execute_process(COMMAND 
-        install_name_tool -change 
-        libngraph.0.4.dylib 
-        @loader_path/libngraph.0.4.dylib 
-        ${CMAKE_INSTALL_PREFIX}/lib/libngraph_device.dylib)")
-endif()
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../contrib/python/CreatePipWhl.cmake")
