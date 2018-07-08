@@ -43,8 +43,8 @@ TensorFlow [prepare environment] for linux.
 ### Installation
 
 1. Once TensorFlow's dependencies are installed, clone the source of the 
-   [tensorflow] repo to your machine; this is required for running the unit
-   test. 
+   [tensorflow] repo to your machine. 
+
    :warning: You need a specific version of TensorFlow: `v1.9.0-rc2` for nGraph to work.
 
    ```
