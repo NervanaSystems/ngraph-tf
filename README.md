@@ -45,7 +45,7 @@ TensorFlow [prepare environment] for linux.
 1. Once TensorFlow's dependencies are installed, clone the source of the 
    [tensorflow] repo to your machine. 
 
-   :warning: You need a specific version of TensorFlow: `v1.9.0-rc2` for nGraph to work.
+   :warning: You need the following version of TensorFlow: `v1.9.0-rc2`
 
    ```
    $ git clone https://github.com/tensorflow/tensorflow.git
