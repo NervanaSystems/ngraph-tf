@@ -44,15 +44,15 @@ TensorFlow [prepare environment] for linux.
 
 1. Once TensorFlow's dependencies are installed, clone the source of the 
    [tensorflow] repo to your machine; this is required for running the unit
-   test. If you want to run nGraph without the unit tests then you can 
-   install the binary TensorFlow wheel and skip this section.
+   test. 
+   :warning: You need a specific version of TensorFlow: `v1.9.0-rc2` for nGraph to work.
 
    ```
    $ git clone https://github.com/tensorflow/tensorflow.git
    $ cd tensorflow
-   $ git checkout v1.8.0
+   $ git checkout v1.9.0-rc2
    $ git status
-   HEAD detached at v1.8.0
+   HEAD detached at v1.9.0-rc2
    ```
 2. When setting up and activating the virtual environment with TensorFlow 
    frameworks, you must use a specific kind of venv designed for 
@@ -181,17 +181,6 @@ you'll run into errors without them.
 
 1. Build TensorFlow and its framework for unit tests. This step is identical to 
 how you would build TensorFlow for Linux mentioned above.
-
-	```
-	git clone git@github.com:tensorflow/tensorflow.git
-	pushd tensorflow
-	git checkout r1.8
-	./configure # you can disable everything here if you like, or stick with defaults
-	bazel build //tensorflow/tools/pip_package:build_pip_package 
-    bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
-	pip install /tmp/tensorflow_pkg/tensorflow*.whl
-	popd
-	```
 
 2. Prepare `ngraph-tf` for the build:
 
