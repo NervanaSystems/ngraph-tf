@@ -695,13 +695,16 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_dilations[1] = tf_dilations[1];
 
       if (is_nhwc) {
-        // FIXME: need to reshape "out_backprop" here.
         ng_image_shape[0] = tf_input_sizes[1];
         ng_image_shape[1] = tf_input_sizes[2];
         ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
                            static_cast<unsigned long>(tf_input_sizes[3]),
                            static_cast<unsigned long>(tf_input_sizes[1]),
                            static_cast<unsigned long>(tf_input_sizes[2]) };
+        auto& s = ng_out_backprop->get_shape();
+        ng::Shape reshaped{s[0], s[3], s[1], s[2]};
+        ng_out_backprop = make_shared<ng::op::Reshape>(
+            ng_out_backprop, ng::AxisVector{0, 3, 1, 2}, reshaped);
       } else {
         ng_image_shape[0] = tf_input_sizes[2];
         ng_image_shape[1] = tf_input_sizes[3];
@@ -756,20 +759,24 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
       NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
 
-      // FIXME: If input was NHWC, need to reshape the output of ng_data from
-      // NCHW.
-
       std::shared_ptr<ng::Node> ng_data =
         make_shared<ng::op::ConvolutionBackpropData>(
             ng_batch_shape, ng_filter, ng_out_backprop, ng_strides,
             ng_dilations, ng_padding_below, ng_padding_above,
             ng::Strides(ng_batch_shape.size() - 2, 1));
 
+      if (is_nhwc) {
+        auto& s = ng_data->get_shape();
+        ng::Shape reshaped{s[0], s[2], s[3], s[1]};
+        ng_data = make_shared<ng::op::Reshape>(
+            ng_data, ng::AxisVector{0, 2, 3, 1}, reshaped);
+      }
+
       ng_op_map[op->name()] = ng_data;
     }
 
     // -----
-    // DepthwiseConv2D
+    // DepthwiseConv2dNative
     // -----
     else if (op->type_string() == "DepthwiseConv2dNative") {
       if (op->num_inputs() != 2) {

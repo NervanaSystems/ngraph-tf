@@ -37,9 +37,7 @@ class TestConv2DBackpropInput(NgraphTest):
 
     # The expected size of the backprop will depend on whether padding is VALID
     # or SAME.
-    out_backprop_in_sizes = {}
-    out_backprop_in_sizes["VALID"] = [1, 2, 3, 2]
-    out_backprop_in_sizes["SAME"] = [1, 2, 4, 3]
+    out_backprop_in_sizes = {"VALID": [1, 2, 3, 2], "SAME": [1, 2, 4, 3]}
 
     total_size_1 = 1
     total_size_2 = 1
@@ -52,15 +50,14 @@ class TestConv2DBackpropInput(NgraphTest):
     x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
     x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
 
-    import pdb; pdb.set_trace()
-
     with self.device:
-      with tf.Session(config=self.config) as sess:
+      with self.session as sess:
         t1 = constant_op.constant(input_sizes)
         t2 = constant_op.constant(x2, shape=filter_in_sizes)
         t3 = constant_op.constant(x1, shape=out_backprop_in_sizes[padding])
         inp = nn_ops.conv2d_backprop_input(
-            t1, t2, t3, strides=[1, 1, 1, 1], padding=padding, data_format='NCHW')
+            t1, t2, t3, strides=[1, 1, 1, 1],
+            padding=padding, data_format='NCHW')
         value = sess.run(inp)
 
     # To validate on the CPU side we will need to run in NHWC, because the CPU
@@ -73,7 +70,8 @@ class TestConv2DBackpropInput(NgraphTest):
       t3 = constant_op.constant(x1, shape=out_backprop_in_sizes[padding])
       t3_nhwc = tf.transpose(t3, [0, 2, 3, 1])
       inp_nhwc = nn_ops.conv2d_backprop_input(
-          t1, t2, t3_nhwc, strides=[1, 1, 1, 1], padding=padding, data_format='NHWC')
+          t1, t2, t3_nhwc, strides=[1, 1, 1, 1],
+          padding=padding, data_format='NHWC')
       inp = tf.transpose(inp_nhwc, [0, 3, 1, 2])
       expected = sess.run(inp)
 
