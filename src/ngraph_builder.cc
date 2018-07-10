@@ -695,19 +695,20 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_dilations[1] = tf_dilations[1];
 
       if (is_nhwc) {
+        // FIXME: need to reshape "out_backprop" here.
         ng_image_shape[0] = tf_input_sizes[1];
         ng_image_shape[1] = tf_input_sizes[2];
-        ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
-                           static_cast<unsigned long>(tf_input_sizes[1]),
-                           static_cast<unsigned long>(tf_input_sizes[2]),
-                           static_cast<unsigned long>(tf_input_sizes[3]) };
-      } else {
-        ng_image_shape[0] = tf_input_sizes[2];
-        ng_image_shape[1] = tf_input_sizes[3];
         ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
                            static_cast<unsigned long>(tf_input_sizes[3]),
                            static_cast<unsigned long>(tf_input_sizes[1]),
                            static_cast<unsigned long>(tf_input_sizes[2]) };
+      } else {
+        ng_image_shape[0] = tf_input_sizes[2];
+        ng_image_shape[1] = tf_input_sizes[3];
+        ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
+                           static_cast<unsigned long>(tf_input_sizes[1]),
+                           static_cast<unsigned long>(tf_input_sizes[2]),
+                           static_cast<unsigned long>(tf_input_sizes[3]) };
       }
 
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
@@ -754,6 +755,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
       NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+      // FIXME: If input was NHWC, need to reshape the output of ng_data from
+      // NCHW.
 
       std::shared_ptr<ng::Node> ng_data =
         make_shared<ng::op::ConvolutionBackpropData>(
