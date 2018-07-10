@@ -104,4 +104,36 @@ TEST(tf_exec, axpy) {
   }
 }
 
+TEST(tf_exec, BatchMatMul) { 
+  tf::Scope root = tf::Scope::NewRootScope();
+  auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,1,2})); 
+  auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f}, tf::TensorShape({2,2,1})); 
+  auto R = tf::ops::BatchMatMul(root.WithOpName("R"), A, B);
+  std::vector<tf::Tensor> outputs;
+  // Run and fetch v
+  tf::ClientSession session(root);
+  TF_CHECK_OK(session.Run({R}, &outputs));
+  // Expect outputs[0] == [19; -3]
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,1,1}));
+}
+
+TEST(tf_exec, BatchMatMul_2D) { 
+  tf::Scope root = tf::Scope::NewRootScope();
+  auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2})); 
+  auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f}, tf::TensorShape({2,2})); 
+  auto R = tf::ops::BatchMatMul(root.WithOpName("R"), A, B);
+  std::vector<tf::Tensor> outputs;
+  // Run and fetch R
+  tf::ClientSession session(root);
+  TF_CHECK_OK(session.Run({R}, &outputs));
+  // Expect outputs[0] == [19; -3]
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
+  auto mat = outputs[0].matrix<float>();
+  ASSERT_EQ(-3.f, mat(0,0));
+  ASSERT_EQ(-4.f, mat(0,1)); 
+  ASSERT_EQ(-1.f, mat(1,0));
+  ASSERT_EQ(-8.f, mat(1,1));
+}
+
+
 }  // namespace ngraph_bridge

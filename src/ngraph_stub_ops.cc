@@ -60,6 +60,9 @@ REGISTER_NGRAPH_STUB(Name("Add")
 REGISTER_NGRAPH_STUB(Name("AvgPool")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T"));
+REGISTER_NGRAPH_STUB(Name("BatchMatMul")
+                         .Device(ngraph_bridge::DEVICE_NGRAPH)
+                         .TypeConstraint("T",{DT_FLOAT, DT_INT32, DT_DOUBLE}));
 REGISTER_NGRAPH_STUB(Name("BiasAdd")
                          .Device(ngraph_bridge::DEVICE_NGRAPH)
                          .TypeConstraint<float>("T"));
