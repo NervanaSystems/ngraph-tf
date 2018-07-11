@@ -65,9 +65,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     OP_REQUIRES_OK(ctx, tf::ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
     // Create the backend
-    if (m_backend == nullptr) {
-      m_backend = ng::runtime::Backend::create("GPU");
-      OP_REQUIRES(ctx, m_backend != nullptr,
+    if (m_cpu_backend == nullptr) {
+      m_cpu_backend = ng::runtime::Backend::create("GPU");
+      OP_REQUIRES(ctx, m_cpu_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create GPU backend"));
     }
   }
@@ -158,7 +158,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                                         &ng_element_type));
 
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
-      auto t = m_backend->create_tensor(ng_element_type, ng_shape);
+      auto t = m_cpu_backend->create_tensor(ng_element_type, ng_shape);
       t->write(src_ptr, 0, input_size * ng_element_type.size());
 
       // Mark each tensor as non-stale if:
@@ -211,14 +211,14 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* dst_ptr = (void*)tf::DMAHelper::base(output_tensor);
       tf_outputs.push_back(dst_ptr);
       outputs_size.push_back(output_size * elem_type.size());
-      auto t_result = m_backend->create_tensor(elem_type, shape);
+      auto t_result = m_cpu_backend->create_tensor(elem_type, shape);
 
       outputs.push_back(t_result);
     }
 
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "call starting for cluster " << m_ngraph_cluster;
-    m_backend->call(ng_function, outputs, ng_inputs);
+    m_cpu_backend->call(ng_function, outputs, ng_inputs);
     NGRAPH_VLOG(4) << "call done for cluster " << m_ngraph_cluster;
     
     for(int i = 0; i < outputs.size(); i++)
@@ -241,9 +241,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_last_used_src_ptrs_map;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
-  static std::shared_ptr<ng::runtime::Backend> m_backend;
+  static std::shared_ptr<ng::runtime::Backend> m_cpu_backend;
 };
-std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_backend;
+std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_cpu_backend;
 
 }  // namespace ngraph_bridge
 
