@@ -63,7 +63,7 @@ TEST(graph_exec, axpy) {
       ng_function));
 
   // Create the nGraph backend
-  auto backend = ng::runtime::Backend::create("CPU");
+  auto backend = ng::runtime::Backend::create("GPU");
 
   // Allocate tensors for arguments a, b, c
   ng::Shape ng_shape_x(x.shape().dims());
