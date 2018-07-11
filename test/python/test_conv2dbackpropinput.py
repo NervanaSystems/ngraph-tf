@@ -30,8 +30,8 @@ from common import NgraphTest
 
 
 class TestConv2DBackpropInput(NgraphTest):
-  INPUT_SIZES_NCHW = [1, 2, 4, 3]
-  INPUT_SIZES_NHWC = [1, 4, 3, 2]
+  INPUT_SIZES_NCHW = {"VALID": [1, 2, 6, 4], "SAME": [1, 2, 8, 6]}
+  INPUT_SIZES_NHWC = {"VALID": [1, 6, 4, 2], "SAME": [1, 8, 6, 2]}
   FILTER_IN_SIZES = [2, 2, 2, 2]
   OUT_BACKPROP_IN_SIZES = {"VALID": [1, 2, 3, 2], "SAME": [1, 2, 4, 3]}
 
@@ -53,30 +53,32 @@ class TestConv2DBackpropInput(NgraphTest):
   def test_nchw(self, padding):
     # The expected size of the backprop will depend on whether padding is VALID
     # or SAME.
+    input_sizes_nchw = self.INPUT_SIZES_NCHW[padding]
+    input_sizes_nhwc = self.INPUT_SIZES_NHWC[padding]
     out_backprop_in_sizes = self.OUT_BACKPROP_IN_SIZES[padding]
     x1, x2 = self.make_filter_and_backprop_args(out_backprop_in_sizes)
 
     with self.device:
       with self.session as sess:
-        t1 = constant_op.constant(self.INPUT_SIZES_NCHW)
+        t1 = constant_op.constant(input_sizes_nchw)
         t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
         t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
         inp = nn_ops.conv2d_backprop_input(
             t1, t2, t3,
-            strides=[1, 1, 1, 1], padding=padding, data_format='NCHW')
+            strides=[1, 1, 2, 2], padding=padding, data_format='NCHW')
         value = sess.run(inp)
 
     # To validate on the CPU side we will need to run in NHWC, because the CPU
     # implementation of conv/conv backprop does not support NCHW. We will
     # transpose on the way in and on the way out.
     with self.session as sess:
-      t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
+      t1 = constant_op.constant(input_sizes_nhwc)
       t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
       t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
       t3 = tf.transpose(t3, [0, 2, 3, 1])
       inp = nn_ops.conv2d_backprop_input(
           t1, t2, t3,
-          strides=[1, 1, 1, 1], padding=padding, data_format='NHWC')
+          strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
       inp = tf.transpose(inp, [0, 3, 1, 2])
       expected = sess.run(inp)
 
@@ -84,28 +86,29 @@ class TestConv2DBackpropInput(NgraphTest):
 
   @pytest.mark.parametrize("padding", ("VALID", "SAME"))
   def test_nhwc(self, padding):
+    input_sizes_nhwc = self.INPUT_SIZES_NHWC[padding]
     out_backprop_in_sizes = self.OUT_BACKPROP_IN_SIZES[padding]
     x1, x2 = self.make_filter_and_backprop_args(out_backprop_in_sizes)
 
     with self.device:
       with self.session as sess:
-        t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
+        t1 = constant_op.constant(input_sizes_nhwc)
         t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
         t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
         t3 = tf.transpose(t3, [0, 2, 3, 1])
         inp = nn_ops.conv2d_backprop_input(
             t1, t2, t3,
-            strides=[1, 1, 1, 1], padding=padding, data_format='NHWC')
+            strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
         value = sess.run(inp)
 
     with self.session as sess:
-      t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
+      t1 = constant_op.constant(input_sizes_nhwc)
       t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
       t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
       t3 = tf.transpose(t3, [0, 2, 3, 1])
       inp = nn_ops.conv2d_backprop_input(
           t1, t2, t3,
-          strides=[1, 1, 1, 1], padding=padding, data_format='NHWC')
+          strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
       expected = sess.run(inp)
 
     assert (value == expected).all()

@@ -688,13 +688,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_kernel_shape(2);
       ng::Shape ng_batch_shape(4);
 
-
-      ng_strides[0] = tf_strides[1];
-      ng_strides[1] = tf_strides[2];
-      ng_dilations[0] = tf_dilations[0];
-      ng_dilations[1] = tf_dilations[1];
-
       if (is_nhwc) {
+        ng_strides[0] = tf_strides[1];
+        ng_strides[1] = tf_strides[2];
+        ng_dilations[0] = tf_dilations[1];
+        ng_dilations[1] = tf_dilations[2];
         ng_image_shape[0] = tf_input_sizes[1];
         ng_image_shape[1] = tf_input_sizes[2];
         ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
@@ -706,6 +704,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_out_backprop = make_shared<ng::op::Reshape>(
             ng_out_backprop, ng::AxisVector{0, 3, 1, 2}, reshaped);
       } else {
+        ng_strides[0] = tf_strides[2];
+        ng_strides[1] = tf_strides[3];
+        ng_dilations[0] = tf_dilations[2];
+        ng_dilations[1] = tf_dilations[3];
         ng_image_shape[0] = tf_input_sizes[2];
         ng_image_shape[1] = tf_input_sizes[3];
         ng_batch_shape = { static_cast<unsigned long>(tf_input_sizes[0]),
