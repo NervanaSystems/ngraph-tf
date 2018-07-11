@@ -195,7 +195,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       tf::TensorShape tf_shape(dims);
       tf::Tensor* output_tensor = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
-      tf_outputs.push_back(output_tensor);
 
       // Make sure the nGraph-inferred element type agrees with what TensorFlow
       // expected.
@@ -209,7 +208,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
+      void* dst_ptr = (void*)tf::DMAHelper::base(output_tensor);
       tf_outputs.push_back(dst_ptr);
       outputs_size.push_back(output_size * elem_type.size());
       auto t_result = m_backend->create_tensor(elem_type, shape);
