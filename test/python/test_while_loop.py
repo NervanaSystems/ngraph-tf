@@ -28,7 +28,7 @@ import tensorflow as tf
 from common import NgraphTest
 
 
-class TestLogOperations(NgraphTest):
+class TestWhileLoop(NgraphTest):
   def test_while_loop(self):
     with self.device:
       # Simple example taken from TF docs for tf.while

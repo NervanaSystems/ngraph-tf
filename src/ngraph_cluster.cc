@@ -81,7 +81,8 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
   for (auto node : graph->op_nodes()) {
     int new_index = gc.NewNode();
-    NGRAPH_VLOG(5) << "Creating cycle graph node: " << new_index << " for " << node->name() << "[" << node->type_string() << "]";
+    NGRAPH_VLOG(5) << "Creating cycle graph node: " << new_index << " for "
+                   << node->name() << "[" << node->type_string() << "]";
     cluster_map[node] = std::make_shared<Cluster>();
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
@@ -194,9 +195,9 @@ tf::Status NGraphClusterPass::IdentifyClusters(tf::Graph* graph) {
 
         if (!IsClusterable(node)) {
           return tf::errors::Internal("Node ", node->DebugString(),
-                                             " is not a clusterable node but "
-                                             "was placed in an nGraph "
-                                             "cluster.");
+                                      " is not a clusterable node but "
+                                      "was placed in an nGraph "
+                                      "cluster.");
         }
 
         NGRAPH_VLOG(2) << ">> cluster " << cluster_idx << ": " << node
