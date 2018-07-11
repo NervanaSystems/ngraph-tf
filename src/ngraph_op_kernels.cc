@@ -113,8 +113,7 @@ class NGraphIdentityOp : public OpKernel {
 
 class NGraphEnterOp : public OpKernel {
  public:
-  explicit NGraphEnterOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+  explicit NGraphEnterOp(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
     if (IsRefType(context->input_dtype(0))) {
@@ -129,8 +128,7 @@ class NGraphEnterOp : public OpKernel {
 
 class NGraphExitOp : public OpKernel {
  public:
-  explicit NGraphExitOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+  explicit NGraphExitOp(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
     if (IsRefType(context->input_dtype(0))) {
@@ -167,8 +165,8 @@ class NGraphMergeOp : public OpKernel {
     for (int i = 0; i < context->num_inputs(); ++i) {
       if (context->has_input(i)) {
         if (input_seen) {
-          context->SetStatus(
-              errors::Internal("Merge can not have more than one valid input."));
+          context->SetStatus(errors::Internal(
+              "Merge can not have more than one valid input."));
           return;
         }
         input_seen = true;
@@ -179,8 +177,8 @@ class NGraphMergeOp : public OpKernel {
           context->set_output(0, context->input(i));
         }
         Tensor* value_index = nullptr;
-        OP_REQUIRES_OK(
-            context, context->allocate_output(1, TensorShape({}), &value_index));
+        OP_REQUIRES_OK(context, context->allocate_output(1, TensorShape({}),
+                                                         &value_index));
         value_index->scalar<int32>()() = i;
       }
     }
@@ -229,8 +227,14 @@ REGISTER_KERNEL_BUILDER(Name("Identity")
                             .TypeConstraint("T", ngraph_bridge::NGraphDTypes()),
                         NGraphIdentityOp);
 
-REGISTER_KERNEL_BUILDER(Name("Enter").Device(ngraph_bridge::DEVICE_NGRAPH), NGraphEnterOp);
-REGISTER_KERNEL_BUILDER(Name("Exit").Device(ngraph_bridge::DEVICE_NGRAPH), NGraphExitOp);
-REGISTER_KERNEL_BUILDER(Name("NextIteration").Device(ngraph_bridge::DEVICE_NGRAPH), NGraphNextIterationOp);
-REGISTER_KERNEL_BUILDER(Name("Merge").Device(ngraph_bridge::DEVICE_NGRAPH), NGraphMergeOp);
-REGISTER_KERNEL_BUILDER(Name("Switch").Device(ngraph_bridge::DEVICE_NGRAPH), NGraphSwitchOp);
+REGISTER_KERNEL_BUILDER(Name("Enter").Device(ngraph_bridge::DEVICE_NGRAPH),
+                        NGraphEnterOp);
+REGISTER_KERNEL_BUILDER(Name("Exit").Device(ngraph_bridge::DEVICE_NGRAPH),
+                        NGraphExitOp);
+REGISTER_KERNEL_BUILDER(
+    Name("NextIteration").Device(ngraph_bridge::DEVICE_NGRAPH),
+    NGraphNextIterationOp);
+REGISTER_KERNEL_BUILDER(Name("Merge").Device(ngraph_bridge::DEVICE_NGRAPH),
+                        NGraphMergeOp);
+REGISTER_KERNEL_BUILDER(Name("Switch").Device(ngraph_bridge::DEVICE_NGRAPH),
+                        NGraphSwitchOp);
