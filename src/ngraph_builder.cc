@@ -59,8 +59,7 @@ static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
   return tf::Status::OK();
 }
 
-template <typename T>
-static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
+static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map, std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>)> f) {
   if (op->num_inputs() != 1) {
     return tf::errors::InvalidArgument(
         "Number of inputs is not 1 for unary op");
@@ -69,9 +68,14 @@ static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
   tf::Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
   auto ng_input = ng_op_map.at(tf_input->name());
-  ng_op_map[op->name()] = make_shared<T>(ng_input);
+  ng_op_map[op->name()] = f(ng_input);
 
   return tf::Status::OK();
+}
+
+template <typename T>
+static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
+  return TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n) { return make_shared<T>(n); });
 }
 
 // Helper for Builder::TranslateGraph (elementwise binops)
@@ -1503,6 +1507,19 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_shape);
     }
+    // -----
+    // Rsqrt
+    // -----
+    else if (op->type_string() == "Rsqrt") {
+      TF_RETURN_IF_ERROR(TranslateUnaryOp(op, ng_op_map,
+         [](std::shared_ptr<ng::Node> n) {
+           auto et = n->get_element_type();
+           auto shape = n->get_shape();
+           std::vector<std::string> constant_values(ng::shape_size(shape),"-0.5");
+           auto ng_exponent = std::make_shared<ng::op::Constant>(et,shape,constant_values);
+           return std::make_shared<ng::op::Power>(n,ng_exponent);
+         }));
+    }
     // ---------
     // Sigmoid
     // ---------
@@ -1655,6 +1672,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] =
           make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
+    }
+    // ------
+    // Square
+    // ------
+    else if (op->type_string() == "Square") {
+      TF_RETURN_IF_ERROR(TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n){return std::make_shared<ng::op::Multiply>(n,n);}));
     }
     // -------
     // Squeeze
