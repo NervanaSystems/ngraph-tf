@@ -24,7 +24,10 @@ echo "Running TensorFlow unit tests"
 ./gtest_ngtf
 
 pushd python
-pytest
+# We need to explictly run python here, since "pytest" is also a shell script,
+# and that shell script starts with "#! /usr/bin/python", overriding any
+# python installed in a virtual environment.
+python -m pytest
 popd
 
 echo "Running a quick inference test"
