@@ -179,7 +179,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
-    vector<void*> tf_outputs;
+    vector<void*> outputs_tf;
     vector<size_t> outputs_size;
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto shape = ng_function->get_output_shape(i);
@@ -209,7 +209,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // Create the nGraph output tensor
       void* dst_ptr = (void*)tf::DMAHelper::base(output_tensor);
-      tf_outputs.push_back(dst_ptr);
+      outputs_tf.push_back(dst_ptr);
       outputs_size.push_back(output_size * elem_type.size());
       auto t_result = m_cpu_backend->create_tensor(elem_type, shape);
 
@@ -223,7 +223,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     
     for(int i = 0; i < outputs.size(); i++)
     {
-       outputs[i]->read(tf_outputs[i], 0, outputs_size[i]);
+       outputs[i]->read(outputs_tf[i], 0, outputs_size[i]);
     } 
 
     // Mark input tensors as fresh for the next time around.
