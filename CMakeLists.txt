@@ -22,6 +22,28 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(ExternalProject)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare")
 
+SET(CMAKE_CXX_FLAGS_SANITIZE
+    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -D_LIBCPP_HAS_NO_ASAN -fsanitize-address-use-after-scope"
+    CACHE STRING "Flags used by the C++ compiler during sanitized builds."
+    FORCE )
+SET(CMAKE_C_FLAGS_SANITIZE
+    "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -D_LIBCPP_HAS_NO_ASAN -fsanitize-address-use-after-scope"
+    CACHE STRING "Flags used by the C compiler during sanitized builds."
+    FORCE )
+SET(CMAKE_EXE_LINKER_FLAGS_SANITIZE
+    "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address -D_LIBCPP_HAS_NO_ASAN -fsanitize-address-use-after-scope"
+    CACHE STRING "Flags used for linking binaries during sanitized builds."
+    FORCE )
+SET(CMAKE_SHARED_LINKER_FLAGS_SANITIZE
+    "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address -D_LIBCPP_HAS_NO_ASAN -fsanitize-address-use-after-scope"
+    CACHE STRING "Flags used by the shared libraries linker during coverage builds."
+    FORCE )
+MARK_AS_ADVANCED(
+    CMAKE_CXX_FLAGS_SANITIZE
+    CMAKE_C_FLAGS_SANITIZE
+    CMAKE_EXE_LINKER_FLAGS_SANITIZE
+    CMAKE_SHARED_LINKER_FLAGS_SANITIZE)
+
 # These variables are undocumented but useful.
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
