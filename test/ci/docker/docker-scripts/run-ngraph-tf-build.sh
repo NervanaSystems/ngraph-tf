@@ -196,9 +196,7 @@ mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
 cmake -DNGRAPH_USE_PREBUILT_LLVM=TRUE ..
 make -j16
-# FUTURE: Remove this mkdir -p, which is a temporary make-install bug workaround
-mkdir -p "${bbuild_dir}/python/ngraph"
-make install  # NEW-20180710
+make install
 
 xtime="$(date)"
 echo  ' '
