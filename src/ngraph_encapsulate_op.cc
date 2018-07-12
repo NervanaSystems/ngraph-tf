@@ -66,9 +66,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     // Create the backend
     if (m_cpu_backend == nullptr) {
-      m_cpu_backend = ng::runtime::Backend::create("CPU");
+      m_cpu_backend = ng::runtime::Backend::create("GPU");
       OP_REQUIRES(ctx, m_cpu_backend != nullptr,
-                  tf::errors::InvalidArgument("Cannot create CPU backend"));
+                  tf::errors::InvalidArgument("Cannot create GPU backend"));
     }
   }
 
@@ -147,8 +147,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     for (int i = 0; i < input_shapes.size(); i++) {
       ng::Shape ng_shape(input_shapes[i].dims());
+      int input_size = 1;
       for (int j = 0; j < input_shapes[i].dims(); ++j) {
         ng_shape[j] = input_shapes[i].dim_size(j);
+        input_size *= ng_shape[j];
       }
 
       ng::element::Type ng_element_type;
@@ -156,7 +158,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                                         &ng_element_type));
 
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
-      auto t = m_cpu_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
+      auto t = m_cpu_backend->create_tensor(ng_element_type, ng_shape);
+      t->write(src_ptr, 0, input_size * ng_element_type.size());
 
       // Mark each tensor as non-stale if:
       //
@@ -176,13 +179,17 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
+    vector<void*> outputs_tf;
+    vector<size_t> outputs_size;
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto shape = ng_function->get_output_shape(i);
       auto elem_type = ng_function->get_output_element_type(i);
 
       // Create the TF output tensor
       vector<tf::int64> dims;
+      size_t output_size = 1;
       for (auto dim : shape) {
+        output_size *= dim;
         dims.push_back(dim);
       }
       tf::TensorShape tf_shape(dims);
@@ -201,8 +208,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      auto t_result = m_cpu_backend->create_tensor(elem_type, shape, dst_ptr);
+      void* dst_ptr = (void*)tf::DMAHelper::base(output_tensor);
+      outputs_tf.push_back(dst_ptr);
+      outputs_size.push_back(output_size * elem_type.size());
+      auto t_result = m_cpu_backend->create_tensor(elem_type, shape);
 
       outputs.push_back(t_result);
     }
@@ -211,6 +220,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "call starting for cluster " << m_ngraph_cluster;
     m_cpu_backend->call(ng_function, outputs, ng_inputs);
     NGRAPH_VLOG(4) << "call done for cluster " << m_ngraph_cluster;
+    
+    for(int i = 0; i < outputs.size(); i++)
+    {
+       outputs[i]->read(outputs_tf[i], 0, outputs_size[i]);
+    } 
 
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {
