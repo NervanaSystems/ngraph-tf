@@ -402,20 +402,26 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       } else if (n_dims == 3) {
         auto output_type = ng_lhs->get_element_type(); 
         auto output_shape = ng_lhs_shape;
-        output_shape[n_dims-1] = ng_rhs_shape[n_dims-1];
+        output_shape[n_dims-1] = ng_rhs_shape[1];
         std::cout<<"1st print out!"<<endl;
         auto output_tensor = make_shared<ngraph::op::Parameter>(output_type, output_shape);
         std::cout<<"2nd print out!"<<endl;
         auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
         std::cout<<"3rd print out!"<<endl;
         std::cout<<"out_shape[0]= "<<output_shape[0]<<","<<ng_lhs_shape[0]<<endl;
+        ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims-2], ng_rhs_shape[1]};
+        vector<shared_ptr<ngraph::Node>> tmp_tensors;
         for (size_t i = 0; i < output_shape[0]; i++) { 
           const std::vector<size_t> lower_bound{i, 0, 0, i};
           const std::vector<size_t> upper_bound{i+1, output_shape[1], output_shape[2], i+1};
           std::cout<<"4th print out!"<<endl;
-          auto ng_replace_slice = make_shared<ngraph::op::ReplaceSlice>(output_tensor, dot_output, lower_bound, upper_bound);
+          auto slice_out = make_shared<ngraph::op::Slice>(dot_output, lower_bound, upper_bound);
+          auto x = slice_out->get_shape();
+          std::cout<<x.size()<<endl;
+          auto reshape_out = make_shared<ngraph::op::Reshape>(slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
+          tmp_tensors.push_back(reshape_out);
         }
-        ng_op_map[op->name()] = output_tensor;
+        ng_op_map[op->name()] = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
       }
 
     }
@@ -1740,16 +1746,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       shared_ptr<ng::Node> ng_input;
       try {
-<<<<<<< HEAD
         ng_input = ng_op_map.at(tf_input->name());
       } catch (const std::out_of_range&) {
         return tf::errors::NotFound(tf_input->name(),
                                     " is not found in the ng_op_map");
-=======
-        ng_op_map.at(tf_input->name()); 
-      } catch (const std::out_of_range&) {
-          return tf::errors::NotFound(tf_input->name(), " is not found in the ng_op_map");
->>>>>>> 0c53687af18ba973097f82171990045569185b28
       }
       auto ng_input_shape = ng_input->get_shape();
 
