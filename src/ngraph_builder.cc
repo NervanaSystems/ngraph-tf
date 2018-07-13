@@ -332,14 +332,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       } catch(const std::out_of_range&) {
           return tf::errors::NotFound(tf_lhs->name(),"is not found in ng_op_map!");
       }
-      std::cout<<"first print out!"<<endl;
 
       try {
         ng_op_map.at(tf_rhs->name());
       } catch(const std::out_of_range&) {
           return tf::errors::NotFound(tf_rhs->name(),"is not found in ng_op_map!");
       }
-      std::cout<<"second print out!"<<endl;
 
       auto ng_lhs = ng_op_map.at(tf_lhs->name()); 
       auto ng_rhs = ng_op_map.at(tf_rhs->name()); 
@@ -355,7 +353,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument(
             "Dimensions of input args for BatchMatMul must be >=2", n_dims);
       }
-      std::cout<<"thrid print out!"<<endl;
 
       ng::AxisVector out_axes;
       for (size_t i = 0; i < n_dims - 2; ++i) {
@@ -366,7 +363,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         }
         out_axes.push_back(i);
       }
-      std::cout<<"fourth print out!"<<endl;
 
       bool tf_adj_x = false;
       bool tf_adj_y = false;
@@ -381,26 +377,48 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_lhs = ng::builder::numpy_transpose(ng_lhs, ng_lhs_axes);
       }
       if (tf_adj_y) {
-        ng_rhs_axes.push_back(n_dims-1);
         ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims-2); 
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims-1);
         ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
       } else {
-        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims-1);
-        ng_rhs_axes.push_back(n_dims-2);
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims-1);      
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims-2);
         ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
       }
-      std::cout<<"fifth print out!"<<endl;
 
       ng_lhs_shape = ng_lhs->get_shape();
       ng_rhs_shape = ng_rhs->get_shape();
-
+      std::cout<<"n_dims= "<<n_dims<<endl;
+      std::cout<<ng_lhs_shape[n_dims-2]<<","<<ng_lhs_shape[n_dims-1]<<" ng_rhs "<<ng_rhs_shape[0]<<","<<ng_rhs_shape[1]<<endl;
+ 
       if(ng_lhs_shape[n_dims-1] != ng_rhs_shape[0]) {
         return tf::errors::InvalidArgument(
             "The last dimension of ng_lhs and the first dimension of ng_rhs should have the same size!"
             );
       }
       std::cout<<"sixth print out!"<<endl;
-      ng_op_map[op->name()] = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+      if (n_dims == 2) {
+        ng_op_map[op->name()] = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+      } else if (n_dims == 3) {
+        auto output_type = ng_lhs->get_element_type(); 
+        auto output_shape = ng_lhs_shape;
+        output_shape[n_dims-1] = ng_rhs_shape[n_dims-1];
+        std::cout<<"1st print out!"<<endl;
+        auto output_tensor = make_shared<ngraph::op::Parameter>(output_type, output_shape);
+        std::cout<<"2nd print out!"<<endl;
+        auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+        std::cout<<"3rd print out!"<<endl;
+        std::cout<<"out_shape[0]= "<<output_shape[0]<<","<<ng_lhs_shape[0]<<endl;
+        for (size_t i = 0; i < output_shape[0]; i++) { 
+          const std::vector<size_t> lower_bound{i, 0, 0, i};
+          const std::vector<size_t> upper_bound{i+1, output_shape[1], output_shape[2], i+1};
+          std::cout<<"4th print out!"<<endl;
+          auto ng_replace_slice = make_shared<ngraph::op::ReplaceSlice>(output_tensor, dot_output, lower_bound, upper_bound);
+        }
+        ng_op_map[op->name()] = output_tensor;
+      }
+
+
     }
     // -------
     // BiasAdd

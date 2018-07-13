@@ -104,27 +104,41 @@ TEST(tf_exec, axpy) {
   }
 }
 
+/*template<typename T>
+void AssertTensorEquals(T T1, T T2) {
+  cout<<T1.shape()<<endl;
+  auto mat1 = T1.matrix<T>();
+  auto mat2 = T2.matrix<T>();
+  for(int i=0; i <  mat1.size(); i++){
+    //EXPECT_EQ(mat1[i], mat2[i]);
+    return;
+  }
+}*/
+
 TEST(tf_exec, BatchMatMul) { 
   tf::Scope root = tf::Scope::NewRootScope();
-  auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,1,2})); 
-  auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f}, tf::TensorShape({2,2,1})); 
-  auto R = tf::ops::BatchMatMul(root.WithOpName("R"), A, B);
+  auto dev_scope = root.WithDevice("/device:NGRAPH:0");
+  auto A = tf::ops::Const(dev_scope, {-1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,1,2})); 
+  auto B = tf::ops::Const(dev_scope, {1.f, 0.f, -1.f, -2.f}, tf::TensorShape({2,2,1})); 
+  auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
   std::vector<tf::Tensor> outputs;
   // Run and fetch v
-  tf::ClientSession session(root);
+  tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
   // Expect outputs[0] == [19; -3]
+  std::cout<<"shape= "<<outputs[0].shape()<<endl;
   ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,1,1}));
 }
 
 TEST(tf_exec, BatchMatMul_2D) { 
   tf::Scope root = tf::Scope::NewRootScope();
+  auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2})); 
   auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f}, tf::TensorShape({2,2})); 
-  auto R = tf::ops::BatchMatMul(root.WithOpName("R"), A, B);
+  auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
   std::vector<tf::Tensor> outputs;
   // Run and fetch R
-  tf::ClientSession session(root);
+  tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
   // Expect outputs[0] == [19; -3]
   ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
@@ -133,6 +147,13 @@ TEST(tf_exec, BatchMatMul_2D) {
   ASSERT_EQ(-4.f, mat(0,1)); 
   ASSERT_EQ(-1.f, mat(1,0));
   ASSERT_EQ(-8.f, mat(1,1));
+
+  tf::ClientSession sess(root);
+  std::vector<tf::Tensor> outputs_cpu;
+  auto C = tf::ops::BatchMatMul(root.WithOpName("C"), A, B);
+  TF_CHECK_OK(sess.Run({C}, &outputs_cpu));
+  ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
+  //AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
 
