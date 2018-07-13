@@ -645,8 +645,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       tf::Node *tf_filter, *tf_out_backprop;
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_filter));
       TF_RETURN_IF_ERROR(op->input_node(2, &tf_out_backprop));
-      auto ng_filter = ng_op_map.at(tf_filter->name());
-      auto ng_out_backprop = ng_op_map.at(tf_out_backprop->name());
+      shared_ptr<ng::Node> ng_filter, ng_out_backprop;
+      try {
+        ng_filter = ng_op_map.at(tf_filter->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Filter not found: %s", tf_filter->name());
+      }
+      try {
+        ng_out_backprop = ng_op_map.at(tf_out_backprop->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Out Backprop not found: %s",
+                                    tf_out_backprop->name());
+      }
 
       // TODO: refactor me to be less redundant with other convolution ops
       std::vector<tf::int32> tf_strides;
@@ -663,7 +673,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
         return tf::errors::InvalidArgument(
-            "Conv2DBackpropInput data format is neither NHWC nor NCHW");
+            "Conv2DBackpropInput data format is neither NHWC nor NCHW: %s",
+            tf_data_format);
       }
 
       std::vector<tf::int64> tf_input_sizes;

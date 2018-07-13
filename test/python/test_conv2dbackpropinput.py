@@ -69,16 +69,17 @@ class TestConv2DBackpropInput(NgraphTest):
     # To validate on the CPU side we will need to run in NHWC, because the CPU
     # implementation of conv/conv backprop does not support NCHW. We will
     # transpose on the way in and on the way out.
-    with self.session as sess:
-      t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
-      t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
-      t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
-      t3 = tf.transpose(t3, [0, 2, 3, 1])
-      inp = nn_ops.conv2d_backprop_input(
-          t1, t2, t3,
-          strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
-      inp = tf.transpose(inp, [0, 3, 1, 2])
-      expected = sess.run(inp)
+    with tf.device('/cpu:0'):
+      with self.session as sess:
+        t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
+        t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
+        t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
+        t3 = tf.transpose(t3, [0, 2, 3, 1])
+        inp = nn_ops.conv2d_backprop_input(
+            t1, t2, t3,
+            strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
+        inp = tf.transpose(inp, [0, 3, 1, 2])
+        expected = sess.run(inp)
 
     assert (value == expected).all()
 
@@ -98,14 +99,15 @@ class TestConv2DBackpropInput(NgraphTest):
             strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
         value = sess.run(inp)
 
-    with self.session as sess:
-      t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
-      t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
-      t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
-      t3 = tf.transpose(t3, [0, 2, 3, 1])
-      inp = nn_ops.conv2d_backprop_input(
-          t1, t2, t3,
-          strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
-      expected = sess.run(inp)
+    with tf.device('/cpu:0'):
+      with self.session as sess:
+        t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
+        t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
+        t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
+        t3 = tf.transpose(t3, [0, 2, 3, 1])
+        inp = nn_ops.conv2d_backprop_input(
+            t1, t2, t3,
+            strides=[1, 2, 2, 1], padding=padding, data_format='NHWC')
+        expected = sess.run(inp)
 
     assert (value == expected).all()
