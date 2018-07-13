@@ -418,7 +418,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_op_map[op->name()] = output_tensor;
       }
 
-
     }
     // -------
     // BiasAdd
@@ -1741,10 +1740,16 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       shared_ptr<ng::Node> ng_input;
       try {
+<<<<<<< HEAD
         ng_input = ng_op_map.at(tf_input->name());
       } catch (const std::out_of_range&) {
         return tf::errors::NotFound(tf_input->name(),
                                     " is not found in the ng_op_map");
+=======
+        ng_op_map.at(tf_input->name()); 
+      } catch (const std::out_of_range&) {
+          return tf::errors::NotFound(tf_input->name(), " is not found in the ng_op_map");
+>>>>>>> 0c53687af18ba973097f82171990045569185b28
       }
       auto ng_input_shape = ng_input->get_shape();
 
