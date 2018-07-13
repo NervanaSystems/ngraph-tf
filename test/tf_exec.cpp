@@ -30,7 +30,6 @@
 #include "tensorflow/cc/ops/standard_ops.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
-
 using namespace std;
 namespace tf = tensorflow;
 
@@ -104,16 +103,16 @@ TEST(tf_exec, axpy) {
   }
 }
 
-/*template<typename T>
-void AssertTensorEquals(T T1, T T2) {
+void AssertTensorEquals(tf::Tensor T1, tf::Tensor T2) {
+  cout<<T1.flat<float>().size()<<endl;
   cout<<T1.shape()<<endl;
-  auto mat1 = T1.matrix<T>();
-  auto mat2 = T2.matrix<T>();
-  for(int i=0; i <  mat1.size(); i++){
-    //EXPECT_EQ(mat1[i], mat2[i]);
-    return;
-  }
-}*/
+  auto T_size = T1.flat<float>().size();
+  for (int k=0; k<T_size; k++) {
+    auto a = T1.flat<float>().data()[k];
+    auto b = T2.flat<float>().data()[k];
+    EXPECT_FLOAT_EQ(a, b);
+  } 
+}
 
 TEST(tf_exec, BatchMatMul) { 
   tf::Scope root = tf::Scope::NewRootScope();
@@ -153,7 +152,7 @@ TEST(tf_exec, BatchMatMul_2D) {
   auto C = tf::ops::BatchMatMul(root.WithOpName("C"), A, B);
   TF_CHECK_OK(sess.Run({C}, &outputs_cpu));
   ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
-  //AssertTensorEquals(outputs[0],outputs_cpu[0]);
+  AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
 
