@@ -408,12 +408,39 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           const std::vector<size_t> lower_bound{i, 0, 0, i};
           const std::vector<size_t> upper_bound{i+1, output_shape[1], output_shape[2], i+1};
           auto slice_out = make_shared<ngraph::op::Slice>(dot_output, lower_bound, upper_bound);
-          auto x = slice_out->get_shape();
-          std::cout<<x.size()<<endl;
           auto reshape_out = make_shared<ngraph::op::Reshape>(slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
           tmp_tensors.push_back(reshape_out);
         }
         ng_op_map[op->name()] = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
+      } else {
+        auto output_type = ng_lhs->get_element_type(); 
+        auto output_shape = ng_lhs_shape;
+        output_shape[n_dims-1] = ng_rhs_shape[1];
+        auto output_tensor = make_shared<ngraph::op::Parameter>(output_type, output_shape);
+        auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+        size_t compound_size = 1;
+        for (int i=0; i<out_axes.size(); i++) {
+          compound_size *= output_shape[i];
+        }
+        auto dot_axes = out_axes;
+        dot_axes.push_back(n_dims-2);
+        dot_axes.push_back(n_dims-1);
+        for (int i=0; i<out_axes.size(); i++) {
+          dot_axes.push_back(n_dims+i);
+        }
+        ng::Shape dot_shape = {compound_size, ng_lhs_shape[n_dims-2], ng_rhs_shape[1], compound_size};
+        auto dot_reshape = make_shared<ngraph::op::Reshape>(dot_output, dot_axes, dot_shape);
+        ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims-2], ng_rhs_shape[1]};
+        vector<shared_ptr<ngraph::Node>> tmp_tensors;
+        for (size_t i = 0; i < dot_shape[0]; i++) { 
+          const std::vector<size_t> lower_bound{i, 0, 0, i};
+          const std::vector<size_t> upper_bound{i+1, dot_shape[1], dot_shape[2], i+1};
+          auto slice_out = make_shared<ngraph::op::Slice>(dot_reshape, lower_bound, upper_bound);
+          auto reshape_out = make_shared<ngraph::op::Reshape>(slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
+          tmp_tensors.push_back(reshape_out);
+        }
+        auto concat_op = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
+        ng_op_map[op->name()] = make_shared<ngraph::op::Reshape>(concat_op, ng::AxisVector{0, 1, 2 }, output_shape);
       }
 
 
