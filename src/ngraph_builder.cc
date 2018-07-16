@@ -442,8 +442,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         auto concat_op = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
         ng_op_map[op->name()] = make_shared<ngraph::op::Reshape>(concat_op, ng::AxisVector{0, 1, 2 }, output_shape);
       }
-
-
     }
     // -------
     // BiasAdd
