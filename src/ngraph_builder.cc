@@ -1789,20 +1789,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto& input_shape = ng_input->second->get_shape();
       NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
 
-      if (tf_shrink_axis_mask != 0) {
-        if (lower_vec.size() == 1) {
-          for (size_t i=end_vec.size(); i < input_shape.size(); ++i) {
-            lower_vec.push_back(0);
-            end_vec.push_back(0);
-          }
-        // } else {
-        //   lower_vec.insert(tf_shrink_axis_mask, 0);
-        //   end_vec.push_back(tf_shrink_axis_mask, 0);
+      if (lower_vec.size() == end_vec.size() && end_vec.size() == 1) {
+        for (size_t i=end_vec.size(); i < input_shape.size(); ++i) {
+          lower_vec.push_back(0);
+          end_vec.push_back(0);
         }
-
-        NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: " << ng::join(lower_vec);
-        NGRAPH_VLOG(3) << "extended End input for StridedSlice: " << ng::join(end_vec);
       }
+      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: " << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "extended End input for StridedSlice: " << ng::join(end_vec);
 
       if (std::any_of(end_vec.begin(), end_vec.end(), [](int i){ return i <= 0; })) {
         std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
