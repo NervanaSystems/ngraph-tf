@@ -66,7 +66,8 @@ class TestSliceOperations(NgraphTest):
         slice_ts.append(a[::2, :-2])
         slice_ts.append(a[1, :])
         slice_ts.append(a[0])
-        slice_ts.append(a[0][0])
+        slice_ts.append(a[0][1])
+        slice_ts.append(a[-1])
 
         slice_vals = sess.run(slice_ts)
 
@@ -78,7 +79,8 @@ class TestSliceOperations(NgraphTest):
     expected.append(inp[::2, :-2])
     expected.append(inp[1, :])
     expected.append(inp[0])
-    expected.append(inp[0][0])
+    expected.append(inp[0][1])
+    expected.append(inp[-1])
 
     for v, e in zip(slice_vals, expected):
         np.testing.assert_array_equal(v, e)
