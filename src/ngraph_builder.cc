@@ -1808,7 +1808,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
                        end_vec.begin(), [](int first, int second) {
                          if (first < 0) {
-                           return second + first + 1;
+                           return second + first;
                          } else if (first == 0) {
                            return second;
                          } else {
