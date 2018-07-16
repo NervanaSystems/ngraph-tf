@@ -29,7 +29,7 @@ from common import NgraphTest
 
 
 class TestSliceOperations(NgraphTest):
-  def test_slice_and_strided_slice(self):
+  def test_slice(self):
     with self.device:
       inp = np.random.rand(4, 4).astype("f")
       with self.session as sess:
@@ -37,14 +37,13 @@ class TestSliceOperations(NgraphTest):
             [float(x) for x in inp.ravel(order="C")],
             shape=[4, 4],
             dtype=dtypes.float32)
-        # slice
         slice_t = array_ops.slice(a, [0, 0], [2, 2])
 
-        slice_val, slice2_val = sess.run([slice_t, slice2_t])
+        slice_val = sess.run(slice_t)
 
     np.testing.assert_array_equal(slice_val, inp[:2, :2])
 
-  def test_strided_slice(self):
+  def test_strided_sliceg(self):
     with self.device:
       inp = np.random.rand(4, 4).astype("f")
       slice_ts = []

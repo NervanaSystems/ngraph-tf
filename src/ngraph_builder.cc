@@ -1583,19 +1583,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto& input_shape = ng_input->second->get_shape();
       NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
-      if (std::any_of(size_vec.begin(), size_vec.end(), [](int i){ return i <= 0; })) {
-        std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
-                       size_vec.begin(), [](int first, int second) {
-                         if (first < 0) {
-                           return second + first + 1;
-                         } else if (first == 0) {
-                           return second;
-                         } else {
-                           return first;
-                         }
-                       });
-        NGRAPH_VLOG(3) << "Size input for Slice (if less than 0): " << ng::join(size_vec);
-      }
 
       std::vector<int> upper_vec(lower_vec.size());
       std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
