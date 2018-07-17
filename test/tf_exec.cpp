@@ -119,8 +119,6 @@ TEST(tf_exec, BatchMatMul) {
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,2,1})); 
   auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,1,2})); 
-  //auto X = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f}, tf::TensorShape({1,2,3,4}));
-  //auto Y = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f}, tf::TensorShape({1,2,3,4}));
   tf::Tensor X1(tf::DT_FLOAT, tf::TensorShape({2, 3, 4, 5}));
   auto X1_flat = X1.flat<float>();
   for (int i = 0; i < X1_flat.size(); i++) {
@@ -157,7 +155,6 @@ TEST(tf_exec, BatchMatMul) {
   auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
   auto attrs = tf::ops::BatchMatMul::Attrs().AdjX(true);
   auto attrs_y = tf::ops::BatchMatMul::Attrs().AdjY(true); 
-  //bool tensorflow::ops::BatchMatMul::Attrs adj_y = true;
   auto Z1 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z1"), X1, Y1, attrs);
   auto Z2 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z2"), X2, Y2, attrs);
   auto Z3 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z3"), X3, Y3, attrs);
