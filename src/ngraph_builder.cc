@@ -330,13 +330,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       try {
         ng_op_map.at(tf_lhs->name());
       } catch(const std::out_of_range&) {
-          return tf::errors::NotFound(tf_lhs->name(),"is not found in ng_op_map!");
+          return tf::errors::NotFound(tf_lhs->name(),"is not found in ng_op_map");
       }
 
       try {
         ng_op_map.at(tf_rhs->name());
       } catch(const std::out_of_range&) {
-          return tf::errors::NotFound(tf_rhs->name(),"is not found in ng_op_map!");
+          return tf::errors::NotFound(tf_rhs->name(),"is not found in ng_op_map");
       }
 
       auto ng_lhs = ng_op_map.at(tf_lhs->name()); 
@@ -391,7 +391,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
  
       if(ng_lhs_shape[n_dims-1] != ng_rhs_shape[0]) {
         return tf::errors::InvalidArgument(
-            "The last dimension of ng_lhs and the first dimension of ng_rhs should have the same size!"
+            "The last dimension of ng_lhs and the first dimension of ng_rhs should have the same size"
             );
       }
       if (n_dims == 2) {
