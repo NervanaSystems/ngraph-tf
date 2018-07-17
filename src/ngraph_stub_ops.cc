@@ -61,6 +61,7 @@ REGISTER_NGRAPH_STUB("Cast");
 REGISTER_NGRAPH_STUB("ConcatV2");
 // "Const" can occur outside of clusters and is registered elsewhere.
 REGISTER_NGRAPH_STUB("Conv2D");
+REGISTER_NGRAPH_STUB("Conv2DBackpropInput");
 REGISTER_NGRAPH_STUB("DepthwiseConv2dNative");
 REGISTER_NGRAPH_STUB("Equal");
 REGISTER_NGRAPH_STUB("Exp");
@@ -80,9 +81,11 @@ REGISTER_NGRAPH_STUB("MaxPool");
 REGISTER_NGRAPH_STUB("Mean");
 REGISTER_NGRAPH_STUB("Mul");
 // "NoOp" can occur outside of clusters and is registered elsewhere.
+REGISTER_NGRAPH_STUB("Pack");
 REGISTER_NGRAPH_STUB("Pad");
 REGISTER_NGRAPH_STUB("Pow");
 REGISTER_NGRAPH_STUB("Prod");
+REGISTER_NGRAPH_STUB("RealDiv");
 REGISTER_NGRAPH_STUB("Relu");
 REGISTER_NGRAPH_STUB("Relu6");
 REGISTER_NGRAPH_STUB("Reshape");

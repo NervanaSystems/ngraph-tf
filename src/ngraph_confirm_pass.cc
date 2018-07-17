@@ -237,6 +237,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
         type_constraint_map["DepthwiseConv2dNative"]["T"] =
             NGraphNumericDTypes();
         type_constraint_map["Equal"]["T"] = NGraphDTypes();
@@ -257,11 +258,13 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Pack"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
         type_constraint_map["Pow"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu6"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Reshape"]["T"] = NGraphDTypes();
@@ -322,6 +325,21 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
+        confirmation_functions["Conv2DBackpropInput"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_input_sizes;
+          TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
+
+          std::vector<tf::int64> tf_static_input_sizes(4);
+          if (ExtractConstantData(tf_input_sizes, &tf_static_input_sizes) !=
+                  tf::Status::OK() || tf_static_input_sizes.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_static_input_sizes", tf_static_input_sizes);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
@@ -421,7 +439,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
-
+        
+        confirmation_functions["RealDiv"] = always;
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
         confirmation_functions["Rsqrt"] = always;
@@ -451,6 +470,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Square"] = always;
         confirmation_functions["Squeeze"] = always;
         confirmation_functions["StridedSlice"] = always;
+        confirmation_functions["Pack"] = always;
         confirmation_functions["Sub"] = always;
 
         // Constraints: reduction-axes input must be Const.
