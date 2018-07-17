@@ -256,6 +256,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
+        type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Pad"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
@@ -371,6 +372,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           return tf::Status::OK();
         };
 
+        confirmation_functions["Minimum"] = always;
         confirmation_functions["Mul"] = always;
 
         // Constraint: padding-widths input must be Const.

@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-from ctypes import cdll
 import glob
 import os
 import shutil
@@ -22,12 +21,7 @@ import pytest
 
 from tensorflow.python.framework import ops
 
-from common import LIBNGRAPH_DEVICE
-
-
-@pytest.fixture(scope='session', autouse=True)
-def load_ngraph_device():
-  cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_DEVICE))
+import ngraph  # noqa
 
 
 @pytest.fixture(autouse=True)
