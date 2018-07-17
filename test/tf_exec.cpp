@@ -117,20 +117,30 @@ TEST(tf_exec, BatchMatMul) {
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,2,1})); 
   auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,1,2})); 
+  auto X = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f}, tf::TensorShape({1,2,3,4}));
+  auto Y = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -2.f, -1.f,1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f, -2.f, -1.f, 1.f, 0.f, -1.f}, tf::TensorShape({1,2,3,4}));
   auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
+  auto attrs = tf::ops::BatchMatMul::Attrs().AdjX(true);
+  //bool tensorflow::ops::BatchMatMul::Attrs adj_y = true;
+  auto Z = tf::ops::BatchMatMul(dev_scope.WithOpName("Z"), X, Y, attrs);
   std::vector<tf::Tensor> outputs;
+  std::vector<tf::Tensor> outputs_z;
   // Run and fetch v
   tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
+  TF_CHECK_OK(session.Run({Z}, &outputs_z));
   // Expect outputs[0] == [19; -3]
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2,2,2}));
 
   tf::ClientSession sess(root);
   std::vector<tf::Tensor> outputs_cpu;
+  std::vector<tf::Tensor> outputs_z_cpu;
   auto C = tf::ops::BatchMatMul(root.WithOpName("C"), A, B);
+  auto W = tf::ops::BatchMatMul(root.WithOpName("W"), X, Y, attrs); 
   TF_CHECK_OK(sess.Run({C}, &outputs_cpu));
+  TF_CHECK_OK(sess.Run({W}, &outputs_z_cpu));
   ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
-  AssertTensorEquals(outputs[0],outputs_cpu[0]);
+  ASSERT_EQ(outputs_z[0].shape(),outputs_z_cpu[0].shape());
+  AssertTensorEquals(outputs_z[0],outputs_z_cpu[0]);
 }
 
 TEST(tf_exec, BatchMatMul_3D) { 
