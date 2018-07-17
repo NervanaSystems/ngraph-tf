@@ -177,6 +177,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
   // Now create the nGraph ops from TensorFlow ops.
   //
   for (auto op : tf_ops) {
+    NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is " << op->type_string();
+
     // NOTE: The following cases should be kept in alphabetical order.
 
     // ---
@@ -600,7 +602,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (tf_padding_type == "SAME") {
         for (size_t i = 0; i < 2; i++) {
           size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
           size_t filter_stride = ng_strides[i];
 
           tf::int64 padding_needed;
@@ -735,7 +737,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (tf_padding_type == "SAME") {
         for (size_t i = 0; i < 2; i++) {
           size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
           size_t filter_stride = ng_strides[i];
 
           tf::int64 padding_needed;
@@ -1449,9 +1451,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_shape_op = ng_op_map.at(tf_shape_node->name());
 
+      NGRAPH_VLOG(3) << "Input shape: " << ng::join(ng_input->get_shape());
+
       std::vector<tf::int64> shape;
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
+
+      NGRAPH_VLOG(3) << "Requested result shape: " << ng::join(shape);
 
       size_t output_rank = shape.size();
       size_t num_input_elements = ng::shape_size(ng_input->get_shape());
