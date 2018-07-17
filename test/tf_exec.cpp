@@ -37,6 +37,8 @@ namespace ngraph_bridge {
 
 TEST(tf_exec, hello_world) {
   tf::Scope root = tf::Scope::NewRootScope();
+ 
+  root = root.WithDevice("/device:NGRAPH:0"); 
   // Matrix A = [3 2; -1 0]
   auto A = tf::ops::Const(root, {{3.f, 2.f}, {-1.f, 0.f}});
   // Vector b = [3 5]
@@ -248,5 +250,72 @@ TEST(tf_exec, BatchMatMul_2D) {
   AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
+
+// Test Op :"Op_RealDiv"
+
+TEST(tf_exec, Op_RealDiv) {
+  tf::Scope root = tf::Scope::NewRootScope();
+  root = root.WithDevice("/device:NGRAPH:0");
+
+  auto A = tf::ops::Const(root, {{3.f, 5.f}, {2.f, 0.f}});
+  auto B = tf::ops::Const(root, {{3.f, 2.f}, {.1f, 1.f}});
+  auto r = tf::ops::RealDiv(root.WithOpName("r"), A, B);
+
+  std::vector<tf::Tensor> outputs;
+  tf::ClientSession session(root);
+
+  TF_CHECK_OK(session.Run({r}, &outputs));
+  
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
+
+  auto mat = outputs[0].matrix<float>();
+  EXPECT_FLOAT_EQ(1.0, mat(0, 0));
+  EXPECT_FLOAT_EQ(2.5, mat(0, 1));
+  EXPECT_FLOAT_EQ(20.0, mat(1, 0));
+  EXPECT_FLOAT_EQ(0.0, mat(1, 1));
+
+}
+
+TEST(tf_exec, Op_Square) {
+  tf::Scope root = tf::Scope::NewRootScope();
+  root = root.WithDevice("/device:NGRAPH:0");
+
+  auto A = tf::ops::Const(root, {{3.f, 5.f}, {-2.f, 0.f}});
+  auto r = tf::ops::Square(root.WithOpName("r"), A);
+
+  std::vector<tf::Tensor> outputs;
+  tf::ClientSession session(root);
+
+  TF_CHECK_OK(session.Run({r}, &outputs));
+
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
+
+  auto mat = outputs[0].matrix<float>();
+  EXPECT_FLOAT_EQ(9.0, mat(0, 0));
+  EXPECT_FLOAT_EQ(25.0, mat(0, 1));
+  EXPECT_FLOAT_EQ(4.0, mat(1, 0));
+  EXPECT_FLOAT_EQ(0.0, mat(1, 1));
+}
+
+TEST(tf_exec, Op_Rsqrt) {
+  tf::Scope root = tf::Scope::NewRootScope();
+  root = root.WithDevice("/device:NGRAPH:0");
+
+  auto A = tf::ops::Const(root, {{256.f, 16.f}, {4.f, 64.f}});
+  auto r = tf::ops::Rsqrt(root.WithOpName("r"), A);
+
+  std::vector<tf::Tensor> outputs;
+  tf::ClientSession session(root);
+
+  TF_CHECK_OK(session.Run({r}, &outputs));
+
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
+
+  auto mat = outputs[0].matrix<float>();
+  EXPECT_FLOAT_EQ(1.f/16.f, mat(0, 0));
+  EXPECT_FLOAT_EQ(1.f/4.f, mat(0, 1));
+  EXPECT_FLOAT_EQ(1.f/2.f, mat(1, 0));
+  EXPECT_FLOAT_EQ(1.f/8.f, mat(1, 1));
+}
 
 }  // namespace ngraph_bridge
