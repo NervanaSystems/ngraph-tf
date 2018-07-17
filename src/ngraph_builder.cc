@@ -1350,6 +1350,57 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] = ng_batch_norm;
     }
+    // --------------
+    // FusedBatchNormGrad
+    // --------------
+    else if (op->type_string() == "FusedBatchNormGrad") {
+      if (op->num_inputs() != 5) {
+        return tf::errors::InvalidArgument(
+            "Number of inputs is not 5 for FusedBatchNorm");
+      }
+
+      bool tf_is_training;
+      if (tf::GetNodeAttr(op->attrs(), "is_training", &tf_is_training) !=
+          tf::Status::OK()) {
+        NGRAPH_VLOG(3) << "is_training attribute not present, setting to true";
+        tf_is_training = true;
+      }
+
+      NGRAPH_VLOG(3) << "is_training: " << tf_is_training;
+
+      tf::Node* tf_input;
+      tf::Node* tf_scale;
+      tf::Node* tf_offset;
+      tf::Node* tf_mean;
+      tf::Node* tf_variance;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_scale));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_offset));
+      TF_RETURN_IF_ERROR(op->input_node(3, &tf_mean));
+      TF_RETURN_IF_ERROR(op->input_node(4, &tf_variance));
+
+      auto ng_input = ng_op_map.at(tf_input->name());
+      auto ng_scale = ng_op_map.at(tf_scale->name());
+      auto ng_offset = ng_op_map.at(tf_offset->name());
+      auto ng_mean = ng_op_map.at(tf_mean->name());
+      auto ng_variance = ng_op_map.at(tf_variance->name());
+
+      std::string tf_data_format;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "Conv2D data format is neither NHWC nor NCHW");
+      }
+
+      bool is_nhwc = (tf_data_format == "NHWC");
+
+      NGRAPH_VLOG(3) << "data_format: " << tf_data_format;
+
+      float tf_epsilon;
+      if (tf::GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) !=
+          tf::Status::OK()) {
     // -----
     // Greater
     // -----
