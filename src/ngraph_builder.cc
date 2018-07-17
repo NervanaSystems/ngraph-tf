@@ -1910,7 +1910,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Square
     // ------
     else if (op->type_string() == "Square") {
-      TF_RETURN_IF_ERROR(TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n){return std::make_shared<ng::op::Multiply>(n,n);}));
+      TF_RETURN_IF_ERROR(TranslateUnaryOp(op, ng_op_map,
+        [](std::shared_ptr<ng::Node> n)
+        {
+          return std::make_shared<ng::op::Multiply>(n,n);
+        }));
     }
     // -------
     // Squeeze
