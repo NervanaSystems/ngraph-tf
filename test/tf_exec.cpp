@@ -114,90 +114,95 @@ void AssertTensorEquals(tf::Tensor T1, tf::Tensor T2) {
   } 
 }
 
+TEST(tf_exec, BatchMatMul_0D) { 
+  tf::Scope root = tf::Scope::NewRootScope();
+  auto dev_scope = root.WithDevice("/device:NGRAPH:0");
+
+  tf::Tensor X1(tf::DT_FLOAT, tf::TensorShape({2, 0, 4, 5}));
+  tf::Tensor Y1(tf::DT_FLOAT, tf::TensorShape({2, 0, 4, 5}));
+  tf::Tensor X2(tf::DT_FLOAT, tf::TensorShape({2, 3, 0, 5}));
+  tf::Tensor Y2(tf::DT_FLOAT, tf::TensorShape({2, 3, 0, 5}));
+
+  auto attrs_x = tf::ops::BatchMatMul::Attrs().AdjX(true);
+  auto attrs_y = tf::ops::BatchMatMul::Attrs().AdjY(true); 
+  auto Z1 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z1"), X1, Y1, attrs_x);
+  auto Z2 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z2"), X2, Y2, attrs_x);
+  auto Z = tf::ops::BatchMatMul(dev_scope.WithOpName("Z"), X2, Y2, attrs_y);
+  std::vector<tf::Tensor> outputs_z1;
+  std::vector<tf::Tensor> outputs_z2;
+  std::vector<tf::Tensor> outputs_z;
+  // Run and fetch v
+  tf::ClientSession session(dev_scope);
+  TF_CHECK_OK(session.Run({Z1}, &outputs_z1)); 
+  TF_CHECK_OK(session.Run({Z2}, &outputs_z2)); 
+  TF_CHECK_OK(session.Run({Z}, &outputs_z));
+  // Expect outputs[0] == [19; -3]
+
+  tf::ClientSession sess(root);
+  std::vector<tf::Tensor> outputs_z1_cpu;
+  std::vector<tf::Tensor> outputs_z2_cpu;
+  std::vector<tf::Tensor> outputs_z_cpu;
+  auto W1 = tf::ops::BatchMatMul(root.WithOpName("W1"), X1, Y1, attrs_x);
+  auto W2 = tf::ops::BatchMatMul(root.WithOpName("W2"), X2, Y2, attrs_x);
+  auto W = tf::ops::BatchMatMul(root.WithOpName("W"), X2, Y2, attrs_y);
+  TF_CHECK_OK(sess.Run({W1}, &outputs_z1_cpu));
+  TF_CHECK_OK(sess.Run({W2}, &outputs_z2_cpu));
+  TF_CHECK_OK(sess.Run({W}, &outputs_z_cpu));
+  ASSERT_EQ(outputs_z1[0].shape(),outputs_z1_cpu[0].shape());
+  ASSERT_EQ(outputs_z2[0].shape(),outputs_z2_cpu[0].shape());
+  ASSERT_EQ(outputs_z[0].shape(),outputs_z_cpu[0].shape());
+  AssertTensorEquals(outputs_z1[0],outputs_z1_cpu[0]); 
+  AssertTensorEquals(outputs_z2[0],outputs_z2_cpu[0]); 
+  AssertTensorEquals(outputs_z[0],outputs_z_cpu[0]);
+}
+
 TEST(tf_exec, BatchMatMul) { 
   tf::Scope root = tf::Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,2,1})); 
   auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,1,2})); 
-  tf::Tensor X1(tf::DT_FLOAT, tf::TensorShape({2, 3, 4, 5}));
-  auto X1_flat = X1.flat<float>();
-  for (int i = 0; i < X1_flat.size(); i++) {
-    X1_flat.data()[i] = -1.1f*i;
+  tf::Tensor X(tf::DT_FLOAT, tf::TensorShape({2, 3, 4, 5}));
+  auto X_flat = X.flat<float>();
+  for (int i = 0; i < X_flat.size(); i++) {
+    X_flat.data()[i] = -1.1f*i;
   }
-  tf::Tensor Y1(tf::DT_FLOAT, tf::TensorShape({2, 3, 4, 5}));
-  auto Y1_flat = Y1.flat<float>();
-  for (int i = 0; i < Y1_flat.size(); i++) {
-    Y1_flat.data()[i] = -0.5f*i;
-  }
-
-  tf::Tensor X2(tf::DT_FLOAT, tf::TensorShape({2, 0, 4, 5}));
-  auto X2_flat = X2.flat<float>();
-  for (int i = 0; i < X2_flat.size(); i++) {
-    X2_flat.data()[i] = -1.1f*i;
-  }
-  tf::Tensor Y2(tf::DT_FLOAT, tf::TensorShape({2, 0, 4, 5}));
-  auto Y2_flat = Y2.flat<float>();
-  for (int i = 0; i < Y2_flat.size(); i++) {
-    Y2_flat.data()[i] = -0.5f*i;
-  }
-  tf::Tensor X3(tf::DT_FLOAT, tf::TensorShape({2, 3, 0, 5}));
-  auto X3_flat = X3.flat<float>();
-  for (int i = 0; i < X3_flat.size(); i++) {
-    X3_flat.data()[i] = -1.1f*i;
-  }
-  tf::Tensor Y3(tf::DT_FLOAT, tf::TensorShape({2, 3, 0, 5}));
-  auto Y3_flat = Y3.flat<float>();
-  for (int i = 0; i < Y3_flat.size(); i++) {
-    Y3_flat.data()[i] = -0.5f*i;
+  tf::Tensor Y(tf::DT_FLOAT, tf::TensorShape({2, 3, 4, 5}));
+  auto Y_flat = Y.flat<float>();
+  for (int i = 0; i < Y_flat.size(); i++) {
+    Y_flat.data()[i] = -0.5f*i;
   }
 
 
   auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
-  auto attrs = tf::ops::BatchMatMul::Attrs().AdjX(true);
+  auto attrs_x = tf::ops::BatchMatMul::Attrs().AdjX(true);
   auto attrs_y = tf::ops::BatchMatMul::Attrs().AdjY(true); 
-  auto Z1 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z1"), X1, Y1, attrs);
-  auto Z2 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z2"), X2, Y2, attrs);
-  auto Z3 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z3"), X3, Y3, attrs);
-  auto Z4 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z4"), X3, Y3, attrs_y);
+  auto Z1 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z1"), X, Y, attrs_x);
+  auto Z2 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z2"), X, Y, attrs_y);
   std::vector<tf::Tensor> outputs;
   std::vector<tf::Tensor> outputs_z1;
   std::vector<tf::Tensor> outputs_z2;
-  std::vector<tf::Tensor> outputs_z3;
-  std::vector<tf::Tensor> outputs_z4;
   // Run and fetch v
   tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
   TF_CHECK_OK(session.Run({Z1}, &outputs_z1));
   TF_CHECK_OK(session.Run({Z2}, &outputs_z2)); 
-  TF_CHECK_OK(session.Run({Z3}, &outputs_z3)); 
-  TF_CHECK_OK(session.Run({Z4}, &outputs_z4));
   // Expect outputs[0] == [19; -3]
 
   tf::ClientSession sess(root);
   std::vector<tf::Tensor> outputs_cpu;
   std::vector<tf::Tensor> outputs_z1_cpu;
   std::vector<tf::Tensor> outputs_z2_cpu;
-  std::vector<tf::Tensor> outputs_z3_cpu;
-  std::vector<tf::Tensor> outputs_z4_cpu;
   auto C = tf::ops::BatchMatMul(root.WithOpName("C"), A, B);
-  auto W1 = tf::ops::BatchMatMul(root.WithOpName("W1"), X1, Y1, attrs); 
-  auto W2 = tf::ops::BatchMatMul(root.WithOpName("W2"), X2, Y2, attrs);
-  auto W3 = tf::ops::BatchMatMul(root.WithOpName("W3"), X3, Y3, attrs);
-  auto W4 = tf::ops::BatchMatMul(root.WithOpName("W4"), X3, Y3, attrs_y);
+  auto W1 = tf::ops::BatchMatMul(root.WithOpName("W1"), X, Y, attrs_x); 
+  auto W2 = tf::ops::BatchMatMul(root.WithOpName("W2"), X, Y, attrs_y);
   TF_CHECK_OK(sess.Run({C}, &outputs_cpu));
   TF_CHECK_OK(sess.Run({W1}, &outputs_z1_cpu));
   TF_CHECK_OK(sess.Run({W2}, &outputs_z2_cpu));
-  TF_CHECK_OK(sess.Run({W3}, &outputs_z3_cpu));
-  TF_CHECK_OK(sess.Run({W4}, &outputs_z4_cpu));
   ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
   ASSERT_EQ(outputs_z1[0].shape(),outputs_z1_cpu[0].shape());
   ASSERT_EQ(outputs_z2[0].shape(),outputs_z2_cpu[0].shape());
-  ASSERT_EQ(outputs_z3[0].shape(),outputs_z3_cpu[0].shape());
-  ASSERT_EQ(outputs_z4[0].shape(),outputs_z4_cpu[0].shape());
   AssertTensorEquals(outputs_z1[0],outputs_z1_cpu[0]);
   AssertTensorEquals(outputs_z2[0],outputs_z2_cpu[0]); 
-  AssertTensorEquals(outputs_z3[0],outputs_z3_cpu[0]); 
-  AssertTensorEquals(outputs_z4[0],outputs_z4_cpu[0]);
 }
 
 TEST(tf_exec, BatchMatMul_3D) { 
@@ -206,19 +211,46 @@ TEST(tf_exec, BatchMatMul_3D) {
   auto A = tf::ops::Const(root, {-1.f, 2.f, 3.f, 4.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,2})); 
   auto B = tf::ops::Const(root, {1.f, 0.f, -1.f, -2.f, -1.f, 2.f, 3.f, 4.f}, tf::TensorShape({2,2,2})); 
   auto R = tf::ops::BatchMatMul(dev_scope.WithOpName("R"), A, B);
+  tf::Tensor X(tf::DT_FLOAT, tf::TensorShape({2, 3, 4}));
+  auto X_flat = X.flat<float>();
+  for (int i = 0; i < X_flat.size(); i++) {
+    X_flat.data()[i] = -1.1f*i;
+  }
+  tf::Tensor Y(tf::DT_FLOAT, tf::TensorShape({2, 3, 4}));
+  auto Y_flat = Y.flat<float>();
+  for (int i = 0; i < Y_flat.size(); i++) {
+    Y_flat.data()[i] = -0.5f*i;
+  }
+
+  auto attrs_x = tf::ops::BatchMatMul::Attrs().AdjX(true);
+  auto attrs_y = tf::ops::BatchMatMul::Attrs().AdjY(true); 
+  auto Z1 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z1"), X, Y, attrs_x);
+  auto Z2 = tf::ops::BatchMatMul(dev_scope.WithOpName("Z2"), X, Y, attrs_y);
   std::vector<tf::Tensor> outputs;
+  std::vector<tf::Tensor> outputs_z1;
+  std::vector<tf::Tensor> outputs_z2;
   // Run and fetch v
   tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
+  TF_CHECK_OK(session.Run({Z1}, &outputs_z1));
+  TF_CHECK_OK(session.Run({Z2}, &outputs_z2));
   // Expect outputs[0] == [19; -3]
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2,2}));
 
   tf::ClientSession sess(root);
   std::vector<tf::Tensor> outputs_cpu;
+  std::vector<tf::Tensor> outputs_z1_cpu;
+  std::vector<tf::Tensor> outputs_z2_cpu;
   auto C = tf::ops::BatchMatMul(root.WithOpName("C"), A, B);
+  auto W1 = tf::ops::BatchMatMul(root.WithOpName("W1"), X, Y, attrs_x); 
+  auto W2 = tf::ops::BatchMatMul(root.WithOpName("W2"), X, Y, attrs_y);
   TF_CHECK_OK(sess.Run({C}, &outputs_cpu));
+  TF_CHECK_OK(sess.Run({W1}, &outputs_z1_cpu));
+  TF_CHECK_OK(sess.Run({W2}, &outputs_z2_cpu));
   ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
-  AssertTensorEquals(outputs[0],outputs_cpu[0]);
+  ASSERT_EQ(outputs_z1[0].shape(),outputs_z1_cpu[0].shape());
+  ASSERT_EQ(outputs_z2[0].shape(),outputs_z2_cpu[0].shape());
+  AssertTensorEquals(outputs_z1[0],outputs_z1_cpu[0]);
+  AssertTensorEquals(outputs_z2[0],outputs_z2_cpu[0]); 
 }
 
 TEST(tf_exec, BatchMatMul_2D) { 
@@ -232,7 +264,6 @@ TEST(tf_exec, BatchMatMul_2D) {
   tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({R}, &outputs));
   // Expect outputs[0] == [19; -3]
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
   auto mat = outputs[0].matrix<float>();
   ASSERT_EQ(-3.f, mat(0,0));
   ASSERT_EQ(-4.f, mat(0,1)); 

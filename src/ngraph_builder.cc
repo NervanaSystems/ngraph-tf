@@ -443,22 +443,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
       if (n_dims == 2) {
         ng_op_map[op->name()] = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-      } else if (n_dims == 3) {
-        auto output_type = ng_lhs->get_element_type(); 
-        auto output_shape = ng_lhs_shape;
-        output_shape[n_dims-1] = ng_rhs_shape[1];
-        auto output_tensor = make_shared<ngraph::op::Parameter>(output_type, output_shape);
-        auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-        ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims-2], ng_rhs_shape[1]};
-        vector<shared_ptr<ngraph::Node>> tmp_tensors;
-        for (size_t i = 0; i < output_shape[0]; i++) { 
-          const std::vector<size_t> lower_bound{i, 0, 0, i};
-          const std::vector<size_t> upper_bound{i+1, output_shape[1], output_shape[2], i+1};
-          auto slice_out = make_shared<ngraph::op::Slice>(dot_output, lower_bound, upper_bound);
-          auto reshape_out = make_shared<ngraph::op::Reshape>(slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
-          tmp_tensors.push_back(reshape_out);
-        }
-        ng_op_map[op->name()] = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
       } else {
         auto output_type = ng_lhs->get_element_type(); 
         auto output_shape = ng_lhs_shape;
