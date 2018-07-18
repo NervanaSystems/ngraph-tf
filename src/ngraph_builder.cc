@@ -1172,6 +1172,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto& shape = ng_input->second->get_shape();
       auto shape_size = shape.size();
       if (dim_vec[0] < 0) {
+        // allow range [-rank(input) - 1, rank(input)]
+        // where -1 append new axis at the end
         dim_vec[0] = shape_size + dim_vec[0] + 1;
       }
       auto out_shape = shape;
