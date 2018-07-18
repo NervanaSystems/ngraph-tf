@@ -444,10 +444,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (n_dims == 2) {
         ng_op_map[op->name()] = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
       } else {
-        auto output_type = ng_lhs->get_element_type(); 
         auto output_shape = ng_lhs_shape;
         output_shape[n_dims-1] = ng_rhs_shape[1];
-        auto output_tensor = make_shared<ngraph::op::Parameter>(output_type, output_shape);
         auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
         size_t compound_size = 1;
         for (int i=0; i<out_axes.size(); i++) {
@@ -460,7 +458,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           dot_axes.push_back(n_dims+i);
         }
         ng::Shape dot_shape = {compound_size, ng_lhs_shape[n_dims-2], ng_rhs_shape[1], compound_size};
-        auto dot_reshape = make_shared<ngraph::op::Reshape>(dot_output, dot_axes, dot_shape);
+        std::shared_ptr<ng::Node> dot_reshape;
+        if (n_dims == 3) {
+          dot_reshape = dot_output;
+        } else {
+          dot_reshape = make_shared<ngraph::op::Reshape>(dot_output, dot_axes, dot_shape); 
+        }
         ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims-2], ng_rhs_shape[1]};
         vector<shared_ptr<ngraph::Node>> tmp_tensors;
         for (size_t i = 0; i < dot_shape[0]; i++) { 
@@ -471,7 +474,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           tmp_tensors.push_back(reshape_out);
         }
         auto concat_op = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
-        ng_op_map[op->name()] = make_shared<ngraph::op::Reshape>(concat_op, ng::AxisVector{0, 1, 2 }, output_shape);
+        if (n_dims == 3) {
+          ng_op_map[op->name()] = concat_op;
+        } else {
+          ng_op_map[op->name()] = make_shared<ngraph::op::Reshape>(concat_op, ng::AxisVector{0, 1, 2 }, output_shape);
+        }
       }
     }
     // -------
