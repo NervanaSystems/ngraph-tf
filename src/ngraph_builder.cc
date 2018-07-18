@@ -849,7 +849,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto& shape = ng_input->second->get_shape();
       auto shape_size = shape.size();
       if (dim_vec[0] < 0) {
-        dim_vec[0] = shape_size + dim_vec[0];
+        dim_vec[0] = shape_size + dim_vec[0] + 1;
       }
       auto out_shape = shape;
       out_shape.insert(out_shape.begin() + size_t(dim_vec[0]), 1);
