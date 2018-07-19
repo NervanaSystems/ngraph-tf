@@ -122,6 +122,7 @@ static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
 // Helper for Builder::TranslateGraph (elementwise binops)
 template <typename T>
 static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
+  cout<<"Builder : Translate Binary Op "<< op->type_string() <<endl;
   if (op->num_inputs() != 2) {
     return tf::errors::InvalidArgument(
         "Number of inputs is not 2 for elementwise binary op");
