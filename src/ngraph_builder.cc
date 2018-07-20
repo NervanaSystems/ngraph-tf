@@ -119,7 +119,73 @@ static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
   return TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n) { return make_shared<T>(n); });
 }
 
-// Helper for Builder::TranslateGraph (elementwise binops)
+// Helper function to translate a binary op
+// Parameters:
+//
+//    tf::Node* op               - TF op being translated. Must have only two inputs.
+//    Builder::OpMap& ng_op_map  - The TF-to-nGraph op map.
+//
+//    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>>
+//      build_graph              - Function to construct the graph implementing
+//                                 the binary op, given the 2 ng_inputs to the binaryop
+//                                 as an argument.
+// Example Usage:
+// 
+// if (op->type_string() == "SquaredDifference") {
+//      TF_RETURN_IF_ERROR(TranslateBinaryOp(op, ng_op_map,
+//         [](std::shared_ptr<ng::Node> ng_input1, std::shared_ptr<ng::Node> ng_input2) {
+//           auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
+//           return std::make_shared<ng::op::Multiply>(ng_diff,ng_diff);
+//         }));
+//    }
+//
+
+static tf::Status TranslateBinaryOp(
+    tf::Node* op, Builder::OpMap& ng_op_map,
+    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>, std::shared_ptr<ng::Node>)>
+        build_graph){
+  if(op->num_inputs() != 2){
+    return tf::errors::InvalidArgument(
+      "Number of inputs is not 2 for binary op");
+  }
+ 
+  tf::Node* tf_lhs;
+  tf::Node* tf_rhs;
+
+  TF_RETURN_IF_ERROR(op->input_node(0, &tf_lhs));
+  TF_RETURN_IF_ERROR(op->input_node(1, &tf_rhs));
+  
+  std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  try{
+    ng_lhs = ng_op_map.at(tf_lhs->name());
+  }catch(const std::out_of_range&) {
+    return tf::errors::NotFound(tf_lhs->name(),"is not found in ng_op_map");
+  }
+  
+  try{
+    ng_rhs = ng_op_map.at(tf_rhs->name());
+  }catch(const std::out_of_range&) {
+    return tf::errors::NotFound(tf_rhs->name(),"is not found in ng_op_map");
+  }
+  
+
+  std::tie(ng_lhs, ng_rhs) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+
+  ng_op_map[op->name()] = build_graph(ng_lhs, ng_rhs);
+
+  return tf::Status::OK();
+}
+
+// Helper function to translate a binary op in cases where there is a one-to-one
+// mapping from TensorFlow ops to nGraph ops.
+//
+// Example usage:
+//
+//  if (n->type_string == "Add") {
+//    TF_RETURN_IF_ERROR(TranslateUnaryOp<ng::op::Add>(n, ng_op_map));
+//  }
+//
 template <typename T>
 static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
   if (op->num_inputs() != 2) {
@@ -2092,7 +2158,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         {
           return std::make_shared<ng::op::Multiply>(n,n);
         }));
+    
     }
+    // ------------------
+    // SquaredDifference
+    // -------------------
+    else if (op->type_string() == "SquaredDifference") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp(op, ng_op_map,
+         [](std::shared_ptr<ng::Node> input1, std::shared_ptr<ng::Node> input2) {
+           auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
+           return std::make_shared<ng::op::Multiply>(ng_diff,ng_diff);
+         }));
+    }    
     // -------
     // Squeeze
     // -------
