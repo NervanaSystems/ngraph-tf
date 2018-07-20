@@ -166,7 +166,6 @@ static tf::Status TranslateBinaryOp(
     ng_rhs = ng_op_map.at(tf_rhs->name());
   }catch(const std::out_of_range&) {
     return tf::errors::NotFound(tf_rhs->name(),"is not found in ng_op_map");
-  }  
 
   std::tie(ng_lhs, ng_rhs) =
       ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
