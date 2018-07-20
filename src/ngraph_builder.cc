@@ -44,8 +44,17 @@ const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
 static tf::Status ValidateInputCount(const tf::Node* op, size_t count) {
   if (op->num_inputs() != count) {
     return tf::errors::InvalidArgument(
-        op->name(), " requires ", count, " input(s), got ", op->num_inputs(),
-        " instead");
+        "\"", op->name(), "\" requires ", count, " input(s), got ",
+        op->num_inputs(), " instead");
+  }
+  return tf::Status::OK();
+}
+
+static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
+  if (op->num_inputs() < count) {
+    return tf::errors::InvalidArgument(
+        "\"", op->name(), "\" requires at least ", count, " input(s), got ",
+        op->num_inputs(), " instead");
   }
   return tf::Status::OK();
 }
@@ -560,11 +569,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // ConcatV2
     // --------
     else if (op->type_string() == "ConcatV2") {
-      if (op->num_inputs() < 2) {
-        return tf::errors::InvalidArgument(
-            op->name(), " requires at least 2 inputs, got ", op->num_inputs(),
-            " instead");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCountMin(op, 2));
 
       tf::Node* tf_axis_node;
       TF_RETURN_IF_ERROR(op->input_node(op->num_inputs() - 1, &tf_axis_node));
@@ -1575,11 +1580,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Pack
     // -------
     else if (op->type_string() == "Pack") {
-      if (op->num_inputs() < 1) {
-        return tf::errors::InvalidArgument(
-            op->name(), " requires at least 1 input, got ", op->num_inputs(),
-            " instead");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCountMin(op, 1));
 
       ng::NodeVector ng_concat_inputs;
 
