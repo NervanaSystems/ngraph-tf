@@ -449,6 +449,13 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         // confirmation_functions["StridedSlice"] = always;
         // Constraint: begin, end, and stride inputs must be Const
         confirmation_functions["StridedSlice"] = [](tf::Node* n, bool* result) {
+          // use cpu for tf.newaxis in strided slice
+          int tf_new_axis_mask;
+          TF_RETURN_IF_ERROR(tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
+          if (tf_new_axis_mask != 0) {
+            *result = false;
+            return tf::Status::OK();
+          }
           tf::Node* tf_begin_node;
           tf::Node* tf_end_node;
           tf::Node* tf_stride_node;
