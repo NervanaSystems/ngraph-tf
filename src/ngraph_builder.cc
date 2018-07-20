@@ -52,8 +52,8 @@ static void Reshape(std::shared_ptr<ng::Node>& ng_node) {
 
 static void NhwcToNgraph() {}
 
-template <typename... Arguments>
-static void NhwcToNgraph(const std::vector<tf::int32>& source,
+template <typename... Arguments, typename T>
+static void NhwcToNgraph(const std::vector<T>& source,
                          std::vector<size_t>& dest,
                          Arguments&&... remaining) {
   dest[0] = source[1];
@@ -69,8 +69,8 @@ static void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
 
 static void NchwToNgraph() {}
 
-template <typename... Arguments>
-static void NchwToNgraph(const std::vector<tf::int32>& source,
+template <typename... Arguments, typename T>
+static void NchwToNgraph(const std::vector<T>& source,
                          std::vector<size_t>& dest,
                          Arguments&&... remaining) {
   dest[0] = source[2];
@@ -879,7 +879,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto& ng_filter_shape = ng_filter->get_shape();
       ng_kernel_shape[0] = ng_filter_shape[0];
       ng_kernel_shape[1] = ng_filter_shape[1];
-      Reshape<3, 2, 0, 1>(ng_filter_shape);
+      Reshape<3, 2, 0, 1>(ng_filter);
 
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
