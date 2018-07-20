@@ -446,7 +446,44 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
         confirmation_functions["Squeeze"] = always;
-        confirmation_functions["StridedSlice"] = always;
+        // confirmation_functions["StridedSlice"] = always;
+        // Constraint: begin, end, and stride inputs must be Const
+        confirmation_functions["StridedSlice"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_begin_node;
+          tf::Node* tf_end_node;
+          tf::Node* tf_stride_node;
+
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
+          TF_RETURN_IF_ERROR(n->input_node(2, &tf_end_node));
+          TF_RETURN_IF_ERROR(n->input_node(3, &tf_stride_node));
+
+          std::vector<tf::int64> tf_static_begin;
+          if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+          std::vector<tf::int64> tf_static_end;
+          if (ExtractConstantData(tf_end_node, &tf_static_end) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+          std::vector<tf::int64> tf_static_stride;
+          if (ExtractConstantData(tf_stride_node, &tf_static_stride) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_stridedslice_static_begin", tf_static_begin);
+          n->AddAttr("_ngraph_stridedslice_static_end", tf_static_end);
+          n->AddAttr("_ngraph_stridedslice_static_stride", tf_static_stride);
+
+          *result = true;
+          return tf::Status::OK();
+        };
+
         confirmation_functions["Sub"] = always;
 
         // Constraints: reduction-axes input must be Const.

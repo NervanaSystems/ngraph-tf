@@ -1580,7 +1580,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
       auto size_vec = ng_size_const->get_vector<int>();
 
-      auto& input_shape = ng_input->second->get_shape();
       NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
 
@@ -1753,21 +1752,17 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         NGRAPH_VLOG(3) << "shrink_axis_mask for StridedSlice" << tf_shrink_axis_mask;
       }
 
-      auto ng_begin_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_begin->second);
-      if (ng_begin_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument begin is null for StridedSlice");
-      }
-      auto lower_vec = ng_begin_const->get_vector<int>();
+      std::vector<tf::int64> lower_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
 
-      auto ng_end_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_end->second);
-      if (ng_end_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument size is null for StridedSlice");
-      }
-      auto end_vec = ng_end_const->get_vector<int>();
+      std::vector<tf::int64> end_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
+
+      std::vector<tf::int64> stride_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
 
       NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
@@ -1808,13 +1803,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         NGRAPH_VLOG(3) << "Transform end input for StridedSlice: " << ng::join(end_vec);
       }
 
-      auto ng_stride_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_stride->second);
-      if (ng_stride_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument stride is null for StridedSlice");
-      }
-      auto stride_vec = ng_stride_const->get_vector<int>();
 
       for (size_t i=stride_vec.size(); i < end_vec.size(); ++i) {
         stride_vec.push_back(1);

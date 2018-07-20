@@ -43,7 +43,7 @@ class TestSliceOperations(NgraphTest):
 
     np.testing.assert_array_equal(slice_val, inp[:2, :2])
 
-  def test_strided_sliceg(self):
+  def test_strided_slice(self):
     with self.device:
       inp = np.random.rand(4, 4).astype("f")
       slice_ts = []
