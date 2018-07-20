@@ -43,6 +43,10 @@ const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
 
 template<size_t a, size_t b, size_t c, size_t d>
 static void Reshape(std::shared_ptr<ng::Node>& ng_node) {
+  static_assert(a < 4 && b < 4 && c < 4 && d < 4,
+                "Number of dimensions cannot exceed 4");
+  static_assert(a != b && a != c && a != d && b !=c && b != d && c != d,
+                "Dimensions indices cannot be equal");
   auto& s = ng_node->get_shape();
   ng::Shape reshaped_shape{s[a], s[b], s[c], s[d]};
   NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
