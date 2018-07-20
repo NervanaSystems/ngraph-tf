@@ -278,12 +278,9 @@ TEST(tf_exec, BatchMatMul_2D) {
   AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
-
 // Test Op :"Op_RealDiv"
-/*
-With Const inputs tensorflow's constant folding optimisation converts the op to "Mul". 
-To test "RealDiv" operator, explicitly placed the op on NGRAPH and the inputs as placeholders
-*/
+// With Const inputs tensorflow's constant folding optimisation converts the op to "Mul". 
+// To test "RealDiv" operator, explicitly placed the op on NGRAPH and the inputs as placeholders
 TEST(tf_exec, Op_RealDiv) {
   tf::Scope root = tf::Scope::NewRootScope();
   tf::Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
