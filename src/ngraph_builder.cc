@@ -41,6 +41,15 @@ const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
      {tf::DataType::DT_UINT16, ng::element::u16},
      {tf::DataType::DT_BOOL, ng::element::boolean}};
 
+static tf::Status ValidateInputCount(const tf::Node* op, size_t count) {
+  if (op->num_inputs() != count) {
+    return tf::errors::InvalidArgument(
+        op->name(), " requires ", count, " input(s), got ", op->num_inputs(),
+        " instead");
+  }
+  return tf::Status::OK();
+}
+
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
@@ -83,10 +92,7 @@ static tf::Status TranslateUnaryOp(
     tf::Node* op, Builder::OpMap& ng_op_map,
     std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>)>
         build_graph) {
-  if (op->num_inputs() != 1) {
-    return tf::errors::InvalidArgument(
-        "Number of inputs is not 1 for unary op");
-  }
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
   tf::Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -122,10 +128,7 @@ static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
 // Helper for Builder::TranslateGraph (elementwise binops)
 template <typename T>
 static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
-  if (op->num_inputs() != 2) {
-    return tf::errors::InvalidArgument(
-        "Number of inputs is not 2 for elementwise binary op");
-  }
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
   tf::Node* tf_lhs;
   tf::Node* tf_rhs;
@@ -238,11 +241,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // AvgPool
     // -------
     else if (op->type_string() == "AvgPool") {
-      NGRAPH_VLOG(3) << op->name();
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for AvgPool");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -364,10 +363,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // BatchMatMul
     // -------
     else if (op->type_string() == "BatchMatMul") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for BatchMatMul");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
  
       tf::Node* tf_lhs;
       tf::Node* tf_rhs;
@@ -485,10 +481,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // BiasAdd
     // -------
     else if (op->type_string() == "BiasAdd") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for BiasAdd");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_bias;
@@ -542,10 +535,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Cast
     // --------
     else if (op->type_string() == "Cast") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Cast");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -572,7 +562,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     else if (op->type_string() == "ConcatV2") {
       if (op->num_inputs() < 2) {
         return tf::errors::InvalidArgument(
-            "Number of inputs is not at least 2 for ConcatV2");
+            op->name(), " requires at least 2 inputs, got ", op->num_inputs(),
+            " instead");
       }
 
       tf::Node* tf_axis_node;
@@ -670,10 +661,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Conv2D
     // ------
     else if (op->type_string() == "Conv2D") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Conv2D");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_filter;
@@ -805,10 +793,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Conv2DBackpropInput
     // ------
     else if (op->type_string() == "Conv2DBackpropInput") {
-      if (op->num_inputs() != 3) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 3 for Conv2DBackpropInput");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
 
       tf::Node *tf_filter, *tf_out_backprop;
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_filter));
@@ -960,10 +945,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // DepthwiseConv2dNative
     // -----
     else if (op->type_string() == "DepthwiseConv2dNative") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for DepthwiseConv2d");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_filter;
@@ -1137,10 +1119,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // ExpandDims
     // --------
     else if (op->type_string() == "ExpandDims") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for ExpandDims");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_dim;
@@ -1224,10 +1203,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // FusedBatchNorm
     // --------------
     else if (op->type_string() == "FusedBatchNorm") {
-      if (op->num_inputs() != 5) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 5 for FusedBatchNorm");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 5));
 
       bool tf_is_training;
       if (tf::GetNodeAttr(op->attrs(), "is_training", &tf_is_training) !=
@@ -1320,10 +1296,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Identity
     // --------
     else if (op->type_string() == "Identity") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Identity");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_arg;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
@@ -1357,10 +1330,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // MatMul
     // ------
     else if (op->type_string() == "MatMul") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for MatMul");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_lhs;
       tf::Node* tf_rhs;
@@ -1399,11 +1369,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // MaxPool
     // -------
     else if (op->type_string() == "MaxPool") {
-      NGRAPH_VLOG(3) << op->name();
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for MaxPool");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1525,10 +1491,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Mean
     // ----
     else if (op->type_string() == "Mean") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Mean");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_axes_node;
@@ -1612,11 +1575,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Pack
     // -------
     else if (op->type_string() == "Pack") {
-
-      std::cout << "Number of inputs : " << op->num_inputs() << std::endl;
       if (op->num_inputs() < 1) {
         return tf::errors::InvalidArgument(
-            "Number of inputs should be at least 1 for Pack");
+            op->name(), " requires at least 1 input, got ", op->num_inputs(),
+            " instead");
       }
 
       ng::NodeVector ng_concat_inputs;
@@ -1678,9 +1640,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Pad
     // ---
     else if (op->type_string() == "Pad") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument("Number of inputs is not 2 for Pad");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_paddings_node;
@@ -1802,10 +1762,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Relu
     // ----
     else if (op->type_string() == "Relu") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Relu");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1818,10 +1775,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Relu6
     // ----
     else if (op->type_string() == "Relu6") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Relu6");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1839,10 +1793,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Reshape
     // -------
     else if (op->type_string() == "Reshape") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Reshape");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_shape_node;
@@ -1934,10 +1885,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Sigmoid
     // ---------
     else if (op->type_string() == "Sigmoid") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Sigmoid");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1964,10 +1912,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Slice
     // --------
     else if (op->type_string() == "Slice") {
-      if (op->num_inputs() != 3) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 3 for Slice");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
 
       tf::Node* tf_input;
       tf::Node* tf_begin;
@@ -2038,10 +1983,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Snapshot
     // --------
     else if (op->type_string() == "Snapshot") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Snapshot");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_arg;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
@@ -2051,10 +1993,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Softmax
     // ---------
     else if (op->type_string() == "Softmax") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Softmax");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -2097,10 +2036,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Squeeze
     // -------
     else if (op->type_string() == "Squeeze") {
-      if (op->num_inputs() < 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs should be 1 for Squeeze");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -2159,10 +2095,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // --------
     else if (op->type_string() == "StridedSlice") {
       // TODO refactor StrideSlice with Slice op
-      if (op->num_inputs() != 4) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 4 for Slice");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 4));
 
       tf::Node* tf_input;
       tf::Node* tf_begin;
@@ -2257,9 +2190,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Sum
     // ---
     else if (op->type_string() == "Sum") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument("Number of inputs is not 2 for Sum");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_axes_node;
@@ -2329,10 +2260,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Transpose
     // ---------
     else if (op->type_string() == "Transpose") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Transpose");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_permutation_node;
