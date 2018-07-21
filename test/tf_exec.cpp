@@ -292,11 +292,10 @@ TEST(tf_exec, Tile) {
   auto D = tf::ops::Tile(dev_scope.WithOpName("D"), A, Y);
   std::vector<tf::Tensor> outputs_C;
   std::vector<tf::Tensor> outputs_D;
-  // Run and fetch R
+
   tf::ClientSession session(dev_scope);
   TF_CHECK_OK(session.Run({C}, &outputs_C));
   TF_CHECK_OK(session.Run({D}, &outputs_D));
-  // Expect outputs[0] == [19; -3]
 
   tf::ClientSession sess(root);
   std::vector<tf::Tensor> outputs_C_cpu;
