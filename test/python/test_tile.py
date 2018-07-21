@@ -66,8 +66,7 @@ class TestTileOp(NgraphTest):
     print("expected_a:", expected_b)
     atol = 1e-5 
     error_a = np.absolute(result_a-expected_a)
-    #error_b = np.absolute(result_b-expected_b)
     assert np.amax(error_a) <= atol
-    #assert np.amax(error_b) <= atol
+
 
 
