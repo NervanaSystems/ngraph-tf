@@ -127,13 +127,11 @@ static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
 //    tf::Node* op               - TF op being translated. Must have only two
 //    inputs.
 //    Builder::OpMap& ng_op_map  - The TF-to-nGraph op map.
-//
 //    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
 //    std::shared_ptr<ng::Node>)>
 //    create_binary_op           - Function to construct the graph implementing
 //                                 the binary op, given the 2 ng_inputs to the
 //                                 binaryop
-//                                 as an argument.
 // Example Usage:
 //
 // if (op->type_string() == "SquaredDifference") {
@@ -174,6 +172,7 @@ static tf::Status TranslateBinaryOp(
   } catch (const std::out_of_range&) {
     return tf::errors::NotFound(tf_rhs->name(), "is not found in ng_op_map");
   }
+
   std::tie(ng_lhs, ng_rhs) =
       ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
 
