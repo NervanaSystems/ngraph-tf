@@ -59,6 +59,38 @@ static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
   return tf::Status::OK();
 }
 
+template <typename T>
+static void MakePadding(const std::string& tf_padding_type,
+    const ng::Shape& ng_image_shape, const ng::Shape& ng_kernel_shape,
+    const ng::Strides& ng_strides, T& ng_padding_below,
+    T& ng_padding_above) {
+  if (tf_padding_type == "SAME") {
+    for (size_t i = 0; i < 2; i++) {
+      size_t image_size = ng_image_shape[i];
+      size_t filter_shape = ng_kernel_shape[i];
+      size_t filter_stride = ng_strides[i];
+
+      tf::int64 padding_needed;
+      if (image_size % filter_stride == 0) {
+        padding_needed = filter_shape - filter_stride;
+      } else {
+        padding_needed = filter_shape - (image_size % filter_stride);
+      }
+      if (padding_needed < 0) {
+        padding_needed = 0;
+      }
+
+      size_t padding_lhs = padding_needed / 2;
+      size_t padding_rhs = padding_needed - padding_lhs;
+      ng_padding_below[i] = padding_lhs;
+      ng_padding_above[i] = padding_rhs;
+    }
+  }
+
+  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+}
+
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
@@ -383,31 +415,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_padding_below{0, 0};
       ng::Shape ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+          ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_avgpool = make_shared<ng::op::AvgPool>(
           ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
@@ -819,32 +828,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
-
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      ng::Shape ng_kernel_shape_padding{
+        (ng_kernel_shape[0] - 1) * ng_dilations[0] + 1,
+        (ng_kernel_shape[1] - 1) * ng_dilations[1] + 1};
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape_padding,
+          ng_strides, ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
           ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
@@ -970,31 +958,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+          ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_data =
           make_shared<ng::op::ConvolutionBackpropData>(
@@ -1104,31 +1069,11 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      ng::Shape ng_kernel_shape_padding{
+        (ng_kernel_shape[0] - 1) * ng_dilations[0] + 1,
+        (ng_kernel_shape[1] - 1) * ng_dilations[1] + 1};
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape_padding,
+          ng_strides, ng_padding_below, ng_padding_above);
 
       // ng input shape is NCHW
       auto& input_shape = ng_input->get_shape();
@@ -1515,31 +1460,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_padding_below{0, 0};
       ng::Shape ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+          ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_maxpool =
           make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
