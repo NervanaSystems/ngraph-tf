@@ -32,6 +32,8 @@ o * Copyright 2017-2018 Intel Corporation
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
+#include "ngraph/runtime/interpreter/int_backend.hpp"
+
 namespace tf = tensorflow;
 namespace ngb = ngraph_bridge;
 
@@ -66,9 +68,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     // Create the backend
     if (m_cpu_backend == nullptr) {
-      m_cpu_backend = ng::runtime::Backend::create("CPU");
-      OP_REQUIRES(ctx, m_cpu_backend != nullptr,
-                  tf::errors::InvalidArgument("Cannot create CPU backend"));
+      m_cpu_backend = std::make_shared<ng::runtime::interpreter::INTBackend>();
+      // m_cpu_backend = ng::runtime::Backend::create("INTERPRETER");
+      OP_REQUIRES(
+          ctx, m_cpu_backend != nullptr,
+          tf::errors::InvalidArgument("Cannot create INTERPRETER backend"));
     }
   }
 
