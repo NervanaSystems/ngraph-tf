@@ -278,21 +278,54 @@ TEST(tf_exec, BatchMatMul_2D) {
   AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
+TEST(tf_exec, Tile) { 
+  tf::Scope root = tf::Scope::NewRootScope();
+  auto dev_scope = root.WithDevice("/device:NGRAPH:0");
+  tf::Tensor A(tf::DT_FLOAT, tf::TensorShape({2, 3, 4}));
+  auto A_flat = A.flat<float>();
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat.data()[i] = -1.1f*i;
+  }
+  auto X = tf::ops::Const(root, {tf::int64(3),  tf::int64(4), tf::int64(2)}, tf::TensorShape({3})); 
+  auto Y = tf::ops::Const(root, {tf::int64(1),  tf::int64(0), tf::int64(3)}, tf::TensorShape({3}));
+  auto C = tf::ops::Tile(dev_scope.WithOpName("C"), A, X);
+  auto D = tf::ops::Tile(dev_scope.WithOpName("D"), A, Y);
+  std::vector<tf::Tensor> outputs_C;
+  std::vector<tf::Tensor> outputs_D;
+
+  tf::ClientSession session(dev_scope);
+  TF_CHECK_OK(session.Run({C}, &outputs_C));
+  TF_CHECK_OK(session.Run({D}, &outputs_D));
+
+  tf::ClientSession sess(root);
+  std::vector<tf::Tensor> outputs_C_cpu;
+  std::vector<tf::Tensor> outputs_D_cpu;
+  auto C_cpu = tf::ops::Tile(root.WithOpName("C_cpu"), A, X);
+  auto D_cpu = tf::ops::Tile(root.WithOpName("D_cpu"), A, Y);
+  TF_CHECK_OK(sess.Run({C_cpu}, &outputs_C_cpu));
+  TF_CHECK_OK(sess.Run({D_cpu}, &outputs_D_cpu));
+  ASSERT_EQ(outputs_C[0].shape(),outputs_C_cpu[0].shape());
+  ASSERT_EQ(outputs_D[0].shape(),outputs_D_cpu[0].shape());
+  AssertTensorEquals(outputs_C[0],outputs_C_cpu[0]);
+  AssertTensorEquals(outputs_D[0],outputs_D_cpu[0]);
+}
 
 // Test Op :"Op_RealDiv"
-
+// With Const inputs tensorflow's constant folding optimisation converts the op to "Mul". 
+// To test "RealDiv" operator, explicitly placed the op on NGRAPH and the inputs as placeholders
 TEST(tf_exec, Op_RealDiv) {
   tf::Scope root = tf::Scope::NewRootScope();
-  root = root.WithDevice("/device:NGRAPH:0");
+  tf::Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
+  root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
 
-  auto A = tf::ops::Const(root, {{3.f, 5.f}, {2.f, 0.f}});
-  auto B = tf::ops::Const(root, {{3.f, 2.f}, {.1f, 1.f}});
-  auto r = tf::ops::RealDiv(root.WithOpName("r"), A, B);
+  auto A = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
+  auto B = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
+  auto r = tf::ops::RealDiv(root_ngraph.WithOpName("r"), A, B);
 
   std::vector<tf::Tensor> outputs;
   tf::ClientSession session(root);
 
-  TF_CHECK_OK(session.Run({r}, &outputs));
+  TF_CHECK_OK(session.Run({{A, {{3.f, 5.f}, {2.f, 0.f}}}, {B, {{3.f, 2.f}, {.1f, 1.f}}}}, {r}, &outputs));
   
   ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
 
@@ -324,6 +357,30 @@ TEST(tf_exec, Op_Square) {
   EXPECT_FLOAT_EQ(4.0, mat(1, 0));
   EXPECT_FLOAT_EQ(0.0, mat(1, 1));
 }
+
+TEST(tf_exec, Op_SquaredDifference) {
+  tf::Scope root = tf::Scope::NewRootScope();
+  tf::Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
+  root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
+
+  auto A = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
+  auto B = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
+  auto r = tf::ops::SquaredDifference(root_ngraph.WithOpName("r"), A, B);
+
+  std::vector<tf::Tensor> outputs;
+  tf::ClientSession session(root);
+
+  TF_CHECK_OK(session.Run({{A, {{3.f, 5.f}, {2.f, 0.f}}}, {B, {{1.f, 2.f}, {-1.f, 1.f}}}}, {r}, &outputs)); 
+  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2,2}));
+
+  auto mat = outputs[0].matrix<float>();
+  EXPECT_FLOAT_EQ(4.0, mat(0, 0));
+  EXPECT_FLOAT_EQ(9.0, mat(0, 1));
+  EXPECT_FLOAT_EQ(9.0, mat(1, 0));
+  EXPECT_FLOAT_EQ(1.0, mat(1, 1));
+
+}
+
 
 TEST(tf_exec, Op_Rsqrt) {
   tf::Scope root = tf::Scope::NewRootScope();
