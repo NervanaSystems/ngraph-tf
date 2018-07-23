@@ -41,6 +41,24 @@ const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
      {tf::DataType::DT_UINT16, ng::element::u16},
      {tf::DataType::DT_BOOL, ng::element::boolean}};
 
+static tf::Status ValidateInputCount(const tf::Node* op, size_t count) {
+  if (op->num_inputs() != count) {
+    return tf::errors::InvalidArgument(
+        "\"", op->name(), "\" requires ", count, " input(s), got ",
+        op->num_inputs(), " instead");
+  }
+  return tf::Status::OK();
+}
+
+static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
+  if (op->num_inputs() < count) {
+    return tf::errors::InvalidArgument(
+        "\"", op->name(), "\" requires at least ", count, " input(s), got ",
+        op->num_inputs(), " instead");
+  }
+  return tf::Status::OK();
+}
+
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
@@ -59,42 +77,138 @@ static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
   return tf::Status::OK();
 }
 
-template <typename T>
-static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
-  if (op->num_inputs() != 1) {
-    return tf::errors::InvalidArgument(
-        "Number of inputs is not 1 for unary op");
-  }
+// Helper function to translate a unary op.
+//
+// Parameters:
+//
+//    tf::Node* op               - TF op being translated. Must have one input.
+//    Builder::OpMap& ng_op_map  - The TF-to-nGraph op map.
+//
+//    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>>
+//      create_unary_op           - Function to construct the graph implementing
+//                                 the unary op, given the input to the unop
+//                                 as an argument.
+//
+// Example usage:
+//
+//  if (n->type_string == "Square") {
+//    TF_RETURN_IF_ERROR(TranslateUnaryOp(n, ng_op_map,
+//                       [] (std::shared_ptr<ng::Node> n) {
+//                           return (std::make_shared<ng::op::Multiply>(n,n));
+//                       });
+//  }
+static tf::Status TranslateUnaryOp(
+    tf::Node* op, Builder::OpMap& ng_op_map,
+    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>)>
+        create_unary_op) {
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
   tf::Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
-  auto ng_input = ng_op_map.at(tf_input->name());
-  ng_op_map[op->name()] = make_shared<T>(ng_input);
+
+  std::shared_ptr<ng::Node> ng_input;
+
+  try {
+    ng_input = ng_op_map.at(tf_input->name());
+  } catch (const std::out_of_range&) {
+    return tf::errors::NotFound("Input to unary op not found: %s",
+                                tf_input->name());
+  }
+
+  ng_op_map[op->name()] = create_unary_op(ng_input);
 
   return tf::Status::OK();
 }
 
-// Helper for Builder::TranslateGraph (elementwise binops)
+// Helper function to translate a unary op in cases where there is a one-to-one
+// mapping from TensorFlow ops to nGraph ops.
+//
+// Example usage:
+//
+//  if (n->type_string == "Abs") {
+//    TF_RETURN_IF_ERROR(TranslateUnaryOp<ng::op::Abs>(n, ng_op_map));
+//  }
+//
 template <typename T>
-static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
-  if (op->num_inputs() != 2) {
-    return tf::errors::InvalidArgument(
-        "Number of inputs is not 2 for elementwise binary op");
-  }
+static tf::Status TranslateUnaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
+  return TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n) {
+    return make_shared<T>(n);
+  });
+}
+
+
+// Helper function to translate a binary op
+// Parameters:
+//
+//    tf::Node* op               - TF op being translated. Must have only two
+//    inputs.
+//    Builder::OpMap& ng_op_map  - The TF-to-nGraph op map.
+//    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
+//    std::shared_ptr<ng::Node>)>
+//    create_binary_op           - Function to construct the graph implementing
+//                                 the binary op, given the 2 ng_inputs to the
+//                                 binaryop
+// Example Usage:
+//
+// if (op->type_string() == "SquaredDifference") {
+//      TF_RETURN_IF_ERROR(TranslateBinaryOp(op, ng_op_map,
+//         [](std::shared_ptr<ng::Node> ng_input1, std::shared_ptr<ng::Node>
+//         ng_input2) {
+//           auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
+//           return std::make_shared<ng::op::Multiply>(ng_diff,ng_diff);
+//         }));
+//    }
+//
+
+static tf::Status TranslateBinaryOp(
+    tf::Node* op, Builder::OpMap& ng_op_map,
+    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
+                                            std::shared_ptr<ng::Node>)>
+        create_binary_op) {
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
   tf::Node* tf_lhs;
   tf::Node* tf_rhs;
+
   TF_RETURN_IF_ERROR(op->input_node(0, &tf_lhs));
   TF_RETURN_IF_ERROR(op->input_node(1, &tf_rhs));
 
-  auto ng_lhs = ng_op_map.at(tf_lhs->name());
-  auto ng_rhs = ng_op_map.at(tf_rhs->name());
+  std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  try {
+    ng_lhs = ng_op_map.at(tf_lhs->name());
+  } catch (const std::out_of_range&) {
+    return tf::errors::NotFound(tf_lhs->name(), "is not found in ng_op_map");
+  }
+
+  try {
+    ng_rhs = ng_op_map.at(tf_rhs->name());
+  } catch (const std::out_of_range&) {
+    return tf::errors::NotFound(tf_rhs->name(), "is not found in ng_op_map");
+  }
+
   std::tie(ng_lhs, ng_rhs) =
       ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
 
-  ng_op_map[op->name()] = make_shared<T>(ng_lhs, ng_rhs);
+  ng_op_map[op->name()] = create_binary_op(ng_lhs, ng_rhs);
 
   return tf::Status::OK();
+}
+
+// Helper function to translate a binary op in cases where there is a one-to-one
+// mapping from TensorFlow ops to nGraph ops.
+//
+// Example usage:
+//
+//  if (n->type_string == "Add") {
+//    TF_RETURN_IF_ERROR(TranslateBinaryOp<ng::op::Add>(op, ng_op_map));
+//  }
+//
+template <typename T>
+static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
+  return TranslateBinaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> ng_lhs,
+                                             std::shared_ptr<ng::Node> ng_rhs) {
+    return make_shared<T>(ng_lhs, ng_rhs);
+  });
 }
 
 tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
@@ -173,6 +287,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
   // Now create the nGraph ops from TensorFlow ops.
   //
   for (auto op : tf_ops) {
+    NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
+                   << op->type_string();
+
     // NOTE: The following cases should be kept in alphabetical order.
 
     // ---
@@ -191,11 +308,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // AvgPool
     // -------
     else if (op->type_string() == "AvgPool") {
-      NGRAPH_VLOG(3) << op->name();
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for AvgPool");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -314,13 +427,136 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] = ng_avgpool;
     }
     // -------
+    // BatchMatMul
+    // -------
+    else if (op->type_string() == "BatchMatMul") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
+      tf::Node* tf_lhs;
+      tf::Node* tf_rhs;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_lhs));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_rhs));
+
+      try {
+        ng_op_map.at(tf_lhs->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound(tf_lhs->name(),
+                                    "is not found in ng_op_map");
+      }
+
+      try {
+        ng_op_map.at(tf_rhs->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound(tf_rhs->name(),
+                                    "is not found in ng_op_map");
+      }
+
+      auto ng_lhs = ng_op_map.at(tf_lhs->name());
+      auto ng_rhs = ng_op_map.at(tf_rhs->name());
+      auto ng_lhs_shape = ng_lhs->get_shape();
+      auto ng_rhs_shape = ng_rhs->get_shape();
+
+      if (ng_lhs_shape.size() != ng_rhs_shape.size()) {
+        return tf::errors::InvalidArgument(
+            "Dimensions of two input args are not the same for BatchMatMul");
+      }
+      size_t n_dims = ng_lhs_shape.size();
+      if (n_dims < 2) {
+        return tf::errors::InvalidArgument(
+            "Dimensions of input args for BatchMatMul must be >=2", n_dims);
+      }
+
+      ng::AxisVector out_axes;
+      for (size_t i = 0; i < n_dims - 2; ++i) {
+        if (ng_lhs_shape[i] != ng_rhs_shape[i]) {
+          return tf::errors::InvalidArgument(
+              "ng_lhs_shape and ng_rhs_shape must be the same for BatchMatMul "
+              "for each dimension",
+              i);
+        }
+        out_axes.push_back(i);
+      }
+
+      bool tf_adj_x = false;
+      bool tf_adj_y = false;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "adj_x", &tf_adj_x));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "adj_y", &tf_adj_y));
+
+      auto ng_lhs_axes = out_axes;
+      auto ng_rhs_axes = out_axes;
+      if (tf_adj_x) {
+        ng_lhs_axes.push_back(n_dims - 1);
+        ng_lhs_axes.push_back(n_dims - 2);
+        ng_lhs = ng::builder::numpy_transpose(ng_lhs, ng_lhs_axes);
+      }
+      if (tf_adj_y) {
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 2);
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 1);
+        ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
+      } else {
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 1);
+        ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 2);
+        ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
+      }
+
+      ng_lhs_shape = ng_lhs->get_shape();
+      ng_rhs_shape = ng_rhs->get_shape();
+
+      if (ng_lhs_shape[n_dims - 1] != ng_rhs_shape[0]) {
+        return tf::errors::InvalidArgument(
+            "The last dimension of ng_lhs and the first dimension of ng_rhs "
+            "should have the same size");
+      }
+      if (n_dims == 2) {
+        ng_op_map[op->name()] = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+      } else {
+        auto output_shape = ng_lhs_shape;
+        output_shape[n_dims - 1] = ng_rhs_shape[1];
+        auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+        size_t compound_size = 1;
+        for (int i = 0; i < out_axes.size(); i++) {
+          compound_size *= output_shape[i];
+        }
+        auto dot_axes = out_axes;
+        dot_axes.push_back(n_dims - 2);
+        dot_axes.push_back(n_dims - 1);
+        for (int i = 0; i < out_axes.size(); i++) {
+          dot_axes.push_back(n_dims + i);
+        }
+        ng::Shape dot_shape = {compound_size, ng_lhs_shape[n_dims - 2],
+                               ng_rhs_shape[1], compound_size};
+        std::shared_ptr<ng::Node> dot_reshape;
+        if (n_dims == 3) {
+          dot_reshape = dot_output;
+        } else {
+          dot_reshape =
+              make_shared<ngraph::op::Reshape>(dot_output, dot_axes, dot_shape);
+        }
+        ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims - 2], ng_rhs_shape[1]};
+        vector<shared_ptr<ngraph::Node>> tmp_tensors;
+        for (size_t i = 0; i < dot_shape[0]; i++) {
+          const std::vector<size_t> lower_bound{i, 0, 0, i};
+          const std::vector<size_t> upper_bound{i + 1, dot_shape[1],
+                                                dot_shape[2], i + 1};
+          auto slice_out = make_shared<ngraph::op::Slice>(
+              dot_reshape, lower_bound, upper_bound);
+          auto reshape_out = make_shared<ngraph::op::Reshape>(
+              slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
+          tmp_tensors.push_back(reshape_out);
+        }
+        auto concat_op = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
+        if (n_dims == 3) {
+          ng_op_map[op->name()] = concat_op;
+        } else {
+          ng_op_map[op->name()] = make_shared<ngraph::op::Reshape>(
+              concat_op, ng::AxisVector{0, 1, 2}, output_shape);
+        }
+      }
+    }
+    // -------
     // BiasAdd
     // -------
     else if (op->type_string() == "BiasAdd") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for BiasAdd");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_bias;
@@ -374,10 +610,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Cast
     // --------
     else if (op->type_string() == "Cast") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Cast");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -402,10 +635,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // ConcatV2
     // --------
     else if (op->type_string() == "ConcatV2") {
-      if (op->num_inputs() < 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not at least 2 for ConcatV2");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCountMin(op, 2));
 
       tf::Node* tf_axis_node;
       TF_RETURN_IF_ERROR(op->input_node(op->num_inputs() - 1, &tf_axis_node));
@@ -502,10 +732,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Conv2D
     // ------
     else if (op->type_string() == "Conv2D") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Conv2D");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_filter;
@@ -596,7 +823,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (tf_padding_type == "SAME") {
         for (size_t i = 0; i < 2; i++) {
           size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
           size_t filter_stride = ng_strides[i];
 
           tf::int64 padding_needed;
@@ -633,14 +860,163 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       ng_op_map[op->name()] = ng_conv;
     }
+    // ------
+    // Conv2DBackpropInput
+    // ------
+    else if (op->type_string() == "Conv2DBackpropInput") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
+
+      tf::Node *tf_filter, *tf_out_backprop;
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_filter));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_out_backprop));
+      shared_ptr<ng::Node> ng_filter, ng_out_backprop;
+      try {
+        ng_filter = ng_op_map.at(tf_filter->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Filter not found: %s", tf_filter->name());
+      }
+      try {
+        ng_out_backprop = ng_op_map.at(tf_out_backprop->name());
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Out Backprop not found: %s",
+                                    tf_out_backprop->name());
+      }
+
+      // TODO: refactor me to be less redundant with other convolution ops
+      std::vector<tf::int32> tf_strides;
+      std::vector<tf::int32> tf_dilations;
+      std::string tf_padding_type;
+      std::string tf_data_format;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "Conv2DBackpropInput data format is neither NHWC nor NCHW: %s",
+            tf_data_format);
+      }
+
+      std::vector<tf::int64> tf_input_sizes;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_static_input_sizes", &tf_input_sizes));
+      if (std::any_of(tf_input_sizes.begin(), tf_input_sizes.end(),
+                      [](tf::int32 size) { return size <= 0; })) {
+        return tf::errors::InvalidArgument(
+            "Conv2DBackpropInput input sizes must be positive integers");
+      }
+
+      bool is_nhwc = (tf_data_format == "NHWC");
+
+      NGRAPH_VLOG(3) << ng::join(tf_strides);
+      NGRAPH_VLOG(3) << ng::join(tf_dilations);
+      NGRAPH_VLOG(3) << tf_padding_type;
+      NGRAPH_VLOG(3) << tf_data_format;
+
+      ng::Strides ng_strides(2);
+      ng::Strides ng_dilations(2);
+      ng::Shape ng_image_shape(2);
+      ng::Shape ng_kernel_shape(2);
+      ng::Shape ng_batch_shape(4);
+
+      if (is_nhwc) {
+        ng_strides[0] = tf_strides[1];
+        ng_strides[1] = tf_strides[2];
+        ng_dilations[0] = tf_dilations[1];
+        ng_dilations[1] = tf_dilations[2];
+        ng_image_shape[0] = tf_input_sizes[1];
+        ng_image_shape[1] = tf_input_sizes[2];
+        ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
+                          static_cast<unsigned long>(tf_input_sizes[3]),
+                          static_cast<unsigned long>(tf_input_sizes[1]),
+                          static_cast<unsigned long>(tf_input_sizes[2])};
+        auto& s = ng_out_backprop->get_shape();
+        ng::Shape reshaped{s[0], s[3], s[1], s[2]};
+        ng_out_backprop = make_shared<ng::op::Reshape>(
+            ng_out_backprop, ng::AxisVector{0, 3, 1, 2}, reshaped);
+      } else {
+        ng_strides[0] = tf_strides[2];
+        ng_strides[1] = tf_strides[3];
+        ng_dilations[0] = tf_dilations[2];
+        ng_dilations[1] = tf_dilations[3];
+        ng_image_shape[0] = tf_input_sizes[2];
+        ng_image_shape[1] = tf_input_sizes[3];
+        ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
+                          static_cast<unsigned long>(tf_input_sizes[1]),
+                          static_cast<unsigned long>(tf_input_sizes[2]),
+                          static_cast<unsigned long>(tf_input_sizes[3])};
+      }
+
+      NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+      NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+      NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+      {
+        auto& s = ng_filter->get_shape();
+        ng::Shape reshaped_shape{s[3], s[2], s[0], s[1]};
+        ng_filter = make_shared<ng::op::Reshape>(
+            ng_filter, ng::AxisVector{3, 2, 0, 1}, reshaped_shape);
+
+        ng_kernel_shape[0] = s[0];
+        ng_kernel_shape[1] = s[1];
+      }
+
+      NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+      ng::CoordinateDiff ng_padding_below{0, 0};
+      ng::CoordinateDiff ng_padding_above{0, 0};
+
+      if (tf_padding_type == "SAME") {
+        for (size_t i = 0; i < 2; i++) {
+          size_t image_size = ng_image_shape[i];
+          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_stride = ng_strides[i];
+
+          tf::int64 padding_needed;
+          if (image_size % filter_stride == 0) {
+            padding_needed = filter_shape - filter_stride;
+          } else {
+            padding_needed = filter_shape - (image_size % filter_stride);
+          }
+          if (padding_needed < 0) {
+            padding_needed = 0;
+          }
+
+          size_t padding_lhs = padding_needed / 2;
+          size_t padding_rhs = padding_needed - padding_lhs;
+          ng_padding_below[i] = padding_lhs;
+          ng_padding_above[i] = padding_rhs;
+        }
+      }
+
+      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+      std::shared_ptr<ng::Node> ng_data =
+          make_shared<ng::op::ConvolutionBackpropData>(
+              ng_batch_shape, ng_filter, ng_out_backprop, ng_strides,
+              ng_dilations, ng_padding_below, ng_padding_above,
+              ng::Strides(ng_batch_shape.size() - 2, 1));
+
+      if (is_nhwc) {
+        auto& s = ng_data->get_shape();
+        ng::Shape reshaped{s[0], s[2], s[3], s[1]};
+        ng_data = make_shared<ng::op::Reshape>(
+            ng_data, ng::AxisVector{0, 2, 3, 1}, reshaped);
+      }
+
+      ng_op_map[op->name()] = ng_data;
+    }
+
     // -----
-    // DepthwiseConv2D
+    // DepthwiseConv2dNative
     // -----
     else if (op->type_string() == "DepthwiseConv2dNative") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for DepthwiseConv2d");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_filter;
@@ -731,7 +1107,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       if (tf_padding_type == "SAME") {
         for (size_t i = 0; i < 2; i++) {
           size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
           size_t filter_stride = ng_strides[i];
 
           tf::int64 padding_needed;
@@ -814,10 +1190,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // ExpandDims
     // --------
     else if (op->type_string() == "ExpandDims") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for ExpandDims");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_dim;
@@ -847,6 +1220,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       auto& shape = ng_input->second->get_shape();
+      auto shape_size = shape.size();
+      if (dim_vec[0] < 0) {
+        // allow range [-rank(input) - 1, rank(input)]
+        // where -1 append new axis at the end
+        dim_vec[0] = shape_size + dim_vec[0] + 1;
+      }
       auto out_shape = shape;
       out_shape.insert(out_shape.begin() + size_t(dim_vec[0]), 1);
       std::vector<size_t> shape_dimensions(shape.size());
@@ -860,18 +1239,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Fill
     // --------
     else if (op->type_string() == "Fill") {
-
       tf::Node* tf_value;
       TF_RETURN_IF_ERROR(op->input_node(1, &tf_value));
 
       shared_ptr<ng::Node> ng_value;
       try {
-        ng_value = ng_op_map.at(tf_value->name()); 
+        ng_value = ng_op_map.at(tf_value->name());
       } catch (const std::out_of_range&) {
-        return tf::errors::InvalidArgument("Missing input: " + tf_value->name());
+        return tf::errors::InvalidArgument("Missing input: " +
+                                           tf_value->name());
       }
       ng_value = ng_op_map.at(tf_value->name());
-     
+
       std::vector<tf::int64> dims_vec;
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_fill_static_dims", &dims_vec));
@@ -882,8 +1261,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         ng_output_shape[i] = dims_vec[i];
         ng_axis_set.insert(i);
       }
-      ng_op_map[op->name()] = make_shared<ng::op::Broadcast>(ng_value,
-        ng_output_shape, ng_axis_set);
+      ng_op_map[op->name()] = make_shared<ng::op::Broadcast>(
+          ng_value, ng_output_shape, ng_axis_set);
     }
     // --------
     // Floor
@@ -895,10 +1274,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // FusedBatchNorm
     // --------------
     else if (op->type_string() == "FusedBatchNorm") {
-      if (op->num_inputs() != 5) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 5 for FusedBatchNorm");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 5));
 
       bool tf_is_training;
       if (tf::GetNodeAttr(op->attrs(), "is_training", &tf_is_training) !=
@@ -991,10 +1367,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Identity
     // --------
     else if (op->type_string() == "Identity") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Identity");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_arg;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
@@ -1028,10 +1401,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // MatMul
     // ------
     else if (op->type_string() == "MatMul") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for MatMul");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_lhs;
       tf::Node* tf_rhs;
@@ -1070,11 +1440,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // MaxPool
     // -------
     else if (op->type_string() == "MaxPool") {
-      NGRAPH_VLOG(3) << op->name();
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for MaxPool");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1196,10 +1562,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Mean
     // ----
     else if (op->type_string() == "Mean") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Mean");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_axes_node;
@@ -1232,7 +1595,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         }
       }
 
-      std::shared_ptr<ng::Node> ng_mean = ng::builder::mean(ng_input, ng_reduction_axes);
+      std::shared_ptr<ng::Node> ng_mean =
+          ng::builder::mean(ng_input, ng_reduction_axes);
 
       // If keep_dims is specified we need to reshape to put back the reduced
       // axes, with length 1.
@@ -1242,8 +1606,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         for (size_t i = 0; i < input_rank; i++) {
           if (ng_reduction_axes.count(i) == 0) {
             ng_result_shape_with_keep[i] = input_shape[i];
-          }
-          else {
+          } else {
             ng_result_shape_with_keep[i] = 1;
           }
         }
@@ -1254,10 +1617,17 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           ng_axis_order[i] = i;
         }
 
-        ng_mean = make_shared<ng::op::Reshape>(ng_mean, ng_axis_order, ng_result_shape_with_keep);
+        ng_mean = make_shared<ng::op::Reshape>(ng_mean, ng_axis_order,
+                                               ng_result_shape_with_keep);
       }
 
       ng_op_map[op->name()] = ng_mean;
+    }
+    // -----
+    // Minimum
+    // -----
+    else if (op->type_string() == "Minimum") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp<ngraph::op::Minimum>(op, ng_op_map));
     }
     // ---
     // Mul
@@ -1273,13 +1643,73 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       // Do nothing! NoOps sometimes get placed on nGraph for bureaucratic
       // reasons, but they have no data flow inputs or outputs.
     }
+    // -------
+    // Pack
+    // -------
+    else if (op->type_string() == "Pack") {
+      TF_RETURN_IF_ERROR(ValidateInputCountMin(op, 1));
+
+      ng::NodeVector ng_concat_inputs;
+
+      for (size_t i = 0; i < op->num_inputs(); ++i) {
+        tf::Node* tf_input;
+        TF_RETURN_IF_ERROR(op->input_node(i, &tf_input));
+        shared_ptr<ng::Node> ng_input;
+        try {
+          ng_input = ng_op_map.at(tf_input->name());
+        } catch (const std::out_of_range&) {
+          return tf::errors::InvalidArgument("Missing input: " +
+                                             tf_input->name());
+        }
+        ng_concat_inputs.push_back(ng_input);
+      }
+
+      tf::int32 tf_axis;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "axis", &tf_axis));
+      size_t input_rank = ng_concat_inputs[0]->get_shape().size();
+
+      auto concat_axis = tf_axis;
+      if (concat_axis == -1) {
+        concat_axis = input_rank;
+      }
+
+      ng::Shape input_shape = ng_concat_inputs[0]->get_shape();
+      ng::Shape output_shape(input_rank + 1);
+
+      // if inputs shape is (2, 3, 4), and axis is 1, then we want
+      // to create output_shape (2, num_inputs, 3, 4)
+      for (size_t i = 0; i < input_rank; ++i) {
+        output_shape[(i < concat_axis) ? i : i + 1] = input_shape[i];
+      }
+      output_shape[concat_axis] = op->num_inputs();
+
+      ng::AxisVector ng_axis_order(input_rank);
+      for (size_t i = 0; i < input_rank; i++) {
+        ng_axis_order[i] = i;
+      }
+
+      if (concat_axis == input_rank) {
+        // need to add extra dimension before we concatenate
+        // along it
+        ng::Shape extended_shape = input_shape;
+        extended_shape.push_back(1);
+        for (size_t i = 0; i < ng_concat_inputs.size(); ++i) {
+          ng_concat_inputs[i] = make_shared<ng::op::Reshape>(
+              ng_concat_inputs[i], ng_axis_order, extended_shape);
+        }
+        ng_axis_order.push_back(input_rank);
+      }
+
+      auto concat = make_shared<ng::op::Concat>(ng_concat_inputs, concat_axis);
+      ng_op_map[op->name()] =
+          make_shared<ng::op::Reshape>(concat, ng_axis_order, output_shape);
+    }
+
     // ---
     // Pad
     // ---
     else if (op->type_string() == "Pad") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument("Number of inputs is not 2 for Pad");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_paddings_node;
@@ -1338,9 +1768,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       shared_ptr<ng::Node> ng_input;
       try {
-        ng_input = ng_op_map.at(tf_input->name()); 
+        ng_input = ng_op_map.at(tf_input->name());
       } catch (const std::out_of_range&) {
-        return tf::errors::InvalidArgument("Missing input: " + tf_input->name());
+        return tf::errors::InvalidArgument("Missing input: " +
+                                           tf_input->name());
       }
 
       ng_input = ng_op_map.at(tf_input->name());
@@ -1352,29 +1783,28 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         auto ng_axis = ng_op_map.find(tf_axis->name());
 
         if (ng_axis == ng_op_map.end()) {
-          return tf::errors::InvalidArgument("Missing input: " + tf_axis->name());
+          return tf::errors::InvalidArgument("Missing input: " +
+                                             tf_axis->name());
         }
-        
-        auto ng_axis_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_axis->second);
+
+        auto ng_axis_const =
+            std::dynamic_pointer_cast<ng::op::Constant>(ng_axis->second);
         if (ng_axis_const == nullptr) {
           for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
             ng_axis_set.insert(i);
           }
-        } 
-        else {
+        } else {
           auto axis_vec = ng_axis_const->get_vector<int>();
           for (size_t i = 0; i < axis_vec.size(); ++i) {
             if (axis_vec[i] >= 0) {
-              ng_axis_set.insert(axis_vec[i]);       
-            }
-            else {
-              // ng_axis_set has unsigned type, converting negative axis 
+              ng_axis_set.insert(axis_vec[i]);
+            } else {
+              // ng_axis_set has unsigned type, converting negative axis
               ng_axis_set.insert(ng_input->get_shape().size() + axis_vec[i]);
             }
-	  }
-	}
-      }
-      else {
+          }
+        }
+      } else {
         return tf::errors::InvalidArgument("Prod operation requires 2 inputs");
       }
 
@@ -1389,16 +1819,20 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
             "keep_dims is not implemented for Prod");
       }
 
-      ng_op_map[op->name()] = make_shared<ng::op::Product>(ng_input, ng_axis_set);
+      ng_op_map[op->name()] =
+          make_shared<ng::op::Product>(ng_input, ng_axis_set);
+    }
+    // ----
+    // RealDiv
+    // ----
+    else if (op->type_string() == "RealDiv") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp<ngraph::op::Divide>(op, ng_op_map));
     }
     // ----
     // Relu
     // ----
     else if (op->type_string() == "Relu") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Relu");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1411,10 +1845,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Relu6
     // ----
     else if (op->type_string() == "Relu6") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Relu6");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1432,10 +1863,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Reshape
     // -------
     else if (op->type_string() == "Reshape") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Reshape");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_shape_node;
@@ -1445,9 +1873,13 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       auto ng_input = ng_op_map.at(tf_input->name());
       auto ng_shape_op = ng_op_map.at(tf_shape_node->name());
 
+      NGRAPH_VLOG(3) << "Input shape: " << ng::join(ng_input->get_shape());
+
       std::vector<tf::int64> shape;
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
+
+      NGRAPH_VLOG(3) << "Requested result shape: " << ng::join(shape);
 
       size_t output_rank = shape.size();
       size_t num_input_elements = ng::shape_size(ng_input->get_shape());
@@ -1503,14 +1935,30 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_shape);
     }
+    // -----
+    // Rsqrt
+    // -----
+    else if (op->type_string() == "Rsqrt") {
+      TF_RETURN_IF_ERROR(
+          TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n) {
+            // Create a constant tensor populated with the value -1/2.
+            // (1/sqrt(x) = x^(-1/2))
+            auto et = n->get_element_type();
+            auto shape = n->get_shape();
+            std::vector<std::string> constant_values(ng::shape_size(shape),
+                                                     "-0.5");
+            auto ng_exponent =
+                std::make_shared<ng::op::Constant>(et, shape, constant_values);
+
+            // Raise each element of the input to the power -0.5.
+            return std::make_shared<ng::op::Power>(n, ng_exponent);
+          }));
+    }
     // ---------
     // Sigmoid
     // ---------
     else if (op->type_string() == "Sigmoid") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Sigmoid");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1537,10 +1985,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Slice
     // --------
     else if (op->type_string() == "Slice") {
-      if (op->num_inputs() != 3) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 3 for Slice");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
 
       tf::Node* tf_input;
       tf::Node* tf_begin;
@@ -1597,10 +2042,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Snapshot
     // --------
     else if (op->type_string() == "Snapshot") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Snapshot");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_arg;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_arg));
@@ -1610,10 +2052,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Softmax
     // ---------
     else if (op->type_string() == "Softmax") {
-      if (op->num_inputs() != 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 1 for Softmax");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1642,14 +2081,32 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng_op_map[op->name()] =
           make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
     }
+    // ------
+    // Square
+    // ------
+    else if (op->type_string() == "Square") {
+      TF_RETURN_IF_ERROR(
+          TranslateUnaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> n) {
+            return std::make_shared<ng::op::Multiply>(n, n);
+          }));
+
+    }
+    // ------------------
+    // SquaredDifference
+    // -------------------
+    else if (op->type_string() == "SquaredDifference") {
+      TF_RETURN_IF_ERROR(TranslateBinaryOp(
+          op, ng_op_map, [](std::shared_ptr<ng::Node> input1,
+                            std::shared_ptr<ng::Node> input2) {
+            auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
+            return std::make_shared<ng::op::Multiply>(ng_diff, ng_diff);
+          }));
+    }
     // -------
     // Squeeze
     // -------
     else if (op->type_string() == "Squeeze") {
-      if (op->num_inputs() < 1) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs should be 1 for Squeeze");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
       tf::Node* tf_input;
       TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
@@ -1708,10 +2165,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // --------
     else if (op->type_string() == "StridedSlice") {
       // TODO refactor StrideSlice with Slice op
-      if (op->num_inputs() != 4) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 4 for Slice");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 4));
 
       tf::Node* tf_input;
       tf::Node* tf_begin;
@@ -1838,9 +2292,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Sum
     // ---
     else if (op->type_string() == "Sum") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument("Number of inputs is not 2 for Sum");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_axes_node;
@@ -1873,7 +2325,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         }
       }
 
-      std::shared_ptr<ng::Node> ng_sum = make_shared<ng::op::Sum>(ng_input, ng_reduction_axes);
+      std::shared_ptr<ng::Node> ng_sum =
+          make_shared<ng::op::Sum>(ng_input, ng_reduction_axes);
 
       // If keep_dims is specified we need to reshape to put back the reduced
       // axes, with length 1.
@@ -1883,8 +2336,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         for (size_t i = 0; i < input_rank; i++) {
           if (ng_reduction_axes.count(i) == 0) {
             ng_result_shape_with_keep[i] = input_shape[i];
-          }
-          else {
+          } else {
             ng_result_shape_with_keep[i] = 1;
           }
         }
@@ -1895,7 +2347,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           ng_axis_order[i] = i;
         }
 
-        ng_sum = make_shared<ng::op::Reshape>(ng_sum, ng_axis_order, ng_result_shape_with_keep);
+        ng_sum = make_shared<ng::op::Reshape>(ng_sum, ng_axis_order,
+                                              ng_result_shape_with_keep);
       }
 
       ng_op_map[op->name()] = ng_sum;
@@ -1907,13 +2360,76 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(TranslateUnaryOp<ngraph::op::Tanh>(op, ng_op_map));
     }
     // ---------
+    // Tile
+    // ---------
+    else if (op->type_string() == "Tile") {
+      if (op->num_inputs() != 2) { 
+        return tf::errors::InvalidArgument( 
+            "Number of inputs is not 2 for Tile");
+      }
+
+      tf::Node* tf_input;
+      tf::Node* tf_multiples;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_multiples));
+
+      shared_ptr<ng::Node> ng_input;
+      shared_ptr<ng::Node> ng_multiples;
+      try {
+        ng_input = ng_op_map.at(tf_input->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to tile op not found: %s",
+                                tf_input->name());
+      }
+      try {
+        ng_multiples = ng_op_map.at(tf_multiples->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to tile op not found: %s",
+                                tf_multiples->name());
+      }
+      std::vector<tf::int64> multiples;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_tile_static_multiples", &multiples));
+      auto ng_input_shape = ng_input->get_shape();
+      if (ng_input_shape.size() != multiples.size()) {
+        return tf::errors::InvalidArgument(
+            "dimension of input does not match length of multiples");
+      }
+      std::shared_ptr<ng::Node> ng_output = ng_input;
+      ng::Shape output_shape = ng_input_shape;
+      bool is_empty = false;
+      for (int i=0; i<ng_input_shape.size(); i++) {
+        if (multiples[i] == 0) {
+          is_empty = true;
+        }
+        output_shape[i] = ng_input_shape[i] * multiples[i];
+      }
+      if (is_empty) {
+        ng_op_map[op->name()] = make_shared<ngraph::op::Constant>( 
+                       ng_input->get_element_type(),
+                       output_shape,
+                       std::vector<std::string>(ng::shape_size(output_shape), "0"));
+      } else {
+        for (int i=0; i<ng_input_shape.size(); i++) {
+          if (multiples[i] < 0) {
+            return tf::errors::InvalidArgument("Expected multiples[", i, "] >= 0, but got ",
+                                  multiples[i]); 
+          }
+          vector<shared_ptr<ng::Node>> tmp_tensors;
+          for (int k=0; k<multiples[i]; k++) {
+            tmp_tensors.push_back(ng_output);
+          }
+          auto ng_concat = make_shared<ngraph::op::Concat>(tmp_tensors, i);
+          ng_output = ng_concat;
+        }
+        ng_op_map[op->name()] = ng_output;
+      }
+    }
+    // ---------
     // Transpose
     // ---------
     else if (op->type_string() == "Transpose") {
-      if (op->num_inputs() != 2) {
-        return tf::errors::InvalidArgument(
-            "Number of inputs is not 2 for Transpose");
-      }
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
 
       tf::Node* tf_input;
       tf::Node* tf_permutation_node;
