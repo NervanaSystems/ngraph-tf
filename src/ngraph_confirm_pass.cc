@@ -362,7 +362,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
           n->AddAttr("_ngraph_expanddims_static_dim", tf_static_dim);
 
-          *result = false;
+          *result = true;
           return tf::Status::OK();
         };
 
