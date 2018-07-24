@@ -1209,7 +1209,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> dim_vec;
       TF_RETURN_IF_ERROR(
-          tf;:GetNodeAttr(op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
+          tf::GetNodeAttr(op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument(
             "The size of argument dim is not 1 for ExpandDims");
