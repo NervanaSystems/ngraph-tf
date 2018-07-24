@@ -59,38 +59,6 @@ static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
   return tf::Status::OK();
 }
 
-template <typename T>
-static void MakePadding(const std::string& tf_padding_type,
-    const ng::Shape& ng_image_shape, const ng::Shape& ng_kernel_shape,
-    const ng::Strides& ng_strides, T& ng_padding_below,
-    T& ng_padding_above) {
-  if (tf_padding_type == "SAME") {
-    for (size_t i = 0; i < 2; i++) {
-      size_t image_size = ng_image_shape[i];
-      size_t filter_shape = ng_kernel_shape[i];
-      size_t filter_stride = ng_strides[i];
-
-      tf::int64 padding_needed;
-      if (image_size % filter_stride == 0) {
-        padding_needed = filter_shape - filter_stride;
-      } else {
-        padding_needed = filter_shape - (image_size % filter_stride);
-      }
-      if (padding_needed < 0) {
-        padding_needed = 0;
-      }
-
-      size_t padding_lhs = padding_needed / 2;
-      size_t padding_rhs = padding_needed - padding_lhs;
-      ng_padding_below[i] = padding_lhs;
-      ng_padding_above[i] = padding_rhs;
-    }
-  }
-
-  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
-}
-
 // Helper for Builder::TranslateGraph ("Const" op)
 template <typename T, typename VecT = T>
 static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
