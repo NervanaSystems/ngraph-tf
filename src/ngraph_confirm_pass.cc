@@ -471,7 +471,35 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
-        confirmation_functions["Slice"] = always;
+
+        // Constraint: begin and size input must be Const.
+        confirmation_functions["Slice"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_begin_node;
+          tf::Node* tf_size_node;
+
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
+          TF_RETURN_IF_ERROR(n->input_node(2, &tf_size_node));
+
+          std::vector<tf::int64> tf_static_begin;
+          if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+          std::vector<tf::int64> tf_static_size;
+          if (ExtractConstantData(tf_size_node, &tf_static_size) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_slice_static_begin", tf_static_begin);
+          n->AddAttr("_ngraph_slice_static_size", tf_static_size);
+
+          *result = true;
+          return tf::Status::OK();
+        };
+
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
         confirmation_functions["Square"] = always;

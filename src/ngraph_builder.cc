@@ -2009,21 +2009,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument("Missing input: " + tf_size->name());
       }
 
-      auto ng_begin_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_begin->second);
-      if (ng_begin_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument begin is null for Slice");
-      }
-      auto lower_vec = ng_begin_const->get_vector<int>();
-
-      auto ng_size_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_size->second);
-      if (ng_size_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument size is null for Slice");
-      }
-      auto size_vec = ng_size_const->get_vector<int>();
+      std::vector<tf::int64> lower_vec;
+      std::vector<tf::int64> size_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_size", &size_vec));
 
       NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
