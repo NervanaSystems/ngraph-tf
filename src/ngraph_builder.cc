@@ -1207,13 +1207,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument("Missing input: " + tf_dim->name());
       }
 
-      auto ng_dim_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_dim->second);
-      if (ng_dim_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument dim is null for ExpandDims");
-      }
-      auto dim_vec = ng_dim_const->get_vector<int>();
+      std::vector<tf::int64> dim_vec;
+      TF_RETURN_IF_ERROR(
+          tf;:GetNodeAttr(op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument(
             "The size of argument dim is not 1 for ExpandDims");

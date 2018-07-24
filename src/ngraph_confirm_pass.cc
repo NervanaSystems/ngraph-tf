@@ -349,7 +349,23 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
-        confirmation_functions["ExpandDims"] = always;
+        confirmation_functions["ExpandDims"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_dim_node;
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
+
+          std::vector<tf::int64> tf_static_dim;
+          if (ExtractConstantData(tf_dim_node, &tf_static_dim) !=
+              tf::Status::OK()) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_expanddims_static_dim", tf_static_dim);
+
+          *result = false;
+          return tf::Status::OK();
+        };
+
         confirmation_functions["Fill"] = [](tf::Node* n, bool* result) {
  
           tf::Node* tf_dims_node;
