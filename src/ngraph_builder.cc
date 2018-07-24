@@ -17,6 +17,7 @@
 #include "ngraph_builder.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
+#include "ngraph_conversions.h"
 
 #include "ngraph/builder/autobroadcast.hpp"
 #include "ngraph/builder/numpy_transpose.hpp"
@@ -41,65 +42,6 @@ const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
      {tf::DataType::DT_UINT16, ng::element::u16},
      {tf::DataType::DT_BOOL, ng::element::boolean}};
 
-template<size_t a, size_t b, size_t c, size_t d>
-static void Reshape(std::shared_ptr<ng::Node>& ng_node) {
-  static_assert(a < 4 && b < 4 && c < 4 && d < 4,
-                "Number of dimensions cannot exceed 4");
-  static_assert(a != b && a != c && a != d && b !=c && b != d && c != d,
-                "Dimensions indices cannot be equal");
-  auto& s = ng_node->get_shape();
-  ng::Shape reshaped_shape{s[a], s[b], s[c], s[d]};
-  NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-  ng_node = make_shared<ng::op::Reshape>(
-      ng_node, ng::AxisVector{a, b, c, d}, reshaped_shape);
-}
-
-static void NhwcToNgraph() {}
-
-template <typename... Arguments, typename T>
-static void NhwcToNgraph(const std::vector<T>& source,
-                         std::vector<size_t>& dest,
-                         Arguments&&... remaining) {
-  dest[0] = source[1];
-  dest[1] = source[2];
-  NhwcToNgraph(remaining...);
-}
-template <typename... Arguments>
-static void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
-                         Arguments&&... remaining) {
-  Reshape<0, 3, 1, 2>(ng_node);
-  NhwcToNgraph(remaining...);
-}
-
-static void NchwToNgraph() {}
-
-template <typename... Arguments, typename T>
-static void NchwToNgraph(const std::vector<T>& source,
-                         std::vector<size_t>& dest,
-                         Arguments&&... remaining) {
-  dest[0] = source[2];
-  dest[1] = source[3];
-  NchwToNgraph(remaining...);
-}
-
-template <typename... Arguments>
-static void TensorflowToNgraph(bool is_nhwc,
-                               std::shared_ptr<ng::Node>& ng_input,
-                               Arguments&&... remaining) {
-  if (is_nhwc) {
-    NhwcToNgraph(ng_input, remaining...);
-  } else {
-    NchwToNgraph(remaining...);
-  }
-}
-
-static void NgraphToTensorflow(bool is_nhwc,
-                               std::shared_ptr<ng::Node>& ng_node) {
-  if (!is_nhwc) {
-    return;
-  }
-  Reshape<0, 2, 3, 1>(ng_node);
-}
 
 static tf::Status ValidateInputCount(const tf::Node* op, size_t count) {
   if (op->num_inputs() != count) {
