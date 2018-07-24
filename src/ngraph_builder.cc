@@ -1368,22 +1368,52 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       NGRAPH_VLOG(3) << "is_training: " << tf_is_training;
 
+      tf::Node* tf_y_backprop;
       tf::Node* tf_input;
       tf::Node* tf_scale;
-      tf::Node* tf_offset;
-      tf::Node* tf_mean;
-      tf::Node* tf_variance;
-      TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
-      TF_RETURN_IF_ERROR(op->input_node(1, &tf_scale));
-      TF_RETURN_IF_ERROR(op->input_node(2, &tf_offset));
-      TF_RETURN_IF_ERROR(op->input_node(3, &tf_mean));
-      TF_RETURN_IF_ERROR(op->input_node(4, &tf_variance));
+      tf::Node* tf_reserve_space_1;
+      tf::Node* tf_reserve_space_2;
+      TF_RETURN_IF_ERROR(op->input_node(0, &tf_y_backprop));
+      TF_RETURN_IF_ERROR(op->input_node(1, &tf_input));
+      TF_RETURN_IF_ERROR(op->input_node(2, &tf_scale));
+      TF_RETURN_IF_ERROR(op->input_node(3, &tf_reserve_space_1));
+      TF_RETURN_IF_ERROR(op->input_node(4, &tf_reserve_space_2));
 
-      auto ng_input = ng_op_map.at(tf_input->name());
-      auto ng_scale = ng_op_map.at(tf_scale->name());
-      auto ng_offset = ng_op_map.at(tf_offset->name());
-      auto ng_mean = ng_op_map.at(tf_mean->name());
-      auto ng_variance = ng_op_map.at(tf_variance->name());
+      shared_ptr<ng::Node> ng_delta;
+      shared_ptr<ng::Node> ng_input;
+      shared_ptr<ng::Node> ng_scale;
+      shared_ptr<ng::Node> ng_mean;
+      shared_ptr<ng::Node> ng_variance;
+      try {
+        ng_delta = ng_op_map.at(tf_y_backprop->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to FusedBatchnormGrad op not found: %s",
+                                tf_y_backprop->name());
+      }
+      try {
+        ng_input = ng_op_map.at(tf_input->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to FusedBatchnormGrad op not found: %s",
+                                tf_input->name());
+      }
+      try {
+        ng_scale = ng_op_map.at(tf_scale->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to FusedBatchnormGrad op not found: %s",
+                                tf_scale->name());
+      }
+      try {
+        ng_mean = ng_op_map.at(tf_reserve_space_1->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to FusedBatchnormGrad op not found: %s",
+                                tf_reserve_space_1->name());
+      }
+      try {
+        ng_variance = ng_op_map.at(tf_reserve_space_2->name()); 
+      } catch (const std::out_of_range&) {
+        return tf::errors::NotFound("Input to FusedBatchnormGrad op not found: %s",
+                                tf_reserve_space_2->name());
+      }
 
       std::string tf_data_format;
       TF_RETURN_IF_ERROR(
@@ -1391,7 +1421,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
         return tf::errors::InvalidArgument(
-            "Conv2D data format is neither NHWC nor NCHW");
+            "FusedBatchnormGrad data format is neither NHWC nor NCHW");
       }
 
       bool is_nhwc = (tf_data_format == "NHWC");
@@ -1401,6 +1431,47 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       float tf_epsilon;
       if (tf::GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) !=
           tf::Status::OK()) {
+        NGRAPH_VLOG(3) << "epsilon attribute not present, setting to zero";
+        tf_epsilon = 0.0001; 
+      }
+
+      NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
+
+      // ToDo: We are temporarily supplying a fake value for beta here
+      // (all zero, same shape/et as scale/gamma), because Tensorflow does not give beta to us.
+      // This should work because nGraph should not actually use beta. The nGraph
+      // op may change to discard this parameter. Update this when nGraph does.
+      shared_ptr<ng::Node> ng_beta =
+          std::make_shared<ngraph::op::Constant>(ng_scale->get_element_type(),
+                           ng_scale->get_shape(),
+                           std::vector<std::string>{ng::shape_size(ng_scale->get_shape()),"0"});
+
+      if (is_nhwc) {
+        auto& s = ng_input->get_shape();
+        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
+
+        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
+
+        ng_input = make_shared<ng::op::Reshape>(
+            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
+      }
+
+      std::shared_ptr<ng::Node> ng_batch_norm_backprop;
+
+      ng_batch_norm_backprop = make_shared<ng::op::BatchNormBackprop>(
+          tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance, 
+          ng_delta);
+
+      if (is_nhwc) {
+        auto& s = ng_batch_norm_backprop->get_shape();
+        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
+
+        ng_batch_norm_backprop = make_shared<ng::op::Reshape>(
+            ng_batch_norm_backprop, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
+      }
+
+      ng_op_map[op->name()] = ng_batch_norm_backprop;
+    }
     // -----
     // Greater
     // -----
