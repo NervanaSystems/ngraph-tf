@@ -32,16 +32,26 @@ class TestSliceOperations(NgraphTest):
   def test_slice(self):
     with self.device:
       inp = np.random.rand(4, 4).astype("f")
+      slice_ts = []
+      expected = []
+
       with self.session as sess:
         a = constant_op.constant(
             [float(x) for x in inp.ravel(order="C")],
             shape=[4, 4],
             dtype=dtypes.float32)
-        slice_t = array_ops.slice(a, [0, 0], [2, 2])
+        slice_ts.append(array_ops.slice(a, [0, 0], [2, 2]))
+        slice_ts.append(array_ops.slice(a, [0, 0], [-1, -1]))
+        slice_ts.append(array_ops.slice(a, [2, 2], [-1, -1]))
 
-        slice_val = sess.run(slice_t)
+        slice_vals = sess.run(slice_ts)
 
-    np.testing.assert_array_equal(slice_val, inp[:2, :2])
+    expected.append(inp[:2, :2])
+    expected.append(inp[:, :])
+    expected.append(inp[2:, 2:])
+
+    for v, e in zip(slice_vals, expected):
+        np.testing.assert_array_equal(v, e)
 
   def test_strided_slice(self):
     with self.device:
