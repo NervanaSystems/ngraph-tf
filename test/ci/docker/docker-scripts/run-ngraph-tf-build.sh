@@ -38,6 +38,7 @@ bridge_dir='/home/dockuser/ngraph-tf'
 bbuild_dir="${bridge_dir}/BUILD-BRIDGE"
 tf_dir='/home/dockuser/tensorflow'
 ci_dir="${bridge_dir}/test/ci/docker"
+dataset_dir='/dataset'
 venv_dir="/tmp/venv_python${PYTHON_VERSION_NUMBER}"
 ngraph_dist_dir="${bbuild_dir}/ngraph/ngraph_dist"
 ngraph_wheel_dir="${bbuild_dir}/python/dist"
@@ -58,6 +59,7 @@ echo "  bridge_dir=${bridge_dir}"
 echo "  bbuild_dir=${bbuild_dir}"
 echo "  tf_dir=${tf_dir}"
 echo "  ci_dir=${ci_dir}"
+echo "  dataset_dir=${dataset_dir}"
 echo "  venv_dir=${venv_dir}"
 echo "  ngraph_dist_dir=${ngraph_dist_dir}"
 echo "  ngraph_wheel_dir=${ngraph_wheel_dir}"
@@ -100,6 +102,24 @@ fi
 if [ -f "${libngraph_tarball}" ] ; then
     ( >&2 echo '***** Error: *****' )
     ( >&2 echo "libngraph distribution directory already exists -- please remove it before calling this script: ${libngraph_tarball}" )
+    exit 1
+fi
+
+if [ ! -d "${dataset_dir}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "Datset directory ${dataset_dir} does not seem to be mounted inside the Docker container" )
+    exit 1
+fi
+
+if [ ! -d "${NGRAPH_IMAGENET_DATASET}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "The validation dataset for ImageNet does not seem to be found: ${NGRAPH_IMAGENET_DATASET}" )
+    exit 1
+fi
+
+if [ ! -d "${NGRAPH_TRAINED_MODEL}" ] ; then
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "The pretrained model for resnet50 CI testing does not seem to be found: ${NGRAPH_TRAINED_MODEL}" )
     exit 1
 fi
 

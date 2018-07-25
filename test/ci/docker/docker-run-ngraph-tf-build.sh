@@ -39,14 +39,24 @@ if [ -z "${IMAGE_ID}" ] ; then
     exit 1
 fi
 
-set -u  # No unset variables after this point
-
 # Find the top-level bridge directory, so we can mount it into the docker
 # container
 bridge_dir="$(realpath ../../..)"
 
 bridge_mountpoint='/home/dockuser/ngraph-tf'
 tf_mountpoint='/home/dockuser/tensorflow'
+
+# Set up a bunch of volume mounts
+volume_mounts='-v /dataset:/dataset'
+volume_mounts="${volume_mounts} -v ${bridge_dir}:${bridge_mountpoint}"
+volume_mounts="${volume_mounts} -v ${tf_dir}:${tf_mountpoint}"
+if [ -z "${NG_TF_TRAINED}" ] ; then
+  volume_mounts="${volume_mounts} -v /aipg_trained_dataset:/aipg_trained_dataset"
+else
+  volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/aipg_trained_dataset"
+fi
+
+set -u  # No unset variables after this point
 
 RUNASUSER_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-as-user.sh"
 BUILD_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-ngraph-tf-build.sh"
@@ -70,9 +80,10 @@ fi
 docker run --rm \
        --env RUN_UID="$(id -u)" \
        --env RUN_CMD="${BUILD_SCRIPT}" \
+       --env NGRAPH_IMAGENET_DATASET="${NGRAPH_IMAGENET_DATASET}" \
+       --env NGRAPH_TRAINED_MODEL="${NGRAPH_TRAINED_MODEL}" \
        ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
-       -v "${bridge_dir}:${bridge_mountpoint}" \
-       -v "${tf_dir}:${tf_mountpoint}" \
+       ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
 
 
