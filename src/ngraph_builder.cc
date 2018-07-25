@@ -2035,12 +2035,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
 
       std::vector<int> upper_vec(lower_vec.size());
-      std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
-                     upper_vec.begin(), std::plus<int>());
-      // support -1 for size_vec, to the end of the tensor
       const auto ng_input_shape = ng_input->second->get_shape();
       for (size_t i = 0; i < size_vec.size(); i++) {
-        if (size_vec[i] == -1) {
+        if (size_vec[i] != -1) {
+          upper_vec[i] = lower_vec[i] + size_vec[i];
+        } else {
+          // support -1 for size_vec, to the end of the tensor
           upper_vec[i] = ng_input_shape[i];
         }
       }
