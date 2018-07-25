@@ -101,7 +101,7 @@ static tf::Status SaveNgOp(Builder::OpMap& ng_op_map, const std::string op_name,
 // Into 2 lines:
 //
 //      shared_ptr<ng::node> ng_input;
-//      TF_RETURN_IF_ERROR(ng_op_map, op, 0, &ng_input)
+//      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input))
 //
 //
 //
@@ -119,7 +119,7 @@ static tf::Status GetInputNode(const Builder::OpMap& ng_op_map, tf::Node* op,
                                int input_idx, shared_ptr<ng::Node> *result) {
   // input op may have resulted in more than one ng::Node (eg. Split)
   // we need to look at Edge to check index of the input op
-  std::vector<const tf::Edge*> edges;// = new std::vector<const tf::Edge*>;
+  std::vector<const tf::Edge*> edges;
   TF_RETURN_IF_ERROR(op->input_edges(&edges));
   int src_output_idx;
   try {
