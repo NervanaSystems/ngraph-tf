@@ -278,6 +278,56 @@ TEST(tf_exec, BatchMatMul_2D) {
   AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
+TEST(tf_exec, FusedBatchNormGrad) { 
+  tf::Scope root = tf::Scope::NewRootScope();
+  auto dev_scope = root.WithDevice("/device:NGRAPH:0");
+  tf::Tensor tf_input(tf::DT_FLOAT, tf::TensorShape({5, 3, 4, 2})); 
+  tf::Tensor tf_delta(tf::DT_FLOAT, tf::TensorShape({5, 3, 4, 2}));
+  tf::Tensor tf_mean(tf::DT_FLOAT, tf::TensorShape({2}));
+  tf::Tensor tf_variance(tf::DT_FLOAT, tf::TensorShape({2}));
+  tf::Tensor tf_gamma(tf::DT_FLOAT, tf::TensorShape({2}));
+
+  auto tf_input_flat = tf_input.flat<float>();
+  for (int i = 0; i < tf_input_flat.size(); i++) {
+    tf_input_flat.data()[i] = -1.1f*i;
+  }
+  auto tf_delta_flat = tf_delta.flat<float>();
+  for (int i = 0; i < tf_delta_flat.size(); i++) {
+    tf_delta_flat.data()[i] = -2.1f*i;
+  }
+  auto tf_mean_flat = tf_mean.flat<float>();
+  for (int i = 0; i < tf_mean_flat.size(); i++) {
+    tf_mean_flat.data()[i] = 1.1f*i;
+  }
+  auto tf_variance_flat = tf_variance.flat<float>();
+  for (int i = 0; i < tf_variance_flat.size(); i++) {
+    tf_variance_flat.data()[i] = 0.5f*i;
+  }
+  auto tf_gamma_flat = tf_gamma.flat<float>();
+  for (int i = 0; i < tf_gamma_flat.size(); i++) {
+    tf_gamma_flat.data()[i] = -1.6f*i;
+  }
+
+  auto attrs = tf::ops::FusedBatchNormGrad::Attrs();
+  attrs.IsTraining(true); 
+  attrs.Epsilon(0.001f); 
+  attrs.DataFormat("NHWC"); 
+
+  std::vector<tf::Tensor> outputs;
+  tf::ClientSession session(dev_scope);
+  auto R = tf::ops::FusedBatchNormGrad(dev_scope.WithOpName("R"), tf_delta, tf_input, 
+                    tf_gamma, tf_mean, tf_variance, attrs);
+  TF_CHECK_OK(session.Run({R.x_backprop}, &outputs));
+
+  tf::ClientSession sess(root);
+  std::vector<tf::Tensor> outputs_cpu;
+  auto C = tf::ops::FusedBatchNormGrad(root.WithOpName("C"), tf_delta, tf_input, 
+                    tf_gamma, tf_mean, tf_variance, attrs);
+  TF_CHECK_OK(sess.Run({C.x_backprop}, &outputs_cpu));
+  ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
+  AssertTensorEquals(outputs[0],outputs_cpu[0]);
+}
+
 TEST(tf_exec, Tile) { 
   tf::Scope root = tf::Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
