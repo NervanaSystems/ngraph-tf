@@ -54,7 +54,6 @@ TEST(tf_exec, hello_world) {
   LOG(INFO) << outputs[0].matrix<float>();
 }
 
-#if !defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
 TEST(tf_exec, axpy) {
   tf::GraphDef gdef;
   // auto status = tf::ReadTextProto(tf::Env::Default(), "test_py.pbtxt",
@@ -105,7 +104,6 @@ TEST(tf_exec, axpy) {
     cout << endl;
   }
 }
-#endif
 
 void AssertTensorEquals(tf::Tensor T1, tf::Tensor T2) {
   auto T_size = T1.flat<float>().size();
@@ -280,7 +278,7 @@ TEST(tf_exec, BatchMatMul_2D) {
   AssertTensorEquals(outputs[0],outputs_cpu[0]);
 }
 
-TEST(tf_exec, FusedBatchNormGrad) { 
+TEST(tf_exec, FusedBatchNormGrad_NHWC) { 
   tf::Scope root = tf::Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   tf::Tensor tf_input(tf::DT_FLOAT, tf::TensorShape({5, 3, 4, 2})); 
@@ -311,23 +309,35 @@ TEST(tf_exec, FusedBatchNormGrad) {
   }
 
   auto attrs = tf::ops::FusedBatchNormGrad::Attrs();
-  attrs.IsTraining(true); 
-  attrs.Epsilon(0.001f); 
-  attrs.DataFormat("NHWC"); 
+  attrs.is_training_ = true; 
+  attrs.epsilon_ = 0.0001f; 
+  attrs.data_format_ = "NHWC"; 
 
-  std::vector<tf::Tensor> outputs;
+  std::vector<tf::Tensor> outputs_x;
+  std::vector<tf::Tensor> outputs_scale;
+  std::vector<tf::Tensor> outputs_offset;
   tf::ClientSession session(dev_scope);
   auto R = tf::ops::FusedBatchNormGrad(dev_scope.WithOpName("R"), tf_delta, tf_input, 
                     tf_gamma, tf_mean, tf_variance, attrs);
-  TF_CHECK_OK(session.Run({R.x_backprop}, &outputs));
+  TF_CHECK_OK(session.Run({R.x_backprop}, &outputs_x));
+  TF_CHECK_OK(session.Run({R.scale_backprop}, &outputs_scale));
+  TF_CHECK_OK(session.Run({R.offset_backprop}, &outputs_offset));
 
   tf::ClientSession sess(root);
-  std::vector<tf::Tensor> outputs_cpu;
+  std::vector<tf::Tensor> outputs_cpu_x;
+  std::vector<tf::Tensor> outputs_cpu_scale;
+  std::vector<tf::Tensor> outputs_cpu_offset;
   auto C = tf::ops::FusedBatchNormGrad(root.WithOpName("C"), tf_delta, tf_input, 
                     tf_gamma, tf_mean, tf_variance, attrs);
-  TF_CHECK_OK(sess.Run({C.x_backprop}, &outputs_cpu));
-  ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
-  AssertTensorEquals(outputs[0],outputs_cpu[0]);
+  TF_CHECK_OK(sess.Run({C.x_backprop}, &outputs_cpu_x));
+  TF_CHECK_OK(sess.Run({C.scale_backprop}, &outputs_cpu_scale));
+  TF_CHECK_OK(sess.Run({C.offset_backprop}, &outputs_cpu_offset));
+  ASSERT_EQ(outputs_x[0].shape(),outputs_cpu_x[0].shape());
+  ASSERT_EQ(outputs_scale[0].shape(),outputs_cpu_scale[0].shape());
+  ASSERT_EQ(outputs_offset[0].shape(),outputs_cpu_offset[0].shape());
+  AssertTensorEquals(outputs_x[0],outputs_cpu_x[0]);
+  AssertTensorEquals(outputs_scale[0],outputs_cpu_scale[0]);
+  AssertTensorEquals(outputs_offset[0],outputs_cpu_offset[0]);
 }
 
 TEST(tf_exec, Tile) { 
