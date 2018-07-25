@@ -51,9 +51,9 @@ volume_mounts='-v /dataset:/dataset'
 volume_mounts="${volume_mounts} -v ${bridge_dir}:${bridge_mountpoint}"
 volume_mounts="${volume_mounts} -v ${tf_dir}:${tf_mountpoint}"
 if [ -z "${NG_TF_TRAINED}" ] ; then
-  volume_mounts="${volume_mounts} -v /aipg_trained_dataset:/aipg_trained_dataset"
+  volume_mounts="${volume_mounts} -v /trained_dataset:/trained_dataset"
 else
-  volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/aipg_trained_dataset"
+  volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/trained_dataset"
 fi
 
 set -u  # No unset variables after this point
@@ -80,8 +80,6 @@ fi
 docker run --rm \
        --env RUN_UID="$(id -u)" \
        --env RUN_CMD="${BUILD_SCRIPT}" \
-       --env NGRAPH_IMAGENET_DATASET="${NGRAPH_IMAGENET_DATASET+}" \
-       --env NGRAPH_TRAINED_MODEL="${NGRAPH_TRAINED_MODEL+}" \
        ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
        ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
