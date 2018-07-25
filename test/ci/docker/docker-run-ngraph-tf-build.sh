@@ -80,8 +80,8 @@ fi
 docker run --rm \
        --env RUN_UID="$(id -u)" \
        --env RUN_CMD="${BUILD_SCRIPT}" \
-       --env NGRAPH_IMAGENET_DATASET="${NGRAPH_IMAGENET_DATASET}" \
-       --env NGRAPH_TRAINED_MODEL="${NGRAPH_TRAINED_MODEL}" \
+       --env NGRAPH_IMAGENET_DATASET="${NGRAPH_IMAGENET_DATASET+}" \
+       --env NGRAPH_TRAINED_MODEL="${NGRAPH_TRAINED_MODEL+}" \
        ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
        ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
