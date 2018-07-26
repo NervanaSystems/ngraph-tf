@@ -25,14 +25,14 @@ namespace detail {
 // yes, these have to be here
 // defined in a function or even in a class the symbols cannot be found for
 // template resolution
-static const char FILL_DIMS[] = "_ngraph_fill_static_dims";
-static const char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
-static const char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
-static const char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
-static const char RESHAPE_SHAPE[] = "_ngraph_reshape_static_shape";
-static const char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
-static const char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
-static const char TRANSPOSE_PERMUTATION[] =
+static constexpr char FILL_DIMS[] = "_ngraph_fill_static_dims";
+static constexpr char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
+static constexpr char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
+static constexpr char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
+static constexpr char RESHAPE_SHAPE[] = "_ngraph_reshape_static_shape";
+static constexpr char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
+static constexpr char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
+static constexpr char TRANSPOSE_PERMUTATION[] =
     "_ngraph_transpose_static_permutation";
 }
 
