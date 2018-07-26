@@ -23,12 +23,10 @@
 
 namespace ngraph_bridge {
 
-using namespace std;
-
 template <typename T>
-auto src_dst(const std::vector<T>& src, std::vector<size_t>& dst) -> decltype(
-    std::make_pair<const std::vector<T>&, std::vector<size_t>&>(src, dst)) {
-  return std::make_pair<const std::vector<T>&, std::vector<size_t>&>(src, dst);
+std::pair<const std::vector<T>&, std::vector<size_t>&> src_dst(
+    const std::vector<T>& src, std::vector<size_t>& dst) {
+  return std::pair<const std::vector<T>&, std::vector<size_t>&>(src, dst);
 }
 
 template <size_t a, size_t b, size_t c, size_t d>
@@ -47,8 +45,9 @@ void Reshape(std::shared_ptr<ng::Node>& ng_node) {
 void NhwcToNgraph() {}
 
 template <typename... Arguments, typename T>
-void NhwcToNgraph(std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
-                  Arguments&&... remaining) {
+void NhwcToNgraph(
+    const std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
+    Arguments&&... remaining) {
   param.second[0] = param.first[1];
   param.second[1] = param.first[2];
   NhwcToNgraph(remaining...);
@@ -63,8 +62,9 @@ void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
 void NchwToNgraph() {}
 
 template <typename... Arguments, typename T>
-void NchwToNgraph(std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
-                  Arguments&&... remaining) {
+void NchwToNgraph(
+    const std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
+    Arguments&&... remaining) {
   param.second[0] = param.first[2];
   param.second[1] = param.first[3];
   NchwToNgraph(remaining...);
