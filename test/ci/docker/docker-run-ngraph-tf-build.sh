@@ -53,7 +53,8 @@ volume_mounts="${volume_mounts} -v ${tf_dir}:${tf_mountpoint}"
 if [ -z "${NG_TF_TRAINED}" ] ; then
   volume_mounts="${volume_mounts} -v /trained_dataset:/trained_dataset"
 else
-  volume_mounts="${volume_mounts} -v ${NG_TF_TRAINED}:/trained_dataset"
+  trained_abspath="$(realpath ${NG_TF_TRAINED})"
+  volume_mounts="${volume_mounts} -v ${trained_abspath}:/trained_dataset"
 fi
 
 set -u  # No unset variables after this point
