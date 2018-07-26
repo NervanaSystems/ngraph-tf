@@ -73,12 +73,11 @@ static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
 //    shared_ptr<ng::Node> output_node - ng::Node to store
 //
 
-static tf::Status SaveNgOp(Builder::OpMap& ng_op_map, const std::string op_name,
-                           const shared_ptr<ng::Node> output_node) {
+static void SaveNgOp(Builder::OpMap& ng_op_map, const std::string& op_name,
+                     const shared_ptr<ng::Node>& output_node) {
   // no need to try-catch, map[key] will create vector object
   // if not exists
   ng_op_map[op_name].push_back(output_node);
-  return tf::Status::OK();
 }
 
 // Helper for fetching correct input node from ng_op_map.
@@ -116,7 +115,7 @@ static tf::Status SaveNgOp(Builder::OpMap& ng_op_map, const std::string op_name,
 //
 
 static tf::Status GetInputNode(const Builder::OpMap& ng_op_map, tf::Node* op,
-                               int input_idx, shared_ptr<ng::Node> *result) {
+                               int input_idx, shared_ptr<ng::Node>* result) {
   // input op may have resulted in more than one ng::Node (eg. Split)
   // we need to look at Edge to check index of the input op
   std::vector<const tf::Edge*> edges;
