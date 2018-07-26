@@ -16,36 +16,46 @@
 
 #pragma once
 
+#include <utility>
+
 #include "ngraph_builder.h"
 #include "ngraph_log.h"
 
 namespace ngraph_bridge {
 
-template<size_t a, size_t b, size_t c, size_t d>
+using namespace std;
+
+template <typename T>
+auto src_dst(const std::vector<T>& src, std::vector<size_t>& dst) -> decltype(
+    std::make_pair<const std::vector<T>&, std::vector<size_t>&>(src, dst)) {
+  return std::make_pair<const std::vector<T>&, std::vector<size_t>&>(src, dst);
+}
+
+template <size_t a, size_t b, size_t c, size_t d>
 void Reshape(std::shared_ptr<ng::Node>& ng_node) {
   static_assert(a < 4 && b < 4 && c < 4 && d < 4,
                 "Number of dimensions cannot exceed 4");
-  static_assert(a != b && a != c && a != d && b !=c && b != d && c != d,
+  static_assert(a != b && a != c && a != d && b != c && b != d && c != d,
                 "Dimensions indices cannot be equal");
   auto& s = ng_node->get_shape();
   ng::Shape reshaped_shape{s[a], s[b], s[c], s[d]};
   NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-  ng_node = make_shared<ng::op::Reshape>(
+  ng_node = std::make_shared<ng::op::Reshape>(
       ng_node, ng::AxisVector{a, b, c, d}, reshaped_shape);
 }
 
 void NhwcToNgraph() {}
 
 template <typename... Arguments, typename T>
-void NhwcToNgraph(const std::vector<T>& source, std::vector<size_t>& dest,
+void NhwcToNgraph(std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
                   Arguments&&... remaining) {
-  dest[0] = source[1];
-  dest[1] = source[2];
+  param.second[0] = param.first[1];
+  param.second[1] = param.first[2];
   NhwcToNgraph(remaining...);
 }
 template <typename... Arguments>
 void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
-                         Arguments&&... remaining) {
+                  Arguments&&... remaining) {
   Reshape<0, 3, 1, 2>(ng_node);
   NhwcToNgraph(remaining...);
 }
@@ -53,10 +63,10 @@ void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
 void NchwToNgraph() {}
 
 template <typename... Arguments, typename T>
-void NchwToNgraph(const std::vector<T>& source, std::vector<size_t>& dest,
+void NchwToNgraph(std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
                   Arguments&&... remaining) {
-  dest[0] = source[2];
-  dest[1] = source[3];
+  param.second[0] = param.first[2];
+  param.second[1] = param.first[3];
   NchwToNgraph(remaining...);
 }
 
@@ -76,5 +86,4 @@ void NgraphToTensorflow(bool is_nhwc, std::shared_ptr<ng::Node>& ng_node) {
   }
   Reshape<0, 2, 3, 1>(ng_node);
 }
-
 }
