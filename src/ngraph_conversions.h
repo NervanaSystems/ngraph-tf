@@ -22,13 +22,6 @@
 #include "ngraph_log.h"
 
 namespace ngraph_bridge {
-
-template <typename T>
-std::pair<const std::vector<T>&, std::vector<size_t>&> src_dst(
-    const std::vector<T>& src, std::vector<size_t>& dst) {
-  return std::pair<const std::vector<T>&, std::vector<size_t>&>(src, dst);
-}
-
 template <size_t a, size_t b, size_t c, size_t d>
 void Reshape(std::shared_ptr<ng::Node>& ng_node) {
   static_assert(a < 4 && b < 4 && c < 4 && d < 4,
@@ -42,45 +35,41 @@ void Reshape(std::shared_ptr<ng::Node>& ng_node) {
       ng_node, ng::AxisVector{a, b, c, d}, reshaped_shape);
 }
 
-void NhwcToNgraph() {}
-
-template <typename... Arguments, typename T>
-void NhwcToNgraph(
-    const std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
-    Arguments&&... remaining) {
-  param.second[0] = param.first[1];
-  param.second[1] = param.first[2];
-  NhwcToNgraph(remaining...);
+namespace detail {
+template <typename T>
+void NhwcToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
+  dst[0] = src[1];
+  dst[1] = src[2];
 }
-template <typename... Arguments>
-void NhwcToNgraph(std::shared_ptr<ng::Node>& ng_node,
-                  Arguments&&... remaining) {
+
+void NhwcToNGraph(std::shared_ptr<ng::Node>& ng_node) {
   Reshape<0, 3, 1, 2>(ng_node);
-  NhwcToNgraph(remaining...);
 }
 
-void NchwToNgraph() {}
-
-template <typename... Arguments, typename T>
-void NchwToNgraph(
-    const std::pair<const std::vector<T>&, std::vector<size_t>&>& param,
-    Arguments&&... remaining) {
-  param.second[0] = param.first[2];
-  param.second[1] = param.first[3];
-  NchwToNgraph(remaining...);
+template <typename T>
+void NchwToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
+  dst[0] = src[2];
+  dst[1] = src[3];
+}
 }
 
-template <typename... Arguments>
-void TensorflowToNgraph(bool is_nhwc, std::shared_ptr<ng::Node>& ng_input,
-                        Arguments&&... remaining) {
+void BatchToNGraph(bool is_nhwc, std::shared_ptr<ng::Node>& ng_input) {
   if (is_nhwc) {
-    NhwcToNgraph(ng_input, remaining...);
-  } else {
-    NchwToNgraph(remaining...);
+    detail::NhwcToNGraph(ng_input);
   }
 }
 
-void NgraphToTensorflow(bool is_nhwc, std::shared_ptr<ng::Node>& ng_node) {
+template <typename T>
+void BatchedOpParamToNGraph(bool is_nhwc, const std::vector<T>& src,
+                            std::vector<size_t>& dst) {
+  if (is_nhwc) {
+    detail::NhwcToNGraph(src, dst);
+  } else {
+    detail::NchwToNGraph(src, dst);
+  }
+}
+
+void BatchToTensorflow(bool is_nhwc, std::shared_ptr<ng::Node>& ng_node) {
   if (!is_nhwc) {
     return;
   }

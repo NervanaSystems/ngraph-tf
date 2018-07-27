@@ -342,9 +342,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      TensorflowToNgraph(is_nhwc, ng_input, src_dst(tf_strides, ng_strides),
-                         src_dst(ng_input->get_shape(), ng_image_shape),
-                         src_dst(tf_ksize, ng_kernel_shape));
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
@@ -386,7 +387,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
           ng_padding_above, false);
 
-      NgraphToTensorflow(is_nhwc, ng_avgpool);
+      BatchToTensorflow(is_nhwc, ng_avgpool);
 
       NGRAPH_VLOG(3) << "avgpool outshape: {"
                      << ng::join(ng_avgpool->get_shape()) << "}";
@@ -738,10 +739,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      TensorflowToNgraph(is_nhwc, ng_input, src_dst(tf_strides, ng_strides),
-                         src_dst(tf_dilations, ng_dilations),
-                         src_dst(ng_input->get_shape(), ng_image_shape));
-
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -786,7 +787,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
           ng_padding_above);
 
-      NgraphToTensorflow(is_nhwc, ng_conv);
+      BatchToTensorflow(is_nhwc, ng_conv);
 
       ng_op_map[op->name()] = ng_conv;
     }
@@ -853,18 +854,16 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_kernel_shape(2);
       ng::Shape ng_batch_shape(4);
 
+      BatchToNGraph(is_nhwc, ng_out_backprop);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, tf_input_sizes, ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
       if (is_nhwc) {
-        NhwcToNgraph(ng_out_backprop, src_dst(tf_strides, ng_strides),
-                     src_dst(tf_dilations, ng_dilations),
-                     src_dst(tf_input_sizes, ng_image_shape));
         ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
                           static_cast<unsigned long>(tf_input_sizes[3]),
                           static_cast<unsigned long>(tf_input_sizes[1]),
                           static_cast<unsigned long>(tf_input_sizes[2])};
       } else {
-        NchwToNgraph(src_dst(tf_strides, ng_strides),
-                     src_dst(tf_dilations, ng_dilations),
-                     src_dst(tf_input_sizes, ng_image_shape));
         ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
                           static_cast<unsigned long>(tf_input_sizes[1]),
                           static_cast<unsigned long>(tf_input_sizes[2]),
@@ -917,7 +916,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
               ng_dilations, ng_padding_below, ng_padding_above,
               ng::Strides(ng_batch_shape.size() - 2, 1));
 
-      NgraphToTensorflow(is_nhwc, ng_data);
+      BatchToTensorflow(is_nhwc, ng_data);
 
       ng_op_map[op->name()] = ng_data;
     }
@@ -965,8 +964,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      TensorflowToNgraph(is_nhwc, ng_input,
-                         src_dst(ng_input->get_shape(), ng_image_shape));
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
       // TODO is the below wrong?
       ng_strides[0] = tf_strides[1];
       ng_strides[1] = tf_strides[2];
@@ -1048,7 +1047,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       std::shared_ptr<ng::Node> ng_concat =
           make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
 
-      NgraphToTensorflow(is_nhwc, ng_concat);
+      BatchToTensorflow(is_nhwc, ng_concat);
       ng_op_map[op->name()] = ng_concat;
     }
     // -----
@@ -1201,7 +1200,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
 
-      TensorflowToNgraph(is_nhwc, ng_input);
+      BatchToNGraph(is_nhwc, ng_input);
 
       std::shared_ptr<ng::Node> ng_batch_norm;
 
@@ -1209,7 +1208,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean, ng_variance,
           tf_is_training);
 
-      NgraphToTensorflow(is_nhwc, ng_batch_norm);
+      BatchToTensorflow(is_nhwc, ng_batch_norm);
       ng_op_map[op->name()] = ng_batch_norm;
     }
     // -----
@@ -1336,10 +1335,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      TensorflowToNgraph(is_nhwc, ng_input, src_dst(tf_strides, ng_strides),
-                         src_dst(ng_input->get_shape(), ng_image_shape),
-                         src_dst(tf_ksize, ng_kernel_shape));
-
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
@@ -1381,7 +1380,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
                                        ng_padding_below, ng_padding_above);
 
-      NgraphToTensorflow(is_nhwc, ng_maxpool);
+      BatchToTensorflow(is_nhwc, ng_maxpool);
 
       NGRAPH_VLOG(3) << "maxpool outshape: {"
                      << ng::join(ng_maxpool->get_shape()) << "}";
