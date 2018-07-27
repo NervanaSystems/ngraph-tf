@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <utility>
-
 #include "ngraph_builder.h"
 #include "ngraph_log.h"
 
