@@ -966,11 +966,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       BatchToNGraph(is_nhwc, ng_input);
       BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
-      // TODO is the below wrong?
-      ng_strides[0] = tf_strides[1];
-      ng_strides[1] = tf_strides[2];
-      ng_dilations[0] = tf_dilations[0];
-      ng_dilations[1] = tf_dilations[1];
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
 
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
