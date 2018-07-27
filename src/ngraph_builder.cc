@@ -29,6 +29,14 @@
 #include "tensorflow/core/lib/core/errors.h"
 
 namespace ngraph_bridge {
+constexpr char FILL_DIMS[] = "_ngraph_fill_static_dims";
+constexpr char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
+constexpr char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
+constexpr char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
+constexpr char RESHAPE_SHAPE[] = "_ngraph_reshape_static_shape";
+constexpr char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
+constexpr char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
+constexpr char TRANSPOSE_PERMUTATION[] = "_ngraph_transpose_static_permutation";
 
 const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
     {{tf::DataType::DT_FLOAT, ng::element::f32},
@@ -116,7 +124,7 @@ static tf::Status SaveNgOp(Builder::OpMap& ng_op_map, const std::string op_name,
 //
 
 static tf::Status GetInputNode(const Builder::OpMap& ng_op_map, tf::Node* op,
-                               int input_idx, shared_ptr<ng::Node> *result) {
+                               int input_idx, shared_ptr<ng::Node>* result) {
   // input op may have resulted in more than one ng::Node (eg. Split)
   // we need to look at Edge to check index of the input op
   std::vector<const tf::Edge*> edges;
@@ -1243,8 +1251,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_value));
 
       std::vector<tf::int64> dims_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_fill_static_dims", &dims_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), FILL_DIMS, &dims_vec));
 
       ng::Shape ng_output_shape(dims_vec.size());
       ng::AxisSet ng_axis_set;
@@ -1559,7 +1566,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> mean_axes;
       TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
+          tf::GetNodeAttr(op->attrs(), MEAN_REDUCTION_AXES, &mean_axes));
 
       ng::Shape input_shape = ng_input->get_shape();
       size_t input_rank = ng_input->get_shape().size();
@@ -1689,8 +1696,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_paddings_op));
 
       std::vector<tf::int64> paddings;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_pad_static_paddings", &paddings));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), PAD_PADDING_WIDTHS, &paddings));
 
       NGRAPH_VLOG(3) << "{" << ng::join(paddings) << "}";
 
@@ -1736,6 +1743,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
       ng::AxisSet ng_axis_set;
+      // TODO: what is happening here? this is not using the const attr
+      // from the confirmation pass for some reason
       if (op->num_inputs() == 2) {
         shared_ptr<ng::Node> ng_axis;
         TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_axis));
@@ -1842,8 +1851,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "Input shape: " << ng::join(ng_input->get_shape());
 
       std::vector<tf::int64> shape;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), RESHAPE_SHAPE, &shape));
 
       NGRAPH_VLOG(3) << "Requested result shape: " << ng::join(shape);
 
@@ -2293,7 +2301,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> sum_axes;
       TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_sum_static_axes", &sum_axes));
+          tf::GetNodeAttr(op->attrs(), SUM_REDUCTION_AXES, &sum_axes));
 
       ng::Shape input_shape = ng_input->get_shape();
       size_t input_rank = input_shape.size();
@@ -2357,8 +2365,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_multiples));
 
       std::vector<tf::int64> multiples;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_tile_static_multiples", &multiples));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), TILE_MULTIPLES, &multiples));
       auto ng_input_shape = ng_input->get_shape();
       if (ng_input_shape.size() != multiples.size()) {
         return tf::errors::InvalidArgument(
@@ -2407,8 +2415,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_permutation_op));
 
       std::vector<tf::int64> permutation;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_transpose_static_permutation", &permutation));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), TRANSPOSE_PERMUTATION, &permutation));
 
       ng::AxisVector ng_axis_order;
       ng_axis_order.reserve(permutation.size());

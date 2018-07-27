@@ -21,21 +21,6 @@
 
 using namespace std;
 namespace ngraph_bridge {
-namespace detail {
-// yes, these have to be here
-// defined in a function or even in a class the symbols cannot be found for
-// template resolution
-static constexpr char FILL_DIMS[] = "_ngraph_fill_static_dims";
-static constexpr char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
-static constexpr char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
-static constexpr char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
-static constexpr char RESHAPE_SHAPE[] = "_ngraph_reshape_static_shape";
-static constexpr char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
-static constexpr char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
-static constexpr char TRANSPOSE_PERMUTATION[] =
-    "_ngraph_transpose_static_permutation";
-}
-
 // TODO(amprocte): this decl should probably be in a header.
 extern const char* const DEVICE_NGRAPH;
 
@@ -387,7 +372,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
         confirmation_functions["ExpandDims"] = always;
-        confirmation_functions["Fill"] = AddConstAttr<detail::FILL_DIMS, 0>;
+        confirmation_functions["Fill"] = AddConstAttr<FILL_DIMS, 0>;
         confirmation_functions["Floor"] = always;
         confirmation_functions["FusedBatchNorm"] = always;
         confirmation_functions["Greater"] = always;
@@ -399,12 +384,10 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["MatMul"] = always;
         confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
-        confirmation_functions["Mean"] =
-            AddConstAttr<detail::MEAN_REDUCTION_AXES, 1>;
+        confirmation_functions["Mean"] = AddConstAttr<MEAN_REDUCTION_AXES, 1>;
         confirmation_functions["Minimum"] = always;
         confirmation_functions["Mul"] = always;
-        confirmation_functions["Pad"] =
-            AddConstAttr<detail::PAD_PADDING_WIDTHS, 1>;
+        confirmation_functions["Pad"] = AddConstAttr<PAD_PADDING_WIDTHS, 1>;
         confirmation_functions["Pow"] = always;
 
         confirmation_functions["Prod"] = [](tf::Node* n, bool* result) {
@@ -418,7 +401,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
             }
           }
 
-          return AddConstAttr<detail::PROD_REDUCTION_AXES, 1>(n, result);
+          return AddConstAttr<PROD_REDUCTION_AXES, 1>(n, result);
         };
 
         confirmation_functions["RealDiv"] = always;
@@ -426,8 +409,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
         confirmation_functions["Rsqrt"] = always;
-        confirmation_functions["Reshape"] =
-            AddConstAttr<detail::RESHAPE_SHAPE, 1>;
+        confirmation_functions["Reshape"] = AddConstAttr<RESHAPE_SHAPE, 1>;
         confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
         confirmation_functions["Slice"] = always;
@@ -456,13 +438,11 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["StridedSlice"] = always;
         confirmation_functions["Pack"] = always;
         confirmation_functions["Sub"] = always;
-        confirmation_functions["Sum"] =
-            AddConstAttr<detail::SUM_REDUCTION_AXES, 1>;
+        confirmation_functions["Sum"] = AddConstAttr<SUM_REDUCTION_AXES, 1>;
         confirmation_functions["Tanh"] = always;
-        confirmation_functions["Tile"] =
-            AddConstAttr<detail::TILE_MULTIPLES, 1>;
+        confirmation_functions["Tile"] = AddConstAttr<TILE_MULTIPLES, 1>;
         confirmation_functions["Transpose"] =
-            AddConstAttr<detail::TRANSPOSE_PERMUTATION, 1>;
+            AddConstAttr<TRANSPOSE_PERMUTATION, 1>;
 
         initialized = true;
       }
