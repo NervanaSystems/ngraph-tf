@@ -1739,35 +1739,21 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Prod
     // ---
     else if (op->type_string() == "Prod") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
       shared_ptr<ng::Node> ng_input;
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
       ng::AxisSet ng_axis_set;
-      // TODO: what is happening here? this is not using the const attr
-      // from the confirmation pass for some reason
-      if (op->num_inputs() == 2) {
-        shared_ptr<ng::Node> ng_axis;
-        TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_axis));
-
-        auto ng_axis_const =
-            std::dynamic_pointer_cast<ng::op::Constant>(ng_axis);
-        if (ng_axis_const == nullptr) {
-          for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
-            ng_axis_set.insert(i);
-          }
+      vector<tf::int64> axis_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), PROD_REDUCTION_AXES, &axis_vec));
+      for (size_t i = 0; i < axis_vec.size(); ++i) {
+        if (axis_vec[i] >= 0) {
+          ng_axis_set.insert(axis_vec[i]);
         } else {
-          auto axis_vec = ng_axis_const->get_vector<int>();
-          for (size_t i = 0; i < axis_vec.size(); ++i) {
-            if (axis_vec[i] >= 0) {
-              ng_axis_set.insert(axis_vec[i]);
-            } else {
-              // ng_axis_set has unsigned type, converting negative axis
-              ng_axis_set.insert(ng_input->get_shape().size() + axis_vec[i]);
-            }
-          }
+          // ng_axis_set has unsigned type, converting negative axis
+          ng_axis_set.insert(ng_input->get_shape().size() + axis_vec[i]);
         }
-      } else {
-        return tf::errors::InvalidArgument("Prod operation requires 2 inputs");
       }
 
       bool tf_keep_dims;
