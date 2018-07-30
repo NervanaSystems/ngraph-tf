@@ -79,6 +79,7 @@ class NGraphVariableOp : public OpKernel {
  public:
   explicit NGraphVariableOp(OpKernelConstruction* context);
   void Compute(OpKernelContext* ctx) override;
+  ~NGraphVariableOp();
 
  private:
   DataType dtype_;
@@ -86,6 +87,7 @@ class NGraphVariableOp : public OpKernel {
 
   tf::mutex init_mu_;
   ContainerInfo cinfo_ GUARDED_BY(init_mu_);
+  NGraphVar* var_ = nullptr;
   bool initialized_ GUARDED_BY(init_mu_){false};
 
   TF_DISALLOW_COPY_AND_ASSIGN(NGraphVariableOp);
@@ -95,6 +97,7 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
     : OpKernel(context) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   dtype_ = RemoveRefType(context->output_type(0));
+  var_ = nullptr;
 }
 
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
@@ -117,21 +120,27 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     *var = new NGraphVar(dtype_, shape_);
     return Status::OK();
   };
-  NGraphVar* var;
-  OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
-                          cinfo_.container(), cinfo_.name(), &var, creator));
+  //NGraphVar* var;
+  if (var_ == nullptr) {
+    OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
+                            cinfo_.container(), cinfo_.name(), &var_, creator));
+  }
   // Output a reference to our tensor, so it may be updated.
   //
   // As long as the resource manager hasn't been cleared the ref we return
   // here is valid because it owns a ref on var.
-  ctx->set_output_ref(0, var->mu(), var->tensor());
-  if (ctx->track_allocations() && var->tensor()->IsInitialized()) {
+  ctx->set_output_ref(0, var_->mu(), var_->tensor());
+  if (ctx->track_allocations() && var_->tensor()->IsInitialized()) {
     AllocatorAttributes attr;
     attr.set_gpu_compatible(true);
     attr.set_nic_compatible(true);
-    ctx->record_persistent_memory_allocation(var->tensor()->AllocatedBytes());
+    ctx->record_persistent_memory_allocation(var_->tensor()->AllocatedBytes());
   }
-  var->Unref();
+  //var->Unref();
+}
+
+NGraphVariableOp::~NGraphVariableOp() {
+  var_->Unref();
 }
 
 REGISTER_KERNEL_BUILDER(Name("VariableV2").Device(ngraph_bridge::DEVICE_NGRAPH),
