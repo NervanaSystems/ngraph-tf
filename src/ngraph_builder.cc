@@ -1381,7 +1381,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
 
-      // ToDo: We are temporarily supplying a fake value for beta here
+      // TODO: We are temporarily supplying a fake value for beta here
       // (all zero, same shape/et as scale/gamma), because Tensorflow does not give beta to us.
       // This should work because nGraph should not actually use beta. The nGraph
       // op may change to discard this parameter. Update this when nGraph does.

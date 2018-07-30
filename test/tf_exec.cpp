@@ -313,31 +313,23 @@ TEST(tf_exec, FusedBatchNormGrad_NHWC) {
   attrs.epsilon_ = 0.0001f; 
   attrs.data_format_ = "NHWC"; 
 
-  std::vector<tf::Tensor> outputs_x;
-  std::vector<tf::Tensor> outputs_scale;
-  std::vector<tf::Tensor> outputs_offset;
+  std::vector<tf::Tensor> outputs;
   tf::ClientSession session(dev_scope);
   auto R = tf::ops::FusedBatchNormGrad(dev_scope.WithOpName("R"), tf_delta, tf_input, 
                     tf_gamma, tf_mean, tf_variance, attrs);
-  TF_CHECK_OK(session.Run({R.x_backprop}, &outputs_x));
-  TF_CHECK_OK(session.Run({R.scale_backprop}, &outputs_scale));
-  TF_CHECK_OK(session.Run({R.offset_backprop}, &outputs_offset));
+  TF_CHECK_OK(session.Run({R.x_backprop, R.scale_backprop, R.offset_backprop}, &outputs));
 
   tf::ClientSession sess(root);
-  std::vector<tf::Tensor> outputs_cpu_x;
-  std::vector<tf::Tensor> outputs_cpu_scale;
-  std::vector<tf::Tensor> outputs_cpu_offset;
+  std::vector<tf::Tensor> outputs_cpu;
   auto C = tf::ops::FusedBatchNormGrad(root.WithOpName("C"), tf_delta, tf_input, 
                     tf_gamma, tf_mean, tf_variance, attrs);
-  TF_CHECK_OK(sess.Run({C.x_backprop}, &outputs_cpu_x));
-  TF_CHECK_OK(sess.Run({C.scale_backprop}, &outputs_cpu_scale));
-  TF_CHECK_OK(sess.Run({C.offset_backprop}, &outputs_cpu_offset));
-  ASSERT_EQ(outputs_x[0].shape(),outputs_cpu_x[0].shape());
-  ASSERT_EQ(outputs_scale[0].shape(),outputs_cpu_scale[0].shape());
-  ASSERT_EQ(outputs_offset[0].shape(),outputs_cpu_offset[0].shape());
-  AssertTensorEquals(outputs_x[0],outputs_cpu_x[0]);
-  AssertTensorEquals(outputs_scale[0],outputs_cpu_scale[0]);
-  AssertTensorEquals(outputs_offset[0],outputs_cpu_offset[0]);
+  TF_CHECK_OK(sess.Run({C.x_backprop, C.scale_backprop, C.offset_backprop}, &outputs_cpu));
+  ASSERT_EQ(outputs[0].shape(),outputs_cpu[0].shape());
+  ASSERT_EQ(outputs[1].shape(),outputs_cpu[1].shape());
+  ASSERT_EQ(outputs[2].shape(),outputs_cpu[2].shape());
+  AssertTensorEquals(outputs[0],outputs_cpu[0]);
+  AssertTensorEquals(outputs[1],outputs_cpu[1]);
+  AssertTensorEquals(outputs[2],outputs_cpu[2]);
 }
 
 TEST(tf_exec, Tile) { 
