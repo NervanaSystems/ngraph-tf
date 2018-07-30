@@ -474,6 +474,129 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       SaveNgOp(ng_op_map, op->name(), ng_avgpool);
     }
     // -------
+    // AvgPoolGrad
+    // -------
+    else if (op->type_string() == "AvgPoolGrad") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
+
+      shared_ptr<ng::Node> ng_orig_input_shape; 
+      shared_ptr<ng::Node> ng_grad;
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_orig_input_shape));
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_grad));
+
+      std::vector<tf::int32> tf_strides;
+      std::vector<tf::int32> tf_ksize;
+      std::string tf_padding_type;
+      std::string tf_data_format;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "AvgPoolGrad data format is neither NHWC nor NCHW");
+      }
+
+      bool is_nhwc = (tf_data_format == "NHWC");
+
+      NGRAPH_VLOG(3) << ng::join(tf_strides);
+      NGRAPH_VLOG(3) << ng::join(tf_ksize);
+      NGRAPH_VLOG(3) << tf_padding_type;
+      NGRAPH_VLOG(3) << tf_data_format;
+
+      ng::Strides ng_strides(2);
+      ng::Shape ng_image_shape(2);
+      ng::Shape ng_kernel_shape(2);
+
+      if (is_nhwc) {
+        auto& s = ng_grad->get_shape();
+        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
+
+        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
+
+        ng_grad = make_shared<ng::op::Reshape>(
+            ng_grad, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
+
+        ng_strides[0] = tf_strides[1];
+        ng_strides[1] = tf_strides[2];
+
+        ng_image_shape[0] = s[1];
+        ng_image_shape[1] = s[2];
+
+        ng_kernel_shape[0] = tf_ksize[1];
+        ng_kernel_shape[1] = tf_ksize[2];
+      } else {
+        auto& s = ng_grad->get_shape();
+
+        ng_strides[0] = tf_strides[2];
+        ng_strides[1] = tf_strides[3];
+
+        ng_image_shape[0] = s[2];
+        ng_image_shape[1] = s[3];
+
+        ng_kernel_shape[0] = tf_ksize[2];
+        ng_kernel_shape[1] = tf_ksize[3];
+      }
+
+      NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+      NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+      NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+      // TODO: change this once nGraph supports negative padding
+      // (CoordinateDiff) for AvgPool
+      // ng::CoordinateDiff ng_padding_below{0,0};
+      // ng::CoordinateDiff ng_padding_above{0,0};
+      ng::Shape ng_padding_below{0, 0};
+      ng::Shape ng_padding_above{0, 0};
+
+      if (tf_padding_type == "SAME") {
+        for (size_t i = 0; i < 2; i++) {
+          size_t image_size = ng_image_shape[i];
+          size_t filter_shape = ng_kernel_shape[i];
+          size_t filter_stride = ng_strides[i];
+
+          tf::int64 padding_needed;
+          if (image_size % filter_stride == 0) {
+            padding_needed = filter_shape - filter_stride;
+          } else {
+            padding_needed = filter_shape - (image_size % filter_stride);
+          }
+          if (padding_needed < 0) {
+            padding_needed = 0;
+          }
+
+          size_t padding_lhs = padding_needed / 2;
+          size_t padding_rhs = padding_needed - padding_lhs;
+          ng_padding_below[i] = padding_lhs;
+          ng_padding_above[i] = padding_rhs;
+        }
+      }
+
+      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+      std::shared_ptr<ng::Node> ng_avgpool_backprop = make_shared<ng::op::AvgPoolBackprop>(
+          ng_orig_input_shape, ng_grad, ng_kernel_shape, ng_strides, ng_padding_below,
+          ng_padding_above, false);
+
+      if (is_nhwc) {
+        auto& s = ng_avgpool->get_shape();
+        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
+
+        ng_avgpool_backprop = make_shared<ng::op::Reshape>(
+            ng_avgpool_backprop, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
+      }
+
+      NGRAPH_VLOG(3) << "avgpool outshape: {"
+                     << ng::join(ng_avgpool->get_shape()) << "}";
+
+      SaveNgOp(ng_op_map, op->name(), ng_avgpool);
+    }
+    // -------
+    // -------
     // BatchMatMul
     // -------
     else if (op->type_string() == "BatchMatMul") {
