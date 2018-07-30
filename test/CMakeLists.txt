@@ -38,6 +38,7 @@ set(SRC
     graph_exec.cpp
     tf_exec.cpp
     padding.cpp
+    conversions.cpp
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
