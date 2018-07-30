@@ -15,6 +15,7 @@
  *******************************************************************************/
 
 #include "ngraph_builder.h"
+#include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
@@ -30,6 +31,7 @@
 
 namespace ngraph_bridge {
 constexpr char FILL_DIMS[] = "_ngraph_fill_static_dims";
+constexpr char EXPANDDIMS_DIM[] = "_ngraph_expanddims_static_dims";
 constexpr char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
 constexpr char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
 constexpr char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
@@ -38,16 +40,16 @@ constexpr char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
 constexpr char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
 constexpr char TRANSPOSE_PERMUTATION[] = "_ngraph_transpose_static_permutation";
 
-const static std::map<tf::DataType, ngraph::element::Type> TF_NGRAPH_TYPE_MAP =
-    {{tf::DataType::DT_FLOAT, ng::element::f32},
-     {tf::DataType::DT_DOUBLE, ng::element::f64},
-     {tf::DataType::DT_INT8, ng::element::i8},
-     {tf::DataType::DT_INT16, ng::element::i16},
-     {tf::DataType::DT_INT32, ng::element::i32},
-     {tf::DataType::DT_INT64, ng::element::i64},
-     {tf::DataType::DT_UINT8, ng::element::u8},
-     {tf::DataType::DT_UINT16, ng::element::u16},
-     {tf::DataType::DT_BOOL, ng::element::boolean}};
+const static std::map<const tf::DataType, const ngraph::element::Type>
+    TF_NGRAPH_TYPE_MAP = {{tf::DataType::DT_FLOAT, ng::element::f32},
+                          {tf::DataType::DT_DOUBLE, ng::element::f64},
+                          {tf::DataType::DT_INT8, ng::element::i8},
+                          {tf::DataType::DT_INT16, ng::element::i16},
+                          {tf::DataType::DT_INT32, ng::element::i32},
+                          {tf::DataType::DT_INT64, ng::element::i64},
+                          {tf::DataType::DT_UINT8, ng::element::u8},
+                          {tf::DataType::DT_UINT16, ng::element::u16},
+                          {tf::DataType::DT_BOOL, ng::element::boolean}};
 
 static tf::Status ValidateInputCount(const tf::Node* op, size_t count) {
   if (op->num_inputs() != count) {
@@ -81,12 +83,11 @@ static tf::Status ValidateInputCountMin(const tf::Node* op, size_t count) {
 //    shared_ptr<ng::Node> output_node - ng::Node to store
 //
 
-static tf::Status SaveNgOp(Builder::OpMap& ng_op_map, const std::string op_name,
-                           const shared_ptr<ng::Node> output_node) {
+static void SaveNgOp(Builder::OpMap& ng_op_map, const std::string& op_name,
+                     const shared_ptr<ng::Node>& output_node) {
   // no need to try-catch, map[key] will create vector object
   // if not exists
   ng_op_map[op_name].push_back(output_node);
-  return tf::Status::OK();
 }
 
 // Helper for fetching correct input node from ng_op_map.
@@ -163,6 +164,31 @@ static tf::Status MakeConstOp(tf::Node* op, ng::element::Type et,
   *ng_node = make_shared<ng::op::Constant>(et, ng_shape, const_values);
   return tf::Status::OK();
 }
+
+const static std::map<
+    const tf::DataType,
+    const std::pair<const std::function<tf::Status(tf::Node*, ng::element::Type,
+                                                   std::shared_ptr<ng::Node>*)>,
+                    const ngraph::element::Type>>
+    TF_NGRAPH_CONST_MAP = {
+        {tf::DataType::DT_FLOAT,
+         make_pair(MakeConstOp<float>, ng::element::f32)},
+        {tf::DataType::DT_DOUBLE,
+         make_pair(MakeConstOp<double>, ng::element::f64)},
+        {tf::DataType::DT_INT8,
+         make_pair(MakeConstOp<tf::int8>, ng::element::i8)},
+        {tf::DataType::DT_INT16,
+         make_pair(MakeConstOp<tf::int16>, ng::element::i16)},
+        {tf::DataType::DT_INT32,
+         make_pair(MakeConstOp<tf::int32>, ng::element::i32)},
+        {tf::DataType::DT_INT64,
+         make_pair(MakeConstOp<tf::int64>, ng::element::i64)},
+        {tf::DataType::DT_UINT8,
+         make_pair(MakeConstOp<tf::uint8>, ng::element::u8)},
+        {tf::DataType::DT_UINT16,
+         make_pair(MakeConstOp<tf::uint16>, ng::element::u16)},
+        {tf::DataType::DT_BOOL,
+         make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
 
 // Helper function to translate a unary op.
 //
@@ -397,36 +423,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_image_shape[0] = s[1];
-        ng_image_shape[1] = s[2];
-
-        ng_kernel_shape[0] = tf_ksize[1];
-        ng_kernel_shape[1] = tf_ksize[2];
-      } else {
-        auto& s = ng_input->get_shape();
-
-        ng_strides[0] = tf_strides[2];
-        ng_strides[1] = tf_strides[3];
-
-        ng_image_shape[0] = s[2];
-        ng_image_shape[1] = s[3];
-
-        ng_kernel_shape[0] = tf_ksize[2];
-        ng_kernel_shape[1] = tf_ksize[3];
-      }
-
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
@@ -438,43 +438,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_padding_below{0, 0};
       ng::Shape ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+                  ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_avgpool = make_shared<ng::op::AvgPool>(
           ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
           ng_padding_above, false);
 
-      if (is_nhwc) {
-        auto& s = ng_avgpool->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-
-        ng_avgpool = make_shared<ng::op::Reshape>(
-            ng_avgpool, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
+      BatchToTensorflow(is_nhwc, ng_avgpool);
 
       NGRAPH_VLOG(3) << "avgpool outshape: {"
                      << ng::join(ng_avgpool->get_shape()) << "}";
@@ -709,58 +680,23 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::shared_ptr<ng::Node> ng_node;
 
-      switch (dtype) {
-        case tf::DataType::DT_FLOAT:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<float>(op, ng::element::f32, &ng_node));
-          break;
-        case tf::DataType::DT_DOUBLE:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<double>(op, ng::element::f64, &ng_node));
-          break;
-        case tf::DataType::DT_INT8:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::int8>(op, ng::element::i8, &ng_node));
-          break;
-        case tf::DataType::DT_INT16:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::int16>(op, ng::element::i16, &ng_node));
-          break;
-        case tf::DataType::DT_INT32:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::int32>(op, ng::element::i32, &ng_node));
-          break;
-        case tf::DataType::DT_INT64:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::int64>(op, ng::element::i64, &ng_node));
-          break;
-        case tf::DataType::DT_UINT8:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::uint8>(op, ng::element::u8, &ng_node));
-          break;
-        case tf::DataType::DT_UINT16:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<tf::uint16>(op, ng::element::u16, &ng_node));
-          break;
-        // For some reason the following do not work (no specialization of
-        // tensorflow::checkpoint::SavedTypeTraits...)
-        // case tf::DataType::DT_UINT32:
-        //   TF_RETURN_IF_ERROR(MakeConstOp<tf::uint32>(op, ng::element::u32,
-        //   &ng_node));
-        //   break;
-        // case tf::DataType::DT_UINT64:
-        //   TF_RETURN_IF_ERROR(MakeConstOp<tf::uint64>(op, ng::element::u64,
-        //   &ng_node));
-        //   break;
-        case tf::DataType::DT_BOOL:
-          TF_RETURN_IF_ERROR(
-              MakeConstOp<bool, char>(op, ng::element::boolean, &ng_node));
-          break;
-        default:
-          return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
-                                           tf::DataType_Name(dtype));
+      // For some reason the following do not work (no specialization of
+      // tensorflow::checkpoint::SavedTypeTraits...)
+      // case tf::DataType::DT_UINT32:
+      //   TF_RETURN_IF_ERROR(MakeConstOp<tf::uint32>(op, ng::element::u32,
+      //   &ng_node));
+      //   break;
+      // case tf::DataType::DT_UINT64:
+      //   TF_RETURN_IF_ERROR(MakeConstOp<tf::uint64>(op, ng::element::u64,
+      //   &ng_node));
+      //   break;
+      try {
+        const auto& func_param = TF_NGRAPH_CONST_MAP.at(dtype);
+        func_param.first(op, func_param.second, &ng_node);
+      } catch (const std::out_of_range&) {
+        return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
+                                         tf::DataType_Name(dtype));
       }
-
       SaveNgOp(ng_op_map, op->name(), ng_node);
     }
     // ------
@@ -803,92 +739,31 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_dilations[0] = tf_dilations[1];
-        ng_dilations[1] = tf_dilations[2];
-
-        ng_image_shape[0] = s[1];
-        ng_image_shape[1] = s[2];
-      } else {
-        auto& s = ng_input->get_shape();
-
-        ng_strides[0] = tf_strides[2];
-        ng_strides[1] = tf_strides[3];
-
-        ng_dilations[0] = tf_dilations[2];
-        ng_dilations[1] = tf_dilations[3];
-
-        ng_image_shape[0] = s[2];
-        ng_image_shape[1] = s[3];
-      }
-
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
 
-      {
-        auto& s = ng_filter->get_shape();
-        ng::Shape reshaped_shape{s[3], s[2], s[0], s[1]};
-        ng_filter = make_shared<ng::op::Reshape>(
-            ng_filter, ng::AxisVector{3, 2, 0, 1}, reshaped_shape);
-
-        ng_kernel_shape[0] = s[0];
-        ng_kernel_shape[1] = s[1];
-      }
+      auto& ng_filter_shape = ng_filter->get_shape();
+      ng_kernel_shape[0] = ng_filter_shape[0];
+      ng_kernel_shape[1] = ng_filter_shape[1];
+      Reshape<3, 2, 0, 1>(ng_filter);
 
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
-
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+                  ng_dilations, ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
           ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
           ng_padding_above);
 
-      if (is_nhwc) {
-        auto& s = ng_conv->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-
-        ng_conv = make_shared<ng::op::Reshape>(
-            ng_conv, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
+      BatchToTensorflow(is_nhwc, ng_conv);
 
       SaveNgOp(ng_op_map, op->name(), ng_conv);
     }
@@ -945,28 +820,16 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_kernel_shape(2);
       ng::Shape ng_batch_shape(4);
 
+      BatchToNGraph(is_nhwc, ng_out_backprop);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, tf_input_sizes, ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
       if (is_nhwc) {
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-        ng_dilations[0] = tf_dilations[1];
-        ng_dilations[1] = tf_dilations[2];
-        ng_image_shape[0] = tf_input_sizes[1];
-        ng_image_shape[1] = tf_input_sizes[2];
         ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
                           static_cast<unsigned long>(tf_input_sizes[3]),
                           static_cast<unsigned long>(tf_input_sizes[1]),
                           static_cast<unsigned long>(tf_input_sizes[2])};
-        auto& s = ng_out_backprop->get_shape();
-        ng::Shape reshaped{s[0], s[3], s[1], s[2]};
-        ng_out_backprop = make_shared<ng::op::Reshape>(
-            ng_out_backprop, ng::AxisVector{0, 3, 1, 2}, reshaped);
       } else {
-        ng_strides[0] = tf_strides[2];
-        ng_strides[1] = tf_strides[3];
-        ng_dilations[0] = tf_dilations[2];
-        ng_dilations[1] = tf_dilations[3];
-        ng_image_shape[0] = tf_input_sizes[2];
-        ng_image_shape[1] = tf_input_sizes[3];
         ng_batch_shape = {static_cast<unsigned long>(tf_input_sizes[0]),
                           static_cast<unsigned long>(tf_input_sizes[1]),
                           static_cast<unsigned long>(tf_input_sizes[2]),
@@ -977,46 +840,18 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
 
-      {
-        auto& s = ng_filter->get_shape();
-        ng::Shape reshaped_shape{s[3], s[2], s[0], s[1]};
-        ng_filter = make_shared<ng::op::Reshape>(
-            ng_filter, ng::AxisVector{3, 2, 0, 1}, reshaped_shape);
-
-        ng_kernel_shape[0] = s[0];
-        ng_kernel_shape[1] = s[1];
-      }
+      auto& ng_filter_shape = ng_filter->get_shape();
+      ng_kernel_shape[0] = ng_filter_shape[0];
+      ng_kernel_shape[1] = ng_filter_shape[1];
+      Reshape<3, 2, 0, 1>(ng_filter);
 
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+                  ng_dilations, ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_data =
           make_shared<ng::op::ConvolutionBackpropData>(
@@ -1024,12 +859,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
               ng_dilations, ng_padding_below, ng_padding_above,
               ng::Strides(ng_batch_shape.size() - 2, 1));
 
-      if (is_nhwc) {
-        auto& s = ng_data->get_shape();
-        ng::Shape reshaped{s[0], s[2], s[3], s[1]};
-        ng_data = make_shared<ng::op::Reshape>(
-            ng_data, ng::AxisVector{0, 2, 3, 1}, reshaped);
-      }
+      BatchToTensorflow(is_nhwc, ng_data);
 
       SaveNgOp(ng_op_map, op->name(), ng_data);
     }
@@ -1074,80 +904,27 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_dilations[0] = tf_dilations[0];
-        ng_dilations[1] = tf_dilations[1];
-
-        ng_image_shape[0] = s[1];
-        ng_image_shape[1] = s[2];
-      } else {
-        auto& s = ng_input->get_shape();
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_dilations[0] = tf_dilations[0];
-        ng_dilations[1] = tf_dilations[1];
-
-        ng_image_shape[0] = s[2];
-        ng_image_shape[1] = s[3];
-      }
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
 
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
 
-      {
-        auto& s = ng_filter->get_shape();
-        ng::Shape reshaped_shape{s[3], s[2], s[0], s[1]};
-        ng_filter = make_shared<ng::op::Reshape>(
-            ng_filter, ng::AxisVector{3, 2, 0, 1}, reshaped_shape);
-
-        ng_kernel_shape[0] = s[0];
-        ng_kernel_shape[1] = s[1];
-      }
+      auto& ng_filter_shape = ng_filter->get_shape();
+      Reshape<3, 2, 0, 1>(ng_filter);
+      ng_kernel_shape[0] = ng_filter_shape[0];
+      ng_kernel_shape[1] = ng_filter_shape[1];
 
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
       ng::CoordinateDiff ng_padding_below{0, 0};
       ng::CoordinateDiff ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = (ng_kernel_shape[i] - 1) * ng_dilations[i] + 1;
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+                  ng_dilations, ng_padding_below, ng_padding_above);
 
       // ng input shape is NCHW
       auto& input_shape = ng_input->get_shape();
@@ -1184,13 +961,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       std::shared_ptr<ng::Node> ng_concat =
           make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
 
-      if (is_nhwc) {
-        auto& s = ng_concat->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-        ng_concat = make_shared<ng::op::Reshape>(
-            ng_concat, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
-
+      BatchToTensorflow(is_nhwc, ng_concat);
       SaveNgOp(ng_op_map, op->name(), ng_concat);
     }
     // -----
@@ -1216,12 +987,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       shared_ptr<ng::Node> ng_dim;
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_dim));
 
-      auto ng_dim_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_dim);
-      if (ng_dim_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument dim is null for ExpandDims");
-      }
-      auto dim_vec = ng_dim_const->get_vector<int>();
+      std::vector<tf::int64> dim_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), EXPANDDIMS_DIM, &dim_vec));
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument(
             "The size of argument dim is not 1 for ExpandDims");
@@ -1317,15 +1085,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-      }
+      BatchToNGraph(is_nhwc, ng_input);
 
       std::shared_ptr<ng::Node> ng_batch_norm;
 
@@ -1333,14 +1093,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
           tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean, ng_variance,
           tf_is_training);
 
-      if (is_nhwc) {
-        auto& s = ng_batch_norm->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-
-        ng_batch_norm = make_shared<ng::op::Reshape>(
-            ng_batch_norm, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
-
+      BatchToTensorflow(is_nhwc, ng_batch_norm);
       SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
     }
     // -----
@@ -1463,36 +1216,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_image_shape[0] = s[1];
-        ng_image_shape[1] = s[2];
-
-        ng_kernel_shape[0] = tf_ksize[1];
-        ng_kernel_shape[1] = tf_ksize[2];
-      } else {
-        auto& s = ng_input->get_shape();
-
-        ng_strides[0] = tf_strides[2];
-        ng_strides[1] = tf_strides[3];
-
-        ng_image_shape[0] = s[2];
-        ng_image_shape[1] = s[3];
-
-        ng_kernel_shape[0] = tf_ksize[2];
-        ng_kernel_shape[1] = tf_ksize[3];
-      }
-
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
@@ -1504,43 +1231,14 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       ng::Shape ng_padding_below{0, 0};
       ng::Shape ng_padding_above{0, 0};
 
-      if (tf_padding_type == "SAME") {
-        for (size_t i = 0; i < 2; i++) {
-          size_t image_size = ng_image_shape[i];
-          size_t filter_shape = ng_kernel_shape[i];
-          size_t filter_stride = ng_strides[i];
-
-          tf::int64 padding_needed;
-          if (image_size % filter_stride == 0) {
-            padding_needed = filter_shape - filter_stride;
-          } else {
-            padding_needed = filter_shape - (image_size % filter_stride);
-          }
-          if (padding_needed < 0) {
-            padding_needed = 0;
-          }
-
-          size_t padding_lhs = padding_needed / 2;
-          size_t padding_rhs = padding_needed - padding_lhs;
-          ng_padding_below[i] = padding_lhs;
-          ng_padding_above[i] = padding_rhs;
-        }
-      }
-
-      NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-      NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+      MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
+                  ng_padding_below, ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_maxpool =
           make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
                                        ng_padding_below, ng_padding_above);
 
-      if (is_nhwc) {
-        auto& s = ng_maxpool->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-
-        ng_maxpool = make_shared<ng::op::Reshape>(
-            ng_maxpool, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
+      BatchToTensorflow(is_nhwc, ng_maxpool);
 
       NGRAPH_VLOG(3) << "maxpool outshape: {"
                      << ng::join(ng_maxpool->get_shape()) << "}";
@@ -1954,43 +1652,26 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       shared_ptr<ng::Node> ng_size;
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_size));
 
-      auto ng_begin_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_begin);
-      if (ng_begin_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument begin is null for Slice");
-      }
-      auto lower_vec = ng_begin_const->get_vector<int>();
+      std::vector<tf::int64> lower_vec;
+      std::vector<tf::int64> size_vec;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_size", &size_vec));
 
-      auto ng_size_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_size);
-      if (ng_size_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument size is null for Slice");
-      }
-      auto size_vec = ng_size_const->get_vector<int>();
-
-      auto& input_shape = ng_input->get_shape();
       NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
-      if (std::any_of(size_vec.begin(), size_vec.end(),
-                      [](int i) { return i <= 0; })) {
-        std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
-                       size_vec.begin(), [](int first, int second) {
-                         if (first < 0) {
-                           return second + first + 1;
-                         } else if (first == 0) {
-                           return second;
-                         } else {
-                           return first;
-                         }
-                       });
-        NGRAPH_VLOG(3) << "Size input for Slice (if less than 0): "
-                       << ng::join(size_vec);
-      }
 
       std::vector<int> upper_vec(lower_vec.size());
-      std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
-                     upper_vec.begin(), std::plus<int>());
+      const auto ng_input_shape = ng_input->get_shape();
+      for (size_t i = 0; i < size_vec.size(); i++) {
+        if (size_vec[i] != -1) {
+          upper_vec[i] = lower_vec[i] + size_vec[i];
+        } else {
+          // support -1 for size_vec, to the end of the tensor
+          upper_vec[i] = ng_input_shape[i];
+        }
+      }
 
       std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
       std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
@@ -2208,58 +1889,91 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       shared_ptr<ng::Node> ng_stride;
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 3, &ng_stride));
 
-      auto ng_begin_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_begin);
-      if (ng_begin_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument begin is null for StridedSlice");
-      }
-      auto lower_vec = ng_begin_const->get_vector<int>();
+      int tf_shrink_axis_mask;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "shrink_axis_mask",
+                                         &tf_shrink_axis_mask));
 
-      auto ng_size_const = std::dynamic_pointer_cast<ng::op::Constant>(ng_size);
-      if (ng_size_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument size is null for StridedSlice");
-      }
-      auto size_vec = ng_size_const->get_vector<int>();
+      std::vector<tf::int64> lower_vec;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
+
+      std::vector<tf::int64> end_vec;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
+
+      std::vector<tf::int64> stride_vec;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
+
+      NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
 
       auto& input_shape = ng_input->get_shape();
-      NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
-      NGRAPH_VLOG(3) << "Size input for StridedSlice: " << ng::join(size_vec);
-      if (std::any_of(size_vec.begin(), size_vec.end(),
-                      [](int i) { return i <= 0; })) {
-        std::transform(size_vec.begin(), size_vec.end(), input_shape.begin(),
-                       size_vec.begin(), [](int first, int second) {
+      NGRAPH_VLOG(3) << "Input shape for StridedSlice: "
+                     << ng::join(input_shape);
+
+      if (lower_vec.size() == end_vec.size() && end_vec.size() == 1) {
+        for (size_t i = end_vec.size(); i < input_shape.size(); ++i) {
+          lower_vec.push_back(0);
+          end_vec.push_back(0);
+        }
+      }
+      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: "
+                     << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "extended End input for StridedSlice: "
+                     << ng::join(end_vec);
+
+      if (std::any_of(lower_vec.begin(), lower_vec.end(),
+                      [](int i) { return i < 0; })) {
+        std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(),
+                       lower_vec.begin(), [](int first, int second) {
                          if (first < 0) {
-                           return second + first + 1;
+                           return second + first;
+                         } else {
+                           return first;
+                         }
+                       });
+      }
+      if (std::any_of(end_vec.begin(), end_vec.end(),
+                      [](int i) { return i <= 0; })) {
+        std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
+                       end_vec.begin(), [](int first, int second) {
+                         if (first < 0) {
+                           return second + first;
                          } else if (first == 0) {
                            return second;
                          } else {
                            return first;
                          }
                        });
-        NGRAPH_VLOG(3) << "Transform size input for StridedSlice: "
-                       << ng::join(size_vec);
+        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: "
+                       << ng::join(end_vec);
       }
 
-      std::vector<int> upper_vec(lower_vec.size());
-      std::transform(lower_vec.begin(), lower_vec.end(), size_vec.begin(),
-                     upper_vec.begin(), std::plus<int>());
-
-      auto ng_stride_const =
-          std::dynamic_pointer_cast<ng::op::Constant>(ng_stride);
-      if (ng_stride_const == nullptr) {
-        return tf::errors::InvalidArgument(
-            "The argument stride is null for StridedSlice");
+      for (size_t i = stride_vec.size(); i < end_vec.size(); ++i) {
+        stride_vec.push_back(1);
       }
-      auto stride_vec = ng_stride_const->get_vector<int>();
+      NGRAPH_VLOG(3) << "stride input for StridedSlice: "
+                     << ng::join(stride_vec);
 
       std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
-      std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
+      std::vector<size_t> u(end_vec.begin(), end_vec.end());
       std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
-      auto ng_strided_slice = make_shared<ng::op::Slice>(ng_input, l, u, s);
-      SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
 
+      std::shared_ptr<ng::Node> ng_strided_slice =
+          make_shared<ng::op::Slice>(ng_input, l, u, s);
+      if (tf_shrink_axis_mask) {
+        ng::AxisVector ng_axis_order(input_shape.size());
+        for (size_t i = 0; i < input_shape.size(); i++) {
+          ng_axis_order[i] = i;
+        }
+
+        ng::Shape ng_shape(input_shape.begin() + 1, input_shape.end());
+        ng_strided_slice = make_shared<ng::op::Reshape>(
+            ng_strided_slice, ng_axis_order, ng_shape);
+      }
+
+      SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
     }
     // ---
     // Subtract
