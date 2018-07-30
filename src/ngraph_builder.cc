@@ -1249,18 +1249,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                            ng_scale->get_shape(),
                            std::vector<std::string>{ng::shape_size(ng_scale->get_shape()),"0"});
 
-      if (is_nhwc) {
-        auto& s = ng_input->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
-
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_input = make_shared<ng::op::Reshape>(
-            ng_input, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_delta = make_shared<ng::op::Reshape>(
-            ng_delta, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-      }
+      BatchToNGraph(is_nhwc, ng_input);
+      BatchToNGraph(is_nhwc, ng_delta);
 
       std::shared_ptr<ng::Node> ng_batch_norm_backprop;
 
@@ -1275,14 +1265,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       shared_ptr<ngraph::Node> ng_beta_delta_op =
                make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 2);
 
-      if (is_nhwc) {
-        auto& s = ng_input_delta_op->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
-
-        ng_input_delta_op = make_shared<ng::op::Reshape>(
-            ng_input_delta_op, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-
-      }
+      BatchToTensorflow(is_nhwc, ng_input_delta_op);
 
       SaveNgOp(ng_op_map, op->name(), ng_input_delta_op);
       SaveNgOp(ng_op_map, op->name(), ng_scale_delta_op);
