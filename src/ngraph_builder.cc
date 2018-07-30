@@ -30,6 +30,15 @@
 #include "tensorflow/core/lib/core/errors.h"
 
 namespace ngraph_bridge {
+constexpr char FILL_DIMS[] = "_ngraph_fill_static_dims";
+constexpr char EXPANDDIMS_DIM[] = "_ngraph_expanddims_static_dims";
+constexpr char MEAN_REDUCTION_AXES[] = "_ngraph_mean_static_axes";
+constexpr char PAD_PADDING_WIDTHS[] = "_ngraph_pad_static_paddings";
+constexpr char PROD_REDUCTION_AXES[] = "_ngraph_prod_static_axes";
+constexpr char RESHAPE_SHAPE[] = "_ngraph_reshape_static_shape";
+constexpr char SUM_REDUCTION_AXES[] = "_ngraph_sum_static_axes";
+constexpr char TILE_MULTIPLES[] = "_ngraph_tile_static_multiples";
+constexpr char TRANSPOSE_PERMUTATION[] = "_ngraph_transpose_static_permutation";
 
 const static std::map<const tf::DataType, const ngraph::element::Type>
     TF_NGRAPH_TYPE_MAP = {{tf::DataType::DT_FLOAT, ng::element::f32},
@@ -980,7 +989,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> dim_vec;
       TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
+          tf::GetNodeAttr(op->attrs(), EXPANDDIMS_DIM, &dim_vec));
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument(
             "The size of argument dim is not 1 for ExpandDims");
@@ -1010,8 +1019,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_value));
 
       std::vector<tf::int64> dims_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_fill_static_dims", &dims_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), FILL_DIMS, &dims_vec));
 
       ng::Shape ng_output_shape(dims_vec.size());
       ng::AxisSet ng_axis_set;
@@ -1256,7 +1264,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> mean_axes;
       TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_mean_static_axes", &mean_axes));
+          tf::GetNodeAttr(op->attrs(), MEAN_REDUCTION_AXES, &mean_axes));
 
       ng::Shape input_shape = ng_input->get_shape();
       size_t input_rank = ng_input->get_shape().size();
@@ -1386,8 +1394,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_paddings_op));
 
       std::vector<tf::int64> paddings;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_pad_static_paddings", &paddings));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), PAD_PADDING_WIDTHS, &paddings));
 
       NGRAPH_VLOG(3) << "{" << ng::join(paddings) << "}";
 
@@ -1429,33 +1437,21 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // Prod
     // ---
     else if (op->type_string() == "Prod") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
       shared_ptr<ng::Node> ng_input;
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
       ng::AxisSet ng_axis_set;
-      if (op->num_inputs() == 2) {
-        shared_ptr<ng::Node> ng_axis;
-        TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_axis));
-
-        auto ng_axis_const =
-            std::dynamic_pointer_cast<ng::op::Constant>(ng_axis);
-        if (ng_axis_const == nullptr) {
-          for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
-            ng_axis_set.insert(i);
-          }
+      vector<tf::int64> axis_vec;
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), PROD_REDUCTION_AXES, &axis_vec));
+      for (size_t i = 0; i < axis_vec.size(); ++i) {
+        if (axis_vec[i] >= 0) {
+          ng_axis_set.insert(axis_vec[i]);
         } else {
-          auto axis_vec = ng_axis_const->get_vector<int>();
-          for (size_t i = 0; i < axis_vec.size(); ++i) {
-            if (axis_vec[i] >= 0) {
-              ng_axis_set.insert(axis_vec[i]);
-            } else {
-              // ng_axis_set has unsigned type, converting negative axis
-              ng_axis_set.insert(ng_input->get_shape().size() + axis_vec[i]);
-            }
-          }
+          // ng_axis_set has unsigned type, converting negative axis
+          ng_axis_set.insert(ng_input->get_shape().size() + axis_vec[i]);
         }
-      } else {
-        return tf::errors::InvalidArgument("Prod operation requires 2 inputs");
       }
 
       bool tf_keep_dims;
@@ -1539,8 +1535,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "Input shape: " << ng::join(ng_input->get_shape());
 
       std::vector<tf::int64> shape;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_reshape_static_shape", &shape));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), RESHAPE_SHAPE, &shape));
 
       NGRAPH_VLOG(3) << "Requested result shape: " << ng::join(shape);
 
@@ -1659,8 +1654,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> lower_vec;
       std::vector<tf::int64> size_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_size", &size_vec));
 
@@ -1895,37 +1890,42 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 3, &ng_stride));
 
       int tf_shrink_axis_mask;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "shrink_axis_mask", &tf_shrink_axis_mask));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "shrink_axis_mask",
+                                         &tf_shrink_axis_mask));
 
       std::vector<tf::int64> lower_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
 
       std::vector<tf::int64> end_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
 
       std::vector<tf::int64> stride_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
 
       NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
 
       auto& input_shape = ng_input->get_shape();
-      NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
+      NGRAPH_VLOG(3) << "Input shape for StridedSlice: "
+                     << ng::join(input_shape);
 
       if (lower_vec.size() == end_vec.size() && end_vec.size() == 1) {
-        for (size_t i=end_vec.size(); i < input_shape.size(); ++i) {
+        for (size_t i = end_vec.size(); i < input_shape.size(); ++i) {
           lower_vec.push_back(0);
           end_vec.push_back(0);
         }
       }
-      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: " << ng::join(lower_vec);
-      NGRAPH_VLOG(3) << "extended End input for StridedSlice: " << ng::join(end_vec);
+      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: "
+                     << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "extended End input for StridedSlice: "
+                     << ng::join(end_vec);
 
-      if (std::any_of(lower_vec.begin(), lower_vec.end(), [](int i){ return i < 0;})) {
-        std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(), 
+      if (std::any_of(lower_vec.begin(), lower_vec.end(),
+                      [](int i) { return i < 0; })) {
+        std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(),
                        lower_vec.begin(), [](int first, int second) {
                          if (first < 0) {
                            return second + first;
@@ -1934,7 +1934,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                          }
                        });
       }
-      if (std::any_of(end_vec.begin(), end_vec.end(), [](int i){ return i <= 0; })) {
+      if (std::any_of(end_vec.begin(), end_vec.end(),
+                      [](int i) { return i <= 0; })) {
         std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
                        end_vec.begin(), [](int first, int second) {
                          if (first < 0) {
@@ -1945,19 +1946,21 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                            return first;
                          }
                        });
-        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: " << ng::join(end_vec);
+        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: "
+                       << ng::join(end_vec);
       }
 
-      for (size_t i=stride_vec.size(); i < end_vec.size(); ++i) {
+      for (size_t i = stride_vec.size(); i < end_vec.size(); ++i) {
         stride_vec.push_back(1);
       }
-      NGRAPH_VLOG(3) << "stride input for StridedSlice: " << ng::join(stride_vec);
+      NGRAPH_VLOG(3) << "stride input for StridedSlice: "
+                     << ng::join(stride_vec);
 
       std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
       std::vector<size_t> u(end_vec.begin(), end_vec.end());
       std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
 
-      std::shared_ptr<ng::Node>  ng_strided_slice =
+      std::shared_ptr<ng::Node> ng_strided_slice =
           make_shared<ng::op::Slice>(ng_input, l, u, s);
       if (tf_shrink_axis_mask) {
         ng::AxisVector ng_axis_order(input_shape.size());
@@ -1967,7 +1970,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
         ng::Shape ng_shape(input_shape.begin() + 1, input_shape.end());
         ng_strided_slice = make_shared<ng::op::Reshape>(
-          ng_strided_slice, ng_axis_order, ng_shape);
+            ng_strided_slice, ng_axis_order, ng_shape);
       }
 
       SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
@@ -1998,7 +2001,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> sum_axes;
       TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_sum_static_axes", &sum_axes));
+          tf::GetNodeAttr(op->attrs(), SUM_REDUCTION_AXES, &sum_axes));
 
       ng::Shape input_shape = ng_input->get_shape();
       size_t input_rank = input_shape.size();
@@ -2062,8 +2065,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_multiples));
 
       std::vector<tf::int64> multiples;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_tile_static_multiples", &multiples));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), TILE_MULTIPLES, &multiples));
       auto ng_input_shape = ng_input->get_shape();
       if (ng_input_shape.size() != multiples.size()) {
         return tf::errors::InvalidArgument(
@@ -2112,8 +2115,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_permutation_op));
 
       std::vector<tf::int64> permutation;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
-          op->attrs(), "_ngraph_transpose_static_permutation", &permutation));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), TRANSPOSE_PERMUTATION, &permutation));
 
       ng::AxisVector ng_axis_order;
       ng_axis_order.reserve(permutation.size());

@@ -33,6 +33,15 @@ namespace tf = tensorflow;
 namespace ng = ngraph;
 
 namespace ngraph_bridge {
+extern const char FILL_DIMS[];
+extern const char EXPANDDIMS_DIM[];
+extern const char MEAN_REDUCTION_AXES[];
+extern const char PAD_PADDING_WIDTHS[];
+extern const char PROD_REDUCTION_AXES[];
+extern const char RESHAPE_SHAPE[];
+extern const char SUM_REDUCTION_AXES[];
+extern const char TILE_MULTIPLES[];
+extern const char TRANSPOSE_PERMUTATION[];
 
 //
 void SummarizeOp(tf::OpKernelConstruction* ctx, std::ostream& out);

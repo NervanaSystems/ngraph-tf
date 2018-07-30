@@ -21,7 +21,6 @@
 
 using namespace std;
 namespace ngraph_bridge {
-
 // TODO(amprocte): this decl should probably be in a header.
 extern const char* const DEVICE_NGRAPH;
 
@@ -158,6 +157,22 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
             "DT_INT32 nor DT_INT64");
     }
 
+    return tf::Status::OK();
+  }
+
+  template <const char* attr_name, size_t node_index>
+  static tf::Status AddConstAttr(tf::Node* n, bool* result) {
+    tf::Node* tf_node;
+    TF_RETURN_IF_ERROR(n->input_node(node_index, &tf_node));
+
+    std::vector<tf::int64> tf_attr;
+    if (ExtractConstantData(tf_node, &tf_attr) != tf::Status::OK()) {
+      *result = false;
+      return tf::Status::OK();
+    }
+
+    n->AddAttr(attr_name, tf_attr);
+    *result = true;
     return tf::Status::OK();
   }
 
@@ -301,7 +316,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         //
 
         // Trivial confirmation function which always accepts placement.
-        ConfirmationFunction always = [](tf::Node* n, bool* result) {
+        static ConfirmationFunction always = [](tf::Node* n, bool* result) {
           *result = true;
           return tf::Status::OK();
         };
@@ -352,42 +367,12 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
-        confirmation_functions["ExpandDims"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_dim_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
-
-          std::vector<tf::int64> tf_static_dim;
-          if (ExtractConstantData(tf_dim_node, &tf_static_dim) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_expanddims_static_dim", tf_static_dim);
-
-          *result = true;
-          return tf::Status::OK();
-        };
-
-        confirmation_functions["Fill"] = [](tf::Node* n, bool* result) {
-
-          tf::Node* tf_dims_node;
-          TF_RETURN_IF_ERROR(n->input_node(0, &tf_dims_node));
-
-          std::vector<tf::int64> tf_dims;
-          if (ExtractConstantData(tf_dims_node, &tf_dims) != tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_fill_static_dims", tf_dims);
-          *result = true;
-          return tf::Status::OK();
-        };
-
+        confirmation_functions["ExpandDims"] = AddConstAttr<EXPANDDIMS_DIM, 1>;
+        confirmation_functions["Fill"] = AddConstAttr<FILL_DIMS, 0>;
         confirmation_functions["Floor"] = always;
         confirmation_functions["FusedBatchNorm"] = always;
         confirmation_functions["Greater"] = always;
@@ -399,49 +384,12 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["MatMul"] = always;
         confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
-
-        // Constraints: "keep_dims" is not supported, reduction-axes input
-        // must be Const.
-        confirmation_functions["Mean"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_axes_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-          std::vector<tf::int64> tf_static_axes;
-          if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_mean_static_axes", tf_static_axes);
-          *result = true;
-          return tf::Status::OK();
-        };
-
+        confirmation_functions["Mean"] = AddConstAttr<MEAN_REDUCTION_AXES, 1>;
         confirmation_functions["Minimum"] = always;
         confirmation_functions["Mul"] = always;
-
-        // Constraint: padding-widths input must be Const.
-        confirmation_functions["Pad"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_paddings_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_paddings_node));
-
-          std::vector<tf::int64> tf_static_paddings;
-          if (ExtractConstantData(tf_paddings_node, &tf_static_paddings) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_pad_static_paddings", tf_static_paddings);
-          *result = true;
-          return tf::Status::OK();
-        };
-
+        confirmation_functions["Pad"] = AddConstAttr<PAD_PADDING_WIDTHS, 1>;
         confirmation_functions["Pow"] = always;
 
-        // Constraints: "keep_dims" is not supported, reduction-axes input
-        // must be Const.
         confirmation_functions["Prod"] = [](tf::Node* n, bool* result) {
           bool tf_keep_dims;
 
@@ -453,19 +401,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
             }
           }
 
-          tf::Node* tf_axes_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-          std::vector<tf::int64> tf_static_axes;
-          if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_prod_static_axes", tf_static_axes);
-          *result = true;
-          return tf::Status::OK();
+          return AddConstAttr<PROD_REDUCTION_AXES, 1>(n, result);
         };
 
         confirmation_functions["RealDiv"] = always;
@@ -473,24 +409,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
         confirmation_functions["Rsqrt"] = always;
-
-        // Constraint: shape input must be Const.
-        confirmation_functions["Reshape"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_shape_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
-
-          std::vector<tf::int64> tf_static_shape;
-          if (ExtractConstantData(tf_shape_node, &tf_static_shape) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_reshape_static_shape", tf_static_shape);
-          *result = true;
-          return tf::Status::OK();
-        };
-
+        confirmation_functions["Reshape"] = AddConstAttr<RESHAPE_SHAPE, 1>;
         confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
 
@@ -550,7 +469,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           // reject if tf.newaxis in strided slice
           // TODO support tf.newaxis
           int tf_new_axis_mask;
-          TF_RETURN_IF_ERROR(tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
+          TF_RETURN_IF_ERROR(
+              tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
           if (tf_new_axis_mask != 0) {
             *result = false;
             return tf::Status::OK();
@@ -592,58 +512,11 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Pack"] = always;
         confirmation_functions["Sub"] = always;
-
-        // Constraints: reduction-axes input must be Const.
-        confirmation_functions["Sum"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_axes_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-          std::vector<tf::int64> tf_static_axes;
-          if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_sum_static_axes", tf_static_axes);
-          *result = true;
-          return tf::Status::OK();
-        };
-
+        confirmation_functions["Sum"] = AddConstAttr<SUM_REDUCTION_AXES, 1>;
         confirmation_functions["Tanh"] = always;
-        confirmation_functions["Tile"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_multiples;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_multiples));
-
-          std::vector<tf::int64> tf_static_multiples;
-          if (ExtractConstantData(tf_multiples, &tf_static_multiples) !=
-              tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_tile_static_multiples", tf_static_multiples);
-          *result = true;
-          return tf::Status::OK();
-        };
-
-        // Constraint: permutation input must be Const.
-        confirmation_functions["Transpose"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_permutation_node;
-          TF_RETURN_IF_ERROR(n->input_node(1, &tf_permutation_node));
-
-          std::vector<tf::int64> tf_static_permutation;
-          if (ExtractConstantData(tf_permutation_node,
-                                  &tf_static_permutation) != tf::Status::OK()) {
-            *result = false;
-            return tf::Status::OK();
-          }
-
-          n->AddAttr("_ngraph_transpose_static_permutation",
-                     tf_static_permutation);
-          *result = true;
-          return tf::Status::OK();
-        };
+        confirmation_functions["Tile"] = AddConstAttr<TILE_MULTIPLES, 1>;
+        confirmation_functions["Transpose"] =
+            AddConstAttr<TRANSPOSE_PERMUTATION, 1>;
 
         initialized = true;
       }
