@@ -86,7 +86,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
         m_freshness_tracker->RemoveUser(kv.second);
       }
     }
-    // d-tor
+    m_freshness_tracker->Unref();
   }
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache, and
