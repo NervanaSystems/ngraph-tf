@@ -105,6 +105,7 @@ TEST(tf_exec, axpy) {
     cout << endl;
   }
 }
+#endif
 
 void AssertTensorEquals(tf::Tensor T1, tf::Tensor T2) {
   auto T_size = T1.flat<float>().size();
