@@ -447,11 +447,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // -------
     else if (op->type_string() == "AvgPoolGrad") {
       TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
-
-      shared_ptr<ng::Node> ng_orig_input_shape; 
+      std::cout<<"first printout"<<std::endl;
+      
       shared_ptr<ng::Node> ng_grad;
-      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_orig_input_shape));
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_grad));
+      std::cout<<"second printout"<<std::endl; 
+
+      std::vector<tf::int32> tf_orig_input_shape_vec;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_avgpoolgrad_static_input_shape", &tf_orig_input_shape_vec));
 
       std::vector<tf::int32> tf_strides;
       std::vector<tf::int32> tf_ksize;
@@ -468,6 +472,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
         return tf::errors::InvalidArgument(
             "AvgPoolGrad data format is neither NHWC nor NCHW");
       }
+      std::cout<<"third printout"<<std::endl; 
 
       bool is_nhwc = (tf_data_format == "NHWC");
 
@@ -476,43 +481,31 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << tf_padding_type;
       NGRAPH_VLOG(3) << tf_data_format;
 
+      ng::Shape ng_forward_arg_shape;
       ng::Strides ng_strides(2);
       ng::Shape ng_image_shape(2);
       ng::Shape ng_kernel_shape(2);
 
-      if (is_nhwc) {
-        auto& s = ng_grad->get_shape();
-        ng::Shape reshaped_shape{s[0], s[3], s[1], s[2]};
+      BatchToNGraph(is_nhwc, ng_grad);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+      BatchedOpParamToNGraph(is_nhwc, ng_grad->get_shape(), ng_image_shape);
+      BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+      std::cout<<"fourth printout"<<std::endl; 
 
-        NGRAPH_VLOG(3) << "reshaped_shape: " << ng::join(reshaped_shape);
-
-        ng_grad = make_shared<ng::op::Reshape>(
-            ng_grad, ng::AxisVector{0, 3, 1, 2}, reshaped_shape);
-
-        ng_strides[0] = tf_strides[1];
-        ng_strides[1] = tf_strides[2];
-
-        ng_image_shape[0] = s[1];
-        ng_image_shape[1] = s[2];
-
-        ng_kernel_shape[0] = tf_ksize[1];
-        ng_kernel_shape[1] = tf_ksize[2];
-      } else {
-        auto& s = ng_grad->get_shape();
-
-        ng_strides[0] = tf_strides[2];
-        ng_strides[1] = tf_strides[3];
-
-        ng_image_shape[0] = s[2];
-        ng_image_shape[1] = s[3];
-
-        ng_kernel_shape[0] = tf_ksize[2];
-        ng_kernel_shape[1] = tf_ksize[3];
+      if (tf_orig_input_shape_vec.size() != 4) {
+        return tf::errors::InvalidArgument(
+            "Tensorflow requires input tensor shape being 4", tf_orig_input_shape_vec.size());
       }
+      for (int i = 0; i < tf_orig_input_shape_vec.size(); i++) {
+        ng_forward_arg_shape.push_back(tf_orig_input_shape_vec[i]);
+      }
+
+      BatchedOpParamToNGraph(is_nhwc, ng_forward_arg_shape, ng_forward_arg_shape);
 
       NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
       NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
       NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+      NGRAPH_VLOG(3) << "ng_forward_arg_shape: " << ng::join(ng_forward_arg_shape);
 
       // TODO: change this once nGraph supports negative padding
       // (CoordinateDiff) for AvgPool
@@ -548,21 +541,15 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
 
       std::shared_ptr<ng::Node> ng_avgpool_backprop = make_shared<ng::op::AvgPoolBackprop>(
-          ng_orig_input_shape, ng_grad, ng_kernel_shape, ng_strides, ng_padding_below,
+          ng_forward_arg_shape, ng_grad, ng_kernel_shape, ng_strides, ng_padding_below,
           ng_padding_above, false);
 
-      if (is_nhwc) {
-        auto& s = ng_avgpool->get_shape();
-        ng::Shape reshaped_shape{s[0], s[2], s[3], s[1]};
+      BatchToTensorflow(is_nhwc, ng_avgpool_backprop);
 
-        ng_avgpool_backprop = make_shared<ng::op::Reshape>(
-            ng_avgpool_backprop, ng::AxisVector{0, 2, 3, 1}, reshaped_shape);
-      }
+      NGRAPH_VLOG(3) << "avgpoolbackprop outshape: {"
+                     << ng::join(ng_avgpool_backprop->get_shape()) << "}";
 
-      NGRAPH_VLOG(3) << "avgpool outshape: {"
-                     << ng::join(ng_avgpool->get_shape()) << "}";
-
-      SaveNgOp(ng_op_map, op->name(), ng_avgpool);
+      SaveNgOp(ng_op_map, op->name(), ng_avgpool_backprop);
     }
     // -------
     // -------
