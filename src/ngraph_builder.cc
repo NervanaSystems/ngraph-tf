@@ -854,7 +854,36 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       SaveNgOp(ng_op_map, op->name(), ng_data);
     }
+    // --------------
+    // Conv2DBackpropFilter
+    // --------------
+    else if (op->type_string() == "Conv2DBackpropFilter") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
 
+      shared_ptr<ng::Node> ng_input, ng_filter_sizes, ng_out_backdrops;
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_filter_sizes));
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_out_backdrops));
+
+      std::vector<tf::int32> tf_strides;
+      std::string tf_padding;
+      std::vector<tf::int32> tf_dilations;
+      std::string tf_data_format;
+
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" || tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "%s data format is neither NHWC nor NCHW: %s", op->type_string(),
+            tf_data_format);
+      }
+
+    }
     // -----
     // DepthwiseConv2dNative
     // -----
