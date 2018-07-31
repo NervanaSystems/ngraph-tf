@@ -157,11 +157,11 @@ static tf::Status MakeConstOp(const tf::Node* op, ng::element::Type et,
   return tf::Status::OK();
 }
 
-const static std::map<
-    const tf::DataType,
-    const std::pair<const std::function<tf::Status(tf::Node*, ng::element::Type,
-                                                   std::shared_ptr<ng::Node>*)>,
-                    const ngraph::element::Type>>
+const static std::map<const tf::DataType,
+                      const std::pair<const std::function<tf::Status(
+                                          const tf::Node*, ng::element::Type,
+                                          std::shared_ptr<ng::Node>*)>,
+                                      const ngraph::element::Type>>
     TF_NGRAPH_CONST_MAP = {
         {tf::DataType::DT_FLOAT,
          make_pair(MakeConstOp<float>, ng::element::f32)},
@@ -340,8 +340,8 @@ static tf::Status TranslateAvgPoolOp(const tf::Node* op,
   ng::Shape ng_padding_below{0, 0};
   ng::Shape ng_padding_above{0, 0};
 
-  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
-              ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_avgpool =
       make_shared<ng::op::AvgPool>(ng_input, ng_kernel_shape, ng_strides,
@@ -592,7 +592,7 @@ static tf::Status TranslateConstOp(const tf::Node* op,
   //   break;
   try {
     const auto& func_param = TF_NGRAPH_CONST_MAP.at(dtype);
-    func_param.first(op, func_param.second, &ng_node);
+    TF_RETURN_IF_ERROR(func_param.first(op, func_param.second, &ng_node));
   } catch (const std::out_of_range&) {
     return tf::errors::Unimplemented("Unsupported TensorFlow data type: ",
                                      tf::DataType_Name(dtype));
@@ -657,8 +657,9 @@ static tf::Status TranslateConv2DOp(const tf::Node* op,
   ng::CoordinateDiff ng_padding_below{0, 0};
   ng::CoordinateDiff ng_padding_above{0, 0};
 
-  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
-              ng_dilations, ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
       ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
@@ -748,8 +749,9 @@ static tf::Status TranslateConv2DBackpropInputOp(const tf::Node* op,
   ng::CoordinateDiff ng_padding_below{0, 0};
   ng::CoordinateDiff ng_padding_above{0, 0};
 
-  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
-              ng_dilations, ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_data =
       make_shared<ng::op::ConvolutionBackpropData>(
@@ -818,8 +820,9 @@ static tf::Status TranslateDepthwiseConv2dNativeOp(const tf::Node* op,
   ng::CoordinateDiff ng_padding_below{0, 0};
   ng::CoordinateDiff ng_padding_above{0, 0};
 
-  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
-              ng_dilations, ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
 
   // ng input shape is NCHW
   auto& input_shape = ng_input->get_shape();
@@ -1064,8 +1067,8 @@ static tf::Status TranslateMaxPoolOp(const tf::Node* op,
   ng::Shape ng_padding_below{0, 0};
   ng::Shape ng_padding_above{0, 0};
 
-  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape, ng_strides,
-              ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_maxpool =
       make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
