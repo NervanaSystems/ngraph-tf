@@ -1234,7 +1234,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       float tf_epsilon;
       if (tf::GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) !=
           tf::Status::OK()) {
-        NGRAPH_VLOG(3) << "epsilon attribute not present, setting to zero";
+        NGRAPH_VLOG(3) << "epsilon attribute not present, setting to 0.0001";
         tf_epsilon = 0.0001; 
       }
 

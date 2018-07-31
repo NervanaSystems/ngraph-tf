@@ -54,6 +54,7 @@ TEST(tf_exec, hello_world) {
   LOG(INFO) << outputs[0].matrix<float>();
 }
 
+#if !defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
 TEST(tf_exec, axpy) {
   tf::GraphDef gdef;
   // auto status = tf::ReadTextProto(tf::Env::Default(), "test_py.pbtxt",
