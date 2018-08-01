@@ -283,10 +283,11 @@ static tf::Status TranslateBinaryOp(
 //
 template <typename T>
 static tf::Status TranslateBinaryOp(tf::Node* op, Builder::OpMap& ng_op_map) {
-  return TranslateBinaryOp(op, ng_op_map, [](std::shared_ptr<ng::Node> ng_lhs,
-                                             std::shared_ptr<ng::Node> ng_rhs) {
-    return make_shared<T>(ng_lhs, ng_rhs);
-  });
+  return TranslateBinaryOp(
+      op, ng_op_map,
+      [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
+        return make_shared<T>(ng_lhs, ng_rhs);
+      });
 }
 
 tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
@@ -758,6 +759,113 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       SaveNgOp(ng_op_map, op->name(), ng_conv);
     }
+    // --------------
+    // Conv2DBackpropFilter
+    // --------------
+    else if (op->type_string() == "Conv2DBackpropFilter") {
+      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
+
+      shared_ptr<ng::Node> ng_data_batch, ng_output_delta;
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_data_batch));
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_output_delta));
+
+      std::vector<tf::int32> tf_strides;
+      std::string tf_padding_type;
+      std::vector<tf::int32> tf_dilations;
+      std::string tf_data_format;
+
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+      TF_RETURN_IF_ERROR(
+          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+      if (tf_data_format != "NHWC" || tf_data_format != "NCHW") {
+        return tf::errors::InvalidArgument(
+            "%s data format is neither NHWC nor NCHW: %s", op->type_string(),
+            tf_data_format);
+      }
+
+      std::vector<tf::int64> tf_filter_sizes;
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_static_filter_sizes", &tf_filter_sizes));
+      if (std::any_of(tf_filter_sizes.begin(), tf_filter_sizes.end(),
+                      [](tf::int64 size) { return size <= 0; })) {
+        return tf::errors::InvalidArgument(
+            "%s filter sizes must be positive integers", op->type_string());
+      }
+
+      NGRAPH_VLOG(3) << "tf data format" << tf_data_format;
+      NGRAPH_VLOG(3) << "tf filter size" << tf_filter_sizes;
+      NGRAPH_VLOG(3) << "tf strides" << ng::join(tf_strides);
+      NGRAPH_VLOG(3) << "tf dilations" << ng::join(tf_dilations);
+      NGRAPH_VLOG(3) << "tf padding type" << tf_padding_type;
+
+      bool is_nhwc = (tf_data_format == "NHWC");
+      ng::Shape ng_filters_shape(4);
+      ng::Strides ng_window_movement_strides_forward(2);
+      ng::Strides ng_window_dilation_strides_forward(2);
+      ng::CoordinateDiff ng_padding_below_forward{0, 0};
+      ng::CoordinateDiff ng_padding_above_forward{0, 0};
+      // H,W data_dilation is set to 1 , TF does not have this attribute
+      ng::Strides ng_data_dilation_strides_forward(2, 1);
+
+      // Convert inputs, args to nGraph Format
+      // nGraph Data Format:
+      //    nGraph Tensor           [N, C_IN, D1, ... Df]
+      //    nGraph Filter           [C_OUT, C_IN, F1, ... Ff]
+      //    nGraph Window Strides   [f]
+      //    nGraph Window Dilations [f]
+      //    nGraph Padding Below    [f]
+      //    nGraph Padding Above    [f]
+      //    nGraph Dilation Stride  [f]
+      BatchToNGraph(is_nhwc, ng_data_batch);
+      // tf_filter shape :
+      // [filter_height, filter_width, in_channels, out_channels]
+      // reshape for nGraph
+      ng_filters_shape = {static_cast<unsigned long>(tf_filter_sizes[3]),
+                          static_cast<unsigned long>(tf_filter_sizes[2]),
+                          static_cast<unsigned long>(tf_filter_sizes[0]),
+                          static_cast<unsigned long>(tf_filter_sizes[1])};
+
+      BatchToNGraph(is_nhwc, ng_output_delta);
+      BatchedOpParamToNGraph(is_nhwc, tf_strides,
+                             ng_window_movement_strides_forward);
+      BatchedOpParamToNGraph(is_nhwc, tf_dilations,
+                             ng_window_dilation_strides_forward);
+      // H, W of image/input and filter are required to figure out padding
+      // arguments
+      ng::Shape ng_filter_HW(2);
+      ng::Shape ng_input_data_HW(2);
+
+      auto& ng_data_batch_shape = ng_data_batch->get_shape();
+      ng_input_data_HW[0] = ng_data_batch_shape[2];
+      ng_input_data_HW[1] = ng_data_batch_shape[3];
+
+      ng_filter_HW[0] = ng_filters_shape[2];
+      ng_filter_HW[1] = ng_filters_shape[3];
+
+      Builder::MakePadding(tf_padding_type, ng_input_data_HW, ng_filter_HW,
+                           ng_window_movement_strides_forward,
+                           ng_window_dilation_strides_forward,
+                           ng_padding_below_forward, ng_padding_above_forward);
+
+      std::shared_ptr<ng::Node> ng_back_prop_filter =
+          make_shared<ng::op::ConvolutionBackpropFilters>(
+              ng_data_batch_shape, ng_filters_shape, ng_output_delta,
+              ng_window_movemet_strides_forward,
+              ng_window_dilation_strides_forward, ng_padding_below_forward,
+              ng_padding_above_forward, ng_data_dilation_strides_forward);
+
+      // Reshape the output to tf format : [filter_height, filter_width,
+      // in_channels, out_channels]
+      Reshape<2, 3, 1, 0>(ng_back_prop_filter);
+
+      SaveNgOp(ng_op_map, op->name(), ng_back_prop_filter);
+
+    }
     // ------
     // Conv2DBackpropInput
     // ------
@@ -853,36 +961,6 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       BatchToTensorflow(is_nhwc, ng_data);
 
       SaveNgOp(ng_op_map, op->name(), ng_data);
-    }
-    // --------------
-    // Conv2DBackpropFilter
-    // --------------
-    else if (op->type_string() == "Conv2DBackpropFilter") {
-      TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
-
-      shared_ptr<ng::Node> ng_input, ng_filter_sizes, ng_out_backdrops;
-      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
-      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_filter_sizes));
-      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_out_backdrops));
-
-      std::vector<tf::int32> tf_strides;
-      std::string tf_padding;
-      std::vector<tf::int32> tf_dilations;
-      std::string tf_data_format;
-
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding));
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
-
-      if (tf_data_format != "NHWC" || tf_data_format != "NCHW") {
-        return tf::errors::InvalidArgument(
-            "%s data format is neither NHWC nor NCHW: %s", op->type_string(),
-            tf_data_format);
-      }
-
     }
     // -----
     // DepthwiseConv2dNative
@@ -1008,8 +1086,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_dim));
 
       std::vector<tf::int64> dim_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_expanddims_static_dim", &dim_vec));
       if (dim_vec.size() != 1) {
         return tf::errors::InvalidArgument(
             "The size of argument dim is not 1 for ExpandDims");
@@ -1399,8 +1477,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       }
 
       auto concat = make_shared<ng::op::Concat>(ng_concat_inputs, concat_axis);
-      SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Reshape>(
-                                          concat, ng_axis_order, output_shape));
+      SaveNgOp(
+          ng_op_map, op->name(),
+          make_shared<ng::op::Reshape>(concat, ng_axis_order, output_shape));
     }
 
     // ---
@@ -1688,8 +1767,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
       std::vector<tf::int64> lower_vec;
       std::vector<tf::int64> size_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_slice_static_begin", &lower_vec));
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "_ngraph_slice_static_size", &size_vec));
 
@@ -1840,8 +1919,9 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
     // -------------------
     else if (op->type_string() == "SquaredDifference") {
       TF_RETURN_IF_ERROR(TranslateBinaryOp(
-          op, ng_op_map, [](std::shared_ptr<ng::Node> input1,
-                            std::shared_ptr<ng::Node> input2) {
+          op, ng_op_map,
+          [](std::shared_ptr<ng::Node> input1,
+             std::shared_ptr<ng::Node> input2) {
             auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
             return std::make_shared<ng::op::Multiply>(ng_diff, ng_diff);
           }));
@@ -1924,37 +2004,42 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 3, &ng_stride));
 
       int tf_shrink_axis_mask;
-      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "shrink_axis_mask", &tf_shrink_axis_mask));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "shrink_axis_mask",
+                                         &tf_shrink_axis_mask));
 
       std::vector<tf::int64> lower_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_begin", &lower_vec));
 
       std::vector<tf::int64> end_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_end", &end_vec));
 
       std::vector<tf::int64> stride_vec;
-      TF_RETURN_IF_ERROR(
-          tf::GetNodeAttr(op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
+      TF_RETURN_IF_ERROR(tf::GetNodeAttr(
+          op->attrs(), "_ngraph_stridedslice_static_stride", &stride_vec));
 
       NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
       NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
 
       auto& input_shape = ng_input->get_shape();
-      NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
+      NGRAPH_VLOG(3) << "Input shape for StridedSlice: "
+                     << ng::join(input_shape);
 
       if (lower_vec.size() == end_vec.size() && end_vec.size() == 1) {
-        for (size_t i=end_vec.size(); i < input_shape.size(); ++i) {
+        for (size_t i = end_vec.size(); i < input_shape.size(); ++i) {
           lower_vec.push_back(0);
           end_vec.push_back(0);
         }
       }
-      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: " << ng::join(lower_vec);
-      NGRAPH_VLOG(3) << "extended End input for StridedSlice: " << ng::join(end_vec);
+      NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: "
+                     << ng::join(lower_vec);
+      NGRAPH_VLOG(3) << "extended End input for StridedSlice: "
+                     << ng::join(end_vec);
 
-      if (std::any_of(lower_vec.begin(), lower_vec.end(), [](int i){ return i < 0;})) {
-        std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(), 
+      if (std::any_of(lower_vec.begin(), lower_vec.end(),
+                      [](int i) { return i < 0; })) {
+        std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(),
                        lower_vec.begin(), [](int first, int second) {
                          if (first < 0) {
                            return second + first;
@@ -1963,7 +2048,8 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                          }
                        });
       }
-      if (std::any_of(end_vec.begin(), end_vec.end(), [](int i){ return i <= 0; })) {
+      if (std::any_of(end_vec.begin(), end_vec.end(),
+                      [](int i) { return i <= 0; })) {
         std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
                        end_vec.begin(), [](int first, int second) {
                          if (first < 0) {
@@ -1974,19 +2060,21 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                            return first;
                          }
                        });
-        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: " << ng::join(end_vec);
+        NGRAPH_VLOG(3) << "Transform end input for StridedSlice: "
+                       << ng::join(end_vec);
       }
 
-      for (size_t i=stride_vec.size(); i < end_vec.size(); ++i) {
+      for (size_t i = stride_vec.size(); i < end_vec.size(); ++i) {
         stride_vec.push_back(1);
       }
-      NGRAPH_VLOG(3) << "stride input for StridedSlice: " << ng::join(stride_vec);
+      NGRAPH_VLOG(3) << "stride input for StridedSlice: "
+                     << ng::join(stride_vec);
 
       std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
       std::vector<size_t> u(end_vec.begin(), end_vec.end());
       std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
 
-      std::shared_ptr<ng::Node>  ng_strided_slice =
+      std::shared_ptr<ng::Node> ng_strided_slice =
           make_shared<ng::op::Slice>(ng_input, l, u, s);
       if (tf_shrink_axis_mask) {
         ng::AxisVector ng_axis_order(input_shape.size());
@@ -1996,7 +2084,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
 
         ng::Shape ng_shape(input_shape.begin() + 1, input_shape.end());
         ng_strided_slice = make_shared<ng::op::Reshape>(
-          ng_strided_slice, ng_axis_order, ng_shape);
+            ng_strided_slice, ng_axis_order, ng_shape);
       }
 
       SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
