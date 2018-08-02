@@ -19,6 +19,9 @@
 #include "ngraph_utils.h"
 
 using namespace std;
+namespace ng = ngraph;
+
+namespace tensorflow {
 
 namespace ngraph_bridge {
 
@@ -55,4 +58,7 @@ TEST(padding, indivisible) {
   ASSERT_EQ(ng_padding_above[0], 2);
   ASSERT_EQ(ng_padding_above[1], 2);
 }
-}
+
+} // namespace ngraph_bridge
+
+} // namespace tensorflow

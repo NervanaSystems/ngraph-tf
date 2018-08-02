@@ -20,10 +20,10 @@
 #include "ngraph_utils.h"
 
 using namespace std;
-namespace ngraph_bridge {
 
-// TODO(amprocte): this decl should probably be in a header.
-extern const char* const DEVICE_NGRAPH;
+namespace tensorflow {
+
+namespace ngraph_bridge {
 
 //
 // In some cases, we require more complex placement constraints than than
@@ -84,7 +84,7 @@ extern const char* const DEVICE_NGRAPH;
 //
 // The confirmation functions are implemented as callbacks of the type:
 //
-//      std::function<tf::Status(tf::Node*, bool*)>.
+//      std::function<Status(Node*, bool*)>.
 //
 // A confirmation function returns true/false by reference through its second
 // parameter: true if placement is "accepted", and false if it is "rejected".
@@ -99,26 +99,21 @@ extern const char* const DEVICE_NGRAPH;
 //
 class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
  public:
-  tf::Status Run(const tf::GraphOptimizationPassOptions& options) {
+  Status Run(const GraphOptimizationPassOptions& options) {
     return ConfirmPlacement(options.graph->get());
   }
 
  private:
-  using ConfirmationFunction = std::function<tf::Status(tf::Node*, bool*)>;
+  using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 
   //
   // Utility function to check if placement on the NGRAPH device has been
   // requested.
   //
-  static bool NGraphPlacementRequested(const tf::Node* node) {
-    tf::DeviceNameUtils::ParsedName parsed;
-
-    if (!tf::DeviceNameUtils::ParseFullName(node->requested_device(),
-                                            &parsed)) {
-      return false;
-    }
-
-    return (parsed.has_type && parsed.type == DEVICE_NGRAPH);
+  // FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
+  //
+  static bool NGraphPlacementRequested(const Node* node) {
+    return true;
   }
 
   //
@@ -126,58 +121,58 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
   // shape (or strides, axis indices, etc.). Only works on nodes of data type
   // INT32 or INT64.
   //
-  static tf::Status ExtractConstantData(tf::Node* node,
-                                        std::vector<tf::int64>* values) {
+  static Status ExtractConstantData(Node* node,
+                                        std::vector<int64>* values) {
     if (node->type_string() != "Const") {
-      return tf::errors::InvalidArgument(
+      return errors::InvalidArgument(
           "Tried to extract constant data from a non-Const node");
     }
 
-    tf::DataType dtype;
-    TF_RETURN_IF_ERROR(tf::GetNodeAttr(node->attrs(), "dtype", &dtype));
+    DataType dtype;
+    TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "dtype", &dtype));
 
-    tf::TensorShapeProto shape_proto;
+    TensorShapeProto shape_proto;
 
     switch (dtype) {
-      case tf::DataType::DT_INT32: {
-        std::vector<tf::int32> values_int32;
-        TF_RETURN_IF_ERROR(ValuesFromConstNode<tf::int32>(
+      case DataType::DT_INT32: {
+        std::vector<int32> values_int32;
+        TF_RETURN_IF_ERROR(ValuesFromConstNode<int32>(
             node->def(), &shape_proto, &values_int32));
         values->resize(values_int32.size());
         for (size_t i = 0; i < values_int32.size(); i++) {
-          (*values)[i] = (tf::int64)values_int32[i];
+          (*values)[i] = (int64)values_int32[i];
         }
       } break;
-      case tf::DataType::DT_INT64:
+      case DataType::DT_INT64:
         TF_RETURN_IF_ERROR(
-            ValuesFromConstNode<tf::int64>(node->def(), &shape_proto, values));
+            ValuesFromConstNode<int64>(node->def(), &shape_proto, values));
         break;
       default:
-        return tf::errors::InvalidArgument(
+        return errors::InvalidArgument(
             "Tried to extract constant data from a Const node that is neither "
             "DT_INT32 nor DT_INT64");
     }
 
-    return tf::Status::OK();
+    return Status::OK();
   }
 
   //
   // Main entry point for the confirmation pass.
   //
-  tf::Status ConfirmPlacement(tf::Graph* graph) {
+  Status ConfirmPlacement(Graph* graph) {
     //
     // A map of op types (e.g. "Add") to type constraint maps. For (fake)
     // example:
     //
-    //  type_constraint_map["Cast"]["SrcT"] = {tf::DT_FLOAT, tf::DT_BOOL};
-    //  type_constraint_map["Cast"]["DstT"] = {tf::DT_DOUBLE, tf::DT_INT16};
+    //  type_constraint_map["Cast"]["SrcT"] = {DT_FLOAT, DT_BOOL};
+    //  type_constraint_map["Cast"]["DstT"] = {DT_DOUBLE, DT_INT16};
     //
     // ...would mean that for the "Cast" op, the "SrcT" type variable can be
     // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
     // DT_INT16.
     //
     static std::map<std::string,
-                    std::map<std::string, tf::gtl::ArraySlice<tf::DataType>>>
+                    std::map<std::string, gtl::ArraySlice<DataType>>>
         type_constraint_map;
 
     //
@@ -185,21 +180,21 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // used to check arbitrary constraints, and attach information to the node
     // in the process. For example:
     //
-    //    confirmation_functions["MyOp"] = [](tf::Node* n, bool* result) {
-    //      tf::Node* tf_arg_node;
+    //    confirmation_functions["MyOp"] = [](Node* n, bool* result) {
+    //      Node* tf_arg_node;
     //      TF_RETURN_IF_ERROR(n->input_node(0, &tf_arg_node));
     //
-    //      std::vector<tf::int64> tf_const_data;
+    //      std::vector<int64> tf_const_data;
     //      if (ExtractConstantData(tf_arg_node, &tf_const_data) !=
-    //              tf::Status::OK() ||
+    //              Status::OK() ||
     //          tf_const_data.size() != 1) {
     //        *result = false;
-    //        return tf::Status::OK();
+    //        return Status::OK();
     //      }
     //
     //      n->AddAttr("_ngraph_myop_constant_input", tf_const_data[0]);
     //      *result = true;
-    //      return tf::Status::OK();
+    //      return Status::OK();
     //    };
     //
     // The foregoing function checks every "MyOp" node to make sure that its
@@ -210,7 +205,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     //
     static std::map<std::string, ConfirmationFunction> confirmation_functions;
 
-    tf::mutex init_mu;
+    mutex init_mu;
     static bool initialized = false;
 
     // If the type constraint and confirmation function maps have not been
@@ -222,7 +217,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
     // the node with any data that will be needed in case the graph is broken
     // up in a later rewrite pass (for example, constant data).
     {
-      tf::mutex_lock l(init_mu);
+      mutex_lock l(init_mu);
 
       if (!initialized) {
         //
@@ -302,9 +297,9 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         //
 
         // Trivial confirmation function which always accepts placement.
-        ConfirmationFunction always = [](tf::Node* n, bool* result) {
+        ConfirmationFunction always = [](Node* n, bool* result) {
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         //
@@ -318,75 +313,75 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Cast"] = always;
 
         // Constraint: axis selection input must be Const.
-        confirmation_functions["ConcatV2"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_axis_node;
+        confirmation_functions["ConcatV2"] = [](Node* n, bool* result) {
+          Node* tf_axis_node;
           TF_RETURN_IF_ERROR(n->input_node(n->num_inputs() - 1, &tf_axis_node));
 
-          std::vector<tf::int64> tf_static_axis;
+          std::vector<int64> tf_static_axis;
           if (ExtractConstantData(tf_axis_node, &tf_static_axis) !=
-                  tf::Status::OK() ||
+                  Status::OK() ||
               tf_static_axis.size() != 1) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_concat_static_axis", tf_static_axis[0]);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Conv2D"] = always;
-        confirmation_functions["Conv2DBackpropInput"] = [](tf::Node* n,
+        confirmation_functions["Conv2DBackpropInput"] = [](Node* n,
                                                            bool* result) {
-          tf::Node* tf_input_sizes;
+          Node* tf_input_sizes;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
 
-          std::vector<tf::int64> tf_static_input_sizes(4);
+          std::vector<int64> tf_static_input_sizes(4);
           if (ExtractConstantData(tf_input_sizes, &tf_static_input_sizes) !=
-                  tf::Status::OK() ||
+                  Status::OK() ||
               tf_static_input_sizes.size() != 4) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_static_input_sizes", tf_static_input_sizes);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
-        confirmation_functions["ExpandDims"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_dim_node;
+        confirmation_functions["ExpandDims"] = [](Node* n, bool* result) {
+          Node* tf_dim_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
 
-          std::vector<tf::int64> tf_static_dim;
+          std::vector<int64> tf_static_dim;
           if (ExtractConstantData(tf_dim_node, &tf_static_dim) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_expanddims_static_dim", tf_static_dim);
 
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
-        confirmation_functions["Fill"] = [](tf::Node* n, bool* result) {
+        confirmation_functions["Fill"] = [](Node* n, bool* result) {
 
-          tf::Node* tf_dims_node;
+          Node* tf_dims_node;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_dims_node));
 
-          std::vector<tf::int64> tf_dims;
-          if (ExtractConstantData(tf_dims_node, &tf_dims) != tf::Status::OK()) {
+          std::vector<int64> tf_dims;
+          if (ExtractConstantData(tf_dims_node, &tf_dims) != Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_fill_static_dims", tf_dims);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Floor"] = always;
@@ -404,70 +399,70 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
-        confirmation_functions["Mean"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_axes_node;
+        confirmation_functions["Mean"] = [](Node* n, bool* result) {
+          Node* tf_axes_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
-          std::vector<tf::int64> tf_static_axes;
+          std::vector<int64> tf_static_axes;
           if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_mean_static_axes", tf_static_axes);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Minimum"] = always;
         confirmation_functions["Mul"] = always;
 
         // Constraint: padding-widths input must be Const.
-        confirmation_functions["Pad"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_paddings_node;
+        confirmation_functions["Pad"] = [](Node* n, bool* result) {
+          Node* tf_paddings_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_paddings_node));
 
-          std::vector<tf::int64> tf_static_paddings;
+          std::vector<int64> tf_static_paddings;
           if (ExtractConstantData(tf_paddings_node, &tf_static_paddings) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_pad_static_paddings", tf_static_paddings);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Pow"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
-        confirmation_functions["Prod"] = [](tf::Node* n, bool* result) {
+        confirmation_functions["Prod"] = [](Node* n, bool* result) {
           bool tf_keep_dims;
 
-          if (tf::GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
-              tf::Status::OK()) {
+          if (GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
+              Status::OK()) {
             if (tf_keep_dims) {
               *result = false;
-              return tf::Status::OK();
+              return Status::OK();
             }
           }
 
-          tf::Node* tf_axes_node;
+          Node* tf_axes_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
-          std::vector<tf::int64> tf_static_axes;
+          std::vector<int64> tf_static_axes;
           if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_prod_static_axes", tf_static_axes);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["RealDiv"] = always;
@@ -477,70 +472,70 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Rsqrt"] = always;
 
         // Constraint: shape input must be Const.
-        confirmation_functions["Reshape"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_shape_node;
+        confirmation_functions["Reshape"] = [](Node* n, bool* result) {
+          Node* tf_shape_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
 
-          std::vector<tf::int64> tf_static_shape;
+          std::vector<int64> tf_static_shape;
           if (ExtractConstantData(tf_shape_node, &tf_static_shape) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_reshape_static_shape", tf_static_shape);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Sigmoid"] = always;
         confirmation_functions["Sign"] = always;
 
         // Constraint: begin and size input must be Const.
-        confirmation_functions["Slice"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_begin_node;
-          tf::Node* tf_size_node;
+        confirmation_functions["Slice"] = [](Node* n, bool* result) {
+          Node* tf_begin_node;
+          Node* tf_size_node;
 
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
           TF_RETURN_IF_ERROR(n->input_node(2, &tf_size_node));
 
-          std::vector<tf::int64> tf_static_begin;
+          std::vector<int64> tf_static_begin;
           if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
-          std::vector<tf::int64> tf_static_size;
+          std::vector<int64> tf_static_size;
           if (ExtractConstantData(tf_size_node, &tf_static_size) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_slice_static_begin", tf_static_begin);
           n->AddAttr("_ngraph_slice_static_size", tf_static_size);
 
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
-        confirmation_functions["Split"] = [](tf::Node* n, bool* result) {
+        confirmation_functions["Split"] = [](Node* n, bool* result) {
 
-          tf::Node* tf_split_dim_node;
+          Node* tf_split_dim_node;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_split_dim_node));
 
-          std::vector<tf::int64> tf_split_dim;
+          std::vector<int64> tf_split_dim;
           if (ExtractConstantData(tf_split_dim_node, &tf_split_dim) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_split_static_dim", tf_split_dim[0]);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
         confirmation_functions["SplitV"] = always;
         confirmation_functions["Square"] = always;
@@ -548,40 +543,40 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Squeeze"] = always;
 
         // Constraint: begin, end, and stride inputs must be Const
-        confirmation_functions["StridedSlice"] = [](tf::Node* n, bool* result) {
+        confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
           // reject if tf.newaxis in strided slice
           // TODO support tf.newaxis
           int tf_new_axis_mask;
-          TF_RETURN_IF_ERROR(tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
+          TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
           if (tf_new_axis_mask != 0) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
-          tf::Node* tf_begin_node;
-          tf::Node* tf_end_node;
-          tf::Node* tf_stride_node;
+          Node* tf_begin_node;
+          Node* tf_end_node;
+          Node* tf_stride_node;
 
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
           TF_RETURN_IF_ERROR(n->input_node(2, &tf_end_node));
           TF_RETURN_IF_ERROR(n->input_node(3, &tf_stride_node));
 
-          std::vector<tf::int64> tf_static_begin;
+          std::vector<int64> tf_static_begin;
           if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
-          std::vector<tf::int64> tf_static_end;
+          std::vector<int64> tf_static_end;
           if (ExtractConstantData(tf_end_node, &tf_static_end) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
-          std::vector<tf::int64> tf_static_stride;
+          std::vector<int64> tf_static_stride;
           if (ExtractConstantData(tf_stride_node, &tf_static_stride) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_stridedslice_static_begin", tf_static_begin);
@@ -589,62 +584,62 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           n->AddAttr("_ngraph_stridedslice_static_stride", tf_static_stride);
 
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Pack"] = always;
         confirmation_functions["Sub"] = always;
 
         // Constraints: reduction-axes input must be Const.
-        confirmation_functions["Sum"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_axes_node;
+        confirmation_functions["Sum"] = [](Node* n, bool* result) {
+          Node* tf_axes_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
-          std::vector<tf::int64> tf_static_axes;
+          std::vector<int64> tf_static_axes;
           if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_sum_static_axes", tf_static_axes);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         confirmation_functions["Tanh"] = always;
-        confirmation_functions["Tile"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_multiples;
+        confirmation_functions["Tile"] = [](Node* n, bool* result) {
+          Node* tf_multiples;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_multiples));
 
-          std::vector<tf::int64> tf_static_multiples;
+          std::vector<int64> tf_static_multiples;
           if (ExtractConstantData(tf_multiples, &tf_static_multiples) !=
-              tf::Status::OK()) {
+              Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_tile_static_multiples", tf_static_multiples);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         // Constraint: permutation input must be Const.
-        confirmation_functions["Transpose"] = [](tf::Node* n, bool* result) {
-          tf::Node* tf_permutation_node;
+        confirmation_functions["Transpose"] = [](Node* n, bool* result) {
+          Node* tf_permutation_node;
           TF_RETURN_IF_ERROR(n->input_node(1, &tf_permutation_node));
 
-          std::vector<tf::int64> tf_static_permutation;
+          std::vector<int64> tf_static_permutation;
           if (ExtractConstantData(tf_permutation_node,
-                                  &tf_static_permutation) != tf::Status::OK()) {
+                                  &tf_static_permutation) != Status::OK()) {
             *result = false;
-            return tf::Status::OK();
+            return Status::OK();
           }
 
           n->AddAttr("_ngraph_transpose_static_permutation",
                      tf_static_permutation);
           *result = true;
-          return tf::Status::OK();
+          return Status::OK();
         };
 
         initialized = true;
@@ -660,10 +655,10 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           auto& type_attr_name = name_and_set.first;
           auto& allowed_types = name_and_set.second;
 
-          tf::DataType dt;
+          DataType dt;
 
-          if (tf::GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
-                  tf::Status::OK() ||
+          if (GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
+                  Status::OK() ||
               std::find(allowed_types.begin(), allowed_types.end(), dt) ==
                   allowed_types.end()) {
             type_constraints_ok = false;
@@ -696,12 +691,13 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
       }
     }
 
-    return tf::Status::OK();
+    return Status::OK();
   }
 };
+
 }  // namespace ngraph_bridge
 
-namespace tensorflow {
-REGISTER_OPTIMIZATION(OptimizationPassRegistry::PRE_PLACEMENT, 90,
-                      ngraph_bridge::NGraphConfirmPass);
+// REGISTER_OPTIMIZATION(OptimizationPassRegistry::PRE_PLACEMENT, 90,
+//                       ngraph_bridge::NGraphConfirmPass);
+
 }  // namespace tensorflow

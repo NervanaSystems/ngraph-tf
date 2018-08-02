@@ -18,7 +18,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/framework/attr_value_util.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/node_def_util.h"
@@ -27,9 +26,10 @@
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/util/device_name_utils.h"
 
-#include "ngraph_cluster.h"
+#include "ngraph_assign_clusters.h"
 #include "ngraph_cluster_manager.h"
 #include "ngraph_log.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 #include "tf_graphcycles.h"
 
@@ -39,30 +39,14 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-#define MINIMUM_CLUSTER_NODES 2
-
-Status NGraphClusterPass::Run(
-    const GraphOptimizationPassOptions& options) {
-  Graph* graph = options.graph->get();
-
-  return IdentifyClusters(graph);
+namespace {
+  struct Cluster {
+    int index;
+    std::set<tensorflow::Node*> nodes;
+  };
 }
 
-// TODO(amprocte): this is a stub. Add an attribute for this.
-bool NGraphClusterPass::IsNGraphNode(const Node* node) {
-  return true;
-}
-
-bool NGraphClusterPass::IsClusterable(const Node* node) {
-  return (s_unclusterable_ops.count(node->type_string()) == 0);
-}
-
-bool NGraphClusterPass::CanBeOutsideCluster(const Node* node) {
-  return (!IsClusterable(node) ||
-          s_can_be_outside_cluster_ops.count(node->type_string()) > 0);
-}
-
-Status NGraphClusterPass::IdentifyClusters(Graph* graph) {
+Status AssignClusters(Graph* graph) {
   std::map<Node*, std::shared_ptr<Cluster>> cluster_map;
 
   GraphCycles gc;
@@ -113,8 +97,7 @@ Status NGraphClusterPass::IdentifyClusters(Graph* graph) {
         continue;
       }
 
-      if (!IsNGraphNode(src) || !IsNGraphNode(dst) || !IsClusterable(src) ||
-          !IsClusterable(dst)) {
+      if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
         NGRAPH_VLOG(5) << "Skipping: " << src->name() << " -> " << dst->name();
         continue;
       }
@@ -143,59 +126,45 @@ Status NGraphClusterPass::IdentifyClusters(Graph* graph) {
 
   for (auto kv : cluster_map) {
     auto cluster = kv.second.get();
-    bool has_clusterable_ngraph_ops = false;
-    bool all_can_be_outside_cluster = true;
+    bool has_ngraph_ops = false;
+    bool has_non_ngraph_ops = false;
 
     for (auto node : cluster->nodes) {
-      if (IsNGraphNode(node) && IsClusterable(node)) {
-        has_clusterable_ngraph_ops = true;
-        break;
+      if (NodeIsMarkedForClustering(node)) {
+        has_ngraph_ops = true;
+      }
+      else {
+        has_non_ngraph_ops = true;
       }
     }
 
-    for (auto node : cluster->nodes) {
-      if (IsNGraphNode(node) && !CanBeOutsideCluster(node)) {
-        all_can_be_outside_cluster = false;
-        break;
+    if (has_ngraph_ops && has_non_ngraph_ops) {
+      NGRAPH_VLOG(2) << "Cluster " << cluster->index << " has both nGraph and non-nGraph nodes";
+      for (auto node : cluster->nodes) {
+        NGRAPH_VLOG(2) << (NodeIsMarkedForClustering(node) ? "nGraph node: " : "non-nGraph node: ") << node->name() << " [" << node->type_string() << "]";
       }
+      return errors::Internal("Cluster ", cluster->index, " has both nGraph and non-nGraph nodes");
     }
 
-    if (!has_clusterable_ngraph_ops || all_can_be_outside_cluster) {
+    if (!has_ngraph_ops) {
       continue;
     }
 
     if (seen.count(cluster) == 0) {
       int cluster_idx = NGraphClusterManager::NewCluster();
 
-      bool is_trivial = cluster->nodes.size() < MINIMUM_CLUSTER_NODES;
-
-      seen.insert(cluster);
-      NGRAPH_VLOG(2) << "cluster " << cluster_idx << ": "
-                     << cluster->nodes.size() << " nodes"
-                     << (is_trivial ? " (trivial)" : "");
-
       for (auto node : cluster->nodes) {
-        if (!IsNGraphNode(node)) {
-          return errors::Internal(
-              "Node ", node->DebugString(),
-              " is not an nGraph node but was placed in an nGraph cluster.");
-        }
-
-        if (!IsClusterable(node)) {
-          return errors::Internal("Node ", node->DebugString(),
-                                      " is not a clusterable node but "
-                                      "was placed in an nGraph "
-                                      "cluster.");
-        }
-
         NGRAPH_VLOG(2) << ">> cluster " << cluster_idx << ": " << node
                        << " :: " << node->name() << " [" << node->type_string()
                        << "]";
 
-        node->AddAttr("_ngraph_cluster", cluster_idx);
-        if (is_trivial) {
-          node->AddAttr("_ngraph_cluster_is_trivial", is_trivial);
+        if (!NodeIsMarkedForClustering(node)) {
+          return errors::Internal(
+              "Node ", node->DebugString(),
+              " was not marked for clustering but was placed in an nGraph cluster.");
         }
+
+        node->AddAttr("_ngraph_cluster", cluster_idx);
       }
     }
   }
@@ -204,30 +173,6 @@ Status NGraphClusterPass::IdentifyClusters(Graph* graph) {
   return Status::OK();
 }
 
-// clang-format off
-const std::set<std::string> NGraphClusterPass::s_unclusterable_ops{
-    "Assign",
-    "Enter",
-    "Exit",
-    "IsVariableInitialized",
-    "Merge",
-    "NextIteration",
-    "Switch",
-    "VariableV2",
-};
-// clang-format on
-
-// clang-format off
-const std::set<std::string> NGraphClusterPass::s_can_be_outside_cluster_ops{
-    "Const",
-    "Identity",
-    "NoOp",
-};
-// clang-format on
-
 }  // namespace ngraph_bridge
-
-// REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 105,
-//                       ngraph_bridge::NGraphClusterPass);
 
 }  // namespace tensorflow

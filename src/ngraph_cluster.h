@@ -20,6 +20,8 @@
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/util/device_name_utils.h"
 
+namespace tensorflow {
+
 namespace ngraph_bridge {
 
 class NGraphClusterPass : public tensorflow::GraphOptimizationPass {
@@ -50,3 +52,5 @@ class NGraphClusterPass : public tensorflow::GraphOptimizationPass {
 };
 
 }  // namespace ngraph_bridge
+
+}  // namespace tensorflow

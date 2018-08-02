@@ -41,16 +41,19 @@
 #include "tf_graph_writer.h"
 
 using namespace std;
+
+namespace tensorflow {
+
 namespace ngraph_bridge {
 
 class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
  public:
-  tf::Status Run(const tf::GraphOptimizationPassOptions& options) {
+  Status Run(const GraphOptimizationPassOptions& options) {
     if (std::getenv("NGRAPH_TF_SKIP_ENCAPSULATION") != nullptr) {
       NGRAPH_VLOG(0)
           << "NGRAPH_TF_SKIP_ENCAPSULATION is set. Skipping encapsulation "
              "step.";
-      return tf::Status::OK();
+      return Status::OK();
     }
 
     return EncapsulateFunctions(options.graph->get());
@@ -72,9 +75,9 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
   //   return ss.str();
   // }
 
-  static bool GetClusterId(const tf::Node* node, int* cluster_id) {
-    if (tf::GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster_id) !=
-        tf::Status::OK()) {
+  static bool GetClusterId(const Node* node, int* cluster_id) {
+    if (GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster_id) !=
+        Status::OK()) {
       *cluster_id = -1;
       return false;
     } else {
@@ -83,19 +86,19 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
   }
 
   // begin code copied and pasted (and modified) from graph.cc...
-  static void AddInput(tf::NodeDef* dst, tf::StringPiece src_name,
+  static void AddInput(NodeDef* dst, StringPiece src_name,
                        int src_slot) {
-    if (src_slot == tf::Graph::kControlSlot) {
-      dst->add_input(tf::strings::StrCat("^", src_name));
+    if (src_slot == Graph::kControlSlot) {
+      dst->add_input(strings::StrCat("^", src_name));
     } else if (src_slot == 0) {
       dst->add_input(src_name.data(), src_name.size());
     } else {
-      dst->add_input(tf::strings::StrCat(src_name, ":", src_slot));
+      dst->add_input(strings::StrCat(src_name, ":", src_slot));
     }
   }
   // ...end code copied and pasted (and modified) from graph.cc
 
-  tf::Status EncapsulateFunctions(tf::Graph* graph) {
+  Status EncapsulateFunctions(Graph* graph) {
     // A map from cluster indices to the expected device name for nodes
     // in that cluster.
     std::map<int, std::string> device_name_map;
@@ -107,13 +110,13 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
     std::map<std::tuple<int, std::string, int>, string> input_rename_map;
 
     // A map from cluster indices to a vector of input data types.
-    std::map<int, std::vector<std::tuple<int, int, tf::DataType>>>
+    std::map<int, std::vector<std::tuple<int, int, DataType>>>
         cluster_input_map;
     // A map from cluster indices to a vector of output data types.
-    std::map<int, std::vector<tf::DataType>> cluster_output_dt_map;
+    std::map<int, std::vector<DataType>> cluster_output_dt_map;
 
     // A map from cluster indices to corresponding NGraphEncapsulate nodes.
-    std::map<int, tf::Node*> cluster_node_map;
+    std::map<int, Node*> cluster_node_map;
 
     // Pass 1: Populate the cluster-index-to-device name map for each existing
     // cluster.
@@ -134,7 +137,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
                  << " but another node with requested device " << it->second
                  << " has already been seen in the same cluster";
 
-          return tf::errors::Internal(ss_err.str());
+          return errors::Internal(ss_err.str());
         }
       } else {
         NGRAPH_VLOG(3) << "setting cluster " << cluster_idx
@@ -157,8 +160,8 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
         continue;
       }
 
-      tf::Node* src = edge->src();
-      tf::Node* dst = edge->dst();
+      Node* src = edge->src();
+      Node* dst = edge->dst();
 
       // TODO(amprocte): the following rejects edges involving source/sink. Is
       // that what we want to do?
@@ -179,7 +182,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
       }
 
       // Some debug logging...
-      tf::DataType dt = dst->input_type(edge->dst_input());
+      DataType dt = dst->input_type(edge->dst_input());
       std::string flow_kind = dst_clustered && src_clustered
                                   ? "cross-flow"
                                   : dst_clustered ? "in-flow" : "out-flow";
@@ -263,24 +266,24 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
       std::stringstream ss;
       ss << "ngraph_cluster_" << cluster_idx;
 
-      std::vector<tf::DataType> input_types;
-      std::vector<tf::NodeBuilder::NodeOut> inputs;
+      std::vector<DataType> input_types;
+      std::vector<NodeBuilder::NodeOut> inputs;
 
       for (auto& tup : cluster_input_map[cluster_idx]) {
         int src_node_id;
         int src_output_idx;
-        tf::DataType dt;
+        DataType dt;
         std::tie(src_node_id, src_output_idx, dt) = tup;
 
         input_types.push_back(dt);
 
-        inputs.push_back(tf::NodeBuilder::NodeOut(
+        inputs.push_back(NodeBuilder::NodeOut(
             graph->FindNodeId(src_node_id), src_output_idx));
       }
 
-      tf::Node* n;
-      tf::Status status =
-          tf::NodeBuilder(ss.str(), "NGraphEncapsulate")
+      Node* n;
+      Status status =
+          NodeBuilder(ss.str(), "NGraphEncapsulate")
               .Attr("ngraph_cluster", cluster_idx)
               .Attr("Targuments", input_types)
               .Attr("Tresults", cluster_output_dt_map[cluster_idx])
@@ -298,7 +301,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
     // boundaries.
 
     // Copy the edge pointers, so as not to invalidate the iterator.
-    std::vector<tf::Edge*> edges;
+    std::vector<Edge*> edges;
     for (auto edge : graph->edges()) {
       edges.push_back(edge);
     }
@@ -319,11 +322,11 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
           graph->AddControlEdge(cluster_node_map[src_cluster_idx],
                                 cluster_node_map[dst_cluster_idx]);
         } else if (src_clustered) {
-          tf::Node* dst = edge->dst();
+          Node* dst = edge->dst();
           graph->RemoveControlEdge(edge);
           graph->AddControlEdge(cluster_node_map[src_cluster_idx], dst);
         } else if (dst_clustered) {
-          tf::Node* src = edge->src();
+          Node* src = edge->src();
           graph->RemoveControlEdge(edge);
           graph->AddControlEdge(src, cluster_node_map[dst_cluster_idx]);
         }
@@ -354,8 +357,8 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
     for (auto node : graph->op_nodes()) {
       int cluster_idx;
 
-      if (tf::GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx) !=
-          tf::Status::OK()) {
+      if (GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx) !=
+          Status::OK()) {
         continue;
       }
 
@@ -364,13 +367,13 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
       // tensorflow/core/graph/graph.cc that rewrites the node's input list.
 
       // begin code copied and pasted (and modified) from graph.cc...
-      tf::NodeDef original_def = node->def();
+      NodeDef original_def = node->def();
 
       // Get the inputs for this Node.  We make sure control inputs are
       // after data inputs, as required by GraphDef.
-      std::vector<const tf::Edge*> inputs;
+      std::vector<const Edge*> inputs;
       inputs.resize(node->num_inputs(), nullptr);
-      for (const tf::Edge* edge : node->in_edges()) {
+      for (const Edge* edge : node->in_edges()) {
         if (edge->IsControlEdge()) {
           inputs.push_back(edge);
         } else {
@@ -388,7 +391,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
       original_def.mutable_input()->Reserve(inputs.size());
 
       for (size_t i = 0; i < inputs.size(); ++i) {
-        const tf::Edge* edge = inputs[i];
+        const Edge* edge = inputs[i];
         if (edge == nullptr) {
           if (i < node->requested_inputs().size()) {
             original_def.add_input(node->requested_inputs()[i]);
@@ -396,7 +399,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
             original_def.add_input("");
           }
         } else {
-          const tf::Node* src = edge->src();
+          const Node* src = edge->src();
           if (!src->IsOp()) continue;
           AddInput(&original_def, src->name(), edge->src_output());
         }
@@ -408,7 +411,7 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
       *node_def = original_def;
 
       for (auto& input : *(node_def->mutable_input())) {
-        tf::TensorId tensor_id = tf::ParseTensorName(input);
+        TensorId tensor_id = ParseTensorName(input);
 
         auto it = input_rename_map.find(std::make_tuple(
             cluster_idx, tensor_id.first.ToString(), tensor_id.second));
@@ -423,8 +426,8 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
     for (auto node : graph->op_nodes()) {
       int cluster_idx;
 
-      if (tf::GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx) !=
-          tf::Status::OK()) {
+      if (GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx) !=
+          Status::OK()) {
         continue;
       }
 
@@ -437,14 +440,14 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
     if (std::getenv("NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS")) {
       for (auto& kv : device_name_map) {
         int cluster_idx = kv.first;
-        TF_RETURN_IF_ERROR(tf::graph::ValidateGraphDef(
+        TF_RETURN_IF_ERROR(graph::ValidateGraphDef(
             *NGraphClusterManager::GetClusterGraph(cluster_idx),
-            *tf::OpRegistry::Global()));
+            *OpRegistry::Global()));
 
-        tf::Graph g(tf::OpRegistry::Global());
-        tf::GraphConstructorOptions opts;
+        Graph g(OpRegistry::Global());
+        GraphConstructorOptions opts;
         opts.allow_internal_ops = true;
-        TF_RETURN_IF_ERROR(tf::ConvertGraphDefToGraph(
+        TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(
             opts, *NGraphClusterManager::GetClusterGraph(cluster_idx), &g));
 
         std::stringstream ss;
@@ -453,16 +456,16 @@ class NGraphEncapsulatePass : public tensorflow::GraphOptimizationPass {
 
         GraphToPbTextFile(&g, filename_prefix + ".pbtxt");
         GraphToDotFile(&g, filename_prefix + ".dot",
-                       "nGraph Cluster Dump: " + filename_prefix, false);
+                       "nGraph Cluster Dump: " + filename_prefix);
       }
     }
 
-    return tf::Status::OK();
+    return Status::OK();
   }
 };
 }  // namespace ngraph_bridge
 
-namespace tensorflow {
-REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 110,
-                      ngraph_bridge::NGraphEncapsulatePass);
+// REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 110,
+//                       ngraph_bridge::NGraphEncapsulatePass);
+
 }  // namespace tensorflow

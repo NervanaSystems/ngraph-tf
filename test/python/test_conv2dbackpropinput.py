@@ -29,6 +29,7 @@ from tensorflow.python.ops import nn_ops
 from common import NgraphTest
 
 
+@pytest.mark.skip(reason="new deviceless mode WIP")
 class TestConv2DBackpropInput(NgraphTest):
   INPUT_SIZES_NCHW = [1, 2, 7, 6]
   INPUT_SIZES_NHWC = [1, 7, 6, 2]
