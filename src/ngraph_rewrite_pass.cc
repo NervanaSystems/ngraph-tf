@@ -17,10 +17,11 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/graph/graph.h"
 
-#include "ngraph_log.h"
-#include "ngraph_mark_for_clustering.h"
 #include "ngraph_assign_clusters.h"
 #include "ngraph_deassign_clusters.h"
+#include "ngraph_encapsulate_clusters.h"
+#include "ngraph_log.h"
+#include "ngraph_mark_for_clustering.h"
 
 #include "tf_graph_writer.h"
 
@@ -64,10 +65,10 @@ class NGraphRewritePass : public GraphOptimizationPass {
     }
 
     // encapsulate
-    // TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
-    // if(DumpEncapsulatedGraphs()) {
-    //   DumpGraphs(options, idx, "encapsulated", "Graph with Clusters Encapsulated");
-    // }
+    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
+    if(DumpEncapsulatedGraphs()) {
+      DumpGraphs(options, idx, "encapsulated", "Graph with Clusters Encapsulated");
+    }
 
     return Status::OK();
   }

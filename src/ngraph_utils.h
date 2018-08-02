@@ -95,11 +95,16 @@ Status ValuesFromConstNode(const NodeDef& node,
     values->resize(n_elements);
     for (size_t i = 0; i < n_elements; i++) {
       auto& tensor = node.attr().at("value").tensor();
-      switch (node.attr().at("dtype").type()) {
+      auto dt = node.attr().at("dtype").type();
+      switch (dt) {
         // TODO(amprocte): there are more element types to support here
         case DT_INT32:
           (*values)[i] = (tensor.int_val_size() == 1 ? tensor.int_val()[0]
                                                      : tensor.int_val()[i]);
+          break;
+        case DT_INT64:
+          (*values)[i] = (tensor.int64_val_size() == 1 ? tensor.int64_val()[0]
+                                                       : tensor.int64_val()[i]);
           break;
         case DT_FLOAT:
           (*values)[i] = (tensor.float_val_size() == 1 ? tensor.float_val()[0]
@@ -116,7 +121,7 @@ Status ValuesFromConstNode(const NodeDef& node,
           NGRAPH_VLOG(0) << node.DebugString();
           NGRAPH_VLOG(0) << shape.DebugString();
           return errors::Unimplemented(
-              "Encountered unknown element type on an empty tensor");
+              "Encountered unknown element type ", DataType_Name(dt), " on an empty tensor");
       }
     }
   } else {

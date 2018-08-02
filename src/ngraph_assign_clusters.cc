@@ -174,10 +174,13 @@ Status AssignClusters(Graph* graph) {
   return Status::OK();
 }
 
-Status GetNodeCluster(const Node* node, int* cluster)
-{
+Status GetNodeCluster(const Node* node, int* cluster) {
   // TODO(amprocte): move attr name to a constant
-  return GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);
+  Status s = GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);
+  if (s != Status::OK()) {
+    *cluster = -1;
+  }
+  return s;
 }
 
 }  // namespace ngraph_bridge
