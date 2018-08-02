@@ -394,12 +394,6 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
 
-  BatchToNGraph(is_nhwc, ng_grad);
-  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_grad->get_shape(), ng_image_shape);
-  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
-  std::cout<<"fourth printout"<<std::endl; 
-
   if (tf_orig_input_shape_vec.size() != 4) {
     return tf::errors::InvalidArgument(
         "Tensorflow requires input tensor shape being 4", tf_orig_input_shape_vec.size());
@@ -408,13 +402,18 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
     ng_forward_arg_shape.push_back(tf_orig_input_shape_vec[i]);
   }
 
-  std::cout<<"tf_forward_arg_shape: " << ng::join(ng_forward_arg_shape)<<std::endl;
-  std::cout<<"is_nhwc: " << is_nhwc <<std::endl;
   if (is_nhwc) {
-    size_t tmp = ng_forward_arg_shape[1];
+    size_t tmp1 = ng_forward_arg_shape[1];
     ng_forward_arg_shape[1] = ng_forward_arg_shape[3];
-    ng_forward_arg_shape[3] = tmp;
+    size_t tmp2 = ng_forward_arg_shape[2];
+    ng_forward_arg_shape[2] = tmp1;
+    ng_forward_arg_shape[3] = tmp2;
   }
+
+  BatchToNGraph(is_nhwc, ng_grad);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_forward_arg_shape, ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -428,31 +427,8 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   ng::Shape ng_padding_below{0, 0};
   ng::Shape ng_padding_above{0, 0};
 
-  if (tf_padding_type == "SAME") {
-    for (size_t i = 0; i < 2; i++) {
-      size_t image_size = ng_image_shape[i];
-      size_t filter_shape = ng_kernel_shape[i];
-      size_t filter_stride = ng_strides[i];
-
-      tf::int64 padding_needed;
-      if (image_size % filter_stride == 0) {
-        padding_needed = filter_shape - filter_stride;
-      } else {
-        padding_needed = filter_shape - (image_size % filter_stride);
-      }
-      if (padding_needed < 0) {
-        padding_needed = 0;
-      }
-
-      size_t padding_lhs = padding_needed / 2;
-      size_t padding_rhs = padding_needed - padding_lhs;
-      ng_padding_below[i] = padding_lhs;
-      ng_padding_above[i] = padding_rhs;
-    }
-  }
-
-  //Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-  //                     ng_strides, ng_padding_below, ng_padding_above);
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
 
   NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
   NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
