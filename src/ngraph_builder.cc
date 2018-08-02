@@ -408,7 +408,13 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
     ng_forward_arg_shape.push_back(tf_orig_input_shape_vec[i]);
   }
 
-  BatchedOpParamToNGraph(is_nhwc, ng_forward_arg_shape, ng_forward_arg_shape);
+  std::cout<<"tf_forward_arg_shape: " << ng::join(ng_forward_arg_shape)<<std::endl;
+  std::cout<<"is_nhwc: " << is_nhwc <<std::endl;
+  if (is_nhwc) {
+    size_t tmp = ng_forward_arg_shape[1];
+    ng_forward_arg_shape[1] = ng_forward_arg_shape[3];
+    ng_forward_arg_shape[3] = tmp;
+  }
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -445,6 +451,9 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
     }
   }
 
+  //Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+  //                     ng_strides, ng_padding_below, ng_padding_above);
+
   NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
   NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
 
@@ -458,6 +467,8 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
                  << ng::join(ng_avgpool_backprop->get_shape()) << "}";
 
   SaveNgOp(ng_op_map, op->name(), ng_avgpool_backprop);
+
+  return tf::Status::OK();
 }  
 
 static tf::Status TranslateBatchMatMulOp(const tf::Node* op,
