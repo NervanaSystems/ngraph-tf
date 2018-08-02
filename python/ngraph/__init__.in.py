@@ -28,6 +28,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python import pywrap_tensorflow as py_tf
 from tensorflow.python.framework import errors_impl
+
+from tensorflow.core.framework import attr_value_pb2
+from tensorflow.python.framework import ops
  
 print("TensorFlow version installed: ", tf.VERSION, " (", tf.GIT_VERSION, ")" )
 print("Version needed: ", "${TensorFlow_GIT_VERSION}" ) 
@@ -48,3 +51,5 @@ else:
         "\nNeeded: ${TensorFlow_GIT_VERSION}"
     )
 
+def requested():
+    return ops.get_default_graph()._attr_scope({"_ngraph_requested": attr_value_pb2.AttrValue(b=True)})
