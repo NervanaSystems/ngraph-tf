@@ -109,10 +109,20 @@ TEST(tf_exec, axpy) {
 
 void AssertTensorEquals(tf::Tensor T1, tf::Tensor T2) {
   auto T_size = T1.flat<float>().size();
+  auto T1_data = T1.flat<float>().data();
+  auto T2_data = T2.flat<float>().data();
   for (int k = 0; k < T_size; k++) {
-    auto a = T1.flat<float>().data()[k];
-    auto b = T2.flat<float>().data()[k];
+    auto a = T1_data[k];
+    auto b = T2_data[k];
     EXPECT_FLOAT_EQ(a, b);
+  }
+}
+
+void AssignInputValues(tf::Tensor& A) {
+  auto A_flat = A.flat<float>();
+  auto A_flat_data = A_flat.data();
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat_data[i] = -1.1f * i;
   }
 }
 
@@ -318,39 +328,99 @@ TEST(tf_exec, Tile) {
   AssertTensorEquals(outputs_D[0], outputs_D_cpu[0]);
 }
 
-
-
-
-
 TEST(tf_exec, Op_Conv2DBackpropFilter) {
-  std::vector<int> input_size = {1, 7, 6, 2};
-  std::vector<int> filter_size = {3, 3, 2, 2};
-  std::string padding_type = "VALID";
-  std::vector<int> out_delta_size = {1, 2, 3, 2};
-
   tf::Scope root = tf::Scope::NewRootScope();
   tf::Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
 
-  auto A = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
-  auto B = tf::ops::Placeholder(root, tf::DataType::DT_FLOAT);
-  auto r = tf::ops::RealDiv(root_ngraph.WithOpName("r"), A, B);
+  // TF Default formats
+  // Input NHWC :[batch, in_height, in_width, in_channels]
+  std::vector<tf::int64> input_size_NHWC = {1, 7, 6, 2};
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  std::vector<tf::int64> filter_size_HWIO = {3, 3, 2, 2};
+  // Out_delta :[batch, out_height, out_width, out_channels]
+  std::vector<tf::int64> output_del_size_valid = {1, 3, 2, 2};
+  std::vector<tf::int64> output_del_size_same = {1, 4, 3, 2};
+  tf::Tensor output_delta_valid(tf::DT_FLOAT,
+                                tf::TensorShape(output_del_size_valid));
+  tf::Tensor output_delta_same(tf::DT_FLOAT,
+                               tf::TensorShape(output_del_size_same));
+  AssignInputValues(output_delta_valid);
+  AssignInputValues(output_delta_same);
 
-  std::vector<tf::Tensor> outputs;
+  std::map<std::string, tf::Tensor*> out_delta_size_map = {
+      {"VALID", &output_delta_valid}, {"SAME", &output_delta_same}};
+
+  std::vector<int> stride = {1, 2, 2, 1};
+  tf::Tensor input_data(tf::DT_FLOAT, tf::TensorShape(input_size_NHWC));
+  AssignInputValues(input_data);
+
+  auto filter_sizes = tf::ops::Const(root, {3, 3, 2, 2});
+
   tf::ClientSession session(root);
+  std::vector<tf::Tensor> outputs_ngraph;
+  std::vector<tf::Tensor> outputs_cpu;
 
-  TF_CHECK_OK(session.Run(
-      {{A, {{3.f, 5.f}, {2.f, 0.f}}}, {B, {{3.f, 2.f}, {.1f, 1.f}}}}, {r},
-      &outputs));
+  // TEST NHWC : default data format
+  for (auto map_iterator : out_delta_size_map) {
+    auto padding_type = map_iterator.first;
+    auto output_delta = *(out_delta_size_map[padding_type]);
 
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2, 2}));
+    auto r_ngraph = tf::ops::Conv2DBackpropFilter(
+        root_ngraph.WithOpName("r_NGRAPH"), input_data, filter_sizes,
+        output_delta, stride, padding_type);
 
-  auto mat = outputs[0].matrix<float>();
-  EXPECT_FLOAT_EQ(1.0, mat(0, 0));
-  EXPECT_FLOAT_EQ(2.5, mat(0, 1));
-  EXPECT_FLOAT_EQ(20.0, mat(1, 0));
-  EXPECT_FLOAT_EQ(0.0, mat(1, 1));
-}
+    auto r_cpu = tf::ops::Conv2DBackpropFilter(
+        root.WithOpName("r_CPU"), input_data, filter_sizes, output_delta,
+        stride, padding_type);
+
+    TF_CHECK_OK(session.Run({r_ngraph}, &outputs_ngraph));
+    TF_CHECK_OK(session.Run({r_cpu}, &outputs_cpu));
+
+    ASSERT_EQ(outputs_ngraph[0].shape(), outputs_cpu[0].shape());
+    AssertTensorEquals(outputs_ngraph[0], outputs_cpu[0]);
+  }
+
+  // TEST NCHW
+  // Dialtion rates > 1 not supported on CPU
+  // Current testing only with dialtion rate 1
+  tf::ops::Conv2DBackpropFilter::Attrs op_attr_nchw;
+  op_attr_nchw = op_attr_nchw.DataFormat("NCHW");
+  op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
+
+  tf::ops::Conv2DBackpropFilter::Attrs op_attr_nhwc;
+  op_attr_nhwc = op_attr_nhwc.DataFormat("NHWC");
+  op_attr_nhwc = op_attr_nhwc.Dilations({1, 1, 1, 1});
+
+  for (auto map_iterator : out_delta_size_map) {
+    auto padding_type = map_iterator.first;
+    auto output_delta = *(out_delta_size_map[padding_type]);
+
+    auto input_data_NCHW = tf::ops::Transpose(root, input_data, {0, 3, 1, 2});
+    auto output_delta_NCHW =
+        tf::ops::Transpose(root, output_delta, {0, 3, 1, 2});
+    auto stride_NCHW(stride);
+    stride_NCHW[1] = stride[3];
+    stride_NCHW[2] = stride[1];
+    stride_NCHW[3] = stride[2];
+
+    auto r_ngraph = tf::ops::Conv2DBackpropFilter(
+        root_ngraph.WithOpName("r_NGRAPH"), input_data_NCHW, filter_sizes,
+        output_delta_NCHW, stride_NCHW, padding_type, op_attr_nchw);
+
+    // CPU supports only NHWC
+    auto r_cpu = tf::ops::Conv2DBackpropFilter(
+        root.WithOpName("r_CPU"), input_data, filter_sizes, output_delta,
+        stride, padding_type, op_attr_nhwc);
+
+    TF_CHECK_OK(session.Run({r_ngraph}, &outputs_ngraph));
+    TF_CHECK_OK(session.Run({r_cpu}, &outputs_cpu));
+
+    ASSERT_EQ(outputs_ngraph[0].shape(), outputs_cpu[0].shape());
+    AssertTensorEquals(outputs_ngraph[0], outputs_cpu[0]);
+  }
+
+}  // namespace ngraph_bridge
 
 // Test Op :"Op_RealDiv"
 // With Const inputs tensorflow's constant folding optimisation converts the op

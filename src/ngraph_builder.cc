@@ -782,28 +782,44 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       TF_RETURN_IF_ERROR(
           tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
 
-      if (tf_data_format != "NHWC" || tf_data_format != "NCHW") {
+      if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
         return tf::errors::InvalidArgument(
-            "%s data format is neither NHWC nor NCHW: %s", op->type_string(),
-            tf_data_format);
+            "Data format is neither NHWC nor NCHW: ", op->type_string());
+      }
+
+      NGRAPH_VLOG(3) << "tf data format" << tf_data_format;
+      bool is_nhwc = (tf_data_format == "NHWC");
+
+      // Dilations in batch and depth dimensions must be 1
+      if (is_nhwc) {
+        if (tf_dilations[0] != 1 || tf_dilations[3] != 1) {
+          return tf::errors::InvalidArgument(
+              "Dilations in batch and depth dimensions must be 1: ",
+              op->type_string());
+        }
+      } else {
+        if (tf_dilations[0] != 1 || tf_dilations[1] != 1) {
+          return tf::errors::InvalidArgument(
+              "Dilations in batch and depth dimensions must be 1: ",
+              op->type_string());
+        }
       }
 
       std::vector<tf::int64> tf_filter_sizes;
       TF_RETURN_IF_ERROR(tf::GetNodeAttr(
           op->attrs(), "_ngraph_static_filter_sizes", &tf_filter_sizes));
       if (std::any_of(tf_filter_sizes.begin(), tf_filter_sizes.end(),
-                      [](tf::int64 size) { return size <= 0; })) {
+                      [](tf::int32 size) { return size <= 0; })) {
         return tf::errors::InvalidArgument(
-            "%s filter sizes must be positive integers", op->type_string());
+            "Filter sizes must be positive integers :", op->type_string());
       }
 
-      NGRAPH_VLOG(3) << "tf data format" << tf_data_format;
-      NGRAPH_VLOG(3) << "tf filter size" << tf_filter_sizes;
+      NGRAPH_VLOG(3) << "tf filter size" << ng::join(tf_filter_sizes);
+      NGRAPH_VLOG(3) << "tf filter size" << ng::join(tf_filter_sizes);
       NGRAPH_VLOG(3) << "tf strides" << ng::join(tf_strides);
       NGRAPH_VLOG(3) << "tf dilations" << ng::join(tf_dilations);
       NGRAPH_VLOG(3) << "tf padding type" << tf_padding_type;
 
-      bool is_nhwc = (tf_data_format == "NHWC");
       ng::Shape ng_filters_shape(4);
       ng::Strides ng_window_movement_strides_forward(2);
       ng::Strides ng_window_dilation_strides_forward(2);
@@ -816,6 +832,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       // nGraph Data Format:
       //    nGraph Tensor           [N, C_IN, D1, ... Df]
       //    nGraph Filter           [C_OUT, C_IN, F1, ... Ff]
+      //    nGraph Output Delta     [N, C_OUT, F1, ... Ff]
       //    nGraph Window Strides   [f]
       //    nGraph Window Dilations [f]
       //    nGraph Padding Below    [f]
@@ -825,11 +842,10 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
       // tf_filter shape :
       // [filter_height, filter_width, in_channels, out_channels]
       // reshape for nGraph
-      ng_filters_shape = {static_cast<unsigned long>(tf_filter_sizes[3]),
-                          static_cast<unsigned long>(tf_filter_sizes[2]),
-                          static_cast<unsigned long>(tf_filter_sizes[0]),
-                          static_cast<unsigned long>(tf_filter_sizes[1])};
-
+      ng_filters_shape = {static_cast<unsigned int>(tf_filter_sizes[3]),
+                          static_cast<unsigned int>(tf_filter_sizes[2]),
+                          static_cast<unsigned int>(tf_filter_sizes[0]),
+                          static_cast<unsigned int>(tf_filter_sizes[1])};
       BatchToNGraph(is_nhwc, ng_output_delta);
       BatchedOpParamToNGraph(is_nhwc, tf_strides,
                              ng_window_movement_strides_forward);
@@ -852,10 +868,20 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
                            ng_window_dilation_strides_forward,
                            ng_padding_below_forward, ng_padding_above_forward);
 
+      NGRAPH_VLOG(3) << "ng input data shape" << ng::join(ng_data_batch_shape);
+      NGRAPH_VLOG(3) << "ng filter shape" << ng::join(ng_filters_shape);
+      NGRAPH_VLOG(3) << "ng output delta shape"
+                     << ng::join(ng_output_delta->get_shape());
+      NGRAPH_VLOG(3) << "ng strides"
+                     << ng::join(ng_window_movement_strides_forward);
+      NGRAPH_VLOG(3) << "ng dilations"
+                     << ng::join(ng_window_dilation_strides_forward);
+      NGRAPH_VLOG(3) << "ng padding type" << tf_padding_type;
+
       std::shared_ptr<ng::Node> ng_back_prop_filter =
           make_shared<ng::op::ConvolutionBackpropFilters>(
-              ng_data_batch_shape, ng_filters_shape, ng_output_delta,
-              ng_window_movemet_strides_forward,
+              ng_data_batch, ng_filters_shape, ng_output_delta,
+              ng_window_movement_strides_forward,
               ng_window_dilation_strides_forward, ng_padding_below_forward,
               ng_padding_above_forward, ng_data_dilation_strides_forward);
 
