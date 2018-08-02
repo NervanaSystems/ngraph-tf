@@ -20,6 +20,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_assign_clusters.h"
+#include "ngraph_deassign_clusters.h"
 
 #include "tf_graph_writer.h"
 
@@ -56,11 +57,11 @@ class NGraphRewritePass : public GraphOptimizationPass {
       DumpGraphs(options, idx, "clustered", "Graph with Clusters Assigned");
     }
 
-    // unmark
-    // TF_RETURN_IF_ERROR(UnmarkTrivialClusters(options.graph->get()));
-    // if(DumpUnmarkedGraphs()) {
-    //   DumpGraphs(options, idx, "unmarked", "Graph with Trivial Clusters Unmarked");
-    // }
+    // de-assign clusters
+    TF_RETURN_IF_ERROR(DeassignClusters(options.graph->get()));
+    if(DumpDeclusteredGraphs()) {
+      DumpGraphs(options, idx, "declustered", "Graph with Trivial Clusters De-Assigned");
+    }
 
     // encapsulate
     // TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
@@ -74,10 +75,13 @@ class NGraphRewritePass : public GraphOptimizationPass {
   void DumpGraphs(const GraphOptimizationPassOptions& options, int idx, std::string filename_prefix, std::string title) {
     // If we have a "main" graph, dump that.
     if(options.graph != nullptr) {
-      auto filename = DotFilename(filename_prefix,idx);
-      NGRAPH_VLOG(0) << "Dumping main graph to " << filename;
+      auto dot_filename = DotFilename(filename_prefix,idx);
+      auto pbtxt_filename = PbtxtFilename(filename_prefix,idx);
+      NGRAPH_VLOG(0) << "Dumping main graph to " << dot_filename;
+      NGRAPH_VLOG(0) << "Dumping main graph to " << pbtxt_filename;
 
-      GraphToDotFile(options.graph->get(), filename, title);
+      GraphToDotFile(options.graph->get(), dot_filename, title);
+      GraphToPbTextFile(options.graph->get(), pbtxt_filename);
     }
 
     // If we have partition graphs (we shouldn't), dump those.
@@ -85,12 +89,15 @@ class NGraphRewritePass : public GraphOptimizationPass {
       int sub_idx = 0;
 
       for (auto& kv : *options.partition_graphs) {
-        auto filename = DotFilename(filename_prefix,idx,sub_idx);
-        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to " << filename;
+        auto dot_filename = DotFilename(filename_prefix,idx,sub_idx);
+        auto pbtxt_filename = PbtxtFilename(filename_prefix,idx,sub_idx);
+        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to " << dot_filename;
+        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to " << pbtxt_filename;
 
         Graph* pg = kv.second.get();
 
-        GraphToDotFile(pg, filename, title);
+        GraphToDotFile(pg, dot_filename, title);
+        GraphToPbTextFile(pg, pbtxt_filename);
 
         sub_idx++;
       }
@@ -103,11 +110,11 @@ class NGraphRewritePass : public GraphOptimizationPass {
   }
 
   static bool DumpAllGraphs() { return std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr; }
-  static bool DumpOriginalGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ORIGINAL_GRAPH") != nullptr; }
-  static bool DumpMarkedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPH") != nullptr; }
-  static bool DumpClusteredGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPH") != nullptr; }
-  static bool DumpUnmarkedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_UNMARKED_GRAPH") != nullptr; }
-  static bool DumpEncapsulatedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPH") != nullptr; }
+  static bool DumpOriginalGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ORIGINAL_GRAPHS") != nullptr; }
+  static bool DumpMarkedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPHS") != nullptr; }
+  static bool DumpClusteredGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPHS") != nullptr; }
+  static bool DumpDeclusteredGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS") != nullptr; }
+  static bool DumpEncapsulatedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr; }
 
   static std::string DotFilename(std::string kind, int idx) {
     return GraphFilenamePrefix(kind,idx) + ".dot";

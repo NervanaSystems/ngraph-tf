@@ -46,6 +46,7 @@ set(SRC
    ngraph_cluster.cc
    ngraph_cluster_manager.cc
    ngraph_confirm_pass.cc
+   ngraph_deassign_clusters.cc
    ngraph_encapsulate_op.cc
    ngraph_encapsulate_pass.cc
    ngraph_mark_for_clustering.cc

@@ -607,6 +607,7 @@ Status MarkForClustering(Graph* graph) {
       if (confirmed) {
         NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
                        << node->type_string() << "]";
+        // TODO(amprocte): move attr name to a constant
         node->AddAttr("_ngraph_marked_for_clustering", true);
       } else {
         NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
@@ -620,6 +621,7 @@ Status MarkForClustering(Graph* graph) {
 
 bool NodeIsMarkedForClustering(const Node* node) {
   bool is_marked;
+  // TODO(amprocte): move attr name to a constant
   return (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering", &is_marked) == Status::OK() && is_marked);
 }
 

@@ -164,6 +164,7 @@ Status AssignClusters(Graph* graph) {
               " was not marked for clustering but was placed in an nGraph cluster.");
         }
 
+        // TODO(amprocte): move attr name to a constant
         node->AddAttr("_ngraph_cluster", cluster_idx);
       }
     }
@@ -171,6 +172,12 @@ Status AssignClusters(Graph* graph) {
   NGRAPH_VLOG(2) << "Tagging done";
 
   return Status::OK();
+}
+
+Status GetNodeCluster(const Node* node, int* cluster)
+{
+  // TODO(amprocte): move attr name to a constant
+  return GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);
 }
 
 }  // namespace ngraph_bridge
