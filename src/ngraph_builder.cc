@@ -376,10 +376,9 @@ static tf::Status TranslateAvgPoolOp(const tf::Node* op,
 
 static tf::Status TranslateAvgPoolGradOp(const tf::Node* op, 
                                      Builder::OpMap& ng_op_map) { 
-  TF_RETURN_IF_ERROR(ValidateInputCount(op, 2));
       
   shared_ptr<ng::Node> ng_grad;
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_grad));
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_grad));
 
   std::vector<tf::int32> tf_orig_input_shape_vec;
   TF_RETURN_IF_ERROR(tf::GetNodeAttr(
@@ -408,27 +407,17 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   NGRAPH_VLOG(3) << tf_padding_type;
   NGRAPH_VLOG(3) << tf_data_format;
 
-  ng::Shape ng_forward_arg_shape;
+  ng::Shape ng_orig_input_shape;
+  for (int i = 0; i < tf_orig_input_shape_vec.size(); i++) {
+    ng_orig_input_shape.push_back(tf_orig_input_shape_vec[i]);
+  }
+
+  ng::Shape ng_forward_arg_shape(4);
   ng::Strides ng_strides(2);
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
 
-  if (tf_orig_input_shape_vec.size() != 4) {
-    return tf::errors::InvalidArgument(
-        "Tensorflow requires input tensor shape being 4", tf_orig_input_shape_vec.size());
-  }
-  for (int i = 0; i < tf_orig_input_shape_vec.size(); i++) {
-    ng_forward_arg_shape.push_back(tf_orig_input_shape_vec[i]);
-  }
-
-  if (is_nhwc) {
-    size_t tmp1 = ng_forward_arg_shape[1];
-    ng_forward_arg_shape[1] = ng_forward_arg_shape[3];
-    size_t tmp2 = ng_forward_arg_shape[2];
-    ng_forward_arg_shape[2] = tmp1;
-    ng_forward_arg_shape[3] = tmp2;
-  }
-
+  BatchedOpParamReshape(is_nhwc, ng_orig_input_shape, ng_forward_arg_shape);
   BatchToNGraph(is_nhwc, ng_grad);
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, ng_forward_arg_shape, ng_image_shape);

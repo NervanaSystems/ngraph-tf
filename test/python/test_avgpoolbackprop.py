@@ -78,7 +78,7 @@ class TestAvgPoolBackpropInput(NgraphTest):
       with self.session as sess:
         (result) = sess.run(a, feed_dict={grad_input : np_nchw})
     # To validate on the CPU side we will need to run in NHWC, because the CPU
-    # implementation of conv/conv backprop does not support NCHW. We will
+    # implementation of avgpool backprop does not support NCHW. We will
     # transpose on the way in and on the way out
     with tf.device('/cpu:0'):
       grad_input = tf.transpose(grad_input, [0, 2, 3, 1])
