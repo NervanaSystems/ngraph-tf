@@ -627,7 +627,4 @@ bool NodeIsMarkedForClustering(const Node* node) {
 
 }  // namespace ngraph_bridge
 
-// REGISTER_OPTIMIZATION(OptimizationPassRegistry::PRE_PLACEMENT, 90,
-//                       ngraph_bridge::NGraphConfirmPass);
-
 }  // namespace tensorflow
