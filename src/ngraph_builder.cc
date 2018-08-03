@@ -677,9 +677,17 @@ static tf::Status TranslateConv2DOp(const tf::Node* op,
 
 static tf::Status TranslateConv2DBackpropFilterOp(const tf::Node* op,
                                                   Builder::OpMap& ng_op_map) {
+<<<<<<< HEAD
   shared_ptr<ng::Node> ng_data_batch, ng_output_delta;
   TF_RETURN_IF_ERROR(
       GetInputNodes(ng_op_map, op, &ng_data_batch, nullptr, &ng_output_delta));
+=======
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 3));
+
+  shared_ptr<ng::Node> ng_data_batch, ng_output_delta;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_data_batch));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_output_delta));
+>>>>>>> 1ee2f5206508fa96b8bae0c152980917a34ce169
 
   std::vector<tf::int32> tf_strides;
   std::string tf_padding_type;
