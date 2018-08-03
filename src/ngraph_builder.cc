@@ -420,7 +420,7 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   BatchedOpParamReshape(is_nhwc, ng_orig_input_shape, ng_forward_arg_shape);
   BatchToNGraph(is_nhwc, ng_grad);
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_forward_arg_shape, ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, ng_orig_input_shape, ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_window_shape);
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
