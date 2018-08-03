@@ -31,8 +31,8 @@ from common import NgraphTest
 
 class TestCastOperations(NgraphTest):
   def test_cast_2d(self):
-    gradients = constant_op.constant([1.5, 2.5, 3.5, 4.5, 5.5, 6.5], shape = [2,3])
-    features = constant_op.constant([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], shape =[2,3])
+    gradients = constant_op.constant(self.generate_random_numbers(6, 1.0, 10.0), shape = [2,3])
+    features = constant_op.constant(self.generate_random_numbers(6, 0.0, 100.0), shape =[2,3])
     
     # Run on nGraph
     with self.device:
@@ -49,8 +49,8 @@ class TestCastOperations(NgraphTest):
     assert (result == expected).all()
 
   def test_cast_1d(self):
-    gradients = constant_op.constant([1.5, 2.5, 3.5, 4.5, 5.5, 6.5], shape = [6])
-    features = constant_op.constant([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], shape =[6])
+    gradients = constant_op.constant(self.generate_random_numbers(100, 123.0, 345.0), shape = [100])
+    features = constant_op.constant(self.generate_random_numbers(100, 567.0, 789.0), shape =[100])
     
     # Run on nGraph
     with self.device:
