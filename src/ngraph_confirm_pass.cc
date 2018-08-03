@@ -271,6 +271,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu6"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["ReluGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Reshape"]["T"] = NGraphDTypes();
         type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
         type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
@@ -374,7 +375,6 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Fill"] = [](tf::Node* n, bool* result) {
-
           tf::Node* tf_dims_node;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_dims_node));
 
@@ -474,6 +474,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Reciprocal"] = always;
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
+        confirmation_functions["ReluGrad"] = always;
         confirmation_functions["Rsqrt"] = always;
 
         // Constraint: shape input must be Const.
@@ -527,7 +528,6 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
         confirmation_functions["Split"] = [](tf::Node* n, bool* result) {
-
           tf::Node* tf_split_dim_node;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_split_dim_node));
 
@@ -552,7 +552,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           // reject if tf.newaxis in strided slice
           // TODO support tf.newaxis
           int tf_new_axis_mask;
-          TF_RETURN_IF_ERROR(tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
+          TF_RETURN_IF_ERROR(
+              tf::GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
           if (tf_new_axis_mask != 0) {
             *result = false;
             return tf::Status::OK();
