@@ -85,8 +85,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       for (auto kv : m_ng_functions) {
         m_freshness_tracker->RemoveUser(kv.second);
       }
+
+      // TODO(amprocte): We should be able to unref the tracker here, but it
+      // seems to screw things up in the C++ unit tests.
+      //m_freshness_tracker->Unref();
     }
-    m_freshness_tracker->Unref();
   }
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache, and
