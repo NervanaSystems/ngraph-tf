@@ -40,6 +40,14 @@ namespace ngraph_bridge {
 static const int MIN_NONTRIVIAL_NODES = 2;
 
 Status DeassignClusters(Graph* graph) {
+  //
+  // When running unit tests, we do not want to see trivial clusters
+  // deassigned. This flag (used by the Python tests) makes this possible.
+  //
+  if (std::getenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS") != nullptr) {
+    return Status::OK();
+  }
+
   std::map<int, std::set<Node*>> cluster_map;
 
   for (auto node : graph->nodes()) {
