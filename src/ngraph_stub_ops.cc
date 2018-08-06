@@ -56,12 +56,14 @@ class NGraphStubOp : public OpKernel {
 REGISTER_NGRAPH_STUB("Abs");
 REGISTER_NGRAPH_STUB("Add");
 REGISTER_NGRAPH_STUB("AvgPool");
+REGISTER_NGRAPH_STUB("AvgPoolGrad");
 REGISTER_NGRAPH_STUB("BatchMatMul");
 REGISTER_NGRAPH_STUB("BiasAdd");
 REGISTER_NGRAPH_STUB("Cast");
 REGISTER_NGRAPH_STUB("ConcatV2");
 // "Const" can occur outside of clusters and is registered elsewhere.
 REGISTER_NGRAPH_STUB("Conv2D");
+REGISTER_NGRAPH_STUB("Conv2DBackpropFilter");
 REGISTER_NGRAPH_STUB("Conv2DBackpropInput");
 REGISTER_NGRAPH_STUB("DepthwiseConv2dNative");
 REGISTER_NGRAPH_STUB("Equal");
@@ -95,6 +97,7 @@ REGISTER_NGRAPH_STUB("RealDiv");
 REGISTER_NGRAPH_STUB("Reciprocal");
 REGISTER_NGRAPH_STUB("Relu");
 REGISTER_NGRAPH_STUB("Relu6");
+REGISTER_NGRAPH_STUB("ReluGrad");
 REGISTER_NGRAPH_STUB("Reshape");
 REGISTER_NGRAPH_STUB("Rsqrt");
 REGISTER_NGRAPH_STUB("Slice");

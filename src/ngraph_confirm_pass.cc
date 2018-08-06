@@ -231,6 +231,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
         type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BiasAdd"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Cast"]["SrcT"] = NGraphDTypes();
@@ -238,6 +239,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Conv2DBackpropFilter"]["T"] =
+            NGraphNumericDTypes();
         type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
         type_constraint_map["DepthwiseConv2dNative"]["T"] =
             NGraphNumericDTypes();
@@ -274,6 +277,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Relu6"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["ReluGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Reshape"]["T"] = NGraphDTypes();
         type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
         type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
@@ -316,6 +320,22 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Abs"] = always;
         confirmation_functions["Add"] = always;
         confirmation_functions["AvgPool"] = always;
+        confirmation_functions["AvgPoolGrad"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_orig_input_shape;
+          TF_RETURN_IF_ERROR(n->input_node(0, &tf_orig_input_shape));
+
+          std::vector<tf::int64> tf_orig_input_shape_vec;
+          if (ExtractConstantData(tf_orig_input_shape, &tf_orig_input_shape_vec) !=
+                  tf::Status::OK() ||
+              tf_orig_input_shape_vec.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_avgpoolgrad_static_input_shape", tf_orig_input_shape_vec);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["BiasAdd"] = always;
         confirmation_functions["BatchMatMul"] = always;
         confirmation_functions["Cast"] = always;
@@ -339,6 +359,23 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
+        confirmation_functions["Conv2DBackpropFilter"] = [](tf::Node* n,
+                                                            bool* result) {
+          tf::Node* tf_filter_sizes;
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_filter_sizes));
+
+          std::vector<tf::int64> tf_static_filter_sizes(4);
+          if (ExtractConstantData(tf_filter_sizes, &tf_static_filter_sizes) !=
+                  tf::Status::OK() ||
+              tf_static_filter_sizes.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_static_filter_sizes", tf_static_filter_sizes);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["Conv2DBackpropInput"] = [](tf::Node* n,
                                                            bool* result) {
           tf::Node* tf_input_sizes;
@@ -356,6 +393,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
@@ -479,6 +517,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["Reciprocal"] = always;
         confirmation_functions["Relu"] = always;
         confirmation_functions["Relu6"] = always;
+        confirmation_functions["ReluGrad"] = always;
         confirmation_functions["Rsqrt"] = always;
 
         // Constraint: shape input must be Const.
