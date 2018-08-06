@@ -39,6 +39,42 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+//
+// The clustering pass performs a greedy search for groups of nGraph-marked ops
+// that can be coalesced into a single nGraph graph, and assigns each such
+// group a unique identifier called a "cluster ID".
+//
+// For example, consider the following graph:
+//
+//       N1
+//      /  \
+//    N2    N5
+//    / \    |
+//   N3  N4 N6
+//           |
+//          N7
+//
+// If nodes N1, N2, N3, N4, N6, and N7 are all marked, but N6 is unmarked, the
+// clustering pass will assign nodes N1, N2, N3, and N4 to one cluster, and
+// nodes N6 and N7 to another.
+//
+// After clustering, it must be the case that:
+//
+//   (1) every marked node is assigned to exactly one cluster;
+//   (2) no unmarked node is assigned to any cluster;
+//   (3) for every pair (N1,N2) of nodes where N1 and H2 are in the same
+//       cluster, there is no path from N1 to N2 traversing any node N3 that
+//       is _not_ in the same cluster as N1 and N2 (in other words,
+//       data/control flow cannot "re-enter" the cluster).
+//
+// Given the above constraints, we try to find the "biggest" clusters we can.
+//
+// The assigned cluster index is represented by the "_ngraph_cluster"
+// attribute, which has integer type.
+//
+// TODO(amprocte): Say more about the algorithm.
+//
+
 namespace {
 struct Cluster {
   int index;

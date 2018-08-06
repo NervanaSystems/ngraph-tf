@@ -24,6 +24,26 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+//
+// The "marking" pass checks every node with requested placement on nGraph,
+// and either rejects the placement request, or tags it with suitable metadata.
+//
+// For now we assume that every node has nGraph placement requested, unless the
+// environment variable NGRAPH_TF_DISABLE is set. (TODO(amprocte): implement
+// something better.)
+//
+// Each TensorFlow op supported by nGraph has a "confirmation function"
+// associated with it. When the confirmation pass encounters a node of op "Op",
+// the confirmation function for "Op" first checks if this particular instance
+// of the op can be placed on nGraph, possibly attaching extra metadata to the
+// node for later use, and returns "true" if placement is allowed. Every
+// confirmed op has the attribute "_ngraph_marked_for_clustering" set to
+// "true".
+//
+// See the body of "MarkForClustering" for more details on what a "confirmation
+// function" does.
+//
+
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 
 //
@@ -74,7 +94,7 @@ static Status ExtractConstantData(Node* node, std::vector<int64>* values) {
 }
 
 //
-// Main entry point for the confirmation pass.
+// Main entry point for the marking pass.
 //
 Status MarkForClustering(Graph* graph) {
   //

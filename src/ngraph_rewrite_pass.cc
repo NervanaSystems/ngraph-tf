@@ -31,6 +31,26 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+//
+// Pass that rewrites the graph for nGraph operation.
+//
+// The pass has several phases, each executed in sequence:
+//
+//   1. Marking [ngraph_mark_for_clustering.cc]
+//   2. Cluster Assignment [ngraph_assign_clusters.cc]
+//   3. Cluster Deassignment [ngraph_deassign_clusters.cc]
+//   4. Cluster Encapsulation [ngraph_encapsulate_clusters.cc]
+//
+// Between phases, graph dumps (in both .dot and .pbtxt format) may be
+// requested by setting the following environment variables:
+//
+//   NGRAPH_TF_DUMP_ORIGINAL_GRAPHS=1      dumps graphs before phase 1
+//   NGRAPH_TF_DUMP_MARKED_GRAPHS=1        dumps graphs after phase 1
+//   NGRAPH_TF_DUMP_CLUSTERED_GRAPHS=1     dumps graphs after phase 2
+//   NGRAPH_TF_DUMP_DECLUSTERED_GRAPHS=1   dumps graphs after phase 3
+//   NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS=1  dumps graphs after phase 4
+//   NGRAPH_TF_DUMP_GRAPHS=1               all of the above
+//
 class NGraphRewritePass : public GraphOptimizationPass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) {
@@ -40,32 +60,36 @@ class NGraphRewritePass : public GraphOptimizationPass {
       return Status::OK();
     }
 
-    // For filename generation purposes, grab a fresh index.
+    // For filename generation purposes, grab a fresh index. This is just an
+    // arbitrary integer to avoid filename collisions resulting from subsequent
+    // runs of this pass.
     int idx = FreshIndex();
+
+    // If requested, dump original graphs.
     if (DumpOriginalGraphs()) {
       DumpGraphs(options, idx, "original", "Original Graph");
     }
 
-    // mark for clustering
+    // Mark for clustering then, if requested, dump the graphs.
     TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get()));
     if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "marked", "Graph Marked for Clustering");
     }
 
-    // assign clusters
+    // Assign clusters then, if requested, dump the graphs.
     TF_RETURN_IF_ERROR(AssignClusters(options.graph->get()));
     if (DumpClusteredGraphs()) {
       DumpGraphs(options, idx, "clustered", "Graph with Clusters Assigned");
     }
 
-    // de-assign clusters
+    // Deassign trivial clusters then, if requested, dump the graphs.
     TF_RETURN_IF_ERROR(DeassignClusters(options.graph->get()));
     if (DumpDeclusteredGraphs()) {
       DumpGraphs(options, idx, "declustered",
                  "Graph with Trivial Clusters De-Assigned");
     }
 
-    // encapsulate
+    // Encapsulate clusters then, if requested, dump the graphs.
     TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
     if (DumpEncapsulatedGraphs()) {
       DumpGraphs(options, idx, "encapsulated",
@@ -111,6 +135,8 @@ class NGraphRewritePass : public GraphOptimizationPass {
     }
   }
 
+  // Returns a fresh "serial number" to avoid filename collisions in the graph
+  // dumps.
   int FreshIndex() {
     mutex_lock l(s_serial_counter_mutex);
     return s_serial_counter++;

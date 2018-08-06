@@ -37,6 +37,18 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+//
+// The clustering pass of ngraph_assign_clusters.cc sometimes generates many
+// small, trivial clusters. In this pass, we simply deassign (i.e., remove the
+// _ngraph_cluster and _ngraph_marked_for_clustering attributes) any such
+// trivial clusters. For now, "trivial" just means that there are not at least
+// two non-trivial ops in the graph, where a "trivial op" means "Const" or
+// "Identity".
+//
+// For unit testing purposes, this pass can be bypassed by setting
+// NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1.
+//
+
 static const int MIN_NONTRIVIAL_NODES = 2;
 
 Status DeassignClusters(Graph* graph) {

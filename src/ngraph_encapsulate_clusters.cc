@@ -46,6 +46,14 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+//
+// For each cluster K in the input graph, the encapsulation pass takes the set
+// of all nodes in K and replaces them with a single NGraphEncapsulate op that
+// stands in for the internal subgraph represented by the cluster K.
+//
+// TODO(amprocte): Point to some more documentation on what we're doing here...
+//
+
 // begin code copied and pasted (and modified) from graph.cc...
 static void AddInput(NodeDef* dst, StringPiece src_name, int src_slot) {
   if (src_slot == Graph::kControlSlot) {
