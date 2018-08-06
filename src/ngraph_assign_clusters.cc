@@ -62,7 +62,7 @@ namespace ngraph_bridge {
 //
 //   (1) every marked node is assigned to exactly one cluster;
 //   (2) no unmarked node is assigned to any cluster;
-//   (3) for every pair (N1,N2) of nodes where N1 and H2 are in the same
+//   (3) for every pair (N1,N2) of nodes where N1 and N2 are in the same
 //       cluster, there is no path from N1 to N2 traversing any node N3 that
 //       is _not_ in the same cluster as N1 and N2 (in other words,
 //       data/control flow cannot "re-enter" the cluster).
