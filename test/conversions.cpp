@@ -79,6 +79,6 @@ TEST(conversions, param_to_ngraph_nhwc) {
   ASSERT_EQ(out1[1], in1[2]);
 }
 
-} // namespace ngraph_bridge
+}  // namespace ngraph_bridge
 
-} // namespace tensorflow
+}  // namespace tensorflow

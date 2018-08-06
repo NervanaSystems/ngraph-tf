@@ -47,8 +47,7 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 // begin code copied and pasted (and modified) from graph.cc...
-static void AddInput(NodeDef* dst, StringPiece src_name,
-                     int src_slot) {
+static void AddInput(NodeDef* dst, StringPiece src_name, int src_slot) {
   if (src_slot == Graph::kControlSlot) {
     dst->add_input(strings::StrCat("^", src_name));
   } else if (src_slot == 0) {
@@ -71,8 +70,7 @@ Status EncapsulateClusters(Graph* graph) {
   std::map<std::tuple<int, std::string, int>, string> input_rename_map;
 
   // A map from cluster indices to a vector of input data types.
-  std::map<int, std::vector<std::tuple<int, int, DataType>>>
-      cluster_input_map;
+  std::map<int, std::vector<std::tuple<int, int, DataType>>> cluster_input_map;
   // A map from cluster indices to a vector of output data types.
   std::map<int, std::vector<DataType>> cluster_output_dt_map;
 
@@ -131,10 +129,12 @@ Status EncapsulateClusters(Graph* graph) {
     }
 
     int dst_cluster_idx;
-    bool dst_clustered = (GetNodeCluster(dst, &dst_cluster_idx) == Status::OK());
+    bool dst_clustered =
+        (GetNodeCluster(dst, &dst_cluster_idx) == Status::OK());
 
     int src_cluster_idx;
-    bool src_clustered = (GetNodeCluster(src, &src_cluster_idx) == Status::OK());
+    bool src_clustered =
+        (GetNodeCluster(src, &src_cluster_idx) == Status::OK());
 
     // Ignore edges within a cluster. (Note that this test also works when
     // both nodes are unclustered; GetNodeCluster gives us -1 in that case.
@@ -149,16 +149,16 @@ Status EncapsulateClusters(Graph* graph) {
                                 : dst_clustered ? "in-flow" : "out-flow";
 
     NGRAPH_VLOG(4) << "found " << flow_kind << ": " << src->name() << "["
-                   << edge->src_output() << "] in " << src_cluster_idx
-                   << " to " << dst->name() << "[" << edge->dst_input()
-                   << "] in " << dst_cluster_idx << ", datatype: " << dt;
+                   << edge->src_output() << "] in " << src_cluster_idx << " to "
+                   << dst->name() << "[" << edge->dst_input() << "] in "
+                   << dst_cluster_idx << ", datatype: " << dt;
 
     // If the source node lies within a cluster, we must create an output for
     // it from the source cluster. For the moment we will just store this
     // fact in the output_remap_map.
     if (src_clustered &&
-        output_remap_map.find(std::make_tuple(
-            src->id(), edge->src_output())) == output_remap_map.end()) {
+        output_remap_map.find(std::make_tuple(src->id(), edge->src_output())) ==
+            output_remap_map.end()) {
       output_remap_map[std::make_tuple(src->id(), edge->src_output())] =
           std::make_tuple(src_cluster_idx,
                           cluster_output_dt_map[src_cluster_idx].size());
@@ -190,8 +190,8 @@ Status EncapsulateClusters(Graph* graph) {
     // for the source node to the destination cluster. For the moment we will
     // just store this fact in the input_remap_map.
     if (dst_clustered &&
-        input_remap_map.find(std::make_tuple(dst_cluster_idx, src->id(),
-                                             edge->src_output())) ==
+        input_remap_map.find(
+            std::make_tuple(dst_cluster_idx, src->id(), edge->src_output())) ==
             input_remap_map.end()) {
       input_remap_map[std::make_tuple(dst_cluster_idx, src->id(),
                                       edge->src_output())] =
@@ -238,19 +238,18 @@ Status EncapsulateClusters(Graph* graph) {
 
       input_types.push_back(dt);
 
-      inputs.push_back(NodeBuilder::NodeOut(
-          graph->FindNodeId(src_node_id), src_output_idx));
+      inputs.push_back(
+          NodeBuilder::NodeOut(graph->FindNodeId(src_node_id), src_output_idx));
     }
 
     Node* n;
-    Status status =
-        NodeBuilder(ss.str(), "NGraphEncapsulate")
-            .Attr("ngraph_cluster", cluster_idx)
-            .Attr("Targuments", input_types)
-            .Attr("Tresults", cluster_output_dt_map[cluster_idx])
-            .Device(device_name_map[cluster_idx])
-            .Input(inputs)
-            .Finalize(graph, &n);
+    Status status = NodeBuilder(ss.str(), "NGraphEncapsulate")
+                        .Attr("ngraph_cluster", cluster_idx)
+                        .Attr("Targuments", input_types)
+                        .Attr("Tresults", cluster_output_dt_map[cluster_idx])
+                        .Device(device_name_map[cluster_idx])
+                        .Input(inputs)
+                        .Finalize(graph, &n);
     TF_RETURN_IF_ERROR(status);
     n->set_assigned_device_name(device_name_map[cluster_idx]);
 
@@ -269,9 +268,11 @@ Status EncapsulateClusters(Graph* graph) {
 
   for (auto edge : edges) {
     int src_cluster_idx;
-    bool src_clustered = (GetNodeCluster(edge->src(), &src_cluster_idx) == Status::OK());
+    bool src_clustered =
+        (GetNodeCluster(edge->src(), &src_cluster_idx) == Status::OK());
     int dst_cluster_idx;
-    bool dst_clustered = (GetNodeCluster(edge->dst(), &dst_cluster_idx) == Status::OK());
+    bool dst_clustered =
+        (GetNodeCluster(edge->dst(), &dst_cluster_idx) == Status::OK());
 
     if (src_cluster_idx == dst_cluster_idx) {
       continue;

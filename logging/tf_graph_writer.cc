@@ -84,7 +84,7 @@ std::string GraphToDot(Graph* graph, const std::string& title) {
   // with the chosen background color.
   //
   // Algorithm found at:
-  // 
+  //
   //   https://stackoverflow.com/questions/3942878/how-to-decide-font-color-in-white-or-black-depending-on-background-color
   static auto make_fg_color = [](unsigned int bg_color) {
     unsigned int red = (bg_color & 0xFF0000) >> 16;
@@ -124,7 +124,8 @@ std::string GraphToDot(Graph* graph, const std::string& title) {
     // TODO(amprocte): duplicated logic from ngraph_mark_for_clustering but
     // this file does not live inside src.
     bool is_marked;
-    if (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering", &is_marked) != Status::OK()) {
+    if (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering",
+                    &is_marked) != Status::OK()) {
       is_marked = false;
     }
 

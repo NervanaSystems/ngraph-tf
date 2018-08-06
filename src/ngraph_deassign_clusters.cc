@@ -76,7 +76,8 @@ Status DeassignClusters(Graph* graph) {
     if (non_trivial_count < MIN_NONTRIVIAL_NODES) {
       NGRAPH_VLOG(2) << "Busting cluster " << cluster_idx;
       for (auto node : nodes) {
-        NGRAPH_VLOG(2) << "Busting node: " << node->name() << " [" << node->type_string() << "]";
+        NGRAPH_VLOG(2) << "Busting node: " << node->name() << " ["
+                       << node->type_string() << "]";
 
         // TODO(amprocte): move attr name to a constant
         node->ClearAttr("_ngraph_cluster");

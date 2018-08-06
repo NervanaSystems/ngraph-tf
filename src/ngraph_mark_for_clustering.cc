@@ -32,17 +32,14 @@ using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 //
 // FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
 //
-static bool NGraphPlacementRequested(const Node* node) {
-  return true;
-}
+static bool NGraphPlacementRequested(const Node* node) { return true; }
 
 //
 // Utility function to extract data from a constant node used to express a
 // shape (or strides, axis indices, etc.). Only works on nodes of data type
 // INT32 or INT64.
 //
-static Status ExtractConstantData(Node* node,
-                                  std::vector<int64>* values) {
+static Status ExtractConstantData(Node* node, std::vector<int64>* values) {
   if (node->type_string() != "Const") {
     return errors::InvalidArgument(
         "Tried to extract constant data from a non-Const node");
@@ -56,8 +53,8 @@ static Status ExtractConstantData(Node* node,
   switch (dtype) {
     case DataType::DT_INT32: {
       std::vector<int32> values_int32;
-      TF_RETURN_IF_ERROR(ValuesFromConstNode<int32>(
-          node->def(), &shape_proto, &values_int32));
+      TF_RETURN_IF_ERROR(
+          ValuesFromConstNode<int32>(node->def(), &shape_proto, &values_int32));
       values->resize(values_int32.size());
       for (size_t i = 0; i < values_int32.size(); i++) {
         (*values)[i] = (int64)values_int32[i];
@@ -99,8 +96,7 @@ Status MarkForClustering(Graph* graph) {
   // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
   // DT_INT16.
   //
-  static std::map<std::string,
-                  std::map<std::string, gtl::ArraySlice<DataType>>>
+  static std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>
       type_constraint_map;
 
   //
@@ -163,8 +159,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["DepthwiseConv2dNative"]["T"] =
-          NGraphNumericDTypes();
+      type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Equal"]["T"] = NGraphDTypes();
       type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
       type_constraint_map["ExpandDims"]["T"] = NGraphDTypes();
@@ -288,8 +283,7 @@ Status MarkForClustering(Graph* graph) {
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
 
         std::vector<int64> tf_static_dim;
-        if (ExtractConstantData(tf_dim_node, &tf_static_dim) !=
-            Status::OK()) {
+        if (ExtractConstantData(tf_dim_node, &tf_static_dim) != Status::OK()) {
           *result = false;
           return Status::OK();
         }
@@ -478,7 +472,8 @@ Status MarkForClustering(Graph* graph) {
         // reject if tf.newaxis in strided slice
         // TODO support tf.newaxis
         int tf_new_axis_mask;
-        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask)); 
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
         if (tf_new_axis_mask != 0) {
           *result = false;
           return Status::OK();
@@ -498,8 +493,7 @@ Status MarkForClustering(Graph* graph) {
           return Status::OK();
         }
         std::vector<int64> tf_static_end;
-        if (ExtractConstantData(tf_end_node, &tf_static_end) !=
-            Status::OK()) {
+        if (ExtractConstantData(tf_end_node, &tf_static_end) != Status::OK()) {
           *result = false;
           return Status::OK();
         }
@@ -561,8 +555,8 @@ Status MarkForClustering(Graph* graph) {
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_permutation_node));
 
         std::vector<int64> tf_static_permutation;
-        if (ExtractConstantData(tf_permutation_node,
-                                &tf_static_permutation) != Status::OK()) {
+        if (ExtractConstantData(tf_permutation_node, &tf_static_permutation) !=
+            Status::OK()) {
           *result = false;
           return Status::OK();
         }
@@ -588,8 +582,7 @@ Status MarkForClustering(Graph* graph) {
 
         DataType dt;
 
-        if (GetNodeAttr(node->attrs(), type_attr_name, &dt) !=
-                Status::OK() ||
+        if (GetNodeAttr(node->attrs(), type_attr_name, &dt) != Status::OK() ||
             std::find(allowed_types.begin(), allowed_types.end(), dt) ==
                 allowed_types.end()) {
           type_constraints_ok = false;
@@ -630,7 +623,9 @@ Status MarkForClustering(Graph* graph) {
 bool NodeIsMarkedForClustering(const Node* node) {
   bool is_marked;
   // TODO(amprocte): move attr name to a constant
-  return (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering", &is_marked) == Status::OK() && is_marked);
+  return (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering",
+                      &is_marked) == Status::OK() &&
+          is_marked);
 }
 
 }  // namespace ngraph_bridge

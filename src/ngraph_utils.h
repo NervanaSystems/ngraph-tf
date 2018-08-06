@@ -43,8 +43,8 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 // compatibility with nGraph).
 template <typename T, typename VecT = T>
 Status ValuesFromConstNode(const NodeDef& node,
-                               TensorShapeProto* const_tensor_shape,
-                               std::vector<VecT>* values) {
+                           TensorShapeProto* const_tensor_shape,
+                           std::vector<VecT>* values) {
   if (node.op() != "Const") {
     return errors::InvalidArgument("Node not a Const");
   }
@@ -60,8 +60,7 @@ Status ValuesFromConstNode(const NodeDef& node,
   // tensor_content.
   const TensorProto& tensor = node.attr().at("value").tensor();
   typename checkpoint::SaveTypeTraits<T>::RepeatedField* tensor_values =
-      checkpoint::MutableTensorProtoData<T>(
-          const_cast<TensorProto*>(&tensor));
+      checkpoint::MutableTensorProtoData<T>(const_cast<TensorProto*>(&tensor));
 
   const TensorShapeProto& shape = tensor.tensor_shape();
   *const_tensor_shape = shape;
@@ -120,14 +119,15 @@ Status ValuesFromConstNode(const NodeDef& node,
                  "handle this element type";
           NGRAPH_VLOG(0) << node.DebugString();
           NGRAPH_VLOG(0) << shape.DebugString();
-          return errors::Unimplemented(
-              "Encountered unknown element type ", DataType_Name(dt), " on an empty tensor");
+          return errors::Unimplemented("Encountered unknown element type ",
+                                       DataType_Name(dt),
+                                       " on an empty tensor");
       }
     }
   } else {
     values->resize(tensor_content_size / sizeof(VecT));
     port::CopyToArray(tensor.tensor_content(),
-                          reinterpret_cast<char*>(values->data()));
+                      reinterpret_cast<char*>(values->data()));
   }
 
   return Status::OK();
@@ -151,12 +151,12 @@ std::ostream& DumpNGTensor(
 // errors::Unimplemented if the element type is not supported by nGraph
 // Core. Otherwise returns Status::OK().
 Status TFDataTypeToNGraphElementType(DataType tf_dt,
-                                         ngraph::element::Type* ng_et);
+                                     ngraph::element::Type* ng_et);
 
 // Converts a TensorFlow TensorShape to an nGraph Shape. Requires that none of
 // the dimension lengths in tf_shape are negative.
 Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
-                                      ngraph::Shape* ng_shape);
+                                  ngraph::Shape* ng_shape);
 
 // Returns an ArraySlice containing all TensorFlow dtypes supported by the
 // nGraph bridge.

@@ -37,6 +37,6 @@ GraphDef* NGraphClusterManager::GetClusterGraph(int idx) {
   return s_cluster_graphs[idx];
 }
 
-} // namespace ngraph_bridge
+}  // namespace ngraph_bridge
 
-} // namespace tensorflow
+}  // namespace tensorflow

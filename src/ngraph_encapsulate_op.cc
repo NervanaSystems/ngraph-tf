@@ -52,8 +52,7 @@ REGISTER_OP("NGraphEncapsulate")
 class NGraphEncapsulateOp : public OpKernel {
  public:
   explicit NGraphEncapsulateOp(OpKernelConstruction* ctx)
-      : OpKernel(ctx),
-        m_graph(OpRegistry::Global()) {
+      : OpKernel(ctx), m_graph(OpRegistry::Global()) {
     GraphDef* graph_def;
 
     // TODO(amprocte): need to check status result here.
@@ -163,7 +162,7 @@ class NGraphEncapsulateOp : public OpKernel {
       OP_REQUIRES(
           ctx, elem_type == expected_elem_type,
           errors::Internal("Element type inferred by nGraph does not match "
-                               "the element type expected by TensorFlow"));
+                           "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
       void* dst_ptr = DMAHelper::base(output_tensor);
@@ -191,8 +190,7 @@ std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 
 }  // namespace ngraph_bridge
 
-REGISTER_KERNEL_BUILDER(
-    Name("NGraphEncapsulate").Device(DEVICE_CPU),
-    ngraph_bridge::NGraphEncapsulateOp);
+REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
+                        ngraph_bridge::NGraphEncapsulateOp);
 
 }  // namespace tensorflow

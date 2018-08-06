@@ -77,6 +77,6 @@ void BatchToTensorflow(bool is_nhwc, std::shared_ptr<ngraph::Node>& ng_node) {
   Reshape<0, 2, 3, 1>(ng_node);
 }
 
-} // namespace ngraph_bridge
+}  // namespace ngraph_bridge
 
-} // namespace tensorflow
+}  // namespace tensorflow

@@ -40,10 +40,10 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 namespace {
-  struct Cluster {
-    int index;
-    std::set<tensorflow::Node*> nodes;
-  };
+struct Cluster {
+  int index;
+  std::set<tensorflow::Node*> nodes;
+};
 }
 
 Status AssignClusters(Graph* graph) {
@@ -132,18 +132,22 @@ Status AssignClusters(Graph* graph) {
     for (auto node : cluster->nodes) {
       if (NodeIsMarkedForClustering(node)) {
         has_ngraph_ops = true;
-      }
-      else {
+      } else {
         has_non_ngraph_ops = true;
       }
     }
 
     if (has_ngraph_ops && has_non_ngraph_ops) {
-      NGRAPH_VLOG(2) << "Cluster " << cluster->index << " has both nGraph and non-nGraph nodes";
+      NGRAPH_VLOG(2) << "Cluster " << cluster->index
+                     << " has both nGraph and non-nGraph nodes";
       for (auto node : cluster->nodes) {
-        NGRAPH_VLOG(2) << (NodeIsMarkedForClustering(node) ? "nGraph node: " : "non-nGraph node: ") << node->name() << " [" << node->type_string() << "]";
+        NGRAPH_VLOG(2) << (NodeIsMarkedForClustering(node)
+                               ? "nGraph node: "
+                               : "non-nGraph node: ")
+                       << node->name() << " [" << node->type_string() << "]";
       }
-      return errors::Internal("Cluster ", cluster->index, " has both nGraph and non-nGraph nodes");
+      return errors::Internal("Cluster ", cluster->index,
+                              " has both nGraph and non-nGraph nodes");
     }
 
     if (!has_ngraph_ops) {
@@ -159,9 +163,9 @@ Status AssignClusters(Graph* graph) {
                        << "]";
 
         if (!NodeIsMarkedForClustering(node)) {
-          return errors::Internal(
-              "Node ", node->DebugString(),
-              " was not marked for clustering but was placed in an nGraph cluster.");
+          return errors::Internal("Node ", node->DebugString(),
+                                  " was not marked for clustering but was "
+                                  "placed in an nGraph cluster.");
         }
 
         // TODO(amprocte): move attr name to a constant

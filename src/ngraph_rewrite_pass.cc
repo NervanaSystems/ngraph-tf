@@ -42,42 +42,46 @@ class NGraphRewritePass : public GraphOptimizationPass {
 
     // For filename generation purposes, grab a fresh index.
     int idx = FreshIndex();
-    if(DumpOriginalGraphs()) {
+    if (DumpOriginalGraphs()) {
       DumpGraphs(options, idx, "original", "Original Graph");
     }
 
     // mark for clustering
     TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get()));
-    if(DumpMarkedGraphs()) {
+    if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "marked", "Graph Marked for Clustering");
     }
 
     // assign clusters
     TF_RETURN_IF_ERROR(AssignClusters(options.graph->get()));
-    if(DumpClusteredGraphs()) {
+    if (DumpClusteredGraphs()) {
       DumpGraphs(options, idx, "clustered", "Graph with Clusters Assigned");
     }
 
     // de-assign clusters
     TF_RETURN_IF_ERROR(DeassignClusters(options.graph->get()));
-    if(DumpDeclusteredGraphs()) {
-      DumpGraphs(options, idx, "declustered", "Graph with Trivial Clusters De-Assigned");
+    if (DumpDeclusteredGraphs()) {
+      DumpGraphs(options, idx, "declustered",
+                 "Graph with Trivial Clusters De-Assigned");
     }
 
     // encapsulate
     TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
-    if(DumpEncapsulatedGraphs()) {
-      DumpGraphs(options, idx, "encapsulated", "Graph with Clusters Encapsulated");
+    if (DumpEncapsulatedGraphs()) {
+      DumpGraphs(options, idx, "encapsulated",
+                 "Graph with Clusters Encapsulated");
     }
 
     return Status::OK();
   }
+
  private:
-  void DumpGraphs(const GraphOptimizationPassOptions& options, int idx, std::string filename_prefix, std::string title) {
+  void DumpGraphs(const GraphOptimizationPassOptions& options, int idx,
+                  std::string filename_prefix, std::string title) {
     // If we have a "main" graph, dump that.
-    if(options.graph != nullptr) {
-      auto dot_filename = DotFilename(filename_prefix,idx);
-      auto pbtxt_filename = PbtxtFilename(filename_prefix,idx);
+    if (options.graph != nullptr) {
+      auto dot_filename = DotFilename(filename_prefix, idx);
+      auto pbtxt_filename = PbtxtFilename(filename_prefix, idx);
       NGRAPH_VLOG(0) << "Dumping main graph to " << dot_filename;
       NGRAPH_VLOG(0) << "Dumping main graph to " << pbtxt_filename;
 
@@ -90,10 +94,12 @@ class NGraphRewritePass : public GraphOptimizationPass {
       int sub_idx = 0;
 
       for (auto& kv : *options.partition_graphs) {
-        auto dot_filename = DotFilename(filename_prefix,idx,sub_idx);
-        auto pbtxt_filename = PbtxtFilename(filename_prefix,idx,sub_idx);
-        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to " << dot_filename;
-        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to " << pbtxt_filename;
+        auto dot_filename = DotFilename(filename_prefix, idx, sub_idx);
+        auto pbtxt_filename = PbtxtFilename(filename_prefix, idx, sub_idx);
+        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to "
+                       << dot_filename;
+        NGRAPH_VLOG(0) << "Dumping subgraph " << sub_idx << " to "
+                       << pbtxt_filename;
 
         Graph* pg = kv.second.get();
 
@@ -110,33 +116,51 @@ class NGraphRewritePass : public GraphOptimizationPass {
     return s_serial_counter++;
   }
 
-  static bool DumpAllGraphs() { return std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr; }
-  static bool DumpOriginalGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ORIGINAL_GRAPHS") != nullptr; }
-  static bool DumpMarkedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPHS") != nullptr; }
-  static bool DumpClusteredGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPHS") != nullptr; }
-  static bool DumpDeclusteredGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS") != nullptr; }
-  static bool DumpEncapsulatedGraphs() { return DumpAllGraphs() || std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr; }
+  static bool DumpAllGraphs() {
+    return std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr;
+  }
+  static bool DumpOriginalGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_ORIGINAL_GRAPHS") != nullptr;
+  }
+  static bool DumpMarkedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPHS") != nullptr;
+  }
+  static bool DumpClusteredGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPHS") != nullptr;
+  }
+  static bool DumpDeclusteredGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS") != nullptr;
+  }
+  static bool DumpEncapsulatedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr;
+  }
 
   static std::string DotFilename(std::string kind, int idx) {
-    return GraphFilenamePrefix(kind,idx) + ".dot";
+    return GraphFilenamePrefix(kind, idx) + ".dot";
   }
   static std::string PbtxtFilename(std::string kind, int idx) {
-    return GraphFilenamePrefix(kind,idx) + ".pbtxt";
+    return GraphFilenamePrefix(kind, idx) + ".pbtxt";
   }
   static std::string DotFilename(std::string kind, int idx, int sub_idx) {
-    return GraphFilenamePrefix(kind,idx,sub_idx) + ".dot";
+    return GraphFilenamePrefix(kind, idx, sub_idx) + ".dot";
   }
   static std::string PbtxtFilename(std::string kind, int idx, int sub_idx) {
-    return GraphFilenamePrefix(kind,idx,sub_idx) + ".pbtxt";
+    return GraphFilenamePrefix(kind, idx, sub_idx) + ".pbtxt";
   }
   static std::string GraphFilenamePrefix(std::string kind, int idx) {
     std::stringstream ss;
     ss << kind << "_" << idx;
     return ss.str();
   }
-  static std::string GraphFilenamePrefix(std::string kind, int idx, int sub_idx) {
+  static std::string GraphFilenamePrefix(std::string kind, int idx,
+                                         int sub_idx) {
     std::stringstream ss;
-    ss << GraphFilenamePrefix(kind,idx) << "_" << sub_idx;
+    ss << GraphFilenamePrefix(kind, idx) << "_" << sub_idx;
     return ss.str();
   }
 

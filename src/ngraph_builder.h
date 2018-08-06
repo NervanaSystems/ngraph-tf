@@ -33,18 +33,19 @@ namespace ngraph_bridge {
 class Builder {
  public:
   static Status TranslateGraph(const std::vector<TensorShape>& inputs,
-                                   const Graph* tf_graph,
-                                   std::shared_ptr<ngraph::Function>& ng_function);
+                               const Graph* tf_graph,
+                               std::shared_ptr<ngraph::Function>& ng_function);
 
-  using OpMap = std::unordered_map<std::string, std::vector<std::shared_ptr<ngraph::Node>>>;
+  using OpMap = std::unordered_map<std::string,
+                                   std::vector<std::shared_ptr<ngraph::Node>>>;
 
   template <typename T>
   static void MakePadding(const std::string& tf_padding_type,
                           const ngraph::Shape& ng_image_shape,
                           const ngraph::Shape& ng_kernel_shape,
                           const ngraph::Strides& ng_strides,
-                          const ngraph::Shape& ng_dilations, T& ng_padding_below,
-                          T& ng_padding_above) {
+                          const ngraph::Shape& ng_dilations,
+                          T& ng_padding_below, T& ng_padding_above) {
     ngraph::Shape ng_dilation_kernel_shape{
         (ng_kernel_shape[0] - 1) * ng_dilations[0] + 1,
         (ng_kernel_shape[1] - 1) * ng_dilations[1] + 1};
@@ -57,8 +58,8 @@ class Builder {
   static void MakePadding(const std::string& tf_padding_type,
                           const ngraph::Shape& ng_image_shape,
                           const ngraph::Shape& ng_kernel_shape,
-                          const ngraph::Strides& ng_strides, T& ng_padding_below,
-                          T& ng_padding_above) {
+                          const ngraph::Strides& ng_strides,
+                          T& ng_padding_below, T& ng_padding_above) {
     if (tf_padding_type == "SAME") {
       for (size_t i = 0; i < 2; i++) {
         size_t image_size = ng_image_shape[i];

@@ -91,7 +91,7 @@ std::ostream& DumpNGTensor(
 }
 
 Status TFDataTypeToNGraphElementType(DataType tf_dt,
-                                         ngraph::element::Type* ng_et) {
+                                     ngraph::element::Type* ng_et) {
   switch (tf_dt) {
     case DataType::DT_FLOAT:
       *ng_et = ng::element::f32;
@@ -119,14 +119,14 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
       break;
     default:
       return errors::Unimplemented("Unsupported TensorFlow data type: ",
-                                       DataType_Name(tf_dt));
+                                   DataType_Name(tf_dt));
   }
 
   return Status::OK();
 }
 
 Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
-                                      ngraph::Shape* ng_shape) {
+                                  ngraph::Shape* ng_shape) {
   for (int i = 0; i < tf_shape.dims(); i++) {
     if (tf_shape.dim_size(i) < 0) {
       return errors::InvalidArgument(
@@ -144,9 +144,8 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
 
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
   static gtl::ArraySlice<DataType> result{
-      DT_FLOAT,  DT_DOUBLE, DT_INT8,  DT_INT16,
-      DT_INT32,  DT_INT64,  DT_UINT8, DT_UINT16,
-      DT_UINT32, DT_UINT64, DT_BOOL};
+      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
+      DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_BOOL};
   return result;
 }
 
