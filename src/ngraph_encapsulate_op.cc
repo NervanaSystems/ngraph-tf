@@ -78,6 +78,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster " << m_ngraph_cluster;
+
     // Get the inputs
     std::vector<TensorShape> input_shapes;
     std::stringstream signature_ss;
@@ -93,6 +95,8 @@ class NGraphEncapsulateOp : public OpKernel {
     std::shared_ptr<ngraph::Function> ng_function;
     std::string signature = signature_ss.str();
     auto it = m_ng_functions.find(signature);
+
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster " << m_ngraph_cluster;
 
     // Compile the graph using nGraph.
     //
@@ -138,6 +142,8 @@ class NGraphEncapsulateOp : public OpKernel {
       ng_inputs.push_back(t);
     }
 
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors for cluster " << m_ngraph_cluster;
+
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
@@ -171,10 +177,12 @@ class NGraphEncapsulateOp : public OpKernel {
       outputs.push_back(t_result);
     }
 
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated result tensors for cluster " << m_ngraph_cluster;
+
     // Execute the nGraph function.
-    NGRAPH_VLOG(4) << "call starting for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster " << m_ngraph_cluster;
     m_ng_backend->call(ng_function, outputs, ng_inputs);
-    NGRAPH_VLOG(4) << "call done for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster " << m_ngraph_cluster;
   }
 
  private:
