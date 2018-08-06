@@ -963,7 +963,7 @@ static tf::Status TranslateFusedBatchNormOp(const tf::Node* op,
 }
 
 static tf::Status TranslateFusedBatchNormGradOp(const tf::Node* op,
-                                            Builder::OpMap& ng_op_map) {                                 
+                                                Builder::OpMap& ng_op_map) {
   TF_RETURN_IF_ERROR(ValidateInputCount(op, 5));
 
   bool tf_is_training;
@@ -996,26 +996,26 @@ static tf::Status TranslateFusedBatchNormGradOp(const tf::Node* op,
   }
 
   bool is_nhwc = (tf_data_format == "NHWC");
-      
+
   NGRAPH_VLOG(3) << "data_format: " << tf_data_format;
 
   float tf_epsilon;
   if (tf::GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) !=
       tf::Status::OK()) {
     NGRAPH_VLOG(3) << "epsilon attribute not present, setting to 0.0001";
-    tf_epsilon = 0.0001; 
+    tf_epsilon = 0.0001;
   }
 
   NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
 
   // TODO: We are temporarily supplying a fake value for beta here
-  // (all zero, same shape/et as scale/gamma), because Tensorflow does not give beta to us.
+  // (all zero, same shape/et as scale/gamma), because Tensorflow does not give
+  // beta to us.
   // This should work because nGraph should not actually use beta. The nGraph
   // op may change to discard this parameter. Update this when nGraph does.
-  shared_ptr<ng::Node> ng_beta =
-      std::make_shared<ngraph::op::Constant>(ng_scale->get_element_type(),
-                       ng_scale->get_shape(),
-                       std::vector<std::string>{ng::shape_size(ng_scale->get_shape()),"0"});
+  shared_ptr<ng::Node> ng_beta = std::make_shared<ngraph::op::Constant>(
+      ng_scale->get_element_type(), ng_scale->get_shape(),
+      std::vector<std::string>{ng::shape_size(ng_scale->get_shape()), "0"});
 
   BatchToNGraph(is_nhwc, ng_input);
   BatchToNGraph(is_nhwc, ng_delta);
@@ -1023,15 +1023,14 @@ static tf::Status TranslateFusedBatchNormGradOp(const tf::Node* op,
   std::shared_ptr<ng::Node> ng_batch_norm_backprop;
 
   ng_batch_norm_backprop = make_shared<ng::op::BatchNormBackprop>(
-      tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance, 
-      ng_delta);
+      tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance, ng_delta);
 
   shared_ptr<ngraph::Node> ng_input_delta_op =
-           make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 0);
+      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 0);
   shared_ptr<ngraph::Node> ng_scale_delta_op =
-           make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 1);
+      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 1);
   shared_ptr<ngraph::Node> ng_beta_delta_op =
-           make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 2);
+      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 2);
 
   BatchToTensorflow(is_nhwc, ng_input_delta_op);
 
@@ -1135,6 +1134,69 @@ static tf::Status TranslateMaxPoolOp(const tf::Node* op,
                  << "}";
 
   SaveNgOp(ng_op_map, op->name(), ng_maxpool);
+  return tf::Status::OK();
+}
+
+static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
+                                         Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_output, ng_grad;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_input, &ng_output, &ng_grad));
+
+  auto ng_forward_op = std::dynamic_pointer_cast<ng::op::MaxPool>(ng_output);
+  if (ng_forward_op == nullptr) {
+    return tf::errors::InvalidArgument("Original output is of the wrong type.");
+  }
+  std::vector<tf::int32> tf_strides;
+  std::vector<tf::int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(
+      tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return tf::errors::InvalidArgument(
+        "AvgPoolGrad data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+
+  BatchToNGraph(is_nhwc, ng_input);
+  BatchToNGraph(is_nhwc, ng_grad);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_maxpool_backprop =
+      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
+                                           ng_strides, ng_padding_below,
+                                           ng_padding_above, ng_forward_op);
+  BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
+  NGRAPH_VLOG(3) << "mapoolbackprop outshape: {"
+                 << ng::join(ng_maxpool_backprop->get_shape()) << "}";
+  SaveNgOp(ng_op_map, op->name(), ng_maxpool_backprop);
   return tf::Status::OK();
 }
 
@@ -1933,6 +1995,7 @@ const static std::map<
         {"MatMul", TranslateMatMulOp},
         {"Maximum", TranslateBinaryOp<ngraph::op::Maximum>},
         {"MaxPool", TranslateMaxPoolOp},
+        {"MaxPoolGrad", TranslateMaxPoolGradOp},
         {"Mean", TranslateMeanOp},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
         {"Mul", TranslateBinaryOp<ngraph::op::Multiply>},
