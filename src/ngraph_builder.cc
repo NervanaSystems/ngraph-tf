@@ -2174,9 +2174,9 @@ Status Builder::TranslateGraph(const std::vector<TensorShape>& inputs,
   //
   // We will visit ops in topological order.
   //
-  // ought to be `const Node*`, but tensorflow is whack
-  vector<Node*> ordered;
-  GetReversePostOrder(*input_graph, &ordered);
+  // ought to be `const tf::Node*`, but GetReversePostOrder doesn't use `const`
+  vector<tf::Node*> ordered;
+  tf::GetReversePostOrder(*input_graph, &ordered);
 
   //
   // Split ops into params, retvals, and all others.
