@@ -492,85 +492,113 @@ TEST(tf_exec, Op_Rsqrt) {
   EXPECT_FLOAT_EQ(1.f / 8.f, mat(1, 1));
 }
 
-template <typename T>
-void approx_matrix_compare(typename tf::TTypes<T>::Matrix mat,
-                           vector<vector<T>> ref_ans) {
-  for (int r = 0; r < ref_ans.size(); r++)
-    for (int c = 0; c < ref_ans[0].size(); c++)
-      EXPECT_FLOAT_EQ(ref_ans[r][c], mat(r, c));
-}
-
 TEST(tf_exec, Op_Negate) {
-  tf::Scope root = tf::Scope::NewRootScope();
-  root = root.WithDevice("/device:NGRAPH:0");
+  tf::Scope scope_cpu = tf::Scope::NewRootScope();
+  tf::Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
-  auto A = tf::ops::Const(root, {{-256.f, 16.5f}, {0.f, 64.f}});
-  auto r = tf::ops::Negate(root.WithOpName("r"), A);
+  // ngraph execution
+  auto A_ng = tf::ops::Const(scope_ng, {{-256.f, 16.5f}, {0.f, 64.f}});
+  auto r_ng = tf::ops::Negate(scope_ng.WithOpName("r"), A_ng);
 
-  std::vector<tf::Tensor> outputs;
-  tf::ClientSession session(root);
+  std::vector<tf::Tensor> outputs_ng;
+  tf::ClientSession session_ng(scope_ng);
 
-  TF_CHECK_OK(session.Run({r}, &outputs));
+  TF_CHECK_OK(session_ng.Run({r_ng}, &outputs_ng));
+  ASSERT_EQ(outputs_ng[0].shape(), tf::TensorShape({2, 2}));
 
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2, 2}));
+  // reference CPU execution
+  auto A_cpu = tf::ops::Const(scope_cpu, {{-256.f, 16.5f}, {0.f, 64.f}});
+  auto r_cpu = tf::ops::Negate(scope_cpu.WithOpName("r"), A_cpu);
 
-  vector<vector<float>> golden = {{256.f, -16.5f}, {0.f, -64.f}};
+  std::vector<tf::Tensor> outputs_cpu;
+  tf::ClientSession session_cpu(scope_cpu);
 
-  approx_matrix_compare(outputs[0].matrix<float>(), golden);
+  TF_CHECK_OK(session_cpu.Run({r_cpu}, &outputs_cpu));
+  ASSERT_EQ(outputs_cpu[0].shape(), tf::TensorShape({2, 2}));
+
+  AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
 }
 
 TEST(tf_exec, Op_FloorDiv) {
-  tf::Scope root = tf::Scope::NewRootScope();
-  root = root.WithDevice("/device:NGRAPH:0");
+  tf::Scope scope_cpu = tf::Scope::NewRootScope();
+  tf::Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
-  auto A = tf::ops::Const(root, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
-                                 {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
-  auto B = tf::ops::Const(root, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
-                                 {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
+  // ngraph execution
+  auto A_ng = tf::ops::Const(scope_ng, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
+                                        {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
+  auto B_ng = tf::ops::Const(scope_ng, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
+                                        {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
   // Test with broadcasting
-  auto C = tf::ops::Const(root, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
-  auto r0 = tf::ops::FloorDiv(root.WithOpName("r0"), A, B);
-  auto r1 = tf::ops::FloorDiv(root.WithOpName("r1"), A, B);
+  auto C_ng = tf::ops::Const(scope_ng, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
+  auto r0_ng = tf::ops::FloorDiv(scope_ng.WithOpName("r0"), A_ng, B_ng);
+  auto r1_ng = tf::ops::FloorDiv(scope_ng.WithOpName("r1"), A_ng, C_ng);
 
-  std::vector<tf::Tensor> outputs;
-  tf::ClientSession session(root);
+  std::vector<tf::Tensor> outputs_ng;
+  tf::ClientSession session_ng(scope_ng);
 
-  TF_CHECK_OK(session.Run({r0, r1}, &outputs));
+  TF_CHECK_OK(session_ng.Run({r0_ng, r1_ng}, &outputs_ng));
+  ASSERT_EQ(outputs_ng[0].shape(), tf::TensorShape({2, 6}));
+  ASSERT_EQ(outputs_ng[1].shape(), tf::TensorShape({2, 6}));
 
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2, 6}));
-  ASSERT_EQ(outputs[1].shape(), tf::TensorShape({2, 6}));
-  vector<vector<float>> golden0 = {{5.f, 1.f, 2.f, -1.f, -1.f, 1.f},
-                                   {0.f, 0.f, -3.f, -1.f, 0.f, 0.f}};
-  vector<vector<float>> golden1 = {golden0};
-  approx_matrix_compare(outputs[0].matrix<float>(), golden0);
-  approx_matrix_compare(outputs[1].matrix<float>(), golden1);
+  // reference CPU execution
+  auto A_cpu = tf::ops::Const(scope_cpu, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
+                                          {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
+  auto B_cpu = tf::ops::Const(scope_cpu, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
+                                          {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
+  auto C_cpu = tf::ops::Const(scope_cpu, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
+  auto r0_cpu = tf::ops::FloorDiv(scope_cpu.WithOpName("r0"), A_cpu, B_cpu);
+  auto r1_cpu = tf::ops::FloorDiv(scope_cpu.WithOpName("r1"), A_cpu, C_cpu);
+
+  std::vector<tf::Tensor> outputs_cpu;
+  tf::ClientSession session_cpu(scope_cpu);
+
+  TF_CHECK_OK(session_cpu.Run({r0_cpu, r1_cpu}, &outputs_cpu));
+  ASSERT_EQ(outputs_cpu[0].shape(), tf::TensorShape({2, 6}));
+  ASSERT_EQ(outputs_cpu[1].shape(), tf::TensorShape({2, 6}));
+
+  AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
+  AssertTensorEquals(outputs_cpu[1], outputs_ng[1]);
 }
 
 TEST(tf_exec, Op_FloorMod) {
-  tf::Scope root = tf::Scope::NewRootScope();
-  root = root.WithDevice("/device:NGRAPH:0");
+  tf::Scope scope_cpu = tf::Scope::NewRootScope();
+  tf::Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
-  auto A = tf::ops::Const(root, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
-                                 {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
-  auto B = tf::ops::Const(root, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
-                                 {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
+  // ngraph execution
+  auto A_ng = tf::ops::Const(scope_ng, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
+                                        {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
+  auto B_ng = tf::ops::Const(scope_ng, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
+                                        {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
   // Test with broadcasting
-  auto C = tf::ops::Const(root, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
-  auto r0 = tf::ops::FloorMod(root.WithOpName("r0"), A, B);
-  auto r1 = tf::ops::FloorMod(root.WithOpName("r1"), A, B);
+  auto C_ng = tf::ops::Const(scope_ng, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
+  auto r0_ng = tf::ops::FloorMod(scope_ng.WithOpName("r0"), A_ng, B_ng);
+  auto r1_ng = tf::ops::FloorMod(scope_ng.WithOpName("r1"), A_ng, C_ng);
 
-  std::vector<tf::Tensor> outputs;
-  tf::ClientSession session(root);
+  std::vector<tf::Tensor> outputs_ng;
+  tf::ClientSession session_ng(scope_ng);
 
-  TF_CHECK_OK(session.Run({r0, r1}, &outputs));
+  TF_CHECK_OK(session_ng.Run({r0_ng, r1_ng}, &outputs_ng));
+  ASSERT_EQ(outputs_ng[0].shape(), tf::TensorShape({2, 6}));
+  ASSERT_EQ(outputs_ng[1].shape(), tf::TensorShape({2, 6}));
 
-  ASSERT_EQ(outputs[0].shape(), tf::TensorShape({2, 6}));
-  ASSERT_EQ(outputs[1].shape(), tf::TensorShape({2, 6}));
-  vector<vector<float>> golden0 = {{0.f, 2.f, 1.5f, 2.3f, -1.f, -1.f},
-                                   {1.3f, 1.f, 1.f, 1.f, 0.f, -2.f}};
-  vector<vector<float>> golden1 = {golden0};
-  approx_matrix_compare(outputs[0].matrix<float>(), golden0);
-  approx_matrix_compare(outputs[1].matrix<float>(), golden1);
+  // reference CPU execution
+  auto A_cpu = tf::ops::Const(scope_cpu, {{5.f, 6.f, 7.5f, -1.f, 2.f, -3.f},
+                                          {1.3f, 1.f, -5.f, -3.f, 0.f, -2.f}});
+  auto B_cpu = tf::ops::Const(scope_cpu, {{1.f, 4.f, 3.f, 3.3f, -3.f, -2.f},
+                                          {2.f, 2.f, 2.f, 4.f, 10.f, -3.f}});
+  auto C_cpu = tf::ops::Const(scope_cpu, {1.f, 4.f, 3.f, 3.3f, -3.f, -2.f});
+  auto r0_cpu = tf::ops::FloorMod(scope_cpu.WithOpName("r0"), A_cpu, B_cpu);
+  auto r1_cpu = tf::ops::FloorMod(scope_cpu.WithOpName("r1"), A_cpu, C_cpu);
+
+  std::vector<tf::Tensor> outputs_cpu;
+  tf::ClientSession session_cpu(scope_cpu);
+
+  TF_CHECK_OK(session_cpu.Run({r0_cpu, r1_cpu}, &outputs_cpu));
+  ASSERT_EQ(outputs_cpu[0].shape(), tf::TensorShape({2, 6}));
+  ASSERT_EQ(outputs_cpu[1].shape(), tf::TensorShape({2, 6}));
+
+  AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
+  AssertTensorEquals(outputs_cpu[1], outputs_ng[1]);
 }
 
 }  // namespace ngraph_bridge

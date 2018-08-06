@@ -913,14 +913,13 @@ static tf::Status TranslateFillOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
-auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
-                      std::shared_ptr<ng::Node> ng_input2) {
-  return std::make_shared<ng::op::Floor>(
-      std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
-};
-
 static tf::Status TranslateFloorDivOp(const tf::Node* op,
                                       Builder::OpMap& ng_op_map) {
+  auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
+                        std::shared_ptr<ng::Node> ng_input2) {
+    return std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+  };
   return TranslateBinaryOp(op, ng_op_map, ng_floordiv);
 }
 
@@ -928,7 +927,8 @@ static tf::Status TranslateFloorModOp(const tf::Node* op,
                                       Builder::OpMap& ng_op_map) {
   auto ng_floormod = [](std::shared_ptr<ng::Node> ng_input1,
                         std::shared_ptr<ng::Node> ng_input2) {
-    auto floordiv = ng_floordiv(ng_input1, ng_input2);
+    auto floordiv = std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
     return std::make_shared<ng::op::Subtract>(
         ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
   };
