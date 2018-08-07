@@ -189,8 +189,6 @@ class NGraphEncapsulateOp : public OpKernel {
   Graph m_graph;
   std::unordered_map<std::string, std::shared_ptr<ngraph::Function>>
       m_ng_functions;
-  std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
-      m_last_used_src_ptrs_map;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
 };
