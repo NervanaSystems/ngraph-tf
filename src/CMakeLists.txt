@@ -43,12 +43,14 @@ add_dependencies(ngraph_lib ext_ngraph)
 set(SRC 
    ngraph_assign_clusters.cc
    ngraph_builder.cc
+   ngraph_capture_variables.cc
    ngraph_cluster_manager.cc
    ngraph_deassign_clusters.cc
    ngraph_encapsulate_clusters.cc
    ngraph_encapsulate_op.cc
    ngraph_mark_for_clustering.cc
    ngraph_rewrite_pass.cc
+   ngraph_tracked_variable.cc
    ngraph_utils.cc
    tf_graphcycles.cc
 )
