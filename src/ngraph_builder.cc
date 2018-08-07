@@ -628,21 +628,29 @@ static tf::Status TranslateBiasAddGradOp(const tf::Node* op,
         "BiasAddGrad data format is neither NHWC nor NCHW");
   }
 
-  auto ng_input_shape = ng_input->get_shape();
-  if (ng_input_shape.size() != 4) {
-    return tf::errors::InvalidArgument(
-        "BiasAddGrad argument does not have 4 dimensions");
-  }
-
   bool is_nhwc = (tf_data_format == "NHWC");
 
   ng::AxisSet reduction_axes;
   shared_ptr<ng::Node> ng_biasadd_backprop;
+  auto ng_input_shape = ng_input->get_shape();
 
   if (is_nhwc) {
-    reduction_axes = {0, 1, 2};
+    if (ng_input_shape.size() < 2) { 
+      return tf::errors::InvalidArgument(
+          "BiasAddGrad argument needs to have at least 2 dimensions for NHWC data format");
+    }
+    for (size_t i = 0; i < ng_input_shape.size() - 1; i++) {
+      reduction_axes.insert(i);
+    }
   } else {
-    reduction_axes = {0, 2, 3};
+    // Tensorflow NCHW format supports only 4D input/output tensor
+    if (ng_input_shape.size() != 4) {
+      return tf::errors::InvalidArgument(
+          "BiasAddGrad only support 4d input/output for NCHW data format"); 
+    }
+    for (size_t i = 0; i < ng_input_shape.size(); i++) { 
+      if (i != ng_input_shape.size() - 3) reduction_axes.insert(i);
+    }
   }
 
   ng_biasadd_backprop = make_shared<ng::op::Sum>(ng_input, reduction_axes);
