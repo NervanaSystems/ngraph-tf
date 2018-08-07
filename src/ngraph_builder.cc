@@ -1370,14 +1370,10 @@ static tf::Status TranslateMaxPoolOp(const tf::Node* op,
 
 static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
                                          Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_output, ng_grad;
+  shared_ptr<ng::Node> ng_input, ng_grad;
   TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_output, &ng_grad));
+      GetInputNodes(ng_op_map, op, &ng_input, nullptr, &ng_grad));
 
-  auto ng_forward_op = std::dynamic_pointer_cast<ng::op::MaxPool>(ng_output);
-  if (ng_forward_op == nullptr) {
-    return tf::errors::InvalidArgument("Original output is of the wrong type.");
-  }
   std::vector<tf::int32> tf_strides;
   std::vector<tf::int32> tf_ksize;
   std::string tf_padding_type;
@@ -1423,9 +1419,9 @@ static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
   std::shared_ptr<ng::Node> ng_maxpool_backprop =
       make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
                                            ng_strides, ng_padding_below,
-                                           ng_padding_above, ng_forward_op);
+                                           ng_padding_above);
   BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
-  NGRAPH_VLOG(3) << "mapoolbackprop outshape: {"
+  NGRAPH_VLOG(3) << "maxpoolbackprop outshape: {"
                  << ng::join(ng_maxpool_backprop->get_shape()) << "}";
   SaveNgOp(ng_op_map, op->name(), ng_maxpool_backprop);
   return tf::Status::OK();
