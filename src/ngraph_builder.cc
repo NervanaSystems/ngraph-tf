@@ -155,7 +155,7 @@ static tf::Status GetInputNodes(const Builder::OpMap& ng_op_map,
   }
   return GetInputNodes(ng_op_map, op, index + 1, remaining...);
 }
-}
+}  // namespace detail
 
 template <typename... Arguments>
 static tf::Status GetInputNodes(const Builder::OpMap& ng_op_map,
@@ -371,6 +371,87 @@ static tf::Status TranslateAvgPoolOp(const tf::Node* op,
                  << "}";
 
   SaveNgOp(ng_op_map, op->name(), ng_avgpool);
+  return tf::Status::OK();
+}
+
+static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
+                                         Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_grad;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_grad));
+
+  std::vector<tf::int32> tf_orig_input_shape_vec;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(),
+                                     "_ngraph_avgpoolgrad_static_input_shape",
+                                     &tf_orig_input_shape_vec));
+
+  std::vector<tf::int32> tf_strides;
+  std::vector<tf::int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(
+      tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return tf::errors::InvalidArgument(
+        "AvgPoolGrad data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Shape ng_orig_input_shape;
+  for (int i = 0; i < tf_orig_input_shape_vec.size(); i++) {
+    ng_orig_input_shape.push_back(tf_orig_input_shape_vec[i]);
+  }
+
+  ng::Shape ng_forward_arg_shape(4);
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_window_shape(2);
+
+  BatchedOpParamReshape(is_nhwc, ng_orig_input_shape, ng_forward_arg_shape);
+  BatchToNGraph(is_nhwc, ng_grad);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_orig_input_shape, ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_window_shape);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_window_shape: " << ng::join(ng_window_shape);
+  NGRAPH_VLOG(3) << "ng_forward_arg_shape: " << ng::join(ng_forward_arg_shape);
+
+  // TODO: change this once nGraph supports negative padding
+  // (CoordinateDiff) for AvgPool
+  // ng::CoordinateDiff ng_padding_below{0,0};
+  // ng::CoordinateDiff ng_padding_above{0,0};
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_window_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_avgpool_backprop =
+      make_shared<ng::op::AvgPoolBackprop>(
+          ng_forward_arg_shape, ng_grad, ng_window_shape, ng_strides,
+          ng_padding_below, ng_padding_above, false);
+
+  BatchToTensorflow(is_nhwc, ng_avgpool_backprop);
+
+  NGRAPH_VLOG(3) << "avgpoolbackprop outshape: {"
+                 << ng::join(ng_avgpool_backprop->get_shape()) << "}";
+
+  SaveNgOp(ng_op_map, op->name(), ng_avgpool_backprop);
+
   return tf::Status::OK();
 }
 
@@ -674,6 +755,134 @@ static tf::Status TranslateConv2DOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
+static tf::Status TranslateConv2DBackpropFilterOp(const tf::Node* op,
+                                                  Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_data_batch, ng_output_delta;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_data_batch, nullptr, &ng_output_delta));
+
+  std::vector<tf::int32> tf_strides;
+  std::string tf_padding_type;
+  std::vector<tf::int32> tf_dilations;
+  std::string tf_data_format;
+
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(
+      tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return tf::errors::InvalidArgument("Data format is neither NHWC nor NCHW: ",
+                                       op->type_string());
+  }
+
+  NGRAPH_VLOG(3) << "tf data format" << tf_data_format;
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  // Dilations in batch and depth dimensions must be 1
+  if (is_nhwc) {
+    if (tf_dilations[0] != 1 || tf_dilations[3] != 1) {
+      return tf::errors::InvalidArgument(
+          "Dilations in batch and depth dimensions must be 1: ",
+          op->type_string());
+    }
+  } else {
+    if (tf_dilations[0] != 1 || tf_dilations[1] != 1) {
+      return tf::errors::InvalidArgument(
+          "Dilations in batch and depth dimensions must be 1: ",
+          op->type_string());
+    }
+  }
+
+  std::vector<tf::int64> tf_filter_sizes;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "_ngraph_static_filter_sizes",
+                                     &tf_filter_sizes));
+  if (std::any_of(tf_filter_sizes.begin(), tf_filter_sizes.end(),
+                  [](tf::int32 size) { return size <= 0; })) {
+    return tf::errors::InvalidArgument(
+        "Filter sizes must be positive integers :", op->type_string());
+  }
+
+  NGRAPH_VLOG(3) << "tf filter size" << ng::join(tf_filter_sizes);
+  NGRAPH_VLOG(3) << "tf filter size" << ng::join(tf_filter_sizes);
+  NGRAPH_VLOG(3) << "tf strides" << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << "tf dilations" << ng::join(tf_dilations);
+  NGRAPH_VLOG(3) << "tf padding type" << tf_padding_type;
+
+  ng::Shape ng_filters_shape(4);
+  ng::Strides ng_window_movement_strides_forward(2);
+  ng::Strides ng_window_dilation_strides_forward(2);
+  ng::CoordinateDiff ng_padding_below_forward{0, 0};
+  ng::CoordinateDiff ng_padding_above_forward{0, 0};
+  // H,W data_dilation is set to 1 , TF does not have this attribute
+  ng::Strides ng_data_dilation_strides_forward(2, 1);
+
+  // Convert inputs, args to nGraph Format
+  // nGraph Data Format:
+  //    nGraph Tensor           [N, C_IN, D1, ... Df]
+  //    nGraph Filter           [C_OUT, C_IN, F1, ... Ff]
+  //    nGraph Output Delta     [N, C_OUT, F1, ... Ff]
+  //    nGraph Window Strides   [f]
+  //    nGraph Window Dilations [f]
+  //    nGraph Padding Below    [f]
+  //    nGraph Padding Above    [f]
+  //    nGraph Dilation Stride  [f]
+  BatchToNGraph(is_nhwc, ng_data_batch);
+  // tf_filter shape :
+  // [filter_height, filter_width, in_channels, out_channels]
+  // reshape for nGraph
+  ng_filters_shape = {static_cast<unsigned int>(tf_filter_sizes[3]),
+                      static_cast<unsigned int>(tf_filter_sizes[2]),
+                      static_cast<unsigned int>(tf_filter_sizes[0]),
+                      static_cast<unsigned int>(tf_filter_sizes[1])};
+  BatchToNGraph(is_nhwc, ng_output_delta);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides,
+                         ng_window_movement_strides_forward);
+  BatchedOpParamToNGraph(is_nhwc, tf_dilations,
+                         ng_window_dilation_strides_forward);
+  // H, W of image/input and filter are required to figure out padding
+  // arguments
+  ng::Shape ng_filter_HW(2);
+  ng::Shape ng_input_data_HW(2);
+
+  auto& ng_data_batch_shape = ng_data_batch->get_shape();
+  ng_input_data_HW[0] = ng_data_batch_shape[2];
+  ng_input_data_HW[1] = ng_data_batch_shape[3];
+
+  ng_filter_HW[0] = ng_filters_shape[2];
+  ng_filter_HW[1] = ng_filters_shape[3];
+
+  Builder::MakePadding(tf_padding_type, ng_input_data_HW, ng_filter_HW,
+                       ng_window_movement_strides_forward,
+                       ng_window_dilation_strides_forward,
+                       ng_padding_below_forward, ng_padding_above_forward);
+
+  NGRAPH_VLOG(3) << "ng input data shape" << ng::join(ng_data_batch_shape);
+  NGRAPH_VLOG(3) << "ng filter shape" << ng::join(ng_filters_shape);
+  NGRAPH_VLOG(3) << "ng output delta shape"
+                 << ng::join(ng_output_delta->get_shape());
+  NGRAPH_VLOG(3) << "ng strides"
+                 << ng::join(ng_window_movement_strides_forward);
+  NGRAPH_VLOG(3) << "ng dilations"
+                 << ng::join(ng_window_dilation_strides_forward);
+  NGRAPH_VLOG(3) << "ng padding type" << tf_padding_type;
+
+  std::shared_ptr<ng::Node> ng_back_prop_filter =
+      make_shared<ng::op::ConvolutionBackpropFilters>(
+          ng_data_batch, ng_filters_shape, ng_output_delta,
+          ng_window_movement_strides_forward,
+          ng_window_dilation_strides_forward, ng_padding_below_forward,
+          ng_padding_above_forward, ng_data_dilation_strides_forward);
+
+  // Reshape the output to tf format : [filter_height, filter_width,
+  // in_channels, out_channels]
+  Reshape<2, 3, 1, 0>(ng_back_prop_filter);
+
+  SaveNgOp(ng_op_map, op->name(), ng_back_prop_filter);
+  return tf::Status::OK();
+}
+
 static tf::Status TranslateConv2DBackpropInputOp(const tf::Node* op,
                                                  Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_filter, ng_out_backprop;
@@ -911,6 +1120,28 @@ static tf::Status TranslateFillOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
+static tf::Status TranslateFloorDivOp(const tf::Node* op,
+                                      Builder::OpMap& ng_op_map) {
+  auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
+                        std::shared_ptr<ng::Node> ng_input2) {
+    return std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+  };
+  return TranslateBinaryOp(op, ng_op_map, ng_floordiv);
+}
+
+static tf::Status TranslateFloorModOp(const tf::Node* op,
+                                      Builder::OpMap& ng_op_map) {
+  auto ng_floormod = [](std::shared_ptr<ng::Node> ng_input1,
+                        std::shared_ptr<ng::Node> ng_input2) {
+    auto floordiv = std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+    return std::make_shared<ng::op::Subtract>(
+        ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
+  };
+  return TranslateBinaryOp(op, ng_op_map, ng_floormod);
+}
+
 static tf::Status TranslateFusedBatchNormOp(const tf::Node* op,
                                             Builder::OpMap& ng_op_map) {
   bool tf_is_training;
@@ -1010,9 +1241,9 @@ static tf::Status TranslateFusedBatchNormGradOp(const tf::Node* op,
 
   // TODO: We are temporarily supplying a fake value for beta here
   // (all zero, same shape/et as scale/gamma), because Tensorflow does not give
-  // beta to us.
-  // This should work because nGraph should not actually use beta. The nGraph
-  // op may change to discard this parameter. Update this when nGraph does.
+  // beta to us. This should work because nGraph should not actually use beta.
+  // The nGraph op may change to discard this parameter. Update this when nGraph
+  // does.
   shared_ptr<ng::Node> ng_beta = std::make_shared<ngraph::op::Constant>(
       ng_scale->get_element_type(), ng_scale->get_shape(),
       std::vector<std::string>{ng::shape_size(ng_scale->get_shape()), "0"});
@@ -1427,6 +1658,16 @@ static tf::Status TranslateRelu6Op(const tf::Node* op,
       make_shared<ng::op::Relu>(ng_input), constant_6);
 
   SaveNgOp(ng_op_map, op->name(), relu6_op);
+  return tf::Status::OK();
+}
+
+static tf::Status TranslateReluGradOp(const tf::Node* op,
+                                      Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_arg, ng_delta;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_delta, &ng_arg));
+
+  auto ng_relu_grad = std::make_shared<ng::op::ReluBackprop>(ng_arg, ng_delta);
+  SaveNgOp(ng_op_map, op->name(), ng_relu_grad);
   return tf::Status::OK();
 }
 
@@ -1970,12 +2211,14 @@ const static std::map<
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
         {"AvgPool", TranslateAvgPoolOp},
+        {"AvgPoolGrad", TranslateAvgPoolGradOp},
         {"BatchMatMul", TranslateBatchMatMulOp},
         {"BiasAdd", TranslateBiasAddOp},
         {"Cast", TranslateCastOp},
         {"ConcatV2", TranslateConcatV2Op},
         {"Const", TranslateConstOp},
         {"Conv2D", TranslateConv2DOp},
+        {"Conv2DBackpropFilter", TranslateConv2DBackpropFilterOp},
         {"Conv2DBackpropInput", TranslateConv2DBackpropInputOp},
         {"DepthwiseConv2dNative", TranslateDepthwiseConv2dNativeOp},
         {"Equal", TranslateBinaryOp<ngraph::op::Equal>},
@@ -1983,6 +2226,8 @@ const static std::map<
         {"ExpandDims", TranslateExpandDimsOp},
         {"Fill", TranslateFillOp},
         {"Floor", TranslateUnaryOp<ngraph::op::Floor>},
+        {"FloorDiv", TranslateFloorDivOp},
+        {"FloorMod", TranslateFloorModOp},
         {"FusedBatchNorm", TranslateFusedBatchNormOp},
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
@@ -1999,6 +2244,7 @@ const static std::map<
         {"Mean", TranslateMeanOp},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
         {"Mul", TranslateBinaryOp<ngraph::op::Multiply>},
+        {"Neg", TranslateUnaryOp<ngraph::op::Negative>},
         // Do nothing! NoOps sometimes get placed on nGraph for bureaucratic
         // reasons, but they have no data flow inputs or outputs.
         {"NoOp",
@@ -2011,6 +2257,7 @@ const static std::map<
         {"Reciprocal", TranslateReciprocalOp},
         {"Relu", TranslateReluOp},
         {"Relu6", TranslateRelu6Op},
+        {"ReluGrad", TranslateReluGradOp},
         {"Reshape", TranslateReshapeOp},
         {"Rsqrt", TranslateRsqrtOp},
         {"Sigmoid", TranslateSigmoidOp},
@@ -2041,7 +2288,7 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
   //
   // We will visit ops in topological order.
   //
-  // ought to be `const tf::Node*`, but tensorflow is whack
+  // ought to be `const tf::Node*`, but GetReversePostOrder doesn't use `const`
   vector<tf::Node*> ordered;
   tf::GetReversePostOrder(*input_graph, &ordered);
 
