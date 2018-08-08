@@ -96,7 +96,8 @@ Status ValuesFromConstNode(const NodeDef& node,
       auto& tensor = node.attr().at("value").tensor();
       auto dt = node.attr().at("dtype").type();
       switch (dt) {
-        // TODO(amprocte): there are more element types to support here
+        // TODO(amprocte/NGRAPH-2502): there are more element types to support
+        // here
         case DT_INT32:
           (*values)[i] = (tensor.int_val_size() == 1 ? tensor.int_val()[0]
                                                      : tensor.int_val()[i]);

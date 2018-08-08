@@ -26,6 +26,8 @@
 
 #include "tf_graph_writer.h"
 
+#include <iomanip>
+
 using namespace std;
 
 namespace tensorflow {
@@ -98,13 +100,15 @@ class NGraphRewritePass : public GraphOptimizationPass {
   }
   static std::string GraphFilenamePrefix(std::string kind, int idx) {
     std::stringstream ss;
-    ss << kind << "_" << idx;
+    ss << kind << "_"
+       << std::setfill('0') << std::setw(4) << idx;
     return ss.str();
   }
   static std::string GraphFilenamePrefix(std::string kind, int idx,
                                          int sub_idx) {
     std::stringstream ss;
-    ss << GraphFilenamePrefix(kind, idx) << "_" << sub_idx;
+    ss << GraphFilenamePrefix(kind, idx) << "_"
+       << std::setfill('0') << std::setw(4) << sub_idx;
     return ss.str();
   }
 
@@ -116,7 +120,10 @@ int NGraphRewritePass::s_serial_counter = 0;
 mutex NGraphRewritePass::s_serial_counter_mutex;
 
 //
-//
+// The variable capture pass replaces all instances of VariableV2 with the
+// NGraphVariable op. Making this replacement allows us to substitute in a
+// kernel that tracks the freshness of variables (invalidating freshness when
+// the reference is handed off to an "untrusted" op).
 //
 class NGraphVariableCapturePass : public NGraphRewritePass {
  public:

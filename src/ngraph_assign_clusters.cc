@@ -72,6 +72,10 @@ namespace ngraph_bridge {
 // The assigned cluster index is represented by the "_ngraph_cluster"
 // attribute, which has integer type.
 //
+// Assumption: the "MarkForClustering" pass (ngraph_mark_for_clustering.cc) has 
+// already been run. This attaches the "_ngraph_marked_for_clustering"
+// attribute to ops which we will cluster.
+//
 // TODO(amprocte): Say more about the algorithm.
 //
 
