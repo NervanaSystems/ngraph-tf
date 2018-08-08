@@ -55,6 +55,7 @@ class NGraphStubOp : public OpKernel {
 
 REGISTER_NGRAPH_STUB("Abs");
 REGISTER_NGRAPH_STUB("Add");
+REGISTER_NGRAPH_STUB("HorovodAllreduce");
 REGISTER_NGRAPH_STUB("AvgPool");
 REGISTER_NGRAPH_STUB("AvgPoolGrad");
 REGISTER_NGRAPH_STUB("BatchMatMul");

@@ -314,6 +314,16 @@ static tf::Status TranslateBinaryOp(const tf::Node* op,
       });
 }
 
+static tf::Status TranslateAllreduceOp(const tf::Node* op,
+                                  Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::AllReduce>(ng_input));
+  NGRAPH_VLOG(1) << "after translation";
+  return tf::Status::OK();
+}
+
 static tf::Status TranslateAvgPoolOp(const tf::Node* op,
                                      Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
@@ -2150,6 +2160,7 @@ const static std::map<
     TRANSLATE_OP_MAP{
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
+        {"HorovodAllreduce", TranslateAllreduceOp},
         {"AvgPool", TranslateAvgPoolOp},
         {"AvgPoolGrad", TranslateAvgPoolGradOp},
         {"BatchMatMul", TranslateBatchMatMulOp},
