@@ -437,9 +437,6 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_window_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
-  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
-
   std::shared_ptr<ng::Node> ng_avgpool_backprop =
       make_shared<ng::op::AvgPoolBackprop>(
           ng_forward_arg_shape, ng_grad, ng_window_shape, ng_strides,
@@ -1398,10 +1395,11 @@ static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
 
-  BatchToNGraph(is_nhwc, ng_input);
-  BatchToNGraph(is_nhwc, ng_grad);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph(is_nhwc, ng_input);
+  BatchToNGraph(is_nhwc, ng_grad);
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -1412,9 +1410,6 @@ static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
 
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
-
-  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_maxpool_backprop =
       make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
