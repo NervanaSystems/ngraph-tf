@@ -305,6 +305,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
         type_constraint_map["Transpose"]["T"] = NGraphDTypes();
         type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
+        type_constraint_map["Unpack"]["T"] = NGraphDTypes();
 
         //
         // Initialize confirmation function map.
@@ -696,6 +697,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
+        confirmation_functions["Unpack"] = always;
 
         initialized = true;
       }
