@@ -60,6 +60,7 @@ REGISTER_NGRAPH_STUB("AvgPool");
 REGISTER_NGRAPH_STUB("AvgPoolGrad");
 REGISTER_NGRAPH_STUB("BatchMatMul");
 REGISTER_NGRAPH_STUB("BiasAdd");
+REGISTER_NGRAPH_STUB("BiasAddGrad");
 REGISTER_NGRAPH_STUB("Cast");
 REGISTER_NGRAPH_STUB("ConcatV2");
 // "Const" can occur outside of clusters and is registered elsewhere.
@@ -78,6 +79,7 @@ REGISTER_NGRAPH_STUB("FusedBatchNorm");
 REGISTER_NGRAPH_STUB("FusedBatchNormGrad");
 REGISTER_NGRAPH_STUB("Greater");
 REGISTER_NGRAPH_STUB("GreaterEqual");
+REGISTER_NGRAPH_STUB("L2Loss");
 REGISTER_NGRAPH_STUB("Less");
 REGISTER_NGRAPH_STUB("LessEqual");
 REGISTER_NGRAPH_STUB("Log");

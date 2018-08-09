@@ -235,6 +235,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BiasAdd"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["BiasAddGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Cast"]["SrcT"] = NGraphDTypes();
         type_constraint_map["Cast"]["DstT"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
@@ -255,6 +256,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Greater"]["T"] = NGraphDTypes();
         type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+        type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Less"]["T"] = NGraphDTypes();
         type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
         type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
@@ -340,8 +342,9 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
-        confirmation_functions["BiasAdd"] = always;
         confirmation_functions["BatchMatMul"] = always;
+        confirmation_functions["BiasAdd"] = always;
+        confirmation_functions["BiasAddGrad"] = always;
         confirmation_functions["Cast"] = always;
 
         // Constraint: axis selection input must be Const.
@@ -440,6 +443,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["FusedBatchNormGrad"] = always;
         confirmation_functions["Greater"] = always;
         confirmation_functions["GreaterEqual"] = always;
+        confirmation_functions["L2Loss"] = always;
         confirmation_functions["Less"] = always;
         confirmation_functions["LessEqual"] = always;
         confirmation_functions["Log"] = always;
