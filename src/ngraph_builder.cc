@@ -437,6 +437,9 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_window_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
+  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
+  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
+
   std::shared_ptr<ng::Node> ng_avgpool_backprop =
       make_shared<ng::op::AvgPoolBackprop>(
           ng_forward_arg_shape, ng_grad, ng_window_shape, ng_strides,
@@ -605,6 +608,53 @@ static tf::Status TranslateBiasAddOp(const tf::Node* op,
   auto ng_add = ng_input + ng_bias_broadcasted;
 
   SaveNgOp(ng_op_map, op->name(), ng_add);
+  return tf::Status::OK();
+}
+
+static tf::Status TranslateBiasAddGradOp(const tf::Node* op,
+                                     Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  std::string tf_data_format;
+  if (tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format) !=
+      tf::Status::OK()) {
+    tf_data_format = "NHWC";
+  }
+
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return tf::errors::InvalidArgument(
+        "BiasAddGrad data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  ng::AxisSet reduction_axes;
+  shared_ptr<ng::Node> ng_biasadd_backprop;
+  auto ng_input_shape = ng_input->get_shape();
+
+  if (is_nhwc) {
+    if (ng_input_shape.size() < 2) { 
+      return tf::errors::InvalidArgument(
+          "BiasAddGrad argument needs to have at least 2 dimensions for NHWC data format");
+    }
+    for (size_t i = 0; i < ng_input_shape.size() - 1; i++) {
+      reduction_axes.insert(i);
+    }
+  } else {
+    // Tensorflow NCHW format supports only 4D input/output tensor
+    if (ng_input_shape.size() != 4) {
+      return tf::errors::InvalidArgument(
+          "BiasAddGrad only support 4d input/output for NCHW data format"); 
+    }
+    for (size_t i = 0; i < ng_input_shape.size(); i++) { 
+      if (i != ng_input_shape.size() - 3) reduction_axes.insert(i);
+    }
+  }
+
+  ng_biasadd_backprop = make_shared<ng::op::Sum>(ng_input, reduction_axes);
+
+  SaveNgOp(ng_op_map, op->name(), ng_biasadd_backprop);
   return tf::Status::OK();
 }
 
@@ -1274,6 +1324,30 @@ static tf::Status TranslateIdentityOp(const tf::Node* op,
   shared_ptr<ng::Node> ng_arg;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_arg));
   SaveNgOp(ng_op_map, op->name(), ng_arg);
+  return tf::Status::OK();
+}
+
+static tf::Status TranslateL2LossOp(const tf::Node* op,
+                                    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  auto const_2 = make_shared<ng::op::Constant>(
+      ng_input->get_element_type(), ng::Shape{}, std::vector<std::string>{"2"});
+
+  std::shared_ptr<ng::Node> ng_pow = make_shared<ng::op::Multiply>(
+      ng_input, ng_input);
+
+  size_t input_rank = ng_input->get_shape().size();
+  ng::AxisSet axes;
+  for (auto i = 0; i < input_rank; ++i) {
+    axes.insert(i);
+  }
+
+  std::shared_ptr<ng::Node> ng_sum = make_shared<ng::op::Sum>(ng_pow, axes);
+  std::shared_ptr<ng::Node> ng_l2loss =
+      make_shared<ng::op::Divide>(ng_sum, const_2);
+  SaveNgOp(ng_op_map, op->name(), ng_l2loss);
   return tf::Status::OK();
 }
 
@@ -2205,6 +2279,7 @@ const static std::map<
         {"AvgPoolGrad", TranslateAvgPoolGradOp},
         {"BatchMatMul", TranslateBatchMatMulOp},
         {"BiasAdd", TranslateBiasAddOp},
+        {"BiasAddGrad", TranslateBiasAddGradOp},
         {"Cast", TranslateCastOp},
         {"ConcatV2", TranslateConcatV2Op},
         {"Const", TranslateConstOp},
@@ -2224,6 +2299,7 @@ const static std::map<
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
         {"Identity", TranslateIdentityOp},
+        {"L2Loss", TranslateL2LossOp},
         {"Less", TranslateBinaryOp<ngraph::op::Less>},
         {"LessEqual", TranslateBinaryOp<ngraph::op::LessEq>},
         {"Log", TranslateUnaryOp<ngraph::op::Log>},
