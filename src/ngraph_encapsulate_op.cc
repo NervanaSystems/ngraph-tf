@@ -67,18 +67,15 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // TODO(amprocte): need to check status result here.
     OP_REQUIRES_OK(ctx, tf::ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
-    auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND"));
+    // Get nGraph backend types from environment var
+    char const* ng_tf_backend_chars = std::getenv("NGRAPH_TF_BACKEND");
+    std::string ng_tf_backend_str = ng_tf_backend_chars == nullptr
+                                        ? "CPU"
+                                        : std::string(ng_tf_backend_chars);
+
     // Create the backend
     if (m_ng_backend == nullptr) {
-      if (env_value == "INT") {
-        // m_ng_backend =
-        // std::make_shared<ng::runtime::interpreter::INTBackend>();
-      } else if (env_value == "CPU") {
-        m_ng_backend = ng::runtime::Backend::create("CPU");
-      } else if (env_value == "NNP") {
-        m_ng_backend = ng::runtime::Backend::create("NNP");
-      }
-
+      m_ng_backend = ng::runtime::Backend::create(ng_tf_backend_str);
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
     }
