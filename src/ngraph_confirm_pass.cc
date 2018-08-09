@@ -230,14 +230,19 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         //
         type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
         type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["BiasAdd"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["BiasAddGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Cast"]["SrcT"] = NGraphDTypes();
         type_constraint_map["Cast"]["DstT"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
         type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Conv2DBackpropFilter"]["T"] =
+            NGraphNumericDTypes();
         type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
         type_constraint_map["DepthwiseConv2dNative"]["T"] =
             NGraphNumericDTypes();
@@ -245,10 +250,13 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
         type_constraint_map["ExpandDims"]["T"] = NGraphDTypes();
         type_constraint_map["Floor"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["FloorDiv"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["FloorMod"]["T"] = NGraphNumericDTypes();
         type_constraint_map["FusedBatchNorm"]["T"] = NGraphNumericDTypes();
         type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Greater"]["T"] = NGraphDTypes();
         type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+        type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Less"]["T"] = NGraphDTypes();
         type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
         type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
@@ -261,6 +269,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Pack"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
@@ -317,9 +326,29 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         //
         confirmation_functions["Abs"] = always;
         confirmation_functions["Add"] = always;
+        confirmation_functions["AddN"] = always;
         confirmation_functions["AvgPool"] = always;
-        confirmation_functions["BiasAdd"] = always;
+        confirmation_functions["AvgPoolGrad"] = [](tf::Node* n, bool* result) {
+          tf::Node* tf_orig_input_shape;
+          TF_RETURN_IF_ERROR(n->input_node(0, &tf_orig_input_shape));
+
+          std::vector<tf::int64> tf_orig_input_shape_vec;
+          if (ExtractConstantData(tf_orig_input_shape,
+                                  &tf_orig_input_shape_vec) !=
+                  tf::Status::OK() ||
+              tf_orig_input_shape_vec.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_avgpoolgrad_static_input_shape",
+                     tf_orig_input_shape_vec);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["BatchMatMul"] = always;
+        confirmation_functions["BiasAdd"] = always;
+        confirmation_functions["BiasAddGrad"] = always;
         confirmation_functions["Cast"] = always;
 
         // Constraint: axis selection input must be Const.
@@ -341,6 +370,23 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Conv2D"] = always;
+        confirmation_functions["Conv2DBackpropFilter"] = [](tf::Node* n,
+                                                            bool* result) {
+          tf::Node* tf_filter_sizes;
+          TF_RETURN_IF_ERROR(n->input_node(1, &tf_filter_sizes));
+
+          std::vector<tf::int64> tf_static_filter_sizes(4);
+          if (ExtractConstantData(tf_filter_sizes, &tf_static_filter_sizes) !=
+                  tf::Status::OK() ||
+              tf_static_filter_sizes.size() != 4) {
+            *result = false;
+            return tf::Status::OK();
+          }
+
+          n->AddAttr("_ngraph_static_filter_sizes", tf_static_filter_sizes);
+          *result = true;
+          return tf::Status::OK();
+        };
         confirmation_functions["Conv2DBackpropInput"] = [](tf::Node* n,
                                                            bool* result) {
           tf::Node* tf_input_sizes;
@@ -358,6 +404,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
         confirmation_functions["DepthwiseConv2dNative"] = always;
         confirmation_functions["Equal"] = always;
         confirmation_functions["Exp"] = always;
@@ -394,10 +441,13 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Floor"] = always;
+        confirmation_functions["FloorDiv"] = always;
+        confirmation_functions["FloorMod"] = always;
         confirmation_functions["FusedBatchNorm"] = always;
         confirmation_functions["FusedBatchNormGrad"] = always;
         confirmation_functions["Greater"] = always;
         confirmation_functions["GreaterEqual"] = always;
+        confirmation_functions["L2Loss"] = always;
         confirmation_functions["Less"] = always;
         confirmation_functions["LessEqual"] = always;
         confirmation_functions["Log"] = always;
@@ -426,6 +476,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Minimum"] = always;
         confirmation_functions["Mul"] = always;
+        confirmation_functions["Neg"] = always;
 
         // Constraint: padding-widths input must be Const.
         confirmation_functions["Pad"] = [](tf::Node* n, bool* result) {
