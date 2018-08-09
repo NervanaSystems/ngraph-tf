@@ -27,22 +27,24 @@ import horovod.tensorflow as hvd
 from common import NgraphTest
 import numpy as np
 
-
+hvd.init()
 class TestAllreduceOp(NgraphTest):
+  np_inp = np.random.rand(2,3)
   def test_allreduce(self):
-    val = tf.placeholder(tf.float32, shape=(1,))
+    val = tf.placeholder(tf.float32, shape=(2,3))
 
     with self.device:
       out = hvd.allreduce(val)
 
       with self.session as sess:
-        result = sess.run((out,), feed_dict={val: (5.5,)})
+        result = sess.run((out,), feed_dict={val: self.np_inp})
    
     with tf.device('/cpu:0'):
       out_cpu = hvd.allreduce(val)
 
       with self.session as sess:
-        expected = sess.run((out_cpu,), feed_dict={val: (5.5,)})
-    
+        expected = sess.run((out_cpu,), feed_dict={val: self.np_inp})
+    print("before allreduce", self.np_inp) 
     np.testing.assert_allclose(result, expected, rtol=5e-7)
+    print(result)
 
