@@ -685,16 +685,11 @@ TEST(tf_exec, Op_SparseSoftmaxCrossEntropyWithLogits) {
   std::vector<tf::Tensor> outputs_ngraph, outputs_cpu;
   tf::ClientSession session(root);
 
-  TF_CHECK_OK(session.Run({R_ngraph.backprop, R_ngraph.loss}, &outputs_ngraph));
-  TF_CHECK_OK(session.Run({R_cpu.backprop, R_cpu.loss}, &outputs_cpu));
+  TF_CHECK_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
+  TF_CHECK_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
 
-  LOG(INFO) << "Session Run Complete ";
-  LOG(INFO) << "Output Size " << outputs_ngraph.size();
-  // LOG(INFO) << outputs_ngraph[0].flat<float>();
-  // LOG(INFO) << outputs_ngraph[1].flat<float>();
-
-  AssertTensorEquals(outputs_ngraph[0], outputs_cpu[0], 0.001);
-  AssertTensorEquals(outputs_ngraph[1], outputs_cpu[1], 0.001);
+  ValidateTensorData(outputs_ngraph[0], outputs_cpu[0], 1e-6);
+  ValidateTensorData(outputs_ngraph[1], outputs_cpu[1], 1e-6);
 }
 
 TEST(tf_exec, Op_Square) {
