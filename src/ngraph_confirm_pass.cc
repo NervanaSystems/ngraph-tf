@@ -260,7 +260,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Less"]["T"] = NGraphDTypes();
         type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
         type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
-        // LogicalAnd, LogicalNot has no type attributes, ("T", if it existed, would always
+        // LogicalAnd, LogicalNot has no type attributes, ("T", if it existed,
+        // would always
         // be bool).
         type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
