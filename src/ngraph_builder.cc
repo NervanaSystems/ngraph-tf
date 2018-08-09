@@ -628,7 +628,7 @@ static tf::Status TranslateBiasAddOp(const tf::Node* op,
 }
 
 static tf::Status TranslateBiasAddGradOp(const tf::Node* op,
-                                     Builder::OpMap& ng_op_map) {
+                                         Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -650,9 +650,10 @@ static tf::Status TranslateBiasAddGradOp(const tf::Node* op,
   auto ng_input_shape = ng_input->get_shape();
 
   if (is_nhwc) {
-    if (ng_input_shape.size() < 2) { 
+    if (ng_input_shape.size() < 2) {
       return tf::errors::InvalidArgument(
-          "BiasAddGrad argument needs to have at least 2 dimensions for NHWC data format");
+          "BiasAddGrad argument needs to have at least 2 dimensions for NHWC "
+          "data format");
     }
     for (size_t i = 0; i < ng_input_shape.size() - 1; i++) {
       reduction_axes.insert(i);
@@ -661,9 +662,9 @@ static tf::Status TranslateBiasAddGradOp(const tf::Node* op,
     // Tensorflow NCHW format supports only 4D input/output tensor
     if (ng_input_shape.size() != 4) {
       return tf::errors::InvalidArgument(
-          "BiasAddGrad only support 4d input/output for NCHW data format"); 
+          "BiasAddGrad only support 4d input/output for NCHW data format");
     }
-    for (size_t i = 0; i < ng_input_shape.size(); i++) { 
+    for (size_t i = 0; i < ng_input_shape.size(); i++) {
       if (i != ng_input_shape.size() - 3) reduction_axes.insert(i);
     }
   }
@@ -1351,8 +1352,8 @@ static tf::Status TranslateL2LossOp(const tf::Node* op,
   auto const_2 = make_shared<ng::op::Constant>(
       ng_input->get_element_type(), ng::Shape{}, std::vector<std::string>{"2"});
 
-  std::shared_ptr<ng::Node> ng_pow = make_shared<ng::op::Multiply>(
-      ng_input, ng_input);
+  std::shared_ptr<ng::Node> ng_pow =
+      make_shared<ng::op::Multiply>(ng_input, ng_input);
 
   size_t input_rank = ng_input->get_shape().size();
   ng::AxisSet axes;
