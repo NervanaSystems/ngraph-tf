@@ -35,36 +35,21 @@ class TestSparseSoftmaxCrossEntropyWithLogitsOperations(NgraphTest):
     batch_size = 1000
     total_size = num_classes * batch_size
     labels = constant_op.constant(self.generate_random_numbers(batch_size, 0, num_classes-1, "DTYPE_INT"), shape = [batch_size])
-    logits = constant_op.constant(self.generate_random_numbers(total_size, 0.0, 1.0), shape =[batch_size, num_classes])
-    
-    # Add print operation
-    labels = tf.Print(labels, [labels], message="labels : ")
-    logits = tf.Print(logits, [logits], message="logits : ")
+    features = constant_op.constant(self.generate_random_numbers(total_size, 0.0, 1.0), shape =[batch_size, num_classes])
 
     # Run on CPU
     with self.cpu_device:
-      out_cpu = sparse_softmax_cross_entropy_with_logits(logits, labels)
-      #out_cpu = tf.Print(out_cpu, [out_cpu], message="out_cpu : ")
+      out_cpu = sparse_softmax_cross_entropy_with_logits(features, labels)
       with self.session as sess:
         expected = sess.run(out_cpu)
     
-    #print ("expected size ", np.shape(np.array(expected)))
-    print("expected ", np.array(expected[0]))
-    print("expected ", np.array(expected[1]))
-    
     # Run on nGraph
     with self.device:
-      out = sparse_softmax_cross_entropy_with_logits(logits, labels)
-      #out = tf.Print(out, [out], message="out ngraph : ")
+      out = sparse_softmax_cross_entropy_with_logits(features, labels)
       with self.session as sess:
         result = sess.run(out)
-    print("result ", np.array(result[0]))
-    print("result ", np.array(result[1]))
-
-    #assert (result[0] == expected[0]).all()
-    #assert (result[0] == expected[0]).all()
-    # np.allclose() : (relative tolerance) rtol=1e-05, (absolute tolerance) atol=1e-08
-    rtol = 1e-02
-    atol = 1e-02
+  
+    rtol = 1e-03
+    atol = 1e-03
     assert np.allclose(result[0], expected[0], rtol, atol)
     assert np.allclose(result[1], expected[1], rtol, atol)

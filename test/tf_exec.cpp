@@ -108,15 +108,6 @@ TEST(tf_exec, axpy) {
 }
 #endif
 
-void AssertTensorEquals(tf::Tensor& T1, tf::Tensor& T2, float absolute_range) {
-  auto T_size = T1.flat<float>().size();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1.flat<float>().data()[k];
-    auto b = T2.flat<float>().data()[k];
-    EXPECT_NEAR(a, b, absolute_range);
-  }
-}
-
 void AssertTensorEquals(tf::Tensor& T1, tf::Tensor& T2) {
   auto T_size = T1.flat<float>().size();
   for (int k = 0; k < T_size; k++) {
@@ -685,16 +676,11 @@ TEST(tf_exec, Op_SparseSoftmaxCrossEntropyWithLogits) {
   std::vector<tf::Tensor> outputs_ngraph, outputs_cpu;
   tf::ClientSession session(root);
 
-  TF_CHECK_OK(session.Run({R_ngraph.backprop, R_ngraph.loss}, &outputs_ngraph));
-  TF_CHECK_OK(session.Run({R_cpu.backprop, R_cpu.loss}, &outputs_cpu));
+  TF_CHECK_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
+  TF_CHECK_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
 
-  LOG(INFO) << "Session Run Complete ";
-  LOG(INFO) << "Output Size " << outputs_ngraph.size();
-  // LOG(INFO) << outputs_ngraph[0].flat<float>();
-  // LOG(INFO) << outputs_ngraph[1].flat<float>();
-
-  AssertTensorEquals(outputs_ngraph[0], outputs_cpu[0], 0.001);
-  AssertTensorEquals(outputs_ngraph[1], outputs_cpu[1], 0.001);
+  ValidateTensorData(outputs_ngraph[0], outputs_cpu[0], 1e-6);
+  ValidateTensorData(outputs_ngraph[1], outputs_cpu[1], 1e-6);
 }
 
 TEST(tf_exec, Op_Square) {
