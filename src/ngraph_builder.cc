@@ -1548,6 +1548,60 @@ static tf::Status TranslateSoftmaxOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
+static tf::Status TranslateSparseSoftmaxCrossEntropyWithLogitsOp(
+    const tf::Node* op, Builder::OpMap& ng_op_map) {
+  // TF op Inputs:
+  //  1. Logits/Features:
+  //    Shape : [BatchSize, NumOfClasses]
+  //  2. Label
+  //    Shape : [BatchSize]
+  //    Range : [0, NumOfClasses)
+
+  shared_ptr<ng::Node> ng_features, ng_labels;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_features, &ng_labels));
+
+  // Output 1 : Loss
+  // Compute softmax on ng_features : y_pred
+  // Borrowed from TranslateSoftmaxOp(..) implementation above
+  auto ng_features_shape = ng_features->get_shape();
+
+  // We apply softmax on the 2nd dimension by following TF
+  // And we restrict the softmax input argument to be 2D for now
+  // ng_axes : axes for the operation
+  ng::AxisSet ng_axes;
+  auto shape_size = ng_features_shape.size();
+
+  if (shape_size != 2) {
+    return tf::errors::InvalidArgument(
+        "TF Softmax logits must be 2-dimensional");
+  }
+
+  ng_axes.insert(1);
+  auto ng_features_softmax = make_shared<ng::op::Softmax>(ng_features, ng_axes);
+
+  // Compute one-hot encoding of labels : y_true
+  // one_hot_axis is 1 as we are restricting the shape to be 2D [BatchSize,
+  // NumClasses]
+  auto ng_onehot_labels =
+      make_shared<ng::op::OneHot>(ng_labels, ng_features_shape, 1);
+  auto ng_onehot_labels_float = make_shared<ng::op::Convert>(
+      ng_onehot_labels, ng_features->get_element_type());
+  auto ng_features_softmax_log = make_shared<ng::op::Log>(ng_features_softmax);
+  // CrossEntropyLoss = - sum (y_true * log(y_pred) )
+  auto ng_temp = make_shared<ng::op::Multiply>(ng_onehot_labels_float,
+                                               ng_features_softmax_log);
+  auto temp = make_shared<ng::op::Sum>(ng_temp, ng_axes);
+
+  auto ng_loss = make_shared<ng::op::Negative>(temp);
+  SaveNgOp(ng_op_map, op->name(), ng_loss);
+
+  // Output 2 : Backprop
+  auto ng_backprop = ng_features_softmax - ng_onehot_labels_float;
+  SaveNgOp(ng_op_map, op->name(), ng_backprop);
+
+  return tf::Status::OK();
+}
+
 static tf::Status TranslateSplitOp(const tf::Node* op,
                                    Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
@@ -1968,6 +2022,8 @@ const static std::map<
         {"Slice", TranslateSliceOp},
         {"Snapshot", TranslateSnapshotOp},
         {"Softmax", TranslateSoftmaxOp},
+        {"SparseSoftmaxCrossEntropyWithLogits",
+         TranslateSparseSoftmaxCrossEntropyWithLogitsOp},
         {"Split", TranslateSplitOp},
         {"SplitV", TranslateSplitVOp},
         {"Square", TranslateSquareOp},

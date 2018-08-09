@@ -29,8 +29,8 @@ from tensorflow.python.ops.gen_nn_ops import relu_grad
 from common import NgraphTest
 
 
-class TestCastOperations(NgraphTest):
-  def test_cast_2d(self):
+class TestReluGradOperations(NgraphTest):
+  def test_relugrad_2d(self):
     gradients = constant_op.constant(self.generate_random_numbers(6, 1.0, 10.0), shape = [2,3])
     features = constant_op.constant(self.generate_random_numbers(6, 0.0, 100.0), shape =[2,3])
     
@@ -48,7 +48,7 @@ class TestCastOperations(NgraphTest):
     
     assert (result == expected).all()
 
-  def test_cast_1d(self):
+  def test_relugrad_1d(self):
     gradients = constant_op.constant(self.generate_random_numbers(100, 123.0, 345.0), shape = [100])
     features = constant_op.constant(self.generate_random_numbers(100, 567.0, 789.0), shape =[100])
     
