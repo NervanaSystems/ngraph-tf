@@ -292,6 +292,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
+  std::unordered_map<std::shared_ptr<ngraph::Function>,
+                     std::shared_ptr<ngraph::runtime::TensorView>>
+      m_non_host_function_to_tensor_view_map;
 };
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 
