@@ -254,7 +254,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
                    << m_ngraph_cluster;
+    if (m_ng_backend_str != "CPU") {
+    }
     m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
+    if (m_ng_backend_str != "CPU") {
+    }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
