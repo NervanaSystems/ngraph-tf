@@ -192,7 +192,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
 
 
-     auto add_inputs = [&] (shared_ptr<ngraph::runtime::TensorView>& t) -> void {
+     auto add_input_tensor = [&] (shared_ptr<ngraph::runtime::TensorView>& t) -> void {
       // Mark each tensor as non-stale if:
       //
       //   1. the freshness tracker says the tensor has not changed since
@@ -211,11 +211,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       if(env_value == "NNP") {
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
-	add_inputs(t);
+	add_input_tensor(t);
           }
     else {
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-	add_inputs(t);
+	add_input_tensor(t);
     }
     }
 
