@@ -68,14 +68,16 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     OP_REQUIRES_OK(ctx, tf::ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
     // Get nGraph backend types from environment var
-    char const* ng_tf_backend_chars = std::getenv("NGRAPH_TF_BACKEND");
-    std::string ng_tf_backend_str = ng_tf_backend_chars == nullptr
-                                        ? "CPU"
-                                        : std::string(ng_tf_backend_chars);
+    char const* ng_backend_env_chars = std::getenv("NGRAPH_TF_BACKEND");
+    if (ng_backend_env_chars == nullptr) {
+      m_ng_backend_str = "CPU";
+    } else {
+      m_ng_backend_str = std::string(ng_backend_env_chars);
+    }
 
     // Create the backend
     if (m_ng_backend == nullptr) {
-      m_ng_backend = ng::runtime::Backend::create(ng_tf_backend_str);
+      m_ng_backend = ng::runtime::Backend::create(m_ng_backend_str);
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
     }
@@ -171,7 +173,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
     last_used_src_ptrs.resize(input_shapes.size());
 
-    auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND"));
     for (int i = 0; i < input_shapes.size(); i++) {
       ng::Shape ng_shape(input_shapes[i].dims());
       for (int j = 0; j < input_shapes[i].dims(); ++j) {
@@ -183,41 +184,22 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                                         &ng_element_type));
 
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
+      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
 
-      if (env_value == "NNP") {
-        auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
-        // Mark each tensor as non-stale if:
-        //
-        //   1. the freshness tracker says the tensor has not changed since
-        //      the last time ng_function was called, and
-        //   2. we are using the same tensor in this argument position as
-        //      the one we used last time ng_function was called.
-        if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
-            src_ptr == last_used_src_ptrs[i]) {
-          t->set_stale(false);
-        } else {
-          t->set_stale(true);
-        }
-        last_used_src_ptrs[i] = src_ptr;
-        ng_inputs.push_back(t);
+      // Mark each tensor as non-stale if:
+      //
+      //   1. the freshness tracker says the tensor has not changed since
+      //      the last time ng_function was called, and
+      //   2. we are using the same tensor in this argument position as
+      //      the one we used last time ng_function was called.
+      if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
+          src_ptr == last_used_src_ptrs[i]) {
+        t->set_stale(false);
       } else {
-        auto t =
-            m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-        // Mark each tensor as non-stale if:
-        //
-        //   1. the freshness tracker says the tensor has not changed since
-        //      the last time ng_function was called, and
-        //   2. we are using the same tensor in this argument position as
-        //      the one we used last time ng_function was called.
-        if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
-            src_ptr == last_used_src_ptrs[i]) {
-          t->set_stale(false);
-        } else {
-          t->set_stale(true);
-        }
-        last_used_src_ptrs[i] = src_ptr;
-        ng_inputs.push_back(t);
+        t->set_stale(true);
       }
+      last_used_src_ptrs[i] = src_ptr;
+      ng_inputs.push_back(t);
     }
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
@@ -252,13 +234,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // Create the nGraph output tensor
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      if (env_value == "NNP") {
-        auto t_result = m_ng_backend->create_tensor(elem_type, shape);
-        outputs.push_back(t_result);
-      } else {
-        auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
-        outputs.push_back(t_result);
-      }
+      auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+
+      outputs.push_back(t_result);
     }
 
     NGRAPH_VLOG(4)
@@ -292,6 +270,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
+  std::string m_ng_backend_str;
   std::unordered_map<std::shared_ptr<ngraph::Function>,
                      std::shared_ptr<ngraph::runtime::TensorView>>
       m_non_host_ng_function_to_tv_map;
