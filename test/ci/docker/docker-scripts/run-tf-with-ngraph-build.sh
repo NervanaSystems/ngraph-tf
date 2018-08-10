@@ -203,6 +203,14 @@ python -c 'import tensorflow as tf;  hello = tf.constant("Hello world!"); sess =
 
 xtime="$(date)"
 echo  ' '
+echo  "===== Run TensorFlow Unit-Tests at ${xtime} ====="
+echo  ' '
+
+cd "${tf_dir}"
+bazel test @ngraph_tf//:ngraph_tf_tests
+
+xtime="$(date)"
+echo  ' '
 echo  "===== Deactivating the Virtual Environment at ${xtime} ====="
 echo  ' '
 
