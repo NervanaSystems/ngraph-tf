@@ -79,6 +79,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 	else if( env_value == "NNP") {
       		m_ng_backend = ng::runtime::Backend::create("NNP");
 	}
+	else if( env_value == "GPU") {
+      		m_ng_backend = ng::runtime::Backend::create("GPU");
+	}
 
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
