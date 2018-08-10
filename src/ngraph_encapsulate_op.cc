@@ -70,8 +70,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
      auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
     // Create the backend
     if (m_ng_backend == nullptr) {
-	if( env_value  == "INT") {
-      	//m_ng_backend = std::make_shared<ng::runtime::interpreter::INTBackend>();
+	if( env_value  == "INTERPRETER") {
+      		m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
 	}
 	else if( env_value == "CPU") {
       		m_ng_backend = ng::runtime::Backend::create("CPU");
@@ -189,9 +189,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
 
 
-
-      if(env_value == "NNP") {
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+     auto add_inputs = [&] (shared_ptr<ngraph::runtime::TensorView>& t) -> void {
       // Mark each tensor as non-stale if:
       //
       //   1. the freshness tracker says the tensor has not changed since
@@ -206,24 +204,15 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       }
       last_used_src_ptrs[i] = src_ptr;
       ng_inputs.push_back(t);
-    }
+      };
+
+      if(env_value == "NNP") {
+      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+	add_inputs(t);
+          }
     else {
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-// Mark each tensor as non-stale if:
-      //
-      //   1. the freshness tracker says the tensor has not changed since
-      //      the last time ng_function was called, and
-      //   2. we are using the same tensor in this argument position as
-      //      the one we used last time ng_function was called.
-      if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
-          src_ptr == last_used_src_ptrs[i]) {
-        t->set_stale(false);
-      } else {
-        t->set_stale(true);
-      }
-      last_used_src_ptrs[i] = src_ptr;
-      ng_inputs.push_back(t);
-
+	add_inputs(t);
     }
     }
 
