@@ -67,22 +67,31 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // TODO(amprocte): need to check status result here.
     OP_REQUIRES_OK(ctx, tf::ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
-     auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
     // Create the backend
     if (m_ng_backend == nullptr) {
-	if( env_value  == "INTERPRETER") {
+#if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
+    	m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
+#elif defined(NGRAPH_TF_BACKEND)
+        auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
+	if( env_value.find("INTERPRETER") != string::npos) {
       		m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
+                m_ng_backend_name = "INTERPRETER";
 	}
-	else if( env_value == "CPU") {
+	else if( env_value.find("NNP") != string::npos) {
+      		m_ng_backend = ng::runtime::Backend::create(env_value);
+                m_ng_backend_name = "NNP";
+	}
+	else if ( env_value.find("CPU") != string::npos){
+		// For multi-CPU support
+      		m_ng_backend = ng::runtime::Backend::create(env_value);
+                m_ng_backend_name = "CPU";
+	}
+#else
+  		//Default device
       		m_ng_backend = ng::runtime::Backend::create("CPU");
-	}
-	else if( env_value == "NNP") {
-      		m_ng_backend = ng::runtime::Backend::create("NNP");
-	}
-	else if( env_value == "GPU") {
-      		m_ng_backend = ng::runtime::Backend::create("GPU");
-	}
-
+                m_ng_backend_name = "CPU";
+	
+#endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
     }
@@ -178,7 +187,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
     last_used_src_ptrs.resize(input_shapes.size());
 
-     auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
     for (int i = 0; i < input_shapes.size(); i++) {
       ng::Shape ng_shape(input_shapes[i].dims());
       for (int j = 0; j < input_shapes[i].dims(); ++j) {
@@ -209,7 +217,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       ng_inputs.push_back(t);
       };
 
-      if(env_value == "NNP") {
+      if(m_ng_backend_name == "NNP") {
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
 	add_input_tensor(t);
           }
@@ -251,7 +259,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // Create the nGraph output tensor
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      if(env_value == "NNP") {
+      if(m_ng_backend_name == "NNP") {
       	auto t_result = m_ng_backend->create_tensor(elem_type, shape);
         outputs.push_back(t_result);
       }
@@ -293,6 +301,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
+  std::string m_ng_backend_name;
 };
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 
