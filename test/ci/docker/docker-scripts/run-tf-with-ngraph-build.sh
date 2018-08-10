@@ -175,7 +175,7 @@ source "${venv_dir}/bin/activate"
 
 xtime="$(date)"
 echo  ' '
-echo  "===== Installing TensorFlow Wheel at ${xtime} ====="
+echo  "===== Installing TensorFlow-nGraph Wheel at ${xtime} ====="
 echo  ' '
 
 set -x
@@ -203,7 +203,7 @@ python -c 'import tensorflow as tf;  hello = tf.constant("Hello world!"); sess =
 
 xtime="$(date)"
 echo  ' '
-echo  "===== Run TensorFlow Unit-Tests at ${xtime} ====="
+echo  "===== Run TensorFlow-nGraph Unit-Tests at ${xtime} ====="
 echo  ' '
 
 cd "${tf_dir}"
