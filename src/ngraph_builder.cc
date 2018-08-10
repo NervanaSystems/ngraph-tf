@@ -1454,7 +1454,7 @@ static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
       tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
   if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
     return tf::errors::InvalidArgument(
-        "AvgPoolGrad data format is neither NHWC nor NCHW");
+        "MaxPoolGrad data format is neither NHWC nor NCHW");
   }
 
   bool is_nhwc = (tf_data_format == "NHWC");
