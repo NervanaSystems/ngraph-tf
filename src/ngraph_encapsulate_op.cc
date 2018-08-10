@@ -170,36 +170,40 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Allocate tensors for arguments.
     vector<shared_ptr<ng::runtime::TensorView>> ng_inputs;
 
-    auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
-    last_used_src_ptrs.resize(input_shapes.size());
+    if (m_ng_backend_str == "CPU") {
+      auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
+      last_used_src_ptrs.resize(input_shapes.size());
 
-    for (int i = 0; i < input_shapes.size(); i++) {
-      ng::Shape ng_shape(input_shapes[i].dims());
-      for (int j = 0; j < input_shapes[i].dims(); ++j) {
-        ng_shape[j] = input_shapes[i].dim_size(j);
+      for (int i = 0; i < input_shapes.size(); i++) {
+        ng::Shape ng_shape(input_shapes[i].dims());
+        for (int j = 0; j < input_shapes[i].dims(); ++j) {
+          ng_shape[j] = input_shapes[i].dim_size(j);
+        }
+
+        ng::element::Type ng_element_type;
+        OP_REQUIRES_OK(ctx, TFDataTypeToNGraphElementType(ctx->input(i).dtype(),
+                                                          &ng_element_type));
+
+        void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
+        auto t =
+            m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
+
+        // Mark each tensor as non-stale if:
+        //
+        //   1. the freshness tracker says the tensor has not changed since
+        //      the last time ng_function was called, and
+        //   2. we are using the same tensor in this argument position as
+        //      the one we used last time ng_function was called.
+        if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
+            src_ptr == last_used_src_ptrs[i]) {
+          t->set_stale(false);
+        } else {
+          t->set_stale(true);
+        }
+        last_used_src_ptrs[i] = src_ptr;
+        ng_inputs.push_back(t);
       }
-
-      ng::element::Type ng_element_type;
-      OP_REQUIRES_OK(ctx, TFDataTypeToNGraphElementType(ctx->input(i).dtype(),
-                                                        &ng_element_type));
-
-      void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-
-      // Mark each tensor as non-stale if:
-      //
-      //   1. the freshness tracker says the tensor has not changed since
-      //      the last time ng_function was called, and
-      //   2. we are using the same tensor in this argument position as
-      //      the one we used last time ng_function was called.
-      if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
-          src_ptr == last_used_src_ptrs[i]) {
-        t->set_stale(false);
-      } else {
-        t->set_stale(true);
-      }
-      last_used_src_ptrs[i] = src_ptr;
-      ng_inputs.push_back(t);
+    } else {
     }
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
@@ -207,36 +211,40 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                    << m_ngraph_cluster;
 
     // Allocate tensors for the results.
-    vector<shared_ptr<ng::runtime::TensorView>> outputs;
-    for (auto i = 0; i < ng_function->get_output_size(); i++) {
-      auto shape = ng_function->get_output_shape(i);
-      auto elem_type = ng_function->get_output_element_type(i);
+    vector<shared_ptr<ng::runtime::TensorView>> ng_outputs;
+    if (m_ng_backend_str == "CPU") {
+      for (auto i = 0; i < ng_function->get_output_size(); i++) {
+        auto shape = ng_function->get_output_shape(i);
+        auto elem_type = ng_function->get_output_element_type(i);
 
-      // Create the TF output tensor
-      vector<tf::int64> dims;
-      for (auto dim : shape) {
-        dims.push_back(dim);
+        // Create the TF output tensor
+        vector<tf::int64> dims;
+        for (auto dim : shape) {
+          dims.push_back(dim);
+        }
+        tf::TensorShape tf_shape(dims);
+        tf::Tensor* output_tensor = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
+
+        // Make sure the nGraph-inferred element type agrees with what
+        // TensorFlow
+        // expected.
+        ng::element::Type expected_elem_type;
+        OP_REQUIRES_OK(
+            ctx, TFDataTypeToNGraphElementType(ctx->expected_output_dtype(i),
+                                               &expected_elem_type));
+        OP_REQUIRES(ctx, elem_type == expected_elem_type,
+                    tf::errors::Internal(
+                        "Element type inferred by nGraph does not match "
+                        "the element type expected by TensorFlow"));
+
+        // Create the nGraph output tensor
+        void* dst_ptr = tf::DMAHelper::base(output_tensor);
+        auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+
+        ng_outputs.push_back(t_result);
       }
-      tf::TensorShape tf_shape(dims);
-      tf::Tensor* output_tensor = nullptr;
-      OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
-
-      // Make sure the nGraph-inferred element type agrees with what TensorFlow
-      // expected.
-      ng::element::Type expected_elem_type;
-      OP_REQUIRES_OK(
-          ctx, TFDataTypeToNGraphElementType(ctx->expected_output_dtype(i),
-                                             &expected_elem_type));
-      OP_REQUIRES(
-          ctx, elem_type == expected_elem_type,
-          tf::errors::Internal("Element type inferred by nGraph does not match "
-                               "the element type expected by TensorFlow"));
-
-      // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
-
-      outputs.push_back(t_result);
+    } else {
     }
 
     NGRAPH_VLOG(4)
@@ -246,7 +254,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
                    << m_ngraph_cluster;
-    m_ng_backend->call(ng_function, outputs, ng_inputs);
+    m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
@@ -273,7 +281,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   std::string m_ng_backend_str;
   std::unordered_map<std::shared_ptr<ngraph::Function>,
                      std::shared_ptr<ngraph::runtime::TensorView>>
-      m_non_host_ng_function_to_tv_map;
+      m_ng_function_to_non_host_inputs;
+  std::unordered_map<std::shared_ptr<ngraph::Function>,
+                     std::shared_ptr<ngraph::runtime::TensorView>>
+      m_ng_function_to_non_host_outputs;
 };
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 
