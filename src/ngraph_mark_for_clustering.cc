@@ -93,6 +93,10 @@ static Status ExtractConstantData(Node* node, std::vector<int64>* values) {
   return Status::OK();
 }
 
+static inline void SetContractibleOnlyIfConst(Node* n, std::vector<int32> inputs) {
+  n->AddAttr("_ngraph_contractible_only_if_const", inputs);
+}
+
 //
 // Main entry point for the marking pass.
 //
@@ -259,6 +263,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: axis selection input must be Const.
       confirmation_functions["ConcatV2"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {n->num_inputs() - 1});
+        // return Status::OK();
+
         Node* tf_axis_node;
         TF_RETURN_IF_ERROR(n->input_node(n->num_inputs() - 1, &tf_axis_node));
 
@@ -280,6 +287,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Conv2D"] = always;
       confirmation_functions["Conv2DBackpropInput"] = [](Node* n,
                                                          bool* result) {
+        SetContractibleOnlyIfConst(n, {0});
+        // return Status::OK();
+
         Node* tf_input_sizes;
         TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
 
@@ -299,6 +309,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Equal"] = always;
       confirmation_functions["Exp"] = always;
       confirmation_functions["ExpandDims"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_dim_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
 
@@ -315,6 +328,9 @@ Status MarkForClustering(Graph* graph) {
       };
 
       confirmation_functions["Fill"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {0});
+        // return Status::OK();
+
         Node* tf_dims_node;
         TF_RETURN_IF_ERROR(n->input_node(0, &tf_dims_node));
 
@@ -343,9 +359,11 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Maximum"] = always;
       confirmation_functions["MaxPool"] = always;
 
-      // Constraints: "keep_dims" is not supported, reduction-axes input
-      // must be Const.
+      // Constraint: reduction-axes input must be Const.
       confirmation_functions["Mean"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_axes_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
@@ -366,6 +384,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: padding-widths input must be Const.
       confirmation_functions["Pad"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_paddings_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_paddings_node));
 
@@ -386,6 +407,9 @@ Status MarkForClustering(Graph* graph) {
       // Constraints: "keep_dims" is not supported, reduction-axes input
       // must be Const.
       confirmation_functions["Prod"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // would not return here because keep_dims
+
         bool tf_keep_dims;
 
         if (GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
@@ -419,6 +443,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: shape input must be Const.
       confirmation_functions["Reshape"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_shape_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
 
@@ -439,6 +466,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: begin and size input must be Const.
       confirmation_functions["Slice"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1,2});
+        // return Status::OK();
+
         Node* tf_begin_node;
         Node* tf_size_node;
 
@@ -468,6 +498,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Snapshot"] = always;
       confirmation_functions["Softmax"] = always;
       confirmation_functions["Split"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {0});
+        // return Status::OK();
+
         Node* tf_split_dim_node;
         TF_RETURN_IF_ERROR(n->input_node(0, &tf_split_dim_node));
 
@@ -489,6 +522,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: begin, end, and stride inputs must be Const
       confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1,2,3});
+        // return Status::OK();
+
         // reject if tf.newaxis in strided slice
         // TODO support tf.newaxis
         int tf_new_axis_mask;
@@ -537,6 +573,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraints: reduction-axes input must be Const.
       confirmation_functions["Sum"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_axes_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
 
@@ -554,6 +593,9 @@ Status MarkForClustering(Graph* graph) {
 
       confirmation_functions["Tanh"] = always;
       confirmation_functions["Tile"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_multiples;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_multiples));
 
@@ -571,6 +613,9 @@ Status MarkForClustering(Graph* graph) {
 
       // Constraint: permutation input must be Const.
       confirmation_functions["Transpose"] = [](Node* n, bool* result) {
+        SetContractibleOnlyIfConst(n, {1});
+        // return Status::OK();
+
         Node* tf_permutation_node;
         TF_RETURN_IF_ERROR(n->input_node(1, &tf_permutation_node));
 
