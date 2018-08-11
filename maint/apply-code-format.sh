@@ -59,11 +59,11 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         #
         # We also skip any dir named "cpu_codegen" in case there are
         # nGraph-generated files lying around from a test run.
-        find "${ROOT_SUBDIR}"                                      \
+        find "${ROOT_SUBDIR}"                                       \
           -name cpu_codegen -prune -o                               \
           \( -type f -and \( -name '*.cc' -or -name '*.h'           \
                              -or -name '*.cpp' -or -name '*.hpp' \) \
-             -print \) | xargs echo "${CLANG_FORMAT_PROG}" -i -style=file
+             -print \) | xargs "${CLANG_FORMAT_PROG}" -i -style=file
 
         bash_lib_status "Done."
     fi
