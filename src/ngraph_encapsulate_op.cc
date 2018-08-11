@@ -72,24 +72,17 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 #if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
     	m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
 #elif defined(NGRAPH_TF_BACKEND)
-        auto env_value = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
-	if( env_value.find("INTERPRETER") != string::npos) {
-      		m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
-                m_ng_backend_name = "INTERPRETER";
+        if(std::getenv("NGRAPH_TF_BACKEND") != nullptr) 
+	{
+             m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
+	if( !m_ng_backend_name.empty()) {
+      		m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
 	}
-	else if( env_value.find("NNP") != string::npos) {
-      		m_ng_backend = ng::runtime::Backend::create(env_value);
-                m_ng_backend_name = "NNP";
+	 else {
+      		m_ng_backend = ng::runtime::Backend::create("CPU");
 	}
-	else if ( env_value.find("CPU") != string::npos){
-		// For multi-CPU support
-      		m_ng_backend = ng::runtime::Backend::create(env_value);
-                m_ng_backend_name = "CPU";
 	}
 #else
-  		//Default device
-      		m_ng_backend = ng::runtime::Backend::create("CPU");
-                m_ng_backend_name = "CPU";
 	
 #endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
@@ -217,16 +210,17 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       ng_inputs.push_back(t);
       };
 
-      if(m_ng_backend_name == "NNP") {
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+      if(m_ng_backend_name == "CPU") {
+      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
 	add_input_tensor(t);
           }
     else {
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
+      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
 	add_input_tensor(t);
     }
     }
 
+    //m_ng_function_to_inputs.insert(ng_function , ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
                    << m_ngraph_cluster;
@@ -259,17 +253,20 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // Create the nGraph output tensor
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      if(m_ng_backend_name == "NNP") {
-      	auto t_result = m_ng_backend->create_tensor(elem_type, shape);
+      if(m_ng_backend_name == "CPU") {
+      	auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
         outputs.push_back(t_result);
       }
-      else {
-      	auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+      else if(m_ng_function_to_outputs.find(ng_function) == end(m_ng_function_to_outputs)){
+      	auto t_result = m_ng_backend->create_tensor(elem_type, shape);
         outputs.push_back(t_result);
       }
 
     }
 
+    if(m_ng_function_to_outputs.find(ng_function) == end(m_ng_function_to_outputs)) {
+    	//m_ng_function_to_inputs.insert(ng_function , outputs);
+    }
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
         << m_ngraph_cluster;
@@ -298,6 +295,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
+  std::unordered_map<std::shared_ptr<ngraph::Function>, std::vector<ng::runtime::TensorView>> m_ng_function_to_inputs;
+  std::unordered_map<std::shared_ptr<ngraph::Function>, std::vector<ng::runtime::TensorView>> m_ng_function_to_outputs;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
