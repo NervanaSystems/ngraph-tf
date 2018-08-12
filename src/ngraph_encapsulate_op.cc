@@ -13,8 +13,8 @@ o * Copyright 2017-2018 Intel Corporation
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include <fstream>
 #include <cstdlib>
+#include <fstream>
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
@@ -70,20 +70,14 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Create the backend
     if (m_ng_backend == nullptr) {
 #if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
-    	m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
+      m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
 #elif defined(NGRAPH_TF_BACKEND)
-        if(std::getenv("NGRAPH_TF_BACKEND") != nullptr) 
-	{
-             m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND")); 
-	if( !m_ng_backend_name.empty()) {
-      		m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
-	}
-	 else {
-      		m_ng_backend = ng::runtime::Backend::create("CPU");
-	}
-	}
-#else
-	
+      if (std::getenv("NGRAPH_TF_BACKEND") != nullptr) {
+        m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND"));
+        if (!m_ng_backend_name.empty()) {
+          m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
+        }
+      }
 #endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
@@ -192,35 +186,35 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
 
-
-     auto add_input_tensor = [&] (shared_ptr<ngraph::runtime::TensorView>& t) -> void {
-      // Mark each tensor as non-stale if:
-      //
-      //   1. the freshness tracker says the tensor has not changed since
-      //      the last time ng_function was called, and
-      //   2. we are using the same tensor in this argument position as
-      //      the one we used last time ng_function was called.
-      if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
-          src_ptr == last_used_src_ptrs[i]) {
-        t->set_stale(false);
-      } else {
-        t->set_stale(true);
-      }
-      last_used_src_ptrs[i] = src_ptr;
-      ng_inputs.push_back(t);
+      auto add_input_tensor =
+          [&](shared_ptr<ngraph::runtime::TensorView>& t) -> void {
+        // Mark each tensor as non-stale if:
+        //
+        //   1. the freshness tracker says the tensor has not changed since
+        //      the last time ng_function was called, and
+        //   2. we are using the same tensor in this argument position as
+        //      the one we used last time ng_function was called.
+        if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
+            src_ptr == last_used_src_ptrs[i]) {
+          t->set_stale(false);
+        } else {
+          t->set_stale(true);
+        }
+        last_used_src_ptrs[i] = src_ptr;
+        ng_inputs.push_back(t);
       };
 
-      if(m_ng_backend_name == "CPU") {
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-	add_input_tensor(t);
-          }
-    else {
-      auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
-	add_input_tensor(t);
-    }
+      if (m_ng_backend_name == "CPU") {
+        auto t =
+            m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
+        add_input_tensor(t);
+      } else {
+        auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+        add_input_tensor(t);
+      }
     }
 
-    //m_ng_function_to_inputs.insert(ng_function , ng_inputs);
+    // m_ng_function_to_inputs.insert(ng_function , ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
                    << m_ngraph_cluster;
@@ -253,19 +247,19 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // Create the nGraph output tensor
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      if(m_ng_backend_name == "CPU") {
-      	auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+      if (m_ng_backend_name == "CPU") {
+        auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+        outputs.push_back(t_result);
+      } else if (m_ng_function_to_outputs.find(ng_function) ==
+                 end(m_ng_function_to_outputs)) {
+        auto t_result = m_ng_backend->create_tensor(elem_type, shape);
         outputs.push_back(t_result);
       }
-      else if(m_ng_function_to_outputs.find(ng_function) == end(m_ng_function_to_outputs)){
-      	auto t_result = m_ng_backend->create_tensor(elem_type, shape);
-        outputs.push_back(t_result);
-      }
-
     }
 
-    if(m_ng_function_to_outputs.find(ng_function) == end(m_ng_function_to_outputs)) {
-    	//m_ng_function_to_inputs.insert(ng_function , outputs);
+    if (m_ng_function_to_outputs.find(ng_function) ==
+        end(m_ng_function_to_outputs)) {
+      // m_ng_function_to_inputs.insert(ng_function , outputs);
     }
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
@@ -295,8 +289,12 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
-  std::unordered_map<std::shared_ptr<ngraph::Function>, std::vector<ng::runtime::TensorView>> m_ng_function_to_inputs;
-  std::unordered_map<std::shared_ptr<ngraph::Function>, std::vector<ng::runtime::TensorView>> m_ng_function_to_outputs;
+  std::unordered_map<std::shared_ptr<ngraph::Function>,
+                     std::vector<ng::runtime::TensorView>>
+      m_ng_function_to_inputs;
+  std::unordered_map<std::shared_ptr<ngraph::Function>,
+                     std::vector<ng::runtime::TensorView>>
+      m_ng_function_to_outputs;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
