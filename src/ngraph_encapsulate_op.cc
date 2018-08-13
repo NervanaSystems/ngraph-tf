@@ -14,6 +14,7 @@ o * Copyright 2017-2018 Intel Corporation
  * limitations under the License.
  *******************************************************************************/
 #include <fstream>
+#include <cstdlib>
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
@@ -67,11 +68,16 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Create the backend
     if (m_ng_backend == nullptr) {
-#if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
-      m_ng_backend = std::make_shared<ng::runtime::interpreter::INTBackend>();
-#else
-      m_ng_backend = ng::runtime::Backend::create("CPU");
-#endif
+	if( std::getenv("NGRAPH_TF_BACKEND") == "INT") {
+      	m_ng_backend = std::make_shared<ng::runtime::interpreter::INTBackend>();
+	}
+	else if( std::getenv("NGRAPH_TF_BACKEND") == "CPU") {
+      		m_ng_backend = ng::runtime::Backend::create("CPU");
+	}
+	else if( std::getenv("NGRAPH_TF_BACKEND") == "NNP") {
+      		m_ng_backend = ng::runtime::Backend::create("NNP");
+	}
+
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   errors::InvalidArgument("Cannot create nGraph backend"));
     }
