@@ -71,14 +71,14 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     if (m_ng_backend == nullptr) {
 #if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
       m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
-#elif defined(NGRAPH_TF_BACKEND)
+#endif
       if (std::getenv("NGRAPH_TF_BACKEND") != nullptr) {
         m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND"));
+        cout << "Backend name : " << m_ng_backend_name << endl;
         if (!m_ng_backend_name.empty()) {
           m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
         }
       }
-#endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
     }
@@ -210,6 +210,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
         add_input_tensor(t);
       } else {
         auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+        auto element_type =
+            t->get_descriptor()->get_tensor_view_layout()->get_element_type();
+        t->write(src_ptr, 0,
+                 (t->get_element_count() * element_type.bitwidth() / 8.0));
         add_input_tensor(t);
       }
     }
@@ -221,6 +225,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
+    void* dst_ptr = nullptr;
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto shape = ng_function->get_output_shape(i);
       auto elem_type = ng_function->get_output_element_type(i);
@@ -246,7 +251,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
+      dst_ptr = tf::DMAHelper::base(output_tensor);
       if (m_ng_backend_name == "CPU") {
         auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
         outputs.push_back(t_result);
@@ -272,6 +277,15 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
+    if (m_ng_backend_name != "CPU") {
+      for (auto output_tv : outputs) {
+        auto element_type = output_tv->get_descriptor()
+                                ->get_tensor_view_layout()
+                                ->get_element_type();
+        output_tv->read(dst_ptr, 0, (output_tv->get_element_count() *
+                                     element_type.bitwidth() / 8.0));
+      }
+    }
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
