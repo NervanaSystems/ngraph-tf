@@ -260,11 +260,12 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Less"]["T"] = NGraphDTypes();
         type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
         type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
-        // LogicalAnd has no type attributes, ("T", if it existed, would always
+        // LogicalAnd, LogicalNot has no type attributes, ("T", if it existed, would always
         // be bool).
         type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
         type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
@@ -274,6 +275,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Pad"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
         type_constraint_map["Pow"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
         type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
@@ -310,6 +312,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
         type_constraint_map["Transpose"]["T"] = NGraphDTypes();
         type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
+        type_constraint_map["Unpack"]["T"] = NGraphDTypes();
 
         //
         // Initialize confirmation function map.
@@ -452,9 +455,11 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["LessEqual"] = always;
         confirmation_functions["Log"] = always;
         confirmation_functions["LogicalAnd"] = always;
+        confirmation_functions["LogicalNot"] = always;
         confirmation_functions["MatMul"] = always;
         confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
+        confirmation_functions["MaxPoolGrad"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
@@ -496,6 +501,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Pow"] = always;
+        confirmation_functions["PreventGradient"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
@@ -704,6 +710,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
+        confirmation_functions["Unpack"] = always;
 
         initialized = true;
       }

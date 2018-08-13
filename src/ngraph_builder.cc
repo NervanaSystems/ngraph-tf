@@ -454,9 +454,6 @@ static tf::Status TranslateAvgPoolGradOp(const tf::Node* op,
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_window_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
-  NGRAPH_VLOG(3) << "ng_padding_below: " << ng::join(ng_padding_below);
-  NGRAPH_VLOG(3) << "ng_padding_above: " << ng::join(ng_padding_above);
-
   std::shared_ptr<ng::Node> ng_avgpool_backprop =
       make_shared<ng::op::AvgPoolBackprop>(
           ng_forward_arg_shape, ng_grad, ng_window_shape, ng_strides,
@@ -1458,6 +1455,63 @@ static tf::Status TranslateMaxPoolOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
+static tf::Status TranslateMaxPoolGradOp(const tf::Node* op,
+                                         Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_grad;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_input, nullptr, &ng_grad));
+
+  std::vector<tf::int32> tf_strides;
+  std::vector<tf::int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(
+      tf::GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return tf::errors::InvalidArgument(
+        "MaxPoolGrad data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph(is_nhwc, ng_input);
+  BatchToNGraph(is_nhwc, ng_grad);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_maxpool_backprop =
+      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
+                                           ng_strides, ng_padding_below,
+                                           ng_padding_above);
+  BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
+  NGRAPH_VLOG(3) << "maxpoolbackprop outshape: {"
+                 << ng::join(ng_maxpool_backprop->get_shape()) << "}";
+  SaveNgOp(ng_op_map, op->name(), ng_maxpool_backprop);
+  return tf::Status::OK();
+}
+
 static tf::Status TranslateMeanOp(const tf::Node* op,
                                   Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_axes_op;
@@ -2286,6 +2340,60 @@ static tf::Status TranslateTransposeOp(const tf::Node* op,
   return tf::Status::OK();
 }
 
+static tf::Status TranslateUnpackOp(const tf::Node* op,
+                                  Builder::OpMap& ng_op_map) {
+
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
+
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  size_t input_rank = input_shape.size();
+
+  tf::int32 tf_axis;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "axis", &tf_axis));
+  auto unpack_axis = tf_axis;
+  if (unpack_axis == -1) {
+    unpack_axis = input_rank - 1;
+  }
+
+  tf::int32 tf_num;
+  TF_RETURN_IF_ERROR(tf::GetNodeAttr(op->attrs(), "num", &tf_num));
+  int num_outputs = tf_num;
+
+  ng::Shape output_shape;
+  for (size_t i = 0; i < input_rank; ++i) {
+    if (i != unpack_axis) {
+      output_shape.push_back( input_shape[i] );
+    }
+  }
+
+  ng::AxisVector ng_axis_order;
+  for (size_t i = 0; i < input_rank; i++) {
+      ng_axis_order.push_back(i);
+  }
+
+  std::vector<size_t> lower_bound(input_rank, 0);
+  std::vector<size_t> upper_bound(input_rank);
+
+  for (size_t i = 0; i < input_rank; i++) {
+    upper_bound[i] = input_shape[i];
+  }
+
+  for (int i = 0;i < num_outputs; ++i) {
+    lower_bound[unpack_axis] = i;
+    upper_bound[unpack_axis] = i + 1;
+    auto slice =
+        make_shared<ngraph::op::Slice>(ng_input, lower_bound, upper_bound);
+    auto reshaped =
+           make_shared<ng::op::Reshape>(slice, ng_axis_order, output_shape);
+           SaveNgOp(ng_op_map, op->name(), reshaped);  
+  }
+  return tf::Status::OK();
+}
+
+
 const static std::map<
     const string, const function<tf::Status(const tf::Node*, Builder::OpMap&)>>
     TRANSLATE_OP_MAP{
@@ -2321,9 +2429,11 @@ const static std::map<
         {"LessEqual", TranslateBinaryOp<ngraph::op::LessEq>},
         {"Log", TranslateUnaryOp<ngraph::op::Log>},
         {"LogicalAnd", TranslateBinaryOp<ngraph::op::And>},
+        {"LogicalNot", TranslateUnaryOp<ngraph::op::Not>},
         {"MatMul", TranslateMatMulOp},
         {"Maximum", TranslateBinaryOp<ngraph::op::Maximum>},
         {"MaxPool", TranslateMaxPoolOp},
+        {"MaxPoolGrad", TranslateMaxPoolGradOp},
         {"Mean", TranslateMeanOp},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
         {"Mul", TranslateBinaryOp<ngraph::op::Multiply>},
@@ -2335,6 +2445,8 @@ const static std::map<
         {"Pack", TranslatePackOp},
         {"Pad", TranslatePadOp},
         {"Pow", TranslateBinaryOp<ngraph::op::Power>},
+        // PreventGradient is just Identity in data-flow terms, so reuse that.
+        {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
@@ -2360,7 +2472,8 @@ const static std::map<
         {"Sum", TranslateSumOp},
         {"Tanh", TranslateUnaryOp<ngraph::op::Tanh>},
         {"Tile", TranslateTileOp},
-        {"Transpose", TranslateTransposeOp}};
+        {"Transpose", TranslateTransposeOp},
+        {"Unpack", TranslateUnpackOp}};
 /*
 static tf::Status TranslateConstOp(const tf::Node* op, Builder::OpMap&
 ng_op_map) {

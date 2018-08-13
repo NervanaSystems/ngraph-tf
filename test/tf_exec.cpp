@@ -477,6 +477,49 @@ TEST(tf_exec, Op_L2Loss) {
   }
 }
 
+// Test Op :"Op_Unpack"
+TEST(tf_exec, Op_Unpack) {
+  tf::Scope root = tf::Scope::NewRootScope();
+  tf::Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
+  root = root.WithDevice("/device:CPU:0");
+  root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
+
+  std::vector< std::vector<tf::int64> > input_sizes;
+
+  int input_rank = 3; 
+  
+  input_sizes.push_back( {3, 2, 3} );
+  input_sizes.push_back( {4, 3, 6} );
+  input_sizes.push_back( {7, 8, 3} );
+  
+  std::vector< tf::int64> axes({0, 1, 2});
+
+  for(auto i = 0;i < input_sizes.size(); ++i) {
+    tf::Tensor input_data(tf::DT_FLOAT, tf::TensorShape(input_sizes[i]));
+    AssignInputValues(input_data, 0.0);
+
+    tf::ClientSession session(root);
+    std::vector<tf::Tensor>  outputs_ngraph;
+    std::vector<tf::Tensor> outputs_cpu;
+    tf::ops::Unstack::Attrs attrs;
+    attrs.axis_ = axes[i];
+
+    auto r_ngraph = tf::ops::Unstack(
+        root_ngraph.WithOpName("r_NGRAPH"), input_data, input_sizes[i][axes[i]], attrs);
+
+    auto r_cpu = tf::ops::Unstack(
+        root, input_data, input_sizes[i][axes[i]], attrs);
+
+    TF_CHECK_OK(session.Run({r_cpu[0], r_cpu[1], r_cpu[2]}, &outputs_cpu));
+    TF_CHECK_OK(session.Run({r_ngraph[0], r_ngraph[1], r_ngraph[2]}, &outputs_ngraph));
+    for (auto j = 0; j < input_rank;++j) {     
+        ASSERT_EQ(outputs_ngraph[j].shape(), outputs_cpu[j].shape());
+        AssertTensorEquals(outputs_ngraph[j], outputs_cpu[j]);
+      }
+    }
+  }
+
+
 TEST(tf_exec, Tile) {
   tf::Scope root = tf::Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
@@ -888,6 +931,33 @@ TEST(tf_exec, Op_AddN) {
   tf::ClientSession session_cpu(scope_cpu);
   TF_CHECK_OK(session_cpu.Run({r_cpu}, &outputs_cpu));
 
+  ASSERT_EQ(outputs_cpu[0].shape(), tf::TensorShape({2, 2}));
+
+  AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
+}
+
+TEST(tf_exec, Op_PreventGradient) {
+  tf::Scope scope_cpu = tf::Scope::NewRootScope();
+  tf::Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
+
+  // ngraph execution
+  auto A_ng = tf::ops::Placeholder(scope_cpu, tf::DataType::DT_FLOAT);
+  auto r_ng = tf::ops::PreventGradient(scope_ng.WithOpName("r"), A_ng);
+
+  std::vector<tf::Tensor> outputs_ng;
+  tf::ClientSession session_ng(scope_ng);
+
+  TF_CHECK_OK(session_ng.Run({{A_ng, {{2.f, 4.f}, {6.f, 8.f}}}}, {r_ng}, &outputs_ng));
+  ASSERT_EQ(outputs_ng[0].shape(), tf::TensorShape({2, 2}));
+
+  // reference CPU execution
+  auto A_cpu = tf::ops::Placeholder(scope_cpu, tf::DataType::DT_FLOAT);
+  auto r_cpu = tf::ops::PreventGradient(scope_cpu.WithOpName("r"), A_cpu);
+
+  std::vector<tf::Tensor> outputs_cpu;
+  tf::ClientSession session_cpu(scope_cpu);
+
+  TF_CHECK_OK(session_cpu.Run({{A_cpu, {{2.f, 4.f}, {6.f, 8.f}}}}, {r_cpu}, &outputs_cpu));
   ASSERT_EQ(outputs_cpu[0].shape(), tf::TensorShape({2, 2}));
 
   AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
