@@ -28,6 +28,7 @@ o * Copyright 2017-2018 Intel Corporation
 
 #include "ngraph_builder.h"
 #include "ngraph_cluster_manager.h"
+#include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
@@ -52,7 +53,7 @@ REGISTER_OP("NGraphEncapsulate")
 class NGraphEncapsulateOp : public OpKernel {
  public:
   explicit NGraphEncapsulateOp(OpKernelConstruction* ctx)
-      : OpKernel(ctx), m_graph(OpRegistry::Global()) {
+      : OpKernel(ctx), m_graph(OpRegistry::Global()), m_freshness_tracker(nullptr) {
     GraphDef* graph_def;
 
     // TODO(amprocte): need to check status result here.
@@ -76,6 +77,20 @@ class NGraphEncapsulateOp : public OpKernel {
     }
   }
 
+  ~NGraphEncapsulateOp() override {
+    // If the kernel goes away, we must de-register all of its cached functions
+    // from the freshness tracker.
+    if (m_freshness_tracker != nullptr) {
+      for (auto kv : m_ng_functions) {
+        m_freshness_tracker->RemoveUser(kv.second);
+      }
+
+      // TODO(amprocte): We should be able to unref the tracker here, but it
+      // seems to screw things up in the C++ unit tests.
+      // m_freshness_tracker->Unref();
+    }
+  }
+
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster " << m_ngraph_cluster;
@@ -96,7 +111,8 @@ class NGraphEncapsulateOp : public OpKernel {
     std::string signature = signature_ss.str();
     auto it = m_ng_functions.find(signature);
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster "
+                   << m_ngraph_cluster;
 
     // Compile the graph using nGraph.
     //
@@ -123,8 +139,30 @@ class NGraphEncapsulateOp : public OpKernel {
       ng_function = it->second;
     }
 
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got graph for cluster "
+                   << m_ngraph_cluster;
+
+    if (m_freshness_tracker == nullptr) {
+      auto creator = [](NGraphFreshnessTracker** tracker) {
+        *tracker = new NGraphFreshnessTracker();
+        return Status::OK();
+      };
+      OP_REQUIRES_OK(
+          ctx,
+          ctx->resource_manager()->LookupOrCreate<NGraphFreshnessTracker>(
+              ctx->resource_manager()->default_container(),
+              "ngraph_freshness_tracker", &m_freshness_tracker, creator));
+    }
+
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute got freshness tracker for cluster "
+        << m_ngraph_cluster;
+
     // Allocate tensors for arguments.
     vector<shared_ptr<ng::runtime::TensorView>> ng_inputs;
+
+    auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
+    last_used_src_ptrs.resize(input_shapes.size());
 
     for (int i = 0; i < input_shapes.size(); i++) {
       ng::Shape ng_shape(input_shapes[i].dims());
@@ -139,10 +177,27 @@ class NGraphEncapsulateOp : public OpKernel {
       void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
 
+      // Mark each tensor as non-stale if:
+      //
+      //   1. the freshness tracker says the tensor has not changed since
+      //      the last time ng_function was called, and
+      //   2. we are using the same tensor in this argument position as
+      //      the one we used last time ng_function was called.
+      if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
+          src_ptr == last_used_src_ptrs[i]) {
+        NGRAPH_VLOG(5) << "input " << i << " at " << src_ptr << ": not stale";
+        t->set_stale(false);
+      } else {
+        NGRAPH_VLOG(5) << "input " << i << " at " << src_ptr << ": stale";
+        t->set_stale(true);
+      }
+      last_used_src_ptrs[i] = src_ptr;
       ng_inputs.push_back(t);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
+                      "for cluster "
+                   << m_ngraph_cluster;
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
@@ -177,18 +232,34 @@ class NGraphEncapsulateOp : public OpKernel {
       outputs.push_back(t_result);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated result tensors for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
+        << m_ngraph_cluster;
 
     // Execute the nGraph function.
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
+                   << m_ngraph_cluster;
     m_ng_backend->call(ng_function, outputs, ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster " << m_ngraph_cluster;
+
+    // Mark input tensors as fresh for the next time around.
+    for (int i = 0; i < input_shapes.size(); i++) {
+      void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
+      m_freshness_tracker->MarkFresh(src_ptr, ng_function);
+    }
+
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
+        << m_ngraph_cluster;
   }
 
  private:
   Graph m_graph;
   std::unordered_map<std::string, std::shared_ptr<ngraph::Function>>
       m_ng_functions;
+  std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
+      m_last_used_src_ptrs_map;
+  NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
 };
