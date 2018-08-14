@@ -204,6 +204,11 @@ class NGraphEncapsulateOp : public OpKernel {
 
     std::shared_ptr<ngraph::Function> ng_function;
     std::string signature = signature_ss.str();
+
+    if (NGRAPH_VLOG_IS_ON(5)) {
+      NGRAPH_VLOG(5) << "Computed signature: " << signature;
+    }
+
     auto it = m_ng_functions.find(signature);
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster "

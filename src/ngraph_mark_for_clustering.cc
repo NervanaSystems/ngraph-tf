@@ -321,19 +321,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = always;
       confirmation_functions["PreventGradient"] = always;
 
-      // Constraints: "keep_dims" is not supported, reduction-axes input
-      // must be static.
+      // Constraint: reduction-axes input must be static.
       confirmation_functions["Prod"] = [](Node* n, bool* result) {
-        bool tf_keep_dims;
-
-        if (GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
-            Status::OK()) {
-          if (tf_keep_dims) {
-            *result = false;
-            return Status::OK();
-          }
-        }
-
         SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
@@ -344,7 +333,6 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Relu"] = always;
       confirmation_functions["Relu6"] = always;
       confirmation_functions["ReluGrad"] = always;
-      confirmation_functions["Rsqrt"] = always;
 
       // Constraint: shape input must be static.
       confirmation_functions["Reshape"] = [](Node* n, bool* result) {
@@ -353,6 +341,7 @@ Status MarkForClustering(Graph* graph) {
         return Status::OK();
       };
 
+      confirmation_functions["Rsqrt"] = always;
       confirmation_functions["Sigmoid"] = always;
       confirmation_functions["Sign"] = always;
 
@@ -365,12 +354,21 @@ Status MarkForClustering(Graph* graph) {
 
       confirmation_functions["Snapshot"] = always;
       confirmation_functions["Softmax"] = always;
+
+      // Constraint: num splits input must be static.
       confirmation_functions["Split"] = [](Node* n, bool* result) {
         SetStaticInputs(n, {0});
         *result = true;
         return Status::OK();
       };
-      confirmation_functions["SplitV"] = always;
+
+      // Constraint: size splits, num splits inputs must be static.
+      confirmation_functions["SplitV"] = [](Node* n, bool* result) {
+        SetStaticInputs(n, {1,2});
+        *result = true;
+        return Status::OK();
+      };
+
       confirmation_functions["Square"] = always;
       confirmation_functions["SquaredDifference"] = always;
       confirmation_functions["Squeeze"] = always;
