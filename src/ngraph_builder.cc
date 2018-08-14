@@ -259,7 +259,7 @@ static Status TensorDataToVector(const Tensor& tensor, std::vector<T>* vector) {
 template<typename T>
 static Status GetStaticInputVector(const Node* op, int64 input_index, const std::vector<const Tensor*>& static_input_map, std::vector<T>* vector) {
   Node* input_node;
-  TF_RETURN_IF_ERROR(op->input_node(0, &input_node));
+  TF_RETURN_IF_ERROR(op->input_node(input_index, &input_node));
   Tensor input_tensor;
   TF_RETURN_IF_ERROR(GetStaticNodeTensor(input_node, static_input_map, &input_tensor));
   TF_RETURN_IF_ERROR(TensorDataToVector(input_tensor, vector));

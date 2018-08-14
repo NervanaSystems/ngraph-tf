@@ -482,6 +482,19 @@ void GetStaticInputs(const Node* node, std::vector<int32>* inputs) {
   }
 }
 
+bool InputIsStatic(const Node* node, int index) {
+  std::vector<int32> inputs;
+  GetStaticInputs(node,&inputs);
+
+  for (auto i : inputs) {
+    if (i == index) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

@@ -30,6 +30,7 @@
 #include "ngraph_cluster_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
@@ -83,9 +84,21 @@ class NGraphEncapsulateOp : public OpKernel {
       OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(),"index",&index));
 
       bool is_static = false;
-      if (!GetNodeAttr(node->attrs(),"_ngraph_is_static",&is_static).ok()) {
-        is_static = false;
+      for (auto edge : node->out_edges()) {
+        if (edge->IsControlEdge() || !edge->dst()->IsOp()) {
+          continue;
+        }
+
+        NGRAPH_VLOG(5) << "For arg " << index << " checking edge " << edge->DebugString();
+
+        if (InputIsStatic(edge->dst(), edge->dst_input())) {
+          NGRAPH_VLOG(5) << "Marking edge static: " << edge->DebugString();
+          is_static = true;
+          break;
+        }
       }
+
+      NGRAPH_VLOG(5) << "Marking arg " << index << " is_static: " << is_static;
       m_input_is_static[index] = is_static;
     }
 
