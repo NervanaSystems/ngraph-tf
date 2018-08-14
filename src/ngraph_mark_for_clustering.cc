@@ -55,46 +55,11 @@ using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 static bool NGraphPlacementRequested(const Node* node) { return true; }
 
 //
-// Utility function to extract data from a constant node used to express a
-// shape (or strides, axis indices, etc.). Only works on nodes of data type
-// INT32 or INT64.
+// Marks the input indices in "inputs" as static, i.e., inputs that must be
+// driven either by an _Arg or by a Const in the encapsulated graph.
 //
-static Status ExtractConstantData(Node* node, std::vector<int64>* values) {
-  if (node->type_string() != "Const") {
-    return errors::InvalidArgument(
-        "Tried to extract constant data from a non-Const node");
-  }
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "dtype", &dtype));
-
-  TensorShapeProto shape_proto;
-
-  switch (dtype) {
-    case DataType::DT_INT32: {
-      std::vector<int32> values_int32;
-      TF_RETURN_IF_ERROR(
-          ValuesFromConstNode<int32>(node->def(), &shape_proto, &values_int32));
-      values->resize(values_int32.size());
-      for (size_t i = 0; i < values_int32.size(); i++) {
-        (*values)[i] = (int64)values_int32[i];
-      }
-    } break;
-    case DataType::DT_INT64:
-      TF_RETURN_IF_ERROR(
-          ValuesFromConstNode<int64>(node->def(), &shape_proto, values));
-      break;
-    default:
-      return errors::InvalidArgument(
-          "Tried to extract constant data from a Const node that is neither "
-          "DT_INT32 nor DT_INT64");
-  }
-
-  return Status::OK();
-}
-
-static inline void SetContractibleOnlyIfConst(Node* n, std::vector<int32> inputs) {
-  n->AddAttr("_ngraph_contractible_only_if_const", inputs);
+static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
+  n->AddAttr("_ngraph_static_inputs", inputs);
 }
 
 //
@@ -127,6 +92,7 @@ Status MarkForClustering(Graph* graph) {
   // A map of op types (e.g. "Add") to confirmation functions. These can be
   // used to check arbitrary constraints, and attach information to the node
   // in the process. For example:
+  // TODO(amprocte): following example is stale.
   //
   //    confirmation_functions["MyOp"] = [](Node* n, bool* result) {
   //      Node* tf_arg_node;
@@ -270,20 +236,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["AddN"] = always;
       confirmation_functions["AvgPool"] = always;
       confirmation_functions["AvgPoolGrad"] = [](Node* n, bool* result) {
-        Node* tf_orig_input_shape;
-        TF_RETURN_IF_ERROR(n->input_node(0, &tf_orig_input_shape));
-
-        std::vector<int64> tf_orig_input_shape_vec;
-        if (ExtractConstantData(tf_orig_input_shape,
-                                &tf_orig_input_shape_vec) !=
-                Status::OK() ||
-            tf_orig_input_shape_vec.size() != 4) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_avgpoolgrad_static_input_shape",
-                   tf_orig_input_shape_vec);
+        SetStaticInputs(n, {0});
         *result = true;
         return Status::OK();
       };
@@ -292,23 +245,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["BiasAddGrad"] = always;
       confirmation_functions["Cast"] = always;
 
-      // Constraint: axis selection input must be Const.
+      // Constraint: axis selection input must be static.
       confirmation_functions["ConcatV2"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {n->num_inputs() - 1});
-        // return Status::OK();
-
-        Node* tf_axis_node;
-        TF_RETURN_IF_ERROR(n->input_node(n->num_inputs() - 1, &tf_axis_node));
-
-        std::vector<int64> tf_static_axis;
-        if (ExtractConstantData(tf_axis_node, &tf_static_axis) !=
-                Status::OK() ||
-            tf_static_axis.size() != 1) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_concat_static_axis", tf_static_axis[0]);
+        SetStaticInputs(n, {n->num_inputs() - 1});
         *result = true;
         return Status::OK();
       };
@@ -318,77 +257,26 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Conv2D"] = always;
       confirmation_functions["Conv2DBackpropFilter"] = [](Node* n,
                                                           bool* result) {
-        Node* tf_filter_sizes;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_filter_sizes));
-
-        std::vector<int64> tf_static_filter_sizes(4);
-        if (ExtractConstantData(tf_filter_sizes, &tf_static_filter_sizes) !=
-                Status::OK() ||
-            tf_static_filter_sizes.size() != 4) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_static_filter_sizes", tf_static_filter_sizes);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
       confirmation_functions["Conv2DBackpropInput"] = [](Node* n,
                                                          bool* result) {
-        SetContractibleOnlyIfConst(n, {0});
-        // return Status::OK();
-
-        Node* tf_input_sizes;
-        TF_RETURN_IF_ERROR(n->input_node(0, &tf_input_sizes));
-
-        std::vector<int64> tf_static_input_sizes(4);
-        if (ExtractConstantData(tf_input_sizes, &tf_static_input_sizes) !=
-                Status::OK() ||
-            tf_static_input_sizes.size() != 4) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_static_input_sizes", tf_static_input_sizes);
-        *result = true;
+        SetStaticInputs(n, {0});
         return Status::OK();
       };
       confirmation_functions["DepthwiseConv2dNative"] = always;
       confirmation_functions["Equal"] = always;
       confirmation_functions["Exp"] = always;
       confirmation_functions["ExpandDims"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_dim_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_dim_node));
-
-        std::vector<int64> tf_static_dim;
-        if (ExtractConstantData(tf_dim_node, &tf_static_dim) != Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_expanddims_static_dim", tf_static_dim);
-
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
 
       confirmation_functions["Fill"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {0});
-        // return Status::OK();
-
-        Node* tf_dims_node;
-        TF_RETURN_IF_ERROR(n->input_node(0, &tf_dims_node));
-
-        std::vector<int64> tf_dims;
-        if (ExtractConstantData(tf_dims_node, &tf_dims) != Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_fill_static_dims", tf_dims);
+        SetStaticInputs(n, {0});
         *result = true;
         return Status::OK();
       };
@@ -412,22 +300,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["MaxPool"] = always;
       confirmation_functions["MaxPoolGrad"] = always;
 
-      // Constraint: reduction-axes input must be Const.
+      // Constraint: reduction-axes input must be static.
       confirmation_functions["Mean"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_axes_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-        std::vector<int64> tf_static_axes;
-        if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_mean_static_axes", tf_static_axes);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
@@ -436,22 +311,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Mul"] = always;
       confirmation_functions["Neg"] = always;
 
-      // Constraint: padding-widths input must be Const.
+      // Constraint: padding-widths input must be static.
       confirmation_functions["Pad"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_paddings_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_paddings_node));
-
-        std::vector<int64> tf_static_paddings;
-        if (ExtractConstantData(tf_paddings_node, &tf_static_paddings) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_pad_static_paddings", tf_static_paddings);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
@@ -460,11 +322,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["PreventGradient"] = always;
 
       // Constraints: "keep_dims" is not supported, reduction-axes input
-      // must be Const.
+      // must be static.
       confirmation_functions["Prod"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // would not return here because keep_dims
-
         bool tf_keep_dims;
 
         if (GetNodeAttr(n->attrs(), "keep_dims", &tf_keep_dims) ==
@@ -475,17 +334,7 @@ Status MarkForClustering(Graph* graph) {
           }
         }
 
-        Node* tf_axes_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-        std::vector<int64> tf_static_axes;
-        if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_prod_static_axes", tf_static_axes);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
@@ -497,22 +346,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["ReluGrad"] = always;
       confirmation_functions["Rsqrt"] = always;
 
-      // Constraint: shape input must be Const.
+      // Constraint: shape input must be static.
       confirmation_functions["Reshape"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_shape_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_shape_node));
-
-        std::vector<int64> tf_static_shape;
-        if (ExtractConstantData(tf_shape_node, &tf_static_shape) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_reshape_static_shape", tf_static_shape);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
@@ -520,33 +356,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Sigmoid"] = always;
       confirmation_functions["Sign"] = always;
 
-      // Constraint: begin and size input must be Const.
+      // Constraint: begin and size input must be static.
       confirmation_functions["Slice"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1,2});
-        // return Status::OK();
-
-        Node* tf_begin_node;
-        Node* tf_size_node;
-
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
-        TF_RETURN_IF_ERROR(n->input_node(2, &tf_size_node));
-
-        std::vector<int64> tf_static_begin;
-        if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-        std::vector<int64> tf_static_size;
-        if (ExtractConstantData(tf_size_node, &tf_static_size) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_slice_static_begin", tf_static_begin);
-        n->AddAttr("_ngraph_slice_static_size", tf_static_size);
-
+        SetStaticInputs(n, {1,2});
         *result = true;
         return Status::OK();
       };
@@ -554,20 +366,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Snapshot"] = always;
       confirmation_functions["Softmax"] = always;
       confirmation_functions["Split"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {0});
-        // return Status::OK();
-
-        Node* tf_split_dim_node;
-        TF_RETURN_IF_ERROR(n->input_node(0, &tf_split_dim_node));
-
-        std::vector<int64> tf_split_dim;
-        if (ExtractConstantData(tf_split_dim_node, &tf_split_dim) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_split_static_dim", tf_split_dim[0]);
+        SetStaticInputs(n, {0});
         *result = true;
         return Status::OK();
       };
@@ -576,11 +375,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["SquaredDifference"] = always;
       confirmation_functions["Squeeze"] = always;
 
-      // Constraint: begin, end, and stride inputs must be Const
+      // Constraint: begin, end, and stride inputs must be static.
       confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1,2,3});
-        // return Status::OK();
-
         // reject if tf.newaxis in strided slice
         // TODO support tf.newaxis
         int tf_new_axis_mask;
@@ -590,36 +386,8 @@ Status MarkForClustering(Graph* graph) {
           *result = false;
           return Status::OK();
         }
-        Node* tf_begin_node;
-        Node* tf_end_node;
-        Node* tf_stride_node;
 
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_begin_node));
-        TF_RETURN_IF_ERROR(n->input_node(2, &tf_end_node));
-        TF_RETURN_IF_ERROR(n->input_node(3, &tf_stride_node));
-
-        std::vector<int64> tf_static_begin;
-        if (ExtractConstantData(tf_begin_node, &tf_static_begin) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-        std::vector<int64> tf_static_end;
-        if (ExtractConstantData(tf_end_node, &tf_static_end) != Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-        std::vector<int64> tf_static_stride;
-        if (ExtractConstantData(tf_stride_node, &tf_static_stride) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_stridedslice_static_begin", tf_static_begin);
-        n->AddAttr("_ngraph_stridedslice_static_end", tf_static_end);
-        n->AddAttr("_ngraph_stridedslice_static_stride", tf_static_stride);
-
+        SetStaticInputs(n, {1,2,3});
         *result = true;
         return Status::OK();
       };
@@ -627,63 +395,23 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pack"] = always;
       confirmation_functions["Sub"] = always;
 
-      // Constraints: reduction-axes input must be Const.
+      // Constraints: reduction-axes input must be static.
       confirmation_functions["Sum"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_axes_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_axes_node));
-
-        std::vector<int64> tf_static_axes;
-        if (ExtractConstantData(tf_axes_node, &tf_static_axes) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_sum_static_axes", tf_static_axes);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
 
       confirmation_functions["Tanh"] = always;
       confirmation_functions["Tile"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_multiples;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_multiples));
-
-        std::vector<int64> tf_static_multiples;
-        if (ExtractConstantData(tf_multiples, &tf_static_multiples) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_tile_static_multiples", tf_static_multiples);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
 
-      // Constraint: permutation input must be Const.
+      // Constraint: permutation input must be static.
       confirmation_functions["Transpose"] = [](Node* n, bool* result) {
-        SetContractibleOnlyIfConst(n, {1});
-        // return Status::OK();
-
-        Node* tf_permutation_node;
-        TF_RETURN_IF_ERROR(n->input_node(1, &tf_permutation_node));
-
-        std::vector<int64> tf_static_permutation;
-        if (ExtractConstantData(tf_permutation_node, &tf_static_permutation) !=
-            Status::OK()) {
-          *result = false;
-          return Status::OK();
-        }
-
-        n->AddAttr("_ngraph_transpose_static_permutation",
-                   tf_static_permutation);
+        SetStaticInputs(n, {1});
         *result = true;
         return Status::OK();
       };
@@ -715,7 +443,6 @@ Status MarkForClustering(Graph* graph) {
 
       // If type constraints are satisfied, check for a confirmation
       // function.
-
       bool confirmed = false;
       if (type_constraints_ok) {
         auto it = confirmation_functions.find(node->type_string());
@@ -749,6 +476,12 @@ bool NodeIsMarkedForClustering(const Node* node) {
   return (GetNodeAttr(node->attrs(), "_ngraph_marked_for_clustering",
                       &is_marked) == Status::OK() &&
           is_marked);
+}
+
+void GetStaticInputs(const Node* node, std::vector<int32>* inputs) {
+  if (GetNodeAttr(node->attrs(), "_ngraph_static_inputs", inputs) != Status::OK()) {
+    *inputs = std::vector<int32>{};
+  }
 }
 
 }  // namespace ngraph_bridge

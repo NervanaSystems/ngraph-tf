@@ -137,13 +137,28 @@ Status AssignClusters(Graph* graph) {
         continue;
       }
 
+      int src_index = cluster_map[src]->index;
+      int dst_index = cluster_map[dst]->index;
+
       if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
-        NGRAPH_VLOG(5) << "Skipping: " << src->name() << " -> " << dst->name();
+        NGRAPH_VLOG(5) << "Skipping (not marked): "
+                       << src->name() << "[" << src_index << "] -> "
+                       << dst->name() << "[" << dst_index << "]";
         continue;
       }
 
-      int src_index = cluster_map[src]->index;
-      int dst_index = cluster_map[dst]->index;
+      // If the input is marked as static, we can contract only if that input
+      // is being driven by a "Const" node.
+      std::vector<int32> static_inputs;
+      GetStaticInputs(dst,&static_inputs);
+
+      if (std::find(static_inputs.begin(),static_inputs.end(),dst_index) != static_inputs.end()
+          && src->type_string() != "Const") {
+        NGRAPH_VLOG(5) << "Skipping (static required): "
+                       << src->name() << "[" << src_index << "] -> "
+                       << dst->name() << "[" << dst_index << "]";
+        continue;
+      }
 
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
