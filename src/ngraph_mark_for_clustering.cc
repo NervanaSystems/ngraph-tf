@@ -264,6 +264,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Conv2DBackpropInput"] = [](Node* n,
                                                          bool* result) {
         SetStaticInputs(n, {0});
+        *result = true;
         return Status::OK();
       };
       confirmation_functions["DepthwiseConv2dNative"] = always;
