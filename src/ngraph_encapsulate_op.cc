@@ -197,6 +197,22 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
 
+      shared_ptr<ngraph::runtime::TensorView> src_tv;
+      auto create_input_tensor = [&]() {
+
+        if (backend_name == "CPU") {
+          src_tv =
+              m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
+        } else {
+          src_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+          auto element_type = src_tv->get_descriptor()
+                                  ->get_tensor_view_layout()
+                                  ->get_element_type();
+          src_tv->write(src_ptr, 0, (src_tv->get_element_count() *
+                                     element_type.bitwidth() / 8.0));
+        }
+      };
+
       auto add_input_tensor =
           [&](shared_ptr<ngraph::runtime::TensorView>& t) -> void {
         // Mark each tensor as non-stale if:
@@ -217,20 +233,28 @@ class NGraphEncapsulateOp : public tf::OpKernel {
         ng_inputs.push_back(t);
       };
 
-      if (backend_name == "CPU") {
-        auto t =
-            m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
-        add_input_tensor(t);
+      if (m_ng_function_to_inputs.find(ng_function) !=
+          m_ng_function_to_inputs.end()) {
+        auto input_pairs = m_ng_function_to_inputs[ng_function];
+        bool match_found = false;
+        for (auto input_pair : input_pairs) {
+          if (src_ptr == input_pair.first) {
+            src_tv = input_pair.second;
+            match_found = true;
+            break;
+          }
+        }
+        if (!match_found) {
+          create_input_tensor();
+          m_ng_function_to_inputs[ng_function].push_back({src_ptr, src_tv});
+        }
       } else {
-        auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape);
-        auto element_type =
-            t->get_descriptor()->get_tensor_view_layout()->get_element_type();
-        t->write(src_ptr, 0,
-                 (t->get_element_count() * element_type.bitwidth() / 8.0));
-        add_input_tensor(t);
+        create_input_tensor();
+        m_ng_function_to_inputs[ng_function].push_back({src_ptr, src_tv});
       }
-    }
 
+      add_input_tensor(src_tv);
+    }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
                    << m_ngraph_cluster;
@@ -265,31 +289,33 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       // Create the nGraph output tensor
       void* result_ptr = tf::DMAHelper::base(output_tensor);
       shared_ptr<ngraph::runtime::TensorView> result_tv;
-      if (backend_name == "CPU") {
-        if (m_ng_function_to_outputs.find(ng_function) !=
-            m_ng_function_to_outputs.end()) {
-          auto output_pairs = m_ng_function_to_outputs[ng_function];
-          bool match_found = false;
-          for (auto output_pair : output_pairs) {
-            if (result_ptr == output_pair.first) {
-              result_tv = output_pair.second;
-              match_found = true;
-              break;
-            }
-          }
-          if (!match_found) {
-            result_tv =
-                m_ng_backend->create_tensor(elem_type, shape, result_ptr);
-            m_ng_function_to_outputs[ng_function].push_back(
-                {result_ptr, result_tv});
-          }
-        } else {
+      auto create_output_tensor = [&]() {
+        if (backend_name == "CPU") {
           result_tv = m_ng_backend->create_tensor(elem_type, shape, result_ptr);
+        } else {
+          result_tv = m_ng_backend->create_tensor(elem_type, shape);
+        }
+      };
+      if (m_ng_function_to_outputs.find(ng_function) !=
+          m_ng_function_to_outputs.end()) {
+        auto output_pairs = m_ng_function_to_outputs[ng_function];
+        bool match_found = false;
+        for (auto output_pair : output_pairs) {
+          if (result_ptr == output_pair.first) {
+            result_tv = output_pair.second;
+            match_found = true;
+            break;
+          }
+        }
+        if (!match_found) {
+          create_output_tensor();
           m_ng_function_to_outputs[ng_function].push_back(
               {result_ptr, result_tv});
         }
       } else {
-        result_tv = m_ng_backend->create_tensor(elem_type, shape);
+        create_output_tensor();
+        m_ng_function_to_outputs[ng_function].push_back(
+            {result_ptr, result_tv});
       }
 
       outputs.push_back(result_tv);
