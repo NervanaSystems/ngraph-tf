@@ -77,10 +77,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       NGraphEncapsulateOp::m_ng_backend =
           ng::runtime::Backend::create("INTERPRETER");
 #else
-      const char* backend_str = std::getenv("NGRAPH_TF_BACKEND");
-      if (backend_str != nullptr) {
-        m_ng_backend_name = backend_str;
-        m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
+      if (std::getenv("NGRAPH_TF_BACKEND") != nullptr) {
+        m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND"));
+        if (!m_ng_backend_name.empty()) {
+          m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
+        }
       } else {  // env not defined.  Default to CPU backend
         m_ng_backend = ng::runtime::Backend::create("CPU");
         m_ng_backend_name = "CPU";
