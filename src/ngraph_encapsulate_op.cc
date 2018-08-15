@@ -77,10 +77,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
         if (!m_ng_backend_name.empty()) {
           m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
         }
-      }
-      else{ // env not defined.  Default to CPU backend
-          m_ng_backend = ng::runtime::Backend::create("CPU");
-	  m_ng_backend_name = "CPU";
+      } else {  // env not defined.  Default to CPU backend
+        m_ng_backend = ng::runtime::Backend::create("CPU");
+        m_ng_backend_name = "CPU";
       }
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
