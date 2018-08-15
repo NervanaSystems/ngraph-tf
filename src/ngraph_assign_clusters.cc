@@ -149,11 +149,7 @@ Status AssignClusters(Graph* graph) {
 
       // If the input is marked as static, we can contract only if that input
       // is being driven by a "Const" node.
-      std::vector<int32> static_inputs;
-      GetStaticInputs(dst,&static_inputs);
-
-      if (std::find(static_inputs.begin(),static_inputs.end(),dst_index) != static_inputs.end()
-          && src->type_string() != "Const") {
+      if (InputIsStatic(dst,dst_index) && src->type_string() != "Const") {
         NGRAPH_VLOG(5) << "Skipping (static required): "
                        << src->name() << "[" << src_index << "] -> "
                        << dst->name() << "[" << dst_index << "]";
