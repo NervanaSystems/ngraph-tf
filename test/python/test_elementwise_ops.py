@@ -27,6 +27,7 @@ import tensorflow as tf
 from common import NgraphTest
 
 
+@pytest.mark.skip(reason="new deviceless mode WIP")
 class TestElementwiseOperations(NgraphTest):
   @pytest.mark.parametrize(("v1", "v2", "expected"),
                            ((1.0, -1.0, [1.0]), (100, 200, ([200],)),
@@ -130,3 +131,28 @@ class TestElementwiseOperations(NgraphTest):
       with self.session as sess:
         result = sess.run((out,), feed_dict={val1: (v1,), val2: (v2,)})
         assert np.allclose(result, expected)
+
+  @pytest.mark.parametrize(("test_input", "expected"),
+                           ((False, True), (True, False)))
+  def test_logicalnot_1d(self, test_input, expected):
+    val = tf.placeholder(tf.bool, shape=(1,))
+
+    with self.device:
+      out = tf.logical_not(val)
+
+      with self.session as sess:
+        result = sess.run((out,), feed_dict={val: (test_input,)})
+        assert result[0] == expected
+
+  def test_logicalnot_2d(self):
+    test_input = ((True, False, True), (False, True, False))
+    expected = [map(lambda x:not x, k) for k in test_input]
+
+    val = tf.placeholder(tf.bool, shape=(2, 3))
+
+    with self.device:
+      out = tf.logical_not(val)
+
+      with self.session as sess:
+        (result,) = sess.run((out,), feed_dict={val: test_input})
+        assert (result == expected).all()

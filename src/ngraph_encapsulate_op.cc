@@ -34,11 +34,12 @@ o * Copyright 2017-2018 Intel Corporation
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
-namespace tf = tensorflow;
-namespace ngb = ngraph_bridge;
+using namespace std;
+namespace ng = ngraph;
+
+namespace tensorflow {
 
 namespace ngraph_bridge {
-extern const char* const DEVICE_NGRAPH;
 
 REGISTER_OP("NGraphEncapsulate")
     .Input("args: Targuments")
@@ -49,22 +50,20 @@ REGISTER_OP("NGraphEncapsulate")
     .SetIsStateful()
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
-class NGraphEncapsulateOp : public tf::OpKernel {
+class NGraphEncapsulateOp : public OpKernel {
  public:
-  explicit NGraphEncapsulateOp(tf::OpKernelConstruction* ctx)
-      : tf::OpKernel(ctx),
-        m_graph(tf::OpRegistry::Global()),
-        m_freshness_tracker(nullptr) {
-    tf::GraphDef* graph_def;
+  explicit NGraphEncapsulateOp(OpKernelConstruction* ctx)
+      : OpKernel(ctx), m_graph(OpRegistry::Global()), m_freshness_tracker(nullptr) {
+    GraphDef* graph_def;
 
     // TODO(amprocte): need to check status result here.
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
     graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
 
-    tf::GraphConstructorOptions opts;
+    GraphConstructorOptions opts;
     opts.allow_internal_ops = true;
     // TODO(amprocte): need to check status result here.
-    OP_REQUIRES_OK(ctx, tf::ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
+    OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
     // Create the backend
     if (m_ng_backend == nullptr) {
@@ -74,7 +73,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_backend = ng::runtime::Backend::create("CPU");
 #endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
-                  tf::errors::InvalidArgument("Cannot create nGraph backend"));
+                  errors::InvalidArgument("Cannot create nGraph backend"));
     }
   }
 
@@ -88,21 +87,19 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       // TODO(amprocte): We should be able to unref the tracker here, but it
       // seems to screw things up in the C++ unit tests.
-      //m_freshness_tracker->Unref();
+      // m_freshness_tracker->Unref();
     }
   }
 
-  // TODO(amprocte): this needs to be made thread-safe (compilation cache, and
-  // our use of the freshness-tracking stuff probably means we can only execute
-  // one instance at a time).
-  void Compute(tf::OpKernelContext* ctx) override {
+  // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
+  void Compute(OpKernelContext* ctx) override {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster " << m_ngraph_cluster;
 
     // Get the inputs
-    std::vector<tf::TensorShape> input_shapes;
+    std::vector<TensorShape> input_shapes;
     std::stringstream signature_ss;
     for (int i = 0; i < ctx->num_inputs(); i++) {
-      const tf::Tensor& input_tensor = ctx->input(i);
+      const Tensor& input_tensor = ctx->input(i);
       input_shapes.push_back(input_tensor.shape());
       for (const auto& x : input_tensor.shape()) {
         signature_ss << x.size << ",";
@@ -114,7 +111,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     std::string signature = signature_ss.str();
     auto it = m_ng_functions.find(signature);
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got inputs for cluster "
+                   << m_ngraph_cluster;
 
     // Compile the graph using nGraph.
     //
@@ -127,7 +125,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
-            "tf_function_" + ctx->op_kernel().name() + ".js";
+            "tf_function_" + ctx->op_kernel().name() + ".json";
         NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
         std::string js = ngraph::serialize(ng_function, 4);
         {
@@ -141,21 +139,24 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       ng_function = it->second;
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got graph for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got graph for cluster "
+                   << m_ngraph_cluster;
 
     if (m_freshness_tracker == nullptr) {
-      auto creator = [this](ngb::NGraphFreshnessTracker** tracker) {
-        *tracker = new ngb::NGraphFreshnessTracker();
-        return tf::Status::OK();
+      auto creator = [](NGraphFreshnessTracker** tracker) {
+        *tracker = new NGraphFreshnessTracker();
+        return Status::OK();
       };
       OP_REQUIRES_OK(
           ctx,
-          ctx->resource_manager()->LookupOrCreate<ngb::NGraphFreshnessTracker>(
+          ctx->resource_manager()->LookupOrCreate<NGraphFreshnessTracker>(
               ctx->resource_manager()->default_container(),
               "ngraph_freshness_tracker", &m_freshness_tracker, creator));
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got freshness tracker for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute got freshness tracker for cluster "
+        << m_ngraph_cluster;
 
     // Allocate tensors for arguments.
     vector<shared_ptr<ng::runtime::TensorView>> ng_inputs;
@@ -173,7 +174,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       OP_REQUIRES_OK(ctx, TFDataTypeToNGraphElementType(ctx->input(i).dtype(),
                                                         &ng_element_type));
 
-      void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
+      void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       auto t = m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
 
       // Mark each tensor as non-stale if:
@@ -184,15 +185,19 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       //      the one we used last time ng_function was called.
       if (m_freshness_tracker->IsFresh(src_ptr, ng_function) &&
           src_ptr == last_used_src_ptrs[i]) {
+        NGRAPH_VLOG(5) << "input " << i << " at " << src_ptr << ": not stale";
         t->set_stale(false);
       } else {
+        NGRAPH_VLOG(5) << "input " << i << " at " << src_ptr << ": stale";
         t->set_stale(true);
       }
       last_used_src_ptrs[i] = src_ptr;
       ng_inputs.push_back(t);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
+                      "for cluster "
+                   << m_ngraph_cluster;
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
@@ -201,12 +206,12 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       auto elem_type = ng_function->get_output_element_type(i);
 
       // Create the TF output tensor
-      vector<tf::int64> dims;
+      vector<int64> dims;
       for (auto dim : shape) {
         dims.push_back(dim);
       }
-      tf::TensorShape tf_shape(dims);
-      tf::Tensor* output_tensor = nullptr;
+      TensorShape tf_shape(dims);
+      Tensor* output_tensor = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
 
       // Make sure the nGraph-inferred element type agrees with what TensorFlow
@@ -217,39 +222,44 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                              &expected_elem_type));
       OP_REQUIRES(
           ctx, elem_type == expected_elem_type,
-          tf::errors::Internal("Element type inferred by nGraph does not match "
-                               "the element type expected by TensorFlow"));
+          errors::Internal("Element type inferred by nGraph does not match "
+                           "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
+      void* dst_ptr = DMAHelper::base(output_tensor);
       auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
 
       outputs.push_back(t_result);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated result tensors for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
+        << m_ngraph_cluster;
 
     // Execute the nGraph function.
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
+                   << m_ngraph_cluster;
     m_ng_backend->call(ng_function, outputs, ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster " << m_ngraph_cluster;
 
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {
-      void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
+      void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       m_freshness_tracker->MarkFresh(src_ptr, ng_function);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute done marking fresh for cluster " << m_ngraph_cluster;
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
+        << m_ngraph_cluster;
   }
 
  private:
-  tf::Graph m_graph;
+  Graph m_graph;
   std::unordered_map<std::string, std::shared_ptr<ngraph::Function>>
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
-  ngb::NGraphFreshnessTracker* m_freshness_tracker;
+  NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
 };
@@ -257,8 +267,7 @@ std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 
 }  // namespace ngraph_bridge
 
-namespace tensorflow {
-REGISTER_KERNEL_BUILDER(
-    Name("NGraphEncapsulate").Device(ngraph_bridge::DEVICE_NGRAPH),
-    ngraph_bridge::NGraphEncapsulateOp);
-}
+REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
+                        ngraph_bridge::NGraphEncapsulateOp);
+
+}  // namespace tensorflow

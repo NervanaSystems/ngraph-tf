@@ -120,7 +120,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     *var = new NGraphVar(dtype_, shape_);
     return Status::OK();
   };
-  //NGraphVar* var;
+  // NGraphVar* var;
   if (var_ == nullptr) {
     OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                             cinfo_.container(), cinfo_.name(), &var_, creator));
@@ -136,19 +136,18 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     attr.set_nic_compatible(true);
     ctx->record_persistent_memory_allocation(var_->tensor()->AllocatedBytes());
   }
-  //var->Unref();
+  // var->Unref();
 }
 
-NGraphVariableOp::~NGraphVariableOp() {
-  var_->Unref();
-}
+NGraphVariableOp::~NGraphVariableOp() { var_->Unref(); }
 
-REGISTER_KERNEL_BUILDER(Name("VariableV2").Device(ngraph_bridge::DEVICE_NGRAPH),
-                        NGraphVariableOp);
+//REGISTER_KERNEL_BUILDER(Name("VariableV2").Device(ngraph_bridge::DEVICE_NGRAPH),
+//                        NGraphVariableOp);
 
 class NGraphAssignOp : public OpKernel {
  public:
-  explicit NGraphAssignOp(OpKernelConstruction* context) : OpKernel(context), m_tracker(nullptr) {
+  explicit NGraphAssignOp(OpKernelConstruction* context)
+      : OpKernel(context), m_tracker(nullptr) {
     OP_REQUIRES_OK(context,
                    context->GetAttr("use_locking", &m_use_exclusive_lock));
     OP_REQUIRES_OK(context,
@@ -157,9 +156,7 @@ class NGraphAssignOp : public OpKernel {
                 errors::InvalidArgument("lhs input needs to be a ref type"));
   }
 
-  ~NGraphAssignOp() {
-    m_tracker->Unref();
-  }
+  ~NGraphAssignOp() { m_tracker->Unref(); }
 
   void Compute(OpKernelContext* context) override {
     const Tensor& rhs = context->input(1);
@@ -230,8 +227,8 @@ class NGraphAssignOp : public OpKernel {
   ngb::NGraphFreshnessTracker* m_tracker;
 };
 
-REGISTER_KERNEL_BUILDER(Name("Assign").Device(ngraph_bridge::DEVICE_NGRAPH),
-                        NGraphAssignOp);
+//REGISTER_KERNEL_BUILDER(Name("Assign").Device(ngraph_bridge::DEVICE_NGRAPH),
+//                        NGraphAssignOp);
 
 class NGraphIsVariableInitializedOp : public OpKernel {
  public:
@@ -250,9 +247,9 @@ class NGraphIsVariableInitializedOp : public OpKernel {
   }
 };
 
-REGISTER_KERNEL_BUILDER(
-    Name("IsVariableInitialized").Device(ngraph_bridge::DEVICE_NGRAPH),
-    NGraphIsVariableInitializedOp);
+//REGISTER_KERNEL_BUILDER(
+//    Name("IsVariableInitialized").Device(ngraph_bridge::DEVICE_NGRAPH),
+//    NGraphIsVariableInitializedOp);
 //
 // END VARIABLE OP STUFF COPIED, WITH MODIFICATION, FROM TF CODE BASE
 //

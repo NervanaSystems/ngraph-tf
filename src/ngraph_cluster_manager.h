@@ -21,18 +21,22 @@
 
 #include "tensorflow/core/framework/graph.pb.h"
 
-namespace tf = tensorflow;
+namespace tensorflow {
 
 namespace ngraph_bridge {
+
 class NGraphClusterManager {
  public:
   static int NewCluster();
-  static tf::GraphDef* GetClusterGraph(int idx);
+  static tensorflow::GraphDef* GetClusterGraph(int idx);
 
  private:
-  static std::vector<tf::GraphDef*> s_cluster_graphs;
+  static std::vector<tensorflow::GraphDef*> s_cluster_graphs;
   static std::mutex s_cluster_graphs_mutex;
 };
+
 }  // namespace ngraph_bridge
+
+}  // namespace tensorflow
 
 #endif
