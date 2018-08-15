@@ -92,30 +92,24 @@ Status MarkForClustering(Graph* graph) {
   // A map of op types (e.g. "Add") to confirmation functions. These can be
   // used to check arbitrary constraints, and attach information to the node
   // in the process. For example:
-  // TODO(amprocte): following example is stale.
   //
-  //    confirmation_functions["MyOp"] = [](Node* n, bool* result) {
-  //      Node* tf_arg_node;
-  //      TF_RETURN_IF_ERROR(n->input_node(0, &tf_arg_node));
-  //
-  //      std::vector<int64> tf_const_data;
-  //      if (ExtractConstantData(tf_arg_node, &tf_const_data) !=
-  //              Status::OK() ||
-  //          tf_const_data.size() != 1) {
-  //        *result = false;
+  //    confirmation_functions["MyOp"] = [](Node* n, bool* confirmed) {
+  //      int dummy;
+  //      if (GetAttr(n->attrs(),"my_unsupported_attr",&dummy).ok()) {
+  //        *confirmed = false;
   //        return Status::OK();
   //      }
   //
-  //      n->AddAttr("_ngraph_myop_constant_input", tf_const_data[0]);
-  //      *result = true;
+  //      SetStaticInputs(n, {0});
+  //      *confirmed = true;
   //      return Status::OK();
   //    };
   //
-  // The foregoing function checks every "MyOp" node to make sure that its
-  // zeroth input node is a constant scalar, and if it is, extracts the value
-  // of that scalar, and attaches it to the node as the
-  // "_ngraph_myop_constant_input" attribute. Placement fails if the input is
-  // not a constant scalar (since "false" is written to *result).
+  // The foregoing function checks every "MyOp" node to make sure that it does
+  // not have the attribute "my_unsupported_attr", and rejects placement if it
+  // does. Otherwise, it marks the zeroth input to the node as static (meaning
+  // that its value must be known at translation-to-nGraph time, and accepts
+  // placement.
   //
   static std::map<std::string, ConfirmationFunction> confirmation_functions;
 

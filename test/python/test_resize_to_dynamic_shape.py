@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge test for dynamic
+"""nGraph TensorFlow bridge test for dynamic shapes
 
 """
 from __future__ import absolute_import

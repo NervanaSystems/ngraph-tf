@@ -64,7 +64,15 @@ class NGraphEncapsulateOp : public OpKernel {
     opts.allow_internal_ops = true;
     OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
-    // Initialize m_input_is_static for each _Arg node.
+    //
+    // Initialize the "m_input_is_static" vector as follows:
+    // (1) create m_input_is_static with n+1 elements, where n is the max arg
+    //     index
+    // (2) for each _Arg node n, set m_input_is_static[n.index] to true if n
+    //     is driving any static input; else set it to false.
+    //
+
+    // Create the vector.
     int32 max_arg_index = -1;
     std::vector<const Node*> arg_nodes;
 
@@ -79,6 +87,8 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     m_input_is_static = std::vector<bool>(max_arg_index+1,false);
+
+    // Fill the vector.
     for (auto node : arg_nodes) {
       int32 index;
       OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(),"index",&index));
