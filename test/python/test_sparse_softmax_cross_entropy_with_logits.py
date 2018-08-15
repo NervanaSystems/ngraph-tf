@@ -53,3 +53,4 @@ class TestSparseSoftmaxCrossEntropyWithLogitsOperations(NgraphTest):
   
     assert np.allclose(result[0], expected[0])
     assert np.allclose(result[1], expected[1])
+
