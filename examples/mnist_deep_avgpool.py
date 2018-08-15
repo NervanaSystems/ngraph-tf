@@ -122,7 +122,7 @@ def train_mnist_cnn(FLAGS):
     # Config
     config = tf.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=False,
+        log_device_placement=True,
         inter_op_parallelism_threads=1)
 
     # Note: Additional configuration option to boost performance is to set the
@@ -153,8 +153,8 @@ def train_mnist_cnn(FLAGS):
                 labels=y_, logits=y_conv)
         cross_entropy = tf.reduce_mean(cross_entropy)
 
-        with tf.device('/device:CPU:0'):#name_scope('adam_optimizer'):
-            train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+        #with tf.device('/device:CPU:0'):#name_scope('adam_optimizer'):
+        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
         with tf.name_scope('accuracy'):
             correct_prediction = tf.equal(
