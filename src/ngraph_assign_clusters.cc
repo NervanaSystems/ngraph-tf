@@ -142,22 +142,25 @@ Status AssignClusters(Graph* graph) {
 
       if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
         NGRAPH_VLOG(5) << "Skipping (not marked): "
-                       << src->name() << "[" << src_index << "] -> "
-                       << dst->name() << "[" << dst_index << "]";
+                       << src->name() << "[" << edge->src_output() << "]@" << src_index << " -> " 
+                       << dst->name() << "[" << edge->dst_input() << "]@" << dst_index;
         continue;
       }
 
       // If the input is marked as static, we can contract only if that input
       // is being driven by a "Const" node.
-      if (InputIsStatic(dst,dst_index) && src->type_string() != "Const") {
+      if (InputIsStatic(dst,edge->dst_input()) && src->type_string() != "Const") {
         NGRAPH_VLOG(5) << "Skipping (static required): "
-                       << src->name() << "[" << src_index << "] -> "
-                       << dst->name() << "[" << dst_index << "]";
+                       << src->name() << "[" << edge->src_output() << "]@" << src_index << " -> "
+                       << dst->name() << "[" << edge->dst_input() << "]@" << dst_index;
         continue;
       }
 
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
+        NGRAPH_VLOG(5) << "Contracting: "
+                       << src->name() << "[" << edge->src_output() << "]@" << src_index << " -> "
+                       << dst->name() << "[" << edge->dst_input() << "]@" << dst_index;
         // using cluster_map[dst]->nodes in the loop directly appears to
         // invalidate the iterator when `node` == `dst`
         // this happens with clang but not gcc
