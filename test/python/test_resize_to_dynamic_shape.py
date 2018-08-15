@@ -29,8 +29,8 @@ import random
 
 from common import NgraphTest
 
-class TestResizeToShape(NgraphTest):
-  def test_resize_to_shape(self):
+class TestResizeToDynamicShape(NgraphTest):
+  def test_resize_to_dynamic_shape(self):
     # Test input with some arbitrary shape.
     test_input = np.random.rand(128,10,10,20,5)
     val = tf.placeholder(tf.float32, shape=(128,10,10,20,5))
