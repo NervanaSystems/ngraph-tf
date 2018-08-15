@@ -15,6 +15,7 @@ o * Copyright 2017-2018 Intel Corporation
  *******************************************************************************/
 #include <cstdlib>
 #include <fstream>
+#include <utility>
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
@@ -38,6 +39,9 @@ o * Copyright 2017-2018 Intel Corporation
 namespace tf = tensorflow;
 namespace ngb = ngraph_bridge;
 
+using FuncToTensorViewMap = std::unordered_map<
+    std::shared_ptr<ngraph::Function>,
+    std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
 namespace ngraph_bridge {
 extern const char* const DEVICE_NGRAPH;
 
@@ -70,25 +74,25 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Create the backend
     if (m_ng_backend == nullptr) {
 #if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
-      m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
-#endif
-      if (std::getenv("NGRAPH_TF_BACKEND") != nullptr) {
-        m_ng_backend_name = std::string(std::getenv("NGRAPH_TF_BACKEND"));
-        if (!m_ng_backend_name.empty()) {
+      NGraphEncapsulateOp::m_ng_backend = ng::runtime::Backend::create("INTERPRETER");
+#else
+      const char* backend_str = std::getenv("NGRAPH_TF_BACKEND");
+      if (backend_str != nullptr) {
+        m_ng_backend_name = backend_str;
           m_ng_backend = ng::runtime::Backend::create(m_ng_backend_name);
-        }
+      } else {  // env not defined.  Default to CPU backend
+        m_ng_backend = ng::runtime::Backend::create("CPU");
+        m_ng_backend_name = "CPU";
       }
-      else{ // env not defined.  Default to CPU backend
-          m_ng_backend = ng::runtime::Backend::create("CPU");
-	  m_ng_backend_name = "CPU";
-      }
+#endif
       OP_REQUIRES(ctx, m_ng_backend != nullptr,
                   tf::errors::InvalidArgument("Cannot create nGraph backend"));
     }
   }
 
   ~NGraphEncapsulateOp() override {
-    // If the kernel goes away, we must de-register all of its cached functions
+    // If the kernel goes away, we must de-register all of its cached
+    // functions
     // from the freshness tracker.
     if (m_freshness_tracker != nullptr) {
       for (auto kv : m_ng_functions) {
@@ -102,13 +106,16 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   }
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache, and
-  // our use of the freshness-tracking stuff probably means we can only execute
+  // our use of the freshness-tracking stuff probably means we can only
+  // execute
   // one instance at a time).
   void Compute(tf::OpKernelContext* ctx) override {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 
     // Get the inputs
+    //std::string backend_name("CPU");
+    const std::string backend_name(m_ng_backend_name);
     std::vector<tf::TensorShape> input_shapes;
     std::stringstream signature_ss;
     for (int i = 0; i < ctx->num_inputs(); i++) {
@@ -204,10 +211,12 @@ class NGraphEncapsulateOp : public tf::OpKernel {
           t->set_stale(true);
         }
         last_used_src_ptrs[i] = src_ptr;
+        auto src_pair = std::make_pair(src_ptr, t);
+        m_ng_function_to_inputs[ng_function].push_back(src_pair);
         ng_inputs.push_back(t);
       };
 
-      if (m_ng_backend_name == "CPU") {
+      if (backend_name == "CPU") {
         auto t =
             m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
         add_input_tensor(t);
@@ -221,14 +230,12 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       }
     }
 
-    // m_ng_function_to_inputs.insert(ng_function , ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
                    << m_ngraph_cluster;
 
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> outputs;
-    void* dst_ptr = nullptr;
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto shape = ng_function->get_output_shape(i);
       auto elem_type = ng_function->get_output_element_type(i);
@@ -242,7 +249,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       tf::Tensor* output_tensor = nullptr;
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
 
-      // Make sure the nGraph-inferred element type agrees with what TensorFlow
+      // Make sure the nGraph-inferred element type agrees with what
+      // TensorFlow
       // expected.
       ng::element::Type expected_elem_type;
       OP_REQUIRES_OK(
@@ -254,24 +262,20 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      dst_ptr = tf::DMAHelper::base(output_tensor);
-      if (m_ng_backend_name == "CPU") {
-        auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
-        outputs.push_back(t_result);
-      } else if (m_ng_function_to_outputs.find(ng_function) ==
-                 end(m_ng_function_to_outputs)) {
-        auto t_result = m_ng_backend->create_tensor(elem_type, shape);
-        outputs.push_back(t_result);
+      void* result_ptr = tf::DMAHelper::base(output_tensor);
+      //        shared_ptr<ngraph::runtime::TensorView> result_tv;
+      if (backend_name == "CPU") {
+        auto result_tv =
+            m_ng_backend->create_tensor(elem_type, shape, result_ptr);
+        outputs.push_back(result_tv);
+      } else {
+        auto result_tv = m_ng_backend->create_tensor(elem_type, shape);
       }
     }
 
-    if (m_ng_function_to_outputs.find(ng_function) ==
-        end(m_ng_function_to_outputs)) {
-      // m_ng_function_to_inputs.insert(ng_function , outputs);
-    }
-    NGRAPH_VLOG(4)
-        << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
-        << m_ngraph_cluster;
+    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated result tensors "
+                      "for cluster "
+                   << m_ngraph_cluster;
 
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
@@ -280,13 +284,16 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    if (m_ng_backend_name != "CPU") {
-      for (auto output_tv : outputs) {
+    if (backend_name != "CPU") {
+      auto output_pairs = m_ng_function_to_outputs[ng_function];
+      for (auto output_pair : output_pairs) {
+        void* output_ptr = output_pair.first;
+        auto output_tv = output_pair.second;
         auto element_type = output_tv->get_descriptor()
                                 ->get_tensor_view_layout()
                                 ->get_element_type();
-        output_tv->read(dst_ptr, 0, (output_tv->get_element_count() *
-                                     element_type.bitwidth() / 8.0));
+        output_tv->read(output_ptr, 0, (output_tv->get_element_count() *
+                                        element_type.bitwidth() / 8.0));
       }
     }
     // Mark input tensors as fresh for the next time around.
@@ -306,18 +313,15 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
-  std::unordered_map<std::shared_ptr<ngraph::Function>,
-                     std::vector<ng::runtime::TensorView>>
-      m_ng_function_to_inputs;
-  std::unordered_map<std::shared_ptr<ngraph::Function>,
-                     std::vector<ng::runtime::TensorView>>
-      m_ng_function_to_outputs;
+  FuncToTensorViewMap m_ng_function_to_inputs;
+  FuncToTensorViewMap m_ng_function_to_outputs;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
-  std::string m_ng_backend_name;
+  static std::string  m_ng_backend_name;
 };
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
+std::string  NGraphEncapsulateOp::m_ng_backend_name;
 
 }  // namespace ngraph_bridge
 
