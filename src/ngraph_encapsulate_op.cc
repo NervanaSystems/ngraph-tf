@@ -266,9 +266,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
-      void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      auto t_result =
-          m_ng_backend->create_tensor(ng_element_type, ng_shape, dst_ptr);
+      void* current_dst_ptr = tf::DMAHelper::base(output_tensor);
+      auto t_result = m_ng_backend->create_tensor(ng_element_type, ng_shape,
+                                                  current_dst_ptr);
 
       ng_outputs.push_back(t_result);
     }
