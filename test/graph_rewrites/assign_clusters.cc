@@ -30,6 +30,51 @@ namespace ngraph_bridge {
 
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 
+// Test that a "Const" fed to a static input is still coalesced with the
+// reader.
+TEST(assign_clusters, const_to_static) {
+  Graph g(OpRegistry::Global());
+
+  Tensor t_input(DT_FLOAT, TensorShape{2,3});
+  Tensor t_shape(DT_INT32, TensorShape{2});
+  t_shape.flat<int32>().data()[0] = 3;
+  t_shape.flat<int32>().data()[1] = 2;
+
+  Node* node1;
+  ASSERT_OK(NodeBuilder("node1","Const")
+              .Attr("dtype",DT_FLOAT)
+              .Attr("value",t_input)
+              .Attr("_ngraph_marked_for_clustering",true)
+              .Finalize(&g,&node1));
+
+  Node* node2;
+  ASSERT_OK(NodeBuilder("node2","Const")
+              .Attr("dtype",DT_INT32)
+              .Attr("value",t_shape)
+              .Attr("_ngraph_marked_for_clustering",true)
+              .Finalize(&g,&node2));
+
+  Node* node3;
+  ASSERT_OK(NodeBuilder("node3","Reshape")
+              .Input(node1, 0)
+              .Input(node2, 0)
+              .Attr("T",DT_FLOAT)
+              .Attr("Tshape",DT_INT32)
+              .Attr("_ngraph_marked_for_clustering",true)
+              .Attr("_ngraph_static_inputs",std::vector<int32>{1})
+              .Finalize(&g,&node3));
+
+  ASSERT_OK(AssignClusters(&g));
+
+  int node1_cluster, node2_cluster, node3_cluster;
+  ASSERT_OK(GetNodeCluster(node1,&node1_cluster));
+  ASSERT_OK(GetNodeCluster(node2,&node2_cluster));
+  ASSERT_OK(GetNodeCluster(node3,&node3_cluster));
+
+  ASSERT_EQ(node1_cluster,node2_cluster);
+  ASSERT_EQ(node2_cluster,node3_cluster);
+}
+
 // Given a graph of this form:
 //
 //  Node1--->Node2
