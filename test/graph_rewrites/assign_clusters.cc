@@ -36,15 +36,15 @@ namespace ngraph_bridge {
 //    \       /
 //     \     /
 //      |   |
-//      v*  v
+//      v   v*
 //      Node3
 //
 // where the starred input is static, we want to make sure that Node2 and Node3
-// are not accidentally coalesced by the following chain of events:
+// are not accidentally coalesced by a chain of events like the following:
 //
-// Node1-->Node2 coalesced
-// Node2-->Node3 coalesced   **actually invalid, because Node1 is now in same
-//                             cluster as Node2.
+// Node1-->Node3 coalesced
+// Node1-->Node2 coalesced   **actually invalid, because Node1 is now in same
+//                             cluster as Node3, and we can't contract 2 & 3.
 TEST(assign_clusters, cone) {
   Graph g(OpRegistry::Global());
 
@@ -76,9 +76,11 @@ TEST(assign_clusters, cone) {
               .Finalize(&g,&node3));
 
   ASSERT_OK(AssignClusters(&g));
+
   int node2_cluster, node3_cluster;
   ASSERT_OK(GetNodeCluster(node2,&node2_cluster));
   ASSERT_OK(GetNodeCluster(node3,&node3_cluster));
+
   ASSERT_NE(node2_cluster,node3_cluster);
 }
 
