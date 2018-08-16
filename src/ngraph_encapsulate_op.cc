@@ -255,7 +255,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       }
 
       add_input_tensor(src_tv);
-    }
+    }  // for (int i = 0; i < input_shapes.size(); i++)
+
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
                    << m_ngraph_cluster;
