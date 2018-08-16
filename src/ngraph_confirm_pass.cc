@@ -260,11 +260,12 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Less"]["T"] = NGraphDTypes();
         type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
         type_constraint_map["Log"]["T"] = NGraphNumericDTypes();
-        // LogicalAnd has no type attributes, ("T", if it existed, would always
+        // LogicalAnd, LogicalNot has no type attributes, ("T", if it existed, would always
         // be bool).
         type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
         type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
@@ -274,6 +275,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Pad"]["T"] = NGraphDTypes();
         type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
         type_constraint_map["Pow"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
         type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
         type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
@@ -284,12 +286,16 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Reshape"]["T"] = NGraphDTypes();
         type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
         type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
+        type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Slice"]["T"] = NGraphDTypes();
         type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
-        type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
-        type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
         type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
         type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
+        type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["T"] =
+            NGraphNumericDTypes();
+        type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["Tlabels"] =
+            NGraphNumericDTypes();
         type_constraint_map["Split"]["T"] = NGraphDTypes();
         type_constraint_map["SplitV"]["T"] = NGraphDTypes();
         type_constraint_map["SplitV"]["Tlen"] = NGraphIndexDTypes();
@@ -306,6 +312,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
         type_constraint_map["Transpose"]["T"] = NGraphDTypes();
         type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
+        type_constraint_map["Unpack"]["T"] = NGraphDTypes();
 
         //
         // Initialize confirmation function map.
@@ -448,9 +455,11 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         confirmation_functions["LessEqual"] = always;
         confirmation_functions["Log"] = always;
         confirmation_functions["LogicalAnd"] = always;
+        confirmation_functions["LogicalNot"] = always;
         confirmation_functions["MatMul"] = always;
         confirmation_functions["Maximum"] = always;
         confirmation_functions["MaxPool"] = always;
+        confirmation_functions["MaxPoolGrad"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
@@ -492,6 +501,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
         };
 
         confirmation_functions["Pow"] = always;
+        confirmation_functions["PreventGradient"] = always;
 
         // Constraints: "keep_dims" is not supported, reduction-axes input
         // must be Const.
@@ -578,6 +588,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
 
         confirmation_functions["Snapshot"] = always;
         confirmation_functions["Softmax"] = always;
+        confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] = always;
         confirmation_functions["Split"] = [](tf::Node* n, bool* result) {
           tf::Node* tf_split_dim_node;
           TF_RETURN_IF_ERROR(n->input_node(0, &tf_split_dim_node));
@@ -593,6 +604,7 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
         confirmation_functions["SplitV"] = always;
         confirmation_functions["Square"] = always;
         confirmation_functions["SquaredDifference"] = always;
@@ -698,6 +710,8 @@ class NGraphConfirmPass : public tensorflow::GraphOptimizationPass {
           *result = true;
           return tf::Status::OK();
         };
+
+        confirmation_functions["Unpack"] = always;
 
         initialized = true;
       }

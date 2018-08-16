@@ -47,9 +47,11 @@ RUN updatedb
 
 # six, enum34 and mock are required for building the tensorflow wheel
 # scipy, portpicker, and sklearn are needed by some TensorFlow tests
+# keras_applications is needed for modern TensorFlow builds
 RUN pip install --upgrade pip
 RUN pip install six enum34 mock
 RUN pip install scipy portpicker sklearn
+RUN pip install keras_applications
 
 # We include pytest so the Docker image can be used for daily validation
 RUN pip install --upgrade pytest
@@ -63,8 +65,8 @@ RUN pip install --upgrade pytest
 RUN apt-get update && apt-get install -y openjdk-8-jdk
 #
 # This bazel version works with current TF
-RUN wget -c https://github.com/bazelbuild/bazel/releases/download/0.11.0/bazel_0.11.0-linux-x86_64.deb
-RUN dpkg -i bazel_0.11.0-linux-x86_64.deb || true
+RUN wget -c https://github.com/bazelbuild/bazel/releases/download/0.16.0/bazel_0.16.0-linux-x86_64.deb
+RUN dpkg -i bazel_0.16.0-linux-x86_64.deb || true
 
 # Copy in the run-as-user.sh script
 # This will allow the builds, which are done in a mounted directory, to
