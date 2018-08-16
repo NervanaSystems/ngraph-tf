@@ -39,7 +39,7 @@ o * Copyright 2017-2018 Intel Corporation
 namespace tf = tensorflow;
 namespace ngb = ngraph_bridge;
 
-using FunctionToTensorViewMap = std::unordered_map<
+using NgFunctionIOCache = std::unordered_map<
     std::shared_ptr<ngraph::Function>,
     std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
 
@@ -265,7 +265,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                    << m_ngraph_cluster;
 
     if (m_ng_backend_name != "CPU") {
-      auto output_pairs = m_ng_function_to_outputs[ng_function];
+      auto output_pairs = m_ng_function_output_cache[ng_function];
       for (auto output_pair : output_pairs) {
         void* output_ptr = output_pair.first;
         auto output_tv = output_pair.second;
@@ -293,8 +293,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
-  FunctionToTensorViewMap m_ng_function_to_inputs;
-  FunctionToTensorViewMap m_ng_function_to_outputs;
+  NgFunctionIOCache m_ng_function_input_cache;
+  NgFunctionIOCache m_ng_function_output_cache;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
