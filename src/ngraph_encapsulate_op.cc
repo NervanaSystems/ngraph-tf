@@ -324,6 +324,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
   static std::string m_ng_backend_name;
 };
+
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::m_ng_backend;
 std::string NGraphEncapsulateOp::m_ng_backend_name;
 
