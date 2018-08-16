@@ -57,6 +57,9 @@ TEST(assign_clusters, cone) {
               .Attr("_ngraph_marked_for_clustering",true)
               .Finalize(&g,&node1));
 
+  // Note: we're marking this for clustering by hand, even though as of this
+  // writing we don't actually mark "Shape" in real life. This is fine---we're
+  // just unit-testing AssignClusters, which doesn't care.
   Node* node2;
   ASSERT_OK(NodeBuilder("node2","Shape")
               .Input(node1, 0)
