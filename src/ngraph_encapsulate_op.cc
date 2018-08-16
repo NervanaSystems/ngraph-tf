@@ -228,7 +228,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       input_caches[i] = std::make_pair(current_src_ptr, current_tv);
       ng_inputs.push_back(current_tv);
-    }
+    }  // for (int i = 0; i < input_shapes.size(); i++)
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
                       "for cluster "
@@ -265,13 +265,24 @@ class NGraphEncapsulateOp : public tf::OpKernel {
           tf::errors::Internal("Element type inferred by nGraph does not match "
                                "the element type expected by TensorFlow"));
 
-      // Create the nGraph output tensor
-      void* current_dst_ptr = tf::DMAHelper::base(output_tensor);
-      auto t_result = m_ng_backend->create_tensor(ng_element_type, ng_shape,
-                                                  current_dst_ptr);
+      void* last_dst_ptr = output_caches[i].first;
+      std::shared_ptr<ng::runtime::TensorView> last_tv =
+          output_caches[i].second;
 
-      ng_outputs.push_back(t_result);
-    }
+      void* current_dst_ptr = tf::DMAHelper::base(output_tensor);
+      std::shared_ptr<ng::runtime::TensorView> current_tv;
+
+      if (current_dst_ptr == last_dst_ptr) {
+        current_tv = last_tv;
+      } else {
+        current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
+                                                 current_dst_ptr);
+      }
+      current_tv->set_stale(true);
+
+      output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
+      ng_outputs.push_back(current_tv);
+    }  // for (auto i = 0; i < ng_function->get_output_size(); i++)
 
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
@@ -293,7 +304,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
         << m_ngraph_cluster;
-  }
+  }  // void Compute(tf::OpKernelContext* ctx) override
 
  private:
   tf::Graph m_graph;
