@@ -236,7 +236,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                    << m_ngraph_cluster;
 
     // Allocate tensors for the results.
-    vector<shared_ptr<ng::runtime::TensorView>> outputs;
+    vector<shared_ptr<ng::runtime::TensorView>> ng_outputs;
+
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto shape = ng_function->get_output_shape(i);
       auto elem_type = ng_function->get_output_element_type(i);
@@ -265,7 +266,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
       auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
 
-      outputs.push_back(t_result);
+      ng_outputs.push_back(t_result);
     }
 
     NGRAPH_VLOG(4)
@@ -275,7 +276,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
                    << m_ngraph_cluster;
-    m_ng_backend->call(ng_function, outputs, ng_inputs);
+    m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
