@@ -198,38 +198,37 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       OP_REQUIRES_OK(ctx, TFDataTypeToNGraphElementType(ctx->input(i).dtype(),
                                                         &ng_element_type));
 
-      // At the first call of the ng_function, both last_used_src_ptr and
-      // last_used_tensor_view shall point to null. Otherwise, they are retrived
+      // At the first call of the ng_function, both last_src_ptr and
+      // last_tv shall point to null. Otherwise, they are retrived
       // from cache.
-      void* last_used_src_ptr = input_caches[i].first;
-      std::shared_ptr<ng::runtime::TensorView> last_used_tensor_view =
-          input_caches[i].second;
+      void* last_src_ptr = input_caches[i].first;
+      std::shared_ptr<ng::runtime::TensorView> last_tv = input_caches[i].second;
 
       void* current_src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
-      std::shared_ptr<ng::runtime::TensorView> current_tensor_view;
+      std::shared_ptr<ng::runtime::TensorView> current_tv;
 
-      if (current_src_ptr == last_used_src_ptr) {
+      if (current_src_ptr == last_src_ptr) {
         // Mark each tensor as non-stale if:
         //   1. the freshness tracker says the tensor has not changed since
         //      the last time ng_function was called, and
         //   2. we are using the same tensor in this argument position as
         //      the one we used last time ng_function was called.
-        // ng_function had been called, so last_used_tensor_view != nullptr
+        // ng_function had been called, so last_tv != nullptr
         if (m_freshness_tracker->IsFresh(current_src_ptr, ng_function)) {
-          last_used_tensor_view->set_stale(false);
+          last_tv->set_stale(false);
         } else {
-          last_used_tensor_view->set_stale(true);
+          last_tv->set_stale(true);
         }
-        current_tensor_view = last_used_tensor_view;
+        current_tv = last_tv;
       } else {
-        current_tensor_view = m_ng_backend->create_tensor(
-            ng_element_type, ng_shape, current_src_ptr);
-        current_tensor_view->set_stale(true);
-        current_src_ptr = last_used_src_ptr;
+        current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
+                                                 current_src_ptr);
+        current_tv->set_stale(true);
+        current_src_ptr = last_src_ptr;
       }
 
-      input_caches[i] = std::make_pair(current_src_ptr, current_tensor_view);
-      ng_inputs.push_back(current_tensor_view);
+      input_caches[i] = std::make_pair(current_src_ptr, current_tv);
+      ng_inputs.push_back(current_tv);
     }
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated argument tensors "
