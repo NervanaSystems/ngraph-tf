@@ -268,9 +268,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       outputs.push_back(t_result);
     }
 
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute allocated result tensors "
-                      "for cluster "
-                   << m_ngraph_cluster;
+    NGRAPH_VLOG(4)
+        << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
+        << m_ngraph_cluster;
 
     // Execute the nGraph function.
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call starting for cluster "
@@ -279,18 +279,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    if (m_ng_backend_name != "CPU") {
-      auto output_pairs = m_ng_function_output_cache_map[ng_function];
-      for (auto output_pair : output_pairs) {
-        void* output_ptr = output_pair.first;
-        auto output_tv = output_pair.second;
-        auto element_type = output_tv->get_descriptor()
-                                ->get_tensor_view_layout()
-                                ->get_element_type();
-        output_tv->read(output_ptr, 0, (output_tv->get_element_count() *
-                                        element_type.bitwidth() / 8.0));
-      }
-    }
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
