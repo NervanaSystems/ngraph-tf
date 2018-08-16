@@ -238,6 +238,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     // Allocate tensors for the results.
     vector<shared_ptr<ng::runtime::TensorView>> ng_outputs;
 
+    std::vector<std::pair<void*, std::shared_ptr<ng::runtime::TensorView>>>&
+        output_caches = m_ng_function_output_cache_map[ng_function];
+    output_caches.resize(ng_function->get_output_size());
+
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
       auto ng_shape = ng_function->get_output_shape(i);
       auto ng_element_type = ng_function->get_output_element_type(i);
