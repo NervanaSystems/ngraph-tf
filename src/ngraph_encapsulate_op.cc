@@ -188,6 +188,10 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     auto& last_used_src_ptrs = m_last_used_src_ptrs_map[ng_function];
     last_used_src_ptrs.resize(input_shapes.size());
 
+    std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>&
+        input_caches = m_ng_function_input_cache_map[ng_function];
+    input_caches.resize(input_shapes.size());
+
     for (int i = 0; i < input_shapes.size(); i++) {
       ng::Shape ng_shape(input_shapes[i].dims());
       for (int j = 0; j < input_shapes[i].dims(); ++j) {
@@ -266,7 +270,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                    << m_ngraph_cluster;
 
     if (m_ng_backend_name != "CPU") {
-      auto output_pairs = m_ng_function_output_cache[ng_function];
+      auto output_pairs = m_ng_function_output_cache_map[ng_function];
       for (auto output_pair : output_pairs) {
         void* output_ptr = output_pair.first;
         auto output_tv = output_pair.second;
@@ -294,8 +298,8 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       m_ng_functions;
   std::map<std::shared_ptr<ngraph::Function>, std::vector<const void*>>
       m_last_used_src_ptrs_map;
-  NgFunctionIOCache m_ng_function_input_cache;
-  NgFunctionIOCache m_ng_function_output_cache;
+  NgFunctionIOCache m_ng_function_input_cache_map;
+  NgFunctionIOCache m_ng_function_output_cache_map;
   ngb::NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
   static std::shared_ptr<ng::runtime::Backend> m_ng_backend;
