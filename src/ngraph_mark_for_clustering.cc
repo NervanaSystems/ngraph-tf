@@ -62,6 +62,27 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
 }
 
+// Generates a "simple" confirmation function which always returns true, and
+// tags the input indices given in static_input_indices as static. A negative
+// value in static_input_indices indicates that the input index is counted from
+// the right.
+static ConfirmationFunction SimpleConfirmationFunction(const std::vector<int32>& static_input_indices = {}) {
+  auto cf = [static_input_indices](Node* n, bool* result) {
+    // Adjust negative input indices.
+    auto indices = static_input_indices;
+    std::transform(indices.begin(),
+                   indices.end(),
+                   indices.begin(),
+                   [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
+
+    SetStaticInputs(n, indices);
+
+    *result = true;
+    return Status::OK();
+  };
+  return cf;
+};
+
 //
 // Main entry point for the marking pass.
 //
@@ -215,163 +236,71 @@ Status MarkForClustering(Graph* graph) {
       //
       // Initialize confirmation function map.
       //
-
-      // Trivial confirmation function which always accepts placement.
-      ConfirmationFunction always = [](Node* n, bool* result) {
-        *result = true;
-        return Status::OK();
-      };
-
-      //
       // Please keep these in alphabetical order by op name.
       //
-      confirmation_functions["Abs"] = always;
-      confirmation_functions["Add"] = always;
-      confirmation_functions["AddN"] = always;
-      confirmation_functions["AvgPool"] = always;
-      confirmation_functions["AvgPoolGrad"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {0});
-        *result = true;
-        return Status::OK();
-      };
-      confirmation_functions["BatchMatMul"] = always;
-      confirmation_functions["BiasAdd"] = always;
-      confirmation_functions["BiasAddGrad"] = always;
-      confirmation_functions["Cast"] = always;
-
-      // Constraint: axis selection input must be static.
-      confirmation_functions["ConcatV2"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {n->num_inputs() - 1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Const"] = always;
-
-      confirmation_functions["Conv2D"] = always;
-      confirmation_functions["Conv2DBackpropFilter"] = [](Node* n,
-                                                          bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-      confirmation_functions["Conv2DBackpropInput"] = [](Node* n,
-                                                         bool* result) {
-        SetStaticInputs(n, {0});
-        *result = true;
-        return Status::OK();
-      };
-      confirmation_functions["DepthwiseConv2dNative"] = always;
-      confirmation_functions["Equal"] = always;
-      confirmation_functions["Exp"] = always;
-      confirmation_functions["ExpandDims"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Fill"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {0});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Floor"] = always;
-      confirmation_functions["FloorDiv"] = always;
-      confirmation_functions["FloorMod"] = always;
-      confirmation_functions["FusedBatchNorm"] = always;
-      confirmation_functions["FusedBatchNormGrad"] = always;
-      confirmation_functions["Greater"] = always;
-      confirmation_functions["GreaterEqual"] = always;
-      confirmation_functions["Identity"] = always;
-      confirmation_functions["L2Loss"] = always;
-      confirmation_functions["Less"] = always;
-      confirmation_functions["LessEqual"] = always;
-      confirmation_functions["Log"] = always;
-      confirmation_functions["LogicalAnd"] = always;
-      confirmation_functions["LogicalNot"] = always;
-      confirmation_functions["MatMul"] = always;
-      confirmation_functions["Maximum"] = always;
-      confirmation_functions["MaxPool"] = always;
-      confirmation_functions["MaxPoolGrad"] = always;
-
-      // Constraint: reduction-axes input must be static.
-      confirmation_functions["Mean"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Minimum"] = always;
-      confirmation_functions["Mul"] = always;
-      confirmation_functions["Neg"] = always;
-
-      // Constraint: padding-widths input must be static.
-      confirmation_functions["Pad"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Pow"] = always;
-      confirmation_functions["PreventGradient"] = always;
-
-      // Constraint: reduction-axes input must be static.
-      confirmation_functions["Prod"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["RealDiv"] = always;
-      confirmation_functions["Reciprocal"] = always;
-      confirmation_functions["Relu"] = always;
-      confirmation_functions["Relu6"] = always;
-      confirmation_functions["ReluGrad"] = always;
-
-      // Constraint: shape input must be static.
-      confirmation_functions["Reshape"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Rsqrt"] = always;
-      confirmation_functions["Sigmoid"] = always;
-      confirmation_functions["Sign"] = always;
-
-      // Constraint: begin and size input must be static.
-      confirmation_functions["Slice"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1,2});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Snapshot"] = always;
-      confirmation_functions["Softmax"] = always;
-
-      // Constraint: num splits input must be static.
-      confirmation_functions["Split"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {0});
-        *result = true;
-        return Status::OK();
-      };
-
-      // Constraint: size splits, num splits inputs must be static.
-      confirmation_functions["SplitV"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1,2});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Square"] = always;
-      confirmation_functions["SquaredDifference"] = always;
-      confirmation_functions["Squeeze"] = always;
-
-      // Constraint: begin, end, and stride inputs must be static.
+      confirmation_functions["Abs"] = SimpleConfirmationFunction();
+      confirmation_functions["Add"] = SimpleConfirmationFunction();
+      confirmation_functions["AddN"] = SimpleConfirmationFunction();
+      confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
+      confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
+      confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
+      confirmation_functions["BiasAdd"] = SimpleConfirmationFunction();
+      confirmation_functions["BiasAddGrad"] = SimpleConfirmationFunction();
+      confirmation_functions["Cast"] = SimpleConfirmationFunction();
+      confirmation_functions["ConcatV2"] = SimpleConfirmationFunction({-1});
+      confirmation_functions["Conv2D"] = SimpleConfirmationFunction();
+      confirmation_functions["Conv2DBackpropFilter"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Conv2DBackpropInput"] = SimpleConfirmationFunction({0});
+      confirmation_functions["DepthwiseConv2dNative"] = SimpleConfirmationFunction();
+      confirmation_functions["Equal"] = SimpleConfirmationFunction();
+      confirmation_functions["Exp"] = SimpleConfirmationFunction();
+      confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Fill"] = SimpleConfirmationFunction({0});
+      confirmation_functions["Floor"] = SimpleConfirmationFunction();
+      confirmation_functions["FloorDiv"] = SimpleConfirmationFunction();
+      confirmation_functions["FloorMod"] = SimpleConfirmationFunction();
+      confirmation_functions["FusedBatchNorm"] = SimpleConfirmationFunction();
+      confirmation_functions["FusedBatchNormGrad"] = SimpleConfirmationFunction();
+      confirmation_functions["Greater"] = SimpleConfirmationFunction();
+      confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
+      confirmation_functions["Identity"] = SimpleConfirmationFunction();
+      confirmation_functions["L2Loss"] = SimpleConfirmationFunction();
+      confirmation_functions["Less"] = SimpleConfirmationFunction();
+      confirmation_functions["LessEqual"] = SimpleConfirmationFunction();
+      confirmation_functions["Log"] = SimpleConfirmationFunction();
+      confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
+      confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
+      confirmation_functions["MatMul"] = SimpleConfirmationFunction();
+      confirmation_functions["Maximum"] = SimpleConfirmationFunction();
+      confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
+      confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();
+      confirmation_functions["Mean"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Minimum"] = SimpleConfirmationFunction();
+      confirmation_functions["Mul"] = SimpleConfirmationFunction();
+      confirmation_functions["Neg"] = SimpleConfirmationFunction();
+      confirmation_functions["Pad"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Pow"] = SimpleConfirmationFunction();
+      confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
+      confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
+      confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
+      confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
+      confirmation_functions["Relu"] = SimpleConfirmationFunction();
+      confirmation_functions["Relu6"] = SimpleConfirmationFunction();
+      confirmation_functions["ReluGrad"] = SimpleConfirmationFunction();
+      confirmation_functions["Reshape"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Rsqrt"] = SimpleConfirmationFunction();
+      confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
+      confirmation_functions["Sign"] = SimpleConfirmationFunction();
+      confirmation_functions["Slice"] = SimpleConfirmationFunction({1,2});
+      confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
+      confirmation_functions["Softmax"] = SimpleConfirmationFunction();
+      confirmation_functions["Split"] = SimpleConfirmationFunction({0});
+      confirmation_functions["SplitV"] = SimpleConfirmationFunction({1,2});
+      confirmation_functions["Square"] = SimpleConfirmationFunction();
+      confirmation_functions["SquaredDifference"] = SimpleConfirmationFunction();
+      confirmation_functions["Squeeze"] = SimpleConfirmationFunction();
       confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
-        // reject if tf.newaxis in strided slice
-        // TODO support tf.newaxis
+        // Reject if "new_axis_mask" is set.
         int tf_new_axis_mask;
         TF_RETURN_IF_ERROR(
             GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
@@ -380,36 +309,15 @@ Status MarkForClustering(Graph* graph) {
           return Status::OK();
         }
 
-        SetStaticInputs(n, {1,2,3});
-        *result = true;
-        return Status::OK();
+        return SimpleConfirmationFunction({1,2,3})(n,result);
       };
-
-      confirmation_functions["Pack"] = always;
-      confirmation_functions["Sub"] = always;
-
-      // Constraints: reduction-axes input must be static.
-      confirmation_functions["Sum"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Tanh"] = always;
-      confirmation_functions["Tile"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      // Constraint: permutation input must be static.
-      confirmation_functions["Transpose"] = [](Node* n, bool* result) {
-        SetStaticInputs(n, {1});
-        *result = true;
-        return Status::OK();
-      };
-
-      confirmation_functions["Unpack"] = always;
+      confirmation_functions["Pack"] = SimpleConfirmationFunction();
+      confirmation_functions["Sub"] = SimpleConfirmationFunction();
+      confirmation_functions["Sum"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Tanh"] = SimpleConfirmationFunction();
+      confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Unpack"] = SimpleConfirmationFunction();
 
       initialized = true;
     }
