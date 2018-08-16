@@ -119,8 +119,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
                    << m_ngraph_cluster;
 
     // Get the inputs
-    // std::string backend_name("CPU");
-    const std::string backend_name(m_ng_backend_name);
     std::vector<tf::TensorShape> input_shapes;
     std::stringstream signature_ss;
     for (int i = 0; i < ctx->num_inputs(); i++) {
@@ -203,7 +201,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       shared_ptr<ngraph::runtime::TensorView> src_tv;
       auto create_input_tensor = [&]() {
-        if (backend_name == "CPU") {
+        if (m_ng_backend_name == "CPU") {
           src_tv =
               m_ng_backend->create_tensor(ng_element_type, ng_shape, src_ptr);
         } else {
@@ -293,7 +291,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* result_ptr = tf::DMAHelper::base(output_tensor);
       shared_ptr<ngraph::runtime::TensorView> result_tv;
       auto create_output_tensor = [&]() {
-        if (backend_name == "CPU") {
+        if (m_ng_backend_name == "CPU") {
           result_tv = m_ng_backend->create_tensor(elem_type, shape, result_ptr);
         } else {
           result_tv = m_ng_backend->create_tensor(elem_type, shape);
@@ -335,7 +333,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    if (backend_name != "CPU") {
+    if (m_ng_backend_name != "CPU") {
       auto output_pairs = m_ng_function_to_outputs[ng_function];
       for (auto output_pair : output_pairs) {
         void* output_ptr = output_pair.first;
