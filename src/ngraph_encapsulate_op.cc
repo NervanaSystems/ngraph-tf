@@ -42,6 +42,7 @@ namespace ngb = ngraph_bridge;
 using FuncToTensorViewMap = std::unordered_map<
     std::shared_ptr<ngraph::Function>,
     std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
+
 namespace ngraph_bridge {
 extern const char* const DEVICE_NGRAPH;
 
