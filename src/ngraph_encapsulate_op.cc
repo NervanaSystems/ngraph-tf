@@ -324,6 +324,18 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
+    // Copy value to host if backend is not CPU
+    if (m_ng_backend_name != "CPU") {
+      for (size_t i = 0; i < output_caches.size(); ++i) {
+        void* dst_ptr;
+        std::shared_ptr<ng::runtime::TensorView> dst_tv;
+        std::tie(dst_ptr, dst_tv) = output_caches[i];
+        auto ng_element_type = dst_tv->get_tensor().get_element_type();
+        dst_tv->read(dst_ptr, 0,
+                     dst_tv->get_element_count() * ng_element_type.size());
+      }
+    }
+
     // Mark input tensors as fresh for the next time around.
     for (int i = 0; i < input_shapes.size(); i++) {
       void* src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
