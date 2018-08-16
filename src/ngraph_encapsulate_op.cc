@@ -207,13 +207,16 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* current_src_ptr = (void*)tf::DMAHelper::base(&ctx->input(i));
       std::shared_ptr<ng::runtime::TensorView> current_tv;
 
-      if (current_src_ptr == last_src_ptr) {
+      // We need to check last_tv != nullptr, since there are cases where at the
+      // first call to the ng_function, both the current_src_ptr (when the input
+      // is a 0-sized tensor) and last_src_ptr (uninitialized at the first call)
+      // are nullptr
+      if (current_src_ptr == last_src_ptr && last_tv != nullptr) {
         // Mark each tensor as non-stale if:
         //   1. the freshness tracker says the tensor has not changed since
         //      the last time ng_function was called, and
         //   2. we are using the same tensor in this argument position as
         //      the one we used last time ng_function was called.
-        // ng_function had been called, so last_tv != nullptr
         if (m_freshness_tracker->IsFresh(current_src_ptr, ng_function)) {
           last_tv->set_stale(false);
         } else {
@@ -272,7 +275,11 @@ class NGraphEncapsulateOp : public tf::OpKernel {
       void* current_dst_ptr = tf::DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::TensorView> current_tv;
 
-      if (current_dst_ptr == last_dst_ptr) {
+      // We need to check last_tv != nullptr, since there are cases where at the
+      // first call to the ng_function, both the current_dst_ptr (when the
+      // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
+      // first call) are nullptr
+      if (current_dst_ptr == last_dst_ptr && last_tv != nullptr) {
         current_tv = last_tv;
       } else {
         current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
