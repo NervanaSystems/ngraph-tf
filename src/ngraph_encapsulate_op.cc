@@ -239,12 +239,12 @@ class NGraphEncapsulateOp : public tf::OpKernel {
     vector<shared_ptr<ng::runtime::TensorView>> ng_outputs;
 
     for (auto i = 0; i < ng_function->get_output_size(); i++) {
-      auto shape = ng_function->get_output_shape(i);
-      auto elem_type = ng_function->get_output_element_type(i);
+      auto ng_shape = ng_function->get_output_shape(i);
+      auto ng_element_type = ng_function->get_output_element_type(i);
 
       // Create the TF output tensor
       vector<tf::int64> dims;
-      for (auto dim : shape) {
+      for (auto dim : ng_shape) {
         dims.push_back(dim);
       }
       tf::TensorShape tf_shape(dims);
@@ -258,13 +258,14 @@ class NGraphEncapsulateOp : public tf::OpKernel {
           ctx, TFDataTypeToNGraphElementType(ctx->expected_output_dtype(i),
                                              &expected_elem_type));
       OP_REQUIRES(
-          ctx, elem_type == expected_elem_type,
+          ctx, ng_element_type == expected_elem_type,
           tf::errors::Internal("Element type inferred by nGraph does not match "
                                "the element type expected by TensorFlow"));
 
       // Create the nGraph output tensor
       void* dst_ptr = tf::DMAHelper::base(output_tensor);
-      auto t_result = m_ng_backend->create_tensor(elem_type, shape, dst_ptr);
+      auto t_result =
+          m_ng_backend->create_tensor(ng_element_type, ng_shape, dst_ptr);
 
       ng_outputs.push_back(t_result);
     }
