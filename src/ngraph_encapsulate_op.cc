@@ -209,12 +209,9 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       if (m_ng_backend_name == "CPU") {
         // We need to check last_tv != nullptr, since there are cases where at
-        // the
-        // first call to the ng_function, both the current_src_ptr (when the
-        // input
-        // is a 0-sized tensor) and last_src_ptr (uninitialized at the first
-        // call)
-        // are nullptr
+        // the first call to the ng_function, both the current_src_ptr (when the
+        // input is a 0-sized tensor) and last_src_ptr (uninitialized at the
+        // first call) are nullptr
         if (current_src_ptr == last_src_ptr && last_tv != nullptr) {
           // Mark each tensor as non-stale if:
           //   1. the freshness tracker says the tensor has not changed since
@@ -290,8 +287,7 @@ class NGraphEncapsulateOp : public tf::OpKernel {
 
       if (m_ng_backend_name == "CPU") {
         // We need to check last_tv != nullptr, since there are cases where at
-        // the
-        // first call to the ng_function, both the current_dst_ptr (when the
+        // the first call to the ng_function, both the current_dst_ptr (when the
         // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
         // first call) are nullptr
         if (current_dst_ptr == last_dst_ptr && last_tv != nullptr) {
