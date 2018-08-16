@@ -224,7 +224,6 @@ class NGraphEncapsulateOp : public tf::OpKernel {
         current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
                                                  current_src_ptr);
         current_tv->set_stale(true);
-        current_src_ptr = last_src_ptr;
       }
 
       input_caches[i] = std::make_pair(current_src_ptr, current_tv);
