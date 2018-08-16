@@ -42,9 +42,9 @@ namespace ngraph_bridge {
 // where the starred input is static, we want to make sure that Node2 and Node3
 // are not accidentally coalesced by a chain of events like the following:
 //
-// Node1-->Node3 coalesced
-// Node1-->Node2 coalesced   **actually invalid, because Node1 is now in same
-//                             cluster as Node3, and we can't contract 2 & 3.
+// Node1-->Node2 coalesced
+// Node1-->Node3 coalesced   **actually invalid, because Node1 is now in same
+//                             cluster as Node2, and we can't contract 2 & 3.
 TEST(assign_clusters, cone) {
   Graph g(OpRegistry::Global());
 
