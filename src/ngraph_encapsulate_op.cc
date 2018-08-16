@@ -39,6 +39,7 @@ o * Copyright 2017-2018 Intel Corporation
 namespace tf = tensorflow;
 namespace ngb = ngraph_bridge;
 
+// For each I/O tensor, cache TF's data ptr and nGraph's TensorView
 using NgFunctionIOCache = std::unordered_map<
     std::shared_ptr<ngraph::Function>,
     std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
