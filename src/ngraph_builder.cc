@@ -485,8 +485,9 @@ static Status TranslateAvgPoolOp(const Node* op, const std::vector<const Tensor*
   return Status::OK();
 }
 
-static Status TranslateAvgPoolGradOp(const Node* op, const std::vector<const Tensor*>& static_input_map, 
-                                         Builder::OpMap& ng_op_map) {
+static Status TranslateAvgPoolGradOp(const Node* op,
+                                     const std::vector<const Tensor*>& static_input_map, 
+                                     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_grad;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_grad));
 
@@ -764,8 +765,9 @@ static Status TranslateBiasAddGradOp(const Node* op, const std::vector<const Ten
   return Status::OK();
 }
 
-static Status TranslateCastOp(const Node* op, const std::vector<const Tensor*>& static_input_map,
-                                  Builder::OpMap& ng_op_map) {
+static Status TranslateCastOp(const Node* op,
+                              const std::vector<const Tensor*>& static_input_map,
+                              Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -1537,7 +1539,7 @@ static Status TranslateMaxPoolOp(const Node* op, const std::vector<const Tensor*
 }
 
 static Status TranslateMaxPoolGradOp(const Node* op,
-                                     const std::vector<const Tensor*>& static_input_map, 
+                                     const std::vector<const Tensor*>& static_input_map,
                                      Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_grad;
   TF_RETURN_IF_ERROR(
@@ -2503,7 +2505,6 @@ static Status TranslateTransposeOp(const Node* op,
 static Status TranslateUnpackOp(const Node* op,
                                 const std::vector<const Tensor*>& static_input_map,
                                 Builder::OpMap& ng_op_map) {
-
   TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
   shared_ptr<ng::Node> ng_input;
@@ -2526,13 +2527,13 @@ static Status TranslateUnpackOp(const Node* op,
   ng::Shape output_shape;
   for (size_t i = 0; i < input_rank; ++i) {
     if (i != unpack_axis) {
-      output_shape.push_back( input_shape[i] );
+      output_shape.push_back(input_shape[i]);
     }
   }
 
   ng::AxisVector ng_axis_order;
   for (size_t i = 0; i < input_rank; i++) {
-      ng_axis_order.push_back(i);
+    ng_axis_order.push_back(i);
   }
 
   std::vector<size_t> lower_bound(input_rank, 0);
@@ -2542,18 +2543,17 @@ static Status TranslateUnpackOp(const Node* op,
     upper_bound[i] = input_shape[i];
   }
 
-  for (int i = 0;i < num_outputs; ++i) {
+  for (int i = 0; i < num_outputs; ++i) {
     lower_bound[unpack_axis] = i;
     upper_bound[unpack_axis] = i + 1;
     auto slice =
         make_shared<ngraph::op::Slice>(ng_input, lower_bound, upper_bound);
     auto reshaped =
-           make_shared<ng::op::Reshape>(slice, ng_axis_order, output_shape);
-           SaveNgOp(ng_op_map, op->name(), reshaped);  
+        make_shared<ng::op::Reshape>(slice, ng_axis_order, output_shape);
+    SaveNgOp(ng_op_map, op->name(), reshaped);
   }
   return Status::OK();
 }
-
 
 const static std::map<
     const string, const function<Status(const Node*, const std::vector<const Tensor*>&, Builder::OpMap&)>>
