@@ -215,6 +215,10 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
       type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["T"] =
+            NGraphNumericDTypes();
+        type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["Tlabels"] =
+            NGraphNumericDTypes();
       type_constraint_map["Split"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["Tlen"] = NGraphIndexDTypes();
@@ -248,6 +252,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["BiasAddGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Cast"] = SimpleConfirmationFunction();
       confirmation_functions["ConcatV2"] = SimpleConfirmationFunction({-1});
+      confirmation_functions["Const"] = SimpleConfirmationFunction();
       confirmation_functions["Conv2D"] = SimpleConfirmationFunction();
       confirmation_functions["Conv2DBackpropFilter"] = SimpleConfirmationFunction({1});
       confirmation_functions["Conv2DBackpropInput"] = SimpleConfirmationFunction({0});
@@ -294,6 +299,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Slice"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
+      confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] = SimpleConfirmationFunction();
       confirmation_functions["Split"] = SimpleConfirmationFunction({0});
       confirmation_functions["SplitV"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["Square"] = SimpleConfirmationFunction();
