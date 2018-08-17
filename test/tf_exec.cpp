@@ -113,11 +113,9 @@ TEST(tf_exec, axpy) {
 
 void AssertTensorEquals(Tensor& T1, Tensor& T2) {
   auto T_size = T1.flat<float>().size();
-  auto T1_data = T1.flat<float>().data();
-  auto T2_data = T2.flat<float>().data();
   for (int k = 0; k < T_size; k++) {
-    auto a = T1_data[k];
-    auto b = T2_data[k];
+    auto a = T1.flat<float>().data()[k];
+    auto b = T2.flat<float>().data()[k];
     EXPECT_FLOAT_EQ(a, b);
   }
 }

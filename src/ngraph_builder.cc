@@ -306,7 +306,8 @@ static Status TranslateBinaryOp(const Node* op, Builder::OpMap& ng_op_map) {
   });
 }
 
-static Status TranslateAddNOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateAddNOp(const Node* op,
+                              Builder::OpMap& ng_op_map) {
   std::vector<shared_ptr<ng::Node>> ng_arg_vec(op->num_inputs());
 
   for (int inp_idx = 0; inp_idx < op->num_inputs(); inp_idx++)
@@ -660,7 +661,8 @@ static Status TranslateBiasAddGradOp(const Node* op,
   return Status::OK();
 }
 
-static Status TranslateCastOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateCastOp(const Node* op,
+                              Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -1312,7 +1314,8 @@ static Status TranslateIdentityOp(const Node* op, Builder::OpMap& ng_op_map) {
   return Status::OK();
 }
 
-static Status TranslateL2LossOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateL2LossOp(const Node* op,
+                                Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -1335,7 +1338,8 @@ static Status TranslateL2LossOp(const Node* op, Builder::OpMap& ng_op_map) {
   return Status::OK();
 }
 
-static Status TranslateMatMulOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateMatMulOp(const Node* op,
+                                Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_lhs, ng_rhs;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
 
@@ -1474,7 +1478,8 @@ static Status TranslateMaxPoolGradOp(const Node* op,
   return Status::OK();
 }
 
-static Status TranslateMeanOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateMeanOp(const Node* op,
+                              Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_axes_op;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
 
@@ -1972,7 +1977,8 @@ static Status TranslateSparseSoftmaxCrossEntropyWithLogitsOp(
   return Status::OK();
 }
 
-static Status TranslateSplitOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateSplitOp(const Node* op,
+                               Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_input));
 
@@ -2328,7 +2334,8 @@ static Status TranslateTransposeOp(const Node* op, Builder::OpMap& ng_op_map) {
   return Status::OK();
 }
 
-static Status TranslateUnpackOp(const Node* op, Builder::OpMap& ng_op_map) {
+static Status TranslateUnpackOp(const Node* op,
+                                Builder::OpMap& ng_op_map) {
   TF_RETURN_IF_ERROR(ValidateInputCount(op, 1));
 
   shared_ptr<ng::Node> ng_input;
@@ -2379,8 +2386,8 @@ static Status TranslateUnpackOp(const Node* op, Builder::OpMap& ng_op_map) {
   return Status::OK();
 }
 
-const static std::map<const string,
-                      const function<Status(const Node*, Builder::OpMap&)>>
+const static std::map<
+    const string, const function<Status(const Node*, Builder::OpMap&)>>
     TRANSLATE_OP_MAP{
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
@@ -2458,11 +2465,6 @@ const static std::map<const string,
         {"Tile", TranslateTileOp},
         {"Transpose", TranslateTransposeOp},
         {"Unpack", TranslateUnpackOp}};
-/*
-static Status TranslateConstOp(const Node* op, Builder::OpMap&
-ng_op_map) {
-  {"Const", TranslateConstOp},
-*/
 
 Status Builder::TranslateGraph(const std::vector<TensorShape>& inputs,
                                const Graph* input_graph,

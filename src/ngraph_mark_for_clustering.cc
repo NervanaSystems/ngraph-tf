@@ -224,10 +224,10 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Reshape"]["T"] = NGraphDTypes();
       type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
       type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
+      type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
-      type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
       type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
       type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["T"] =
