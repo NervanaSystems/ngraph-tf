@@ -71,6 +71,6 @@ class ImagenetResnetModel(model_lib.Model):
       tf.logging.fatal('Please include tensorflow/models to the PYTHONPATH.')
       raise
     model_class = ImagenetModel(resnet_size=self.resnet_size,
-                                version=self.version)
+                                resnet_version=self.version)
     logits = model_class(images, phase_train)
     return logits, None
