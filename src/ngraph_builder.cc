@@ -2584,7 +2584,7 @@ const static std::map<
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
-        {"Identity", TranslateIdentityOp},//
+        {"Identity", TranslateIdentityOp},
         {"L2Loss", TranslateL2LossOp},
         {"Less", TranslateBinaryOp<ngraph::op::Less>},
         {"LessEqual", TranslateBinaryOp<ngraph::op::LessEq>},
