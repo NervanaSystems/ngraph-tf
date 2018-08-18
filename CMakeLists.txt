@@ -100,10 +100,12 @@ endif()
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.5.0
-    CMAKE_ARGS -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
-               -DNGRAPH_USE_PREBUILT_LLVM=${NGRAPH_USE_PREBUILT_LLVM} 
-               -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    GIT_TAG 9a9fdd9e9f4a3498bca5f5aa181a804e048ec21a
+    CMAKE_ARGS 
+        -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
+        -DNGRAPH_DEX_ONLY=TRUE         
+        -DNGRAPH_USE_PREBUILT_LLVM=${NGRAPH_USE_PREBUILT_LLVM} 
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
     STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
@@ -130,5 +132,5 @@ set_target_properties(
 add_subdirectory(logging)
 add_subdirectory(src)
 add_subdirectory(third-party)
-add_subdirectory(test)
-add_subdirectory(tools)
+#add_subdirectory(test)
+#add_subdirectory(tools)
