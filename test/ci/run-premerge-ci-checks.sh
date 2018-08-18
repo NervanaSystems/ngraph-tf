@@ -30,10 +30,13 @@ if [ -z ${NGRAPH_TRAINED_MODEL+x} ]; then
     NGRAPH_TRAINED_MODEL='/nfs/fm/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/resnet50'
 fi
 
+
 #===============================================================================
 # Run the test...
 #===============================================================================
+echo "--------------------------------------------------------------------------"
 echo "Running TensorFlow unit tests"
+echo "--------------------------------------------------------------------------"
 ./gtest_ngtf --gtest_filter="-tf_exec.Op_*:tf_exec.BiasAddGrad:tf_exec.FusedBatchNormGrad_NHWC:tf_exec.Tile"
 
 ####### Disabled tests for now #######
@@ -45,7 +48,15 @@ echo "Running TensorFlow unit tests"
 #popd
 ####### Disabled tests for now #######
 
+echo "--------------------------------------------------------------------------"
+echo "Running test for installation of the ngraph module"
+echo "--------------------------------------------------------------------------"
+python ../../test/install_test.py
+
+echo "--------------------------------------------------------------------------"
 echo "Running a quick inference test"
+echo "--------------------------------------------------------------------------"
+
 pushd ../../examples/resnet
 python tf_cnn_benchmarks.py --model=resnet50 --eval --num_inter_threads=1 \
   --batch_size=16 --num_batches=50 \
