@@ -173,16 +173,18 @@ def train_mnist_cnn(FLAGS):
         train_writer.add_graph(tf.get_default_graph())
         
         train_loops = FLAGS.train_loop_count
+        num_test_images=FLAGS.test_image_count
+        print("train_loops = ", train_loops)
         hooks = [ 
             # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
             # from rank 0 to all other processes. This is necessary to ensure consistent 
             # initialization of all workers when training is started with random weights 
             # or restored from a checkpoint.  
             hvd.BroadcastGlobalVariablesHook(0), 
-            # Horovod: adjust number of steps based on number of GPUs.
-            tf.train.StopAtStepHook(train_loops // hvd.size()) 
+            # Horovod: adjust number of steps based on number of ranks.
+            #tf.train.StopAtStepHook(train_loops // hvd.size()) 
+            tf.train.StopAtStepHook(train_loops) 
         ]
-
         # Enable soft placement and tracing as needed   
         config = tf.ConfigProto(
             allow_soft_placement=True,
@@ -218,16 +220,14 @@ def train_mnist_cnn(FLAGS):
               print('step %d, loss %g, %g sec for training step' % (step, loss, time.time() - t ))
               train_writer.add_summary(summary, step)
 
-              if step==(train_loops//hvd.size() -1) and mpi.rank()==0:
-                num_test_images=FLAGS.test_image_count
+              if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
                 x_test=mnist.test.images[:num_test_images]
                 y_test=mnist.test.labels[:num_test_images]
-                print('test accuracy: ',  sess.run(test, feed_dict={
+                print('test accuracy: ',  sess.run(accuracy, feed_dict={
                                            x: x_test,
-                                           y_: y_test,
-                                           keep_prob: 1.0}
+                                           y_: y_test}
                                            )) 
-                test_accuracy.append(test) 
+                test_accuracy.append(accuracy) 
 
             print( "Training finished. Running test")
 
