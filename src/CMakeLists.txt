@@ -46,8 +46,8 @@ set(SRC
 add_library(${LIB_NAME} SHARED ${SRC})
 
 target_link_libraries( ${LIB_NAME} ngraph_logger) 
-target_link_libraries( ${LIB_NAME} tensorflow_framework_lib ngraph_lib )
-#target_link_libraries( ${LIB_NAME} ngraph_lib )
+target_link_libraries( ${LIB_NAME} tensorflow_framework_lib )
+target_link_libraries( ${LIB_NAME} ngraph_lib )
 
 target_compile_definitions( 
     ${LIB_NAME} PRIVATE
