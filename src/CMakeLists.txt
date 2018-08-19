@@ -23,20 +23,6 @@ set(NGRAPH_DEVICE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 # (There must be some dependency on it in the struct/class definitions.)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 
-if(APPLE)
-    set(LIBNGRAPH_SO "libngraph.dylib")
-else()
-    set(LIBNGRAPH_SO "libngraph.so")
-endif(APPLE)
-
-add_library(ngraph_lib SHARED IMPORTED)
-set_target_properties( 
-    ngraph_lib 
-    PROPERTIES IMPORTED_LOCATION 
-    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
-)
-add_dependencies(ngraph_lib ext_ngraph)
-
 #-----------------------------------------------------------------------------------------------
 # Compiler-specific logic...
 #-----------------------------------------------------------------------------------------------
@@ -60,8 +46,8 @@ set(SRC
 add_library(${LIB_NAME} SHARED ${SRC})
 
 target_link_libraries( ${LIB_NAME} ngraph_logger) 
-target_link_libraries( ${LIB_NAME} tensorflow_framework_lib )
-target_link_libraries( ${LIB_NAME} ngraph_lib )
+target_link_libraries( ${LIB_NAME} tensorflow_framework_lib ngraph_lib )
+#target_link_libraries( ${LIB_NAME} ngraph_lib )
 
 target_compile_definitions( 
     ${LIB_NAME} PRIVATE
