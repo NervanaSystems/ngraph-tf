@@ -654,18 +654,21 @@ if __name__ == '__main__':
 
     data_format_dict = {'NCHW' : 'channels_first', 'NHWC': 'channels_last'}
 
+    #Input Placeholders
     inputs =tf.placeholder(dtype=tf.float32, shape=[None,224,224,3])
 
     labels_placeholder = tf.placeholder(dtype=tf.int32, shape=[None])
 
+    #Create Model
     resnet_model = ImagenetModel(resnet_size, data_format_dict[data_format], resnet_version=resnet_version,
                               dtype=tf.float32)
 
-
+    #Define Optimizer
     optimizer = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.9)
 
 
     with tf.variable_scope('resnet', reuse=tf.AUTO_REUSE):
+        #Model on nGraph
         with tf.device('/job:localhost/replica:0/task:0/device:'+'NGRAPH'+':0'):
             tf.set_random_seed(0)
             init=tf.global_variables_initializer()
@@ -673,7 +676,7 @@ if __name__ == '__main__':
             if phase_training:
                 _, train_op_1 = generate_gradients(logits_1, labels_placeholder)
 
-
+        #Model on CPU
         with tf.device('/job:localhost/replica:0/task:0/device:'+'CPU'+':0'):
             tf.set_random_seed(0)
             init = tf.global_variables_initializer()
@@ -681,34 +684,34 @@ if __name__ == '__main__':
             if phase_training:
                 _, train_op_2 = generate_gradients(logits_2, labels_placeholder)
 
-
+    #Create random images and labels
     images = np.random.rand(batch_size, 224,224, 3)
 
     labels = np.random.randint(0, _NUM_CLASSES, size=(batch_size,))
 
     ##Run Session on nGraph
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess1:
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess_1:
         print ("Running on nGraph")
 
-        sess1.run(init)
+        sess_1.run(init)
         if phase_training:
             for i in range (num_iters):
-                logits_ngraph, _ = sess1.run([logits_1,train_op_1], {inputs:images, labels_placeholder:labels})
+                logits_ngraph, _ = sess_1.run([logits_1,train_op_1], {inputs:images, labels_placeholder:labels})
         else:
-            logits_ngraph = sess1.run(logits_1, {inputs:images})
+            logits_ngraph = sess_1.run(logits_1, {inputs:images})
 
-    ##Run Session on nGraph
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess2:
+    ##Run Session on CPU
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess_2:
 
         print ("Running on CPU")
-        sess2.run(init)
+        sess_2.run(init)
         if phase_training:
             for i in range (num_iters):
-                logits_cpu, _ = sess2.run([logits_2,train_op_2], {inputs:images, labels_placeholder:labels})
+                logits_cpu, _ = sess_2.run([logits_2,train_op_2], {inputs:images, labels_placeholder:labels})
         else:
-            logits_cpu = sess2.run(logits_2, {inputs:images})
+            logits_cpu = sess_2.run(logits_2, {inputs:images})
 
-
+    #Compare Logits
     compared = np.linalg.norm(logits_ngraph - logits_cpu)
 
     if compared < 0.01:
