@@ -404,7 +404,7 @@ static Status TranslateBinaryOp(const Node* op,
                                 const std::vector<const Tensor*>& static_input_map, 
                                 Builder::OpMap& ng_op_map) {
   return TranslateBinaryOp(op, static_input_map, ng_op_map, [](std::shared_ptr<ng::Node> ng_lhs,
-                                             std::shared_ptr<ng::Node> ng_rhs) {
+                                                               std::shared_ptr<ng::Node> ng_rhs) {
     return make_shared<T>(ng_lhs, ng_rhs);
   });
 }
@@ -501,8 +501,7 @@ static Status TranslateAvgPoolGradOp(const Node* op,
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-  TF_RETURN_IF_ERROR(
-      GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
 
   if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
     return errors::InvalidArgument(
@@ -562,8 +561,9 @@ static Status TranslateAvgPoolGradOp(const Node* op,
   return Status::OK();
 }
 
-static Status TranslateBatchMatMulOp(const Node* op, const std::vector<const Tensor*>& static_input_map,
-                                         Builder::OpMap& ng_op_map) {
+static Status TranslateBatchMatMulOp(const Node* op,
+                                     const std::vector<const Tensor*>& static_input_map,
+                                     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_lhs, ng_rhs;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
 
@@ -717,8 +717,9 @@ static Status TranslateBiasAddOp(const Node* op, const std::vector<const Tensor*
   return Status::OK();
 }
 
-static Status TranslateBiasAddGradOp(const Node* op, const std::vector<const Tensor*>& static_input_map,
-                                         Builder::OpMap& ng_op_map) {
+static Status TranslateBiasAddGradOp(const Node* op,
+                                     const std::vector<const Tensor*>& static_input_map,
+                                     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -918,12 +919,11 @@ static Status TranslateConv2DBackpropFilterOp(const Node* op,
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
-  TF_RETURN_IF_ERROR(
-      GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
 
   if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
     return errors::InvalidArgument("Data format is neither NHWC nor NCHW: ",
-                                       op->type_string());
+                                   op->type_string());
   }
 
   NGRAPH_VLOG(3) << "tf data format" << tf_data_format;
@@ -949,8 +949,8 @@ static Status TranslateConv2DBackpropFilterOp(const Node* op,
 
   if (std::any_of(tf_filter_sizes.begin(), tf_filter_sizes.end(),
                   [](int32 size) { return size <= 0; })) {
-    return errors::InvalidArgument(
-        "Filter sizes must be positive integers :", op->type_string());
+    return errors::InvalidArgument("Filter sizes must be positive integers :",
+                                   op->type_string());
   }
 
   NGRAPH_VLOG(3) << "tf filter size" << ng::join(tf_filter_sizes);
@@ -1552,8 +1552,7 @@ static Status TranslateMaxPoolGradOp(const Node* op,
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-  TF_RETURN_IF_ERROR(
-      GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
   if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
     return errors::InvalidArgument(
         "MaxPoolGrad data format is neither NHWC nor NCHW");
@@ -2059,9 +2058,9 @@ static Status TranslateSparseSoftmaxCrossEntropyWithLogitsOp(
 
   // Labels must be 1-d shape
   if (ng_labels_shape.size() != 1) {
-    return errors::InvalidArgument(
-        " Labels must be shape 1-D, but got shape ", ng::join(ng_labels_shape),
-        " while building op ", op->type_string());
+    return errors::InvalidArgument(" Labels must be shape 1-D, but got shape ",
+                                   ng::join(ng_labels_shape),
+                                   " while building op ", op->type_string());
   }
 
   // Logits/Featues and Labels must have the same first dimension
