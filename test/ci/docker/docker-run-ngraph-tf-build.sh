@@ -34,16 +34,27 @@ if [ ! -d "${tf_dir}" ] ; then
     exit 1
 fi
 
+# Set defaults
+
 if [ -z "${NG_TF_PY_VERSION}" ] ; then
     NG_TF_PY_VERSION='2'  # Default is Python 2
 fi
 
-# Set defaults
-
 # Note that the docker image must have been previously built using the
 # make-docker-ngraph-tf-ci.sh script (in the same directory as this script).
 #
-IMAGE_CLASS='ngraph_tf_ci'
+case "${NG_TF_PY_VERSION}" in
+    2)
+        IMAGE_CLASS='ngraph_tf_ci_py2'
+        ;;
+    3)
+        IMAGE_CLASS='ngraph_tf_ci_py3'
+        ;;
+    *)
+        echo 'NG_TF_PY_VERSION must be set to "2", "3", or left unset (default is "2")'
+        exit 1
+        ;;
+esac
 IMAGE_ID="${1}"
 if [ -z "${IMAGE_ID}" ] ; then
     echo 'Please provide an image version as the first parameter'
