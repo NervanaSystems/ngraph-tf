@@ -66,13 +66,12 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
 // tags the input indices given in static_input_indices as static. A negative
 // value in static_input_indices indicates that the input index is counted from
 // the right.
-static ConfirmationFunction SimpleConfirmationFunction(const std::vector<int32>& static_input_indices = {}) {
+static ConfirmationFunction SimpleConfirmationFunction(
+    const std::vector<int32>& static_input_indices = {}) {
   auto cf = [static_input_indices](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
-    std::transform(indices.begin(),
-                   indices.end(),
-                   indices.begin(),
+    std::transform(indices.begin(), indices.end(), indices.begin(),
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
 
     SetStaticInputs(n, indices);
@@ -254,9 +253,12 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["ConcatV2"] = SimpleConfirmationFunction({-1});
       confirmation_functions["Const"] = SimpleConfirmationFunction();
       confirmation_functions["Conv2D"] = SimpleConfirmationFunction();
-      confirmation_functions["Conv2DBackpropFilter"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Conv2DBackpropInput"] = SimpleConfirmationFunction({0});
-      confirmation_functions["DepthwiseConv2dNative"] = SimpleConfirmationFunction();
+      confirmation_functions["Conv2DBackpropFilter"] =
+          SimpleConfirmationFunction({1});
+      confirmation_functions["Conv2DBackpropInput"] =
+          SimpleConfirmationFunction({0});
+      confirmation_functions["DepthwiseConv2dNative"] =
+          SimpleConfirmationFunction();
       confirmation_functions["Equal"] = SimpleConfirmationFunction();
       confirmation_functions["Exp"] = SimpleConfirmationFunction();
       confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
@@ -265,7 +267,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["FloorDiv"] = SimpleConfirmationFunction();
       confirmation_functions["FloorMod"] = SimpleConfirmationFunction();
       confirmation_functions["FusedBatchNorm"] = SimpleConfirmationFunction();
-      confirmation_functions["FusedBatchNormGrad"] = SimpleConfirmationFunction();
+      confirmation_functions["FusedBatchNormGrad"] =
+          SimpleConfirmationFunction();
       confirmation_functions["Greater"] = SimpleConfirmationFunction();
       confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
       confirmation_functions["Identity"] = SimpleConfirmationFunction();
@@ -296,14 +299,16 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Rsqrt"] = SimpleConfirmationFunction();
       confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
       confirmation_functions["Sign"] = SimpleConfirmationFunction();
-      confirmation_functions["Slice"] = SimpleConfirmationFunction({1,2});
+      confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
-      confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] = SimpleConfirmationFunction();
+      confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] =
+          SimpleConfirmationFunction();
       confirmation_functions["Split"] = SimpleConfirmationFunction({0});
-      confirmation_functions["SplitV"] = SimpleConfirmationFunction({1,2});
+      confirmation_functions["SplitV"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Square"] = SimpleConfirmationFunction();
-      confirmation_functions["SquaredDifference"] = SimpleConfirmationFunction();
+      confirmation_functions["SquaredDifference"] =
+          SimpleConfirmationFunction();
       confirmation_functions["Squeeze"] = SimpleConfirmationFunction();
       confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
         // Reject if "new_axis_mask" is set.
@@ -315,7 +320,7 @@ Status MarkForClustering(Graph* graph) {
           return Status::OK();
         }
 
-        return SimpleConfirmationFunction({1,2,3})(n,result);
+        return SimpleConfirmationFunction({1, 2, 3})(n, result);
       };
       confirmation_functions["Pack"] = SimpleConfirmationFunction();
       confirmation_functions["Sub"] = SimpleConfirmationFunction();
@@ -386,14 +391,15 @@ bool NodeIsMarkedForClustering(const Node* node) {
 }
 
 void GetStaticInputs(const Node* node, std::vector<int32>* inputs) {
-  if (GetNodeAttr(node->attrs(), "_ngraph_static_inputs", inputs) != Status::OK()) {
+  if (GetNodeAttr(node->attrs(), "_ngraph_static_inputs", inputs) !=
+      Status::OK()) {
     *inputs = std::vector<int32>{};
   }
 }
 
 bool InputIsStatic(const Node* node, int index) {
   std::vector<int32> inputs;
-  GetStaticInputs(node,&inputs);
+  GetStaticInputs(node, &inputs);
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
 }
 

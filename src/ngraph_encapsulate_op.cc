@@ -90,17 +90,17 @@ class NGraphEncapsulateOp : public OpKernel {
         arg_nodes.push_back(node);
 
         int32 index;
-        OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(),"index",&index));
+        OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
         if (index > max_arg_index) max_arg_index = index;
       }
     }
 
-    m_input_is_static = std::vector<bool>(max_arg_index+1,false);
+    m_input_is_static = std::vector<bool>(max_arg_index + 1, false);
 
     // Fill the vector.
     for (auto node : arg_nodes) {
       int32 index;
-      OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(),"index",&index));
+      OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
 
       bool is_static = false;
       for (auto edge : node->out_edges()) {
@@ -108,7 +108,8 @@ class NGraphEncapsulateOp : public OpKernel {
           continue;
         }
 
-        NGRAPH_VLOG(5) << "For arg " << index << " checking edge " << edge->DebugString();
+        NGRAPH_VLOG(5) << "For arg " << index << " checking edge "
+                       << edge->DebugString();
 
         if (InputIsStatic(edge->dst(), edge->dst_input())) {
           NGRAPH_VLOG(5) << "Marking edge static: " << edge->DebugString();
@@ -159,8 +160,9 @@ class NGraphEncapsulateOp : public OpKernel {
     }
   }
 
-  template<typename T>
-  static void TensorDataToStream(std::ostream& ostream, int64 n_elements, const char* data) {
+  template <typename T>
+  static void TensorDataToStream(std::ostream& ostream, int64 n_elements,
+                                 const char* data) {
     const T* data_T = reinterpret_cast<const T*>(data);
     for (size_t i = 0; i < n_elements; i++) {
       ostream << data_T[i] << ",";
@@ -170,7 +172,7 @@ class NGraphEncapsulateOp : public OpKernel {
   static Status TensorToStream(std::ostream& ostream, const Tensor& tensor) {
     const char* data = tensor.tensor_data().data();
     int64 n_elements = tensor.NumElements();
-    switch(tensor.dtype()) {
+    switch (tensor.dtype()) {
       case DT_HALF:
         TensorDataToStream<Eigen::half>(ostream, n_elements, data);
         break;
@@ -212,7 +214,8 @@ class NGraphEncapsulateOp : public OpKernel {
         TensorDataToStream<bool>(ostream, n_elements, data);
         break;
       default:
-        return errors::Internal("TensorToStream got unsupported data type ", DataType_Name(tensor.dtype()));
+        return errors::Internal("TensorToStream got unsupported data type ",
+                                DataType_Name(tensor.dtype()));
         break;
     }
     return Status::OK();
@@ -265,7 +268,8 @@ class NGraphEncapsulateOp : public OpKernel {
     if (it == m_ng_functions.end()) {
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
       OP_REQUIRES_OK(
-          ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph, ng_function));
+          ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
+                                       ng_function));
 
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
