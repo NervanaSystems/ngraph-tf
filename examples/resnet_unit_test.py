@@ -374,6 +374,16 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
   return tf.identity(inputs, name)
 
 
+def generate_gradients(logits,labels):
+    cross_entropy = tf.losses.sparse_softmax_cross_entropy(
+                            logits=logits_1, labels=labels_placeholder)
+    grad_vars = optimizer.compute_gradients(cross_entropy)
+    minimize_op = optimizer.apply_gradients(grad_vars)
+
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    train_op = tf.group(minimize_op, update_ops)
+    return cross_entropy, train_op
+
 class Model(object):
   """Base class for building the Resnet Model."""
 
@@ -624,8 +634,12 @@ if __name__ == '__main__':
     parser.add_argument('--resnet_version', default=1, type=int,
                     help='enter the resnet version [1 or 2]')
 
-    parser.add_argument('--phase_training', default=False, type=bool,
+    parser.add_argument('--num_iters', default=2, type=int,
+                    help='enter the num iterations')
+
+    parser.add_argument('--phase_training', default='False', type=str,
                     help='enter the training or inference phase')
+
 
     parser.set_defaults()
     args = parser.parse_args()
@@ -634,47 +648,68 @@ if __name__ == '__main__':
     resnet_size = args.resnet_size
     data_format = args.data_format
     resnet_version =  args.resnet_version
-    phase_training = args.phase_training
+    ph_train={'False':False,'True':True}
+    phase_training = ph_train[args.phase_training]
+    num_iters = args.num_iters
+
     data_format_dict = {'NCHW' : 'channels_first', 'NHWC': 'channels_last'}
 
-    if data_format=='NCHW':
-        inputs =tf.placeholder(dtype=tf.float32, shape=[None,3, 224,224])
-    else:
-        inputs =tf.placeholder(dtype=tf.float32, shape=[None,224,224,3])
+    inputs =tf.placeholder(dtype=tf.float32, shape=[None,224,224,3])
 
+    labels_placeholder = tf.placeholder(dtype=tf.int32, shape=[None])
 
     resnet_model = ImagenetModel(resnet_size, data_format_dict[data_format], resnet_version=resnet_version,
                               dtype=tf.float32)
 
+
+    optimizer = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.9)
+
+
     with tf.variable_scope('resnet', reuse=tf.AUTO_REUSE):
         with tf.device('/job:localhost/replica:0/task:0/device:'+'NGRAPH'+':0'):
-
-
+            tf.set_random_seed(0)
+            init=tf.global_variables_initializer()
             logits_1 = resnet_model(inputs, phase_training)
+            if phase_training:
+                _, train_op_1 = generate_gradients(logits_1, labels_placeholder)
 
 
         with tf.device('/job:localhost/replica:0/task:0/device:'+'CPU'+':0'):
-
+            tf.set_random_seed(0)
+            init = tf.global_variables_initializer()
             logits_2 = resnet_model(inputs, phase_training)
+            if phase_training:
+                _, train_op_2 = generate_gradients(logits_2, labels_placeholder)
 
 
+    images = np.random.rand(batch_size, 224,224, 3)
 
-    if data_format=='NCHW':
-        images = np.random.rand(batch_size,3, 224, 224)
-    else:
-        images = np.random.rand(batch_size, 224,224, 3)
+    labels = np.random.randint(0, _NUM_CLASSES, size=(batch_size,))
 
-
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        sess.run(tf.global_variables_initializer())
+    ##Run Session on nGraph
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess1:
         print ("Running on nGraph")
 
-        logits_ngraph = sess.run(logits_1, {inputs:images})
+        sess1.run(init)
+        if phase_training:
+            for i in range (num_iters):
+                logits_ngraph, _ = sess1.run([logits_1,train_op_1], {inputs:images, labels_placeholder:labels})
+        else:
+            logits_ngraph = sess1.run(logits_1, {inputs:images})
+
+    ##Run Session on nGraph
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess2:
 
         print ("Running on CPU")
-        logits_cpu = sess.run(logits_2, {inputs:images})
+        sess2.run(init)
+        if phase_training:
+            for i in range (num_iters):
+                logits_cpu, _ = sess2.run([logits_2,train_op_2], {inputs:images, labels_placeholder:labels})
+        else:
+            logits_cpu = sess2.run(logits_2, {inputs:images})
 
-    compared = abs(np.linalg.norm(logits_ngraph) - np.linalg.norm(logits_cpu))
+
+    compared = np.linalg.norm(logits_ngraph - logits_cpu)
 
     if compared < 0.01:
         print ("PASSED")
