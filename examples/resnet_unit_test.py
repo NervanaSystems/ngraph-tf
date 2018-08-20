@@ -624,6 +624,9 @@ if __name__ == '__main__':
     parser.add_argument('--resnet_version', default=1, type=int,
                     help='enter the resnet version [1 or 2]')
 
+    parser.add_argument('--phase_training', default=False, type=bool,
+                    help='enter the training or inference phase')
+
     parser.set_defaults()
     args = parser.parse_args()
 
@@ -631,7 +634,7 @@ if __name__ == '__main__':
     resnet_size = args.resnet_size
     data_format = args.data_format
     resnet_version =  args.resnet_version
-
+    phase_training = args.phase_training
     data_format_dict = {'NCHW' : 'channels_first', 'NHWC': 'channels_last'}
 
     if data_format=='NCHW':
@@ -647,12 +650,12 @@ if __name__ == '__main__':
         with tf.device('/job:localhost/replica:0/task:0/device:'+'NGRAPH'+':0'):
 
 
-            logits_1 = resnet_model(inputs, False)
+            logits_1 = resnet_model(inputs, phase_training)
 
 
         with tf.device('/job:localhost/replica:0/task:0/device:'+'CPU'+':0'):
 
-            logits_2 = resnet_model(inputs, False)
+            logits_2 = resnet_model(inputs, phase_training)
 
 
 
