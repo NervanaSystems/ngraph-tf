@@ -26,10 +26,16 @@ import tensorflow as tf
 from common import NgraphTest
 
 
+# yes, it works without (tested over 1000 runs) but there's always a chance
+np.random.seed(5)
+
+
 class TestFusedBatchNorm(NgraphTest):
   x = np.random.rand(64, 3, 10, 8).astype('f')
   scale = [1.0, 0.9, 1.1]
   offset = [0.1, 0.2, -.3]
+  mean = [0.4, 0.5, 0.6]
+  variance = [0.1, 0.2, 0.3]
 
   def test_fusedbatchnorm_nchw(self):
     with self.device:
@@ -50,9 +56,9 @@ class TestFusedBatchNorm(NgraphTest):
 
     np.testing.assert_allclose(result[0],
                                np.transpose(expected[0], (0, 3, 1, 2)),
-                               rtol=0.01)
-    np.testing.assert_allclose(result[1], expected[1], rtol=0.01)
-    np.testing.assert_allclose(result[2], expected[2], rtol=0.01)
+                               rtol=0, atol=5e-5)
+    np.testing.assert_allclose(result[1], expected[1], rtol=0, atol=5e-5)
+    np.testing.assert_allclose(result[2], expected[2], rtol=0, atol=5e-5)
 
   def test_fusedbatchnorm_nhwc(self):
     x_t = tf.transpose(self.x, (0, 2, 3, 1))
@@ -71,6 +77,48 @@ class TestFusedBatchNorm(NgraphTest):
       with self.session as sess:
         expected = sess.run(norm)
 
-    np.testing.assert_allclose(result[0], expected[0], rtol=0.01)
-    np.testing.assert_allclose(result[1], expected[1], rtol=0.01)
-    np.testing.assert_allclose(result[2], expected[2], rtol=0.01)
+    np.testing.assert_allclose(result[0], expected[0], rtol=0, atol=5e-5)
+    np.testing.assert_allclose(result[1], expected[1], rtol=0, atol=5e-5)
+    np.testing.assert_allclose(result[2], expected[2], rtol=0, atol=5e-5)
+
+  def test_fusedbatchnorm_inference_nchw(self):
+    with self.device:
+      norm = tf.nn.fused_batch_norm(self.x, self.scale, self.offset, self.mean,
+                                    self.variance, data_format='NCHW',
+                                    is_training=False)
+
+      with self.session as sess:
+        result = sess.run(norm[0])
+
+    with tf.device('/cpu:0'):
+      x_t = tf.transpose(self.x, (0, 2, 3, 1))
+      norm = tf.nn.fused_batch_norm(x_t, self.scale, self.offset, self.mean,
+                                    self.variance, data_format='NHWC',
+                                    is_training=False)
+
+      with self.session as sess:
+        expected = sess.run(norm[0])
+
+    np.testing.assert_allclose(result, np.transpose(expected, (0, 3, 1, 2)),
+                               rtol=0, atol=5e-5)
+
+  def test_fusedbatchnorm_inference_nhwc(self):
+    x_t = tf.transpose(self.x, (0, 2, 3, 1))
+
+    with self.device:
+      norm = tf.nn.fused_batch_norm(x_t, self.scale, self.offset, self.mean,
+                                    self.variance, data_format='NHWC',
+                                    is_training=False)
+
+      with self.session as sess:
+        result = sess.run(norm[0])
+
+    with tf.device('/cpu:0'):
+      norm = tf.nn.fused_batch_norm(x_t, self.scale, self.offset, self.mean,
+                                    self.variance, data_format='NHWC',
+                                    is_training=False)
+
+      with self.session as sess:
+        expected = sess.run(norm[0])
+
+    np.testing.assert_allclose(result, expected, rtol=0, atol=5e-5)
