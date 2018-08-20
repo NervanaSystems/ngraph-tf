@@ -20,6 +20,11 @@
 #
 # $1 ImageID    Required: ID of the ngtf_bridge_ci docker image to use
 # $2 TFdir      Required: tensorflow directory to build
+#
+# Script environment variable parameters:
+#
+# NG_TF_PY_VERSION   Optional: Set python major version ("2" or "3", default=2)
+# NG_TF_TRAINED      Optional: Directory that pretrained models are in
 
 set -e  # Fail on any command with non-zero exit
 
@@ -28,6 +33,12 @@ if [ ! -d "${tf_dir}" ] ; then
     echo 'Please provide the name of the tensorflow directory you want to build, as the 2nd parameter'
     exit 1
 fi
+
+if [ -z "${NG_TF_PY_VERSION}" ] ; then
+    NG_TF_PY_VERSION='2'  # Default is Python 2
+fi
+
+# Set defaults
 
 # Note that the docker image must have been previously built using the
 # make-docker-ngraph-tf-ci.sh script (in the same directory as this script).
@@ -57,6 +68,12 @@ else
   volume_mounts="${volume_mounts} -v ${trained_abspath}:/trained_dataset"
 fi
 
+# Set up optional environment variables
+optional_env=''
+if [ ! -z "${NG_TF_PY_VERSION}" ] ; then
+  optional_env="${optional_env} --env NG_TF_PY_VERSION=${NG_TF_PY_VERSION}"
+fi
+
 set -u  # No unset variables after this point
 
 RUNASUSER_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-as-user.sh"
@@ -81,6 +98,7 @@ fi
 docker run --rm \
        --env RUN_UID="$(id -u)" \
        --env RUN_CMD="${BUILD_SCRIPT}" \
+       ${optional_env} \
        ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
        ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
