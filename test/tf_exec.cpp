@@ -174,7 +174,6 @@ TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   std::vector<Tensor> outputs_z1;
   std::vector<Tensor> outputs_z2;
   std::vector<Tensor> outputs_z;
-  // Run and fetch v
   ClientSession session(dev_scope);
   ASSERT_OK(session.Run({Z1}, &outputs_z1));
   ASSERT_OK(session.Run({Z2}, &outputs_z2));
@@ -711,7 +710,7 @@ TEST(tf_exec, Op_Reciprocal) {
   EXPECT_FLOAT_EQ(1.0, mat(1, 1));
 }
 
-TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
+TEST(tf_exec, Op_SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -732,8 +731,8 @@ TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
   std::vector<Tensor> outputs_ngraph, outputs_cpu;
   ClientSession session(root);
 
-  TF_CHECK_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
-  TF_CHECK_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
+  ASSERT_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
+  ASSERT_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
 
   ValidateTensorData(outputs_ngraph[0], outputs_cpu[0], 1e-6);
   ValidateTensorData(outputs_ngraph[1], outputs_cpu[1], 1e-6);

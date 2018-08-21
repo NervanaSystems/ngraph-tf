@@ -47,6 +47,11 @@ using NgFunctionIOCache = std::unordered_map<
     std::shared_ptr<ngraph::Function>,
     std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
 
+// For each I/O tensor, cache TF's data ptr and nGraph's TensorView
+using NgFunctionIOCache = std::unordered_map<
+    std::shared_ptr<ngraph::Function>,
+    std::vector<std::pair<void*, shared_ptr<ng::runtime::TensorView>>>>;
+
 namespace ngraph_bridge {
 
 REGISTER_OP("NGraphEncapsulate")
