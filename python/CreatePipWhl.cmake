@@ -56,8 +56,8 @@ if (PYTHON)
         # dependency list?
         execute_process(COMMAND 
             install_name_tool -change 
-            libngraph.dylib 
-            @loader_path/libngraph.dylib 
+            libngraph.${NGRAPH_VERSION}.dylib 
+            @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
             ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libngraph_device.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
