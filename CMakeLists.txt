@@ -100,7 +100,7 @@ endif()
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG f6b8b6bec98e76d3284e40968971150febd3f53f #bob/stat2
+    GIT_TAG 97eef6f2240fa1694f34b680457bcec18af4ecae #bob/stat2
     CMAKE_ARGS 
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_UNIT_TEST_ENABLE=FALSE
