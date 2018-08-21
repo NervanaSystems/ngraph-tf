@@ -275,7 +275,7 @@ cd "$HOME/bridge"
 if [ -z "${NG_TF_WHEEL_NGRAPH}" ] ; then
     NGTF_WHEEL="$HOME/bridge/ngraph-0.0.0-py2.py3-none-linux_x86_64.whl"
 else
-    NGTF_WHEEL="$HOME/bridge}/${NG_TF_WHEEL_NGRAPH}"
+    NGTF_WHEEL="$HOME/bridge/${NG_TF_WHEEL_NGRAPH}"
 fi
 
 if [ -z "${NG_TF_WHEEL_TF}" ] ; then
@@ -331,7 +331,7 @@ cd "${HOME}/bridge/test/ci"
 # Install either the tf+ngraph or reference wheels
 case "${NG_TF_RUN_TYPE}" in
     # Run with a tensorflow wheel and ngraph wheel
-    ngraph)
+    ngraph-tf)
         setup_tf_and_ngraph_wheels
         ;;
     # Run with a generic tensorflow with wheel "tensorflow-mkldnn*.whl"
