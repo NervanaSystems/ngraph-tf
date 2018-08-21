@@ -120,23 +120,27 @@ Status DeassignClusters(Graph* graph) {
       std::set<const Node*>& nodes = kv.second;
 
       if (cluster_idx == -1) {
-        NGRAPH_VLOG(2) << "FINAL CLUSTER ASSIGNMENT: NO CLUSTER ("
-                       << nodes.size() << " NODES)";
-        NGRAPH_VLOG(2) << "===================================================="
+        NGRAPH_VLOG(2)
+            << "NGRAPH_CLUSTERS: FINAL CLUSTER ASSIGNMENT: NO CLUSTER ("
+            << nodes.size() << " NODES)";
+        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: "
+                          "===================================================="
                           "===============";
       } else {
-        NGRAPH_VLOG(2) << "FINAL CLUSTER ASSIGNMENT: CLUSTER " << cluster_idx
-                       << " (" << nodes.size() << " NODES)";
-        NGRAPH_VLOG(2) << "===================================================="
+        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: FINAL CLUSTER ASSIGNMENT: CLUSTER "
+                       << cluster_idx << " (" << nodes.size() << " NODES)";
+        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: "
+                          "===================================================="
                           "===============";
       }
 
       for (auto node : nodes) {
-        NGRAPH_VLOG(2) << node->name() << "[" << node->type_string() << "]";
-        NGRAPH_VLOG(3) << node->DebugString();
+        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: " << node->name() << " ["
+                       << node->type_string() << "]";
+        NGRAPH_VLOG(3) << "NGRAPH_CLUSTERS: " << node->DebugString();
       }
 
-      NGRAPH_VLOG(2) << "";
+      NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: ";
     }
   }
 
