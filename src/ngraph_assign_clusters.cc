@@ -128,7 +128,17 @@ Status AssignClusters(Graph* graph) {
   // in the gc data structure between the 2 nodes. The shadow edges go from the
   // node closer to toposort source to the node closer to sink, through a shadow
   // node. src--->S--->dst. (not the other way round, else it would introduce a
-  // cycle). The contraction only happens on 'real' edges (edges that are
+  // cycle).
+  // TF world node (o), gc world node (+), static input *
+  // Normal edge traslation:
+  // (o)---->(o)   ==>  (+)---->(+)
+  // Static input edge translation:
+  // (o)---->*(o)  ==>  (+)---->(+)
+  //                     |       ^
+  //                     |       |
+  //                      --(+)--
+
+  // The contraction only happens on 'real' edges (edges that are
   // present in the TF graph itself). Therefore the shadow edges in the gc
   // data structure will never suffer contraction. Anytime the shadow path's src
   // and dst attempt a merge (by contracting some real edge between them),
@@ -149,10 +159,12 @@ Status AssignClusters(Graph* graph) {
         auto static_edge = edges_to_node[static_inp_idx];
         if (static_edge->src()->type_string() != "Const") {
           int shadow_node_index = gc.NewNode();
-          gc.InsertEdge(cluster_map[static_edge->src()]->index,
-                        shadow_node_index);
-          gc.InsertEdge(shadow_node_index,
-                        cluster_map[static_edge->dst()]->index);
+          bool gc_success = gc.InsertEdge(
+              cluster_map[static_edge->src()]->index, shadow_node_index);
+          gc_success &= gc.InsertEdge(shadow_node_index,
+                                      cluster_map[static_edge->dst()]->index);
+          if (!gc_success)
+            errors::Internal("Unable to create shadow edges in GraphCycles");
         }
       }
     }
