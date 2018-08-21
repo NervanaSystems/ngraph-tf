@@ -37,14 +37,7 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 // TODO: namespace detail? overload certain functions vs default args?
-//TODO: make sure all comments from old builder are copied correctly.
-
-
-
-
-
-
-
+// TODO: make sure all comments from old builder are copied correctly.
 
 /////////////////
 
@@ -53,111 +46,69 @@ class Builder1 {
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
 
  private:
- //
+  //
   // The op map holds a mapping from TensorFlow op names (strings) to
   // vector of generated nGraph nodes.
   //
   Builder1::OpMap ng_op_map;
-   
 
+  const static std::map<
+      const string,
+      const function<Status(const Node*, const std::vector<const Tensor*>&)>>
+      TRANSLATE_OP_MAP;
 
-    //TODO: move GetInputNode(s) body to .cc
-  Status GetInputNode(const Node* op,
-                           size_t input_idx, shared_ptr<ng::Node>* result) {
-  // input op may have resulted in more than one ng::Node (eg. Split)
-  // we need to look at Edge to check index of the input op
-  std::vector<const Edge*> edges;
-  TF_RETURN_IF_ERROR(op->input_edges(&edges));
-  size_t src_output_idx;
-  try {
-    src_output_idx = edges.at(input_idx)->src_output();
-  } catch (const out_of_range&) {
-    return Status(tensorflow::error::NOT_FOUND, "Edge not found");
-  }
-
-  Node* tf_input;
-  TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
-  try {
-    *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
-  } catch (const out_of_range&) {
-    return Status(tensorflow::error::NOT_FOUND, "Input node not found");
-  }
-  return Status::OK();
-}
-
-//TODO: enable detail namespace?
-//Note: namespace details prevents template recursion error during compilation
-//cannot use namespace in class, so using different names
-//namespace detail {
- Status detail_GetInputNodes(const Node* op,
-                            size_t index) {
-  return Status::OK();
-}
-
-template <typename... Arguments>
- Status detail_GetInputNodes(const Node* op,
-                            size_t index, shared_ptr<ng::Node>* result,
-                            Arguments&&... remaining) {
-  if (result != nullptr) {
-    TF_RETURN_IF_ERROR(GetInputNode(op, index, result));
-  }
-  return detail_GetInputNodes(op, index + 1, remaining...);
-}
-//}  // namespace detail
-
-template <typename... Arguments>
- Status GetInputNodes(const Node* op, Arguments&&... remaining) {
-  constexpr size_t args_len = sizeof...(Arguments);
-  TF_RETURN_IF_ERROR(ValidateInputCount(op, args_len));
-  //return detail::GetInputNodes(ng_op_map, op, 0, remaining...);  //TODO.. detail namespace
-  return detail_GetInputNodes(op, 0, remaining...);
-}
-
-
- //TODO: reconsider TranslateBinaryOp
- Status TranslateBinaryOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
-                                            std::shared_ptr<ng::Node>)>
-        create_binary_op) {
-  std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
-  TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
-
-  std::tie(ng_lhs, ng_rhs) =
-      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
-
-    //TODO: enable this
-  //SaveNgOp(ng_op_map, op->name(), create_binary_op(ng_lhs, ng_rhs));
-
-  return Status::OK();
-}
-
-template <typename T>
-Status TranslateBinaryOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map) {
-  return TranslateBinaryOp(
-      op, static_input_map,
-      [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
-        return make_shared<T>(ng_lhs, ng_rhs);
-      });
-}
-
- const static std::map<
-    const string,
-    const function<Status(const Node*, const std::vector<const Tensor*>&)>>
-    TRANSLATE_OP_MAP;
-
-  OpKernelConstruction* ctx; //TODO: do we need to save it?
-  bool is_init = false; //Prevent init from running twice
+  OpKernelConstruction* ctx;  // TODO: do we need to save it?
+  bool is_init = false;       // Prevent init from running twice
   const Graph& tf_graph;
   std::vector<bool> m_input_is_static;
   vector<Node*> ordered;
   vector<const Node *> tf_params, tf_ret_vals, tf_ops;
 
+  Status GetInputNode(const Node*, size_t, shared_ptr<ng::Node>*);
+
+  // TODO: enable detail namespace?
+  // Note: namespace details prevents template recursion error during
+  // compilation
+  // cannot use namespace in class, so using different names
+  Status detail_GetInputNodes(const Node* op, size_t index);
+
+  template <typename... Arguments>
+  Status detail_GetInputNodes(const Node*, size_t, shared_ptr<ng::Node>*,
+                              Arguments&&...);
+
+  template <typename... Arguments>
+  Status GetInputNodes(const Node*, Arguments&&...);
+
+  // TODO: reconsider TranslateBinaryOp
+  Status TranslateBinaryOp(
+      const Node* op, const std::vector<const Tensor*>& static_input_map,
+      std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
+                                              std::shared_ptr<ng::Node>)>
+          create_binary_op) {
+    std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
+    TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
+
+    std::tie(ng_lhs, ng_rhs) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+
+    // TODO: enable this
+    // SaveNgOp(ng_op_map, op->name(), create_binary_op(ng_lhs, ng_rhs));
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status TranslateBinaryOp(const Node* op,
+                           const std::vector<const Tensor*>& static_input_map) {
+    return TranslateBinaryOp(
+        op, static_input_map,
+        [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
+          return make_shared<T>(ng_lhs, ng_rhs);
+        });
+  }
+
   Status ValidateInputCount(const Node* op, size_t count);
   Status ValidateInputCountMin(const Node* op, size_t count);
-
-  
 
   // helper function for populating ng_op_map
   void SaveNgOp(const std::string& op_name,
@@ -187,17 +138,20 @@ Status TranslateBinaryOp(
                    const ngraph::Strides& ng_strides, T& ng_padding_below,
                    T& ng_padding_above);
 
- public:
   // Note: we need a separate init function for this. because we cant return
   // values from constructor,
   // we cannot wrap 'classify_nodes' in 'TF_RETURN_IF_ERROR' if we did this part
   // in the constructor.
   Status init();
 
+ public:
   // TODO: move constructor body to .cc
   Builder1(const Graph& tf_graph, OpKernelConstruction* ctx)
       : tf_graph(tf_graph), ctx(ctx) {
-    //TODO: maybe we do not need to copy ctx into a pvt variable., as we do not use it later
+    // TODO: since we have an init anyway, why not move this stuff there
+
+    // TODO: maybe we do not need to copy ctx into a pvt variable., as we do not
+    // use it later
     // TODO: move m_input_is_static construction to init??
 
     //

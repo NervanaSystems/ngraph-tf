@@ -86,7 +86,7 @@ class NGraphEncapsulateOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
 #ifdef BUILDER1
-    ng_builder.init();
+//    ng_builder.init();  //Now TranslateGraph will call init() if needed
 #else
 
     //

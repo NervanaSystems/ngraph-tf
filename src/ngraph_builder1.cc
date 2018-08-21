@@ -40,10 +40,13 @@ Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
   // TODO: confirm that static_input_map cannot be constructed in constructor.
   // It could be different everytime right?
-  // TODO: static_input_map can't be a class variable right? Its different everytime TranslateGraph is called, 
+  // TODO: static_input_map can't be a class variable right? Its different
+  // everytime TranslateGraph is called,
   // so it must be passed around?
-  std::vector<const Tensor*>
-      static_input_map;  
+
+  if (!is_init) init();
+
+  std::vector<const Tensor*> static_input_map;
 
   std::vector<TensorShape> inputs(ctx->num_inputs());
 
@@ -81,6 +84,10 @@ Status Builder1::translate_each_op(const vector<const Node*>& tf_ops) {
       // TODO.....TODO....TODO
       // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
       //   op, static_input_map, ng_op_map));
+      // required_ng_nodes = get_ng_nodes[op->type_string()](); //TODO add error
+      // check
+      // out_ng_nodes = get_ng_function[op->type_string()](required_nodes);
+
     } catch (const std::out_of_range&) {
       // -----------------------------
       // Catch-all for unsupported ops
@@ -286,11 +293,56 @@ Status Builder1::init() {
   return Status::OK();
 }
 
+Status Builder1::GetInputNode(const Node* op, size_t input_idx,
+                              shared_ptr<ng::Node>* result) {
+  // input op may have resulted in more than one ng::Node (eg. Split)
+  // we need to look at Edge to check index of the input op
+  std::vector<const Edge*> edges;
+  TF_RETURN_IF_ERROR(op->input_edges(&edges));
+  size_t src_output_idx;
+  try {
+    src_output_idx = edges.at(input_idx)->src_output();
+  } catch (const out_of_range&) {
+    return Status(tensorflow::error::NOT_FOUND, "Edge not found");
+  }
 
+  Node* tf_input;
+  TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
+  try {
+    *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
+  } catch (const out_of_range&) {
+    return Status(tensorflow::error::NOT_FOUND, "Input node not found");
+  }
+  return Status::OK();
+}
 
+// namespace detail {
+Status Builder1::detail_GetInputNodes(const Node* op, size_t index) {
+  return Status::OK();
+}
 
-//TODO: move translate ops to a different file
-//TODO: make TranslateOps not static?
+template <typename... Arguments>
+Status Builder1::detail_GetInputNodes(const Node* op, size_t index,
+                                      shared_ptr<ng::Node>* result,
+                                      Arguments&&... remaining) {
+  if (result != nullptr) {
+    TF_RETURN_IF_ERROR(GetInputNode(op, index, result));
+  }
+  return Builder1::detail_GetInputNodes(op, index + 1, remaining...);
+}
+//}  // namespace detail
+
+template <typename... Arguments>
+Status Builder1::GetInputNodes(const Node* op, Arguments&&... remaining) {
+  constexpr size_t args_len = sizeof...(Arguments);
+  TF_RETURN_IF_ERROR(ValidateInputCount(op, args_len));
+  // return detail::GetInputNodes(ng_op_map, op, 0, remaining...);  //TODO..
+  // detail namespace
+  return detail_GetInputNodes(op, 0, remaining...);
+}
+
+// TODO: move translate ops to a different file
+// TODO: make TranslateOps not static?
 Status TranslateFloorDivOp1(
     const Node* op, const std::vector<const Tensor*>& static_input_map) {
   auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
@@ -298,8 +350,8 @@ Status TranslateFloorDivOp1(
     return std::make_shared<ng::op::Floor>(
         std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
   };
-  //TODO
-  //return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floordiv);
+  // TODO
+  // return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floordiv);
 }
 
 Status TranslateFloorModOp1(
@@ -311,16 +363,15 @@ Status TranslateFloorModOp1(
     return std::make_shared<ng::op::Subtract>(
         ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
   };
-  //TODO
-  //return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod);
+  // TODO
+  // return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod);
 }
 
 const std::map<
     const string,
     const function<Status(const Node*, const std::vector<const Tensor*>&)>>
-    Builder1::TRANSLATE_OP_MAP{
-        {"FloorDiv", TranslateFloorDivOp1},
-        {"FloorMod", TranslateFloorModOp1}};
+    Builder1::TRANSLATE_OP_MAP{{"FloorDiv", TranslateFloorDivOp1},
+                               {"FloorMod", TranslateFloorModOp1}};
 
 }  // namespace ngraph_bridge
 
