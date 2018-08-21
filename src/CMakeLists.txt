@@ -43,6 +43,7 @@ add_dependencies(ngraph_lib ext_ngraph)
 set(SRC 
    ngraph_assign_clusters.cc
    ngraph_builder.cc
+   ngraph_builder1.cc
    ngraph_capture_variables.cc
    ngraph_cluster_manager.cc
    ngraph_deassign_clusters.cc
