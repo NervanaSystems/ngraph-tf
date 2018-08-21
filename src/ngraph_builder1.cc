@@ -84,9 +84,48 @@ Status Builder1::translate_each_op(const vector<const Node*>& tf_ops) {
       // TODO.....TODO....TODO
       // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
       //   op, static_input_map, ng_op_map));
-      // required_ng_nodes = get_ng_nodes[op->type_string()](); //TODO add error
-      // check
-      // out_ng_nodes = get_ng_function[op->type_string()](required_nodes);
+      required_ng_inputs = getInputNodes(op);
+      required_ng_arguments = get_ng_nodes[op->type_string()](); //TODO add error check
+      //Note: required_ng_nodes could be a map. string->ngnode.
+      // string would be "arguments" in ng ops like 'shape' and 'one_hot_axis' for OneHot: 
+      // https://ngraph.nervanasys.com/index.html/ops/one_hot.html
+      // A map is preferable to a vector, as the map would have some semantic meaning for the arguments
+      // nodes['shape'] is more informative than nodes[0].
+      out_ng_nodes = get_ng_function[op->type_string()](required_nodes);
+
+      /*
+      consider this avgpool function. It accepts an input node and a bunch of arguments
+      one of the arguments is not a ng node but a boolean.
+      How to pass the bool? Had assumed all ng ops accept only ngnodes
+      another example is concat, which accepts an int
+      another example is convert, which accepts an ngraph::element::type
+      */
+
+     //Need to scope the ops... maybe all non-ng-node type ops are constant, and does not need passing.
+     // But that is bad design probably.
+     // union? ugh...
+
+
+     // We can ATLEAST extract out SaveNgOp right?
+     // but then the translateops would have to return a ngnode, rather than a status.... statusor?, pointer-to-ngnode as input?
+      
+      //Looks like it is pretty intricately linked. may not be easy/feasible/readable to decompose
+      // TranslateOp to compute(getinp(op)). The gains do not seem too much for all the trouble?
+      // Why not have 
+
+      //The static_input_map thing:
+      //some ops have static input, not everyone needs this input.
+      //we can make static_input_map a class data member, and set it to nullptr once the TranslateGraph is done
+      // That way, we do not pass it around, and make sure we are not reusing stale static_input_map
+
+
+
+      i = getinputs()
+      o = compute(i) ..i ng nodes
+
+      std::shared_ptr<ng::Node> ng_avgpool =
+      make_shared<ng::op::AvgPool>(ng_input, ng_kernel_shape, ng_strides,
+                                   ng_padding_below, ng_padding_above, false);
 
     } catch (const std::out_of_range&) {
       // -----------------------------
@@ -316,6 +355,7 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   return Status::OK();
 }
 
+//TODO: inner class?
 // namespace detail {
 Status Builder1::detail_GetInputNodes(const Node* op, size_t index) {
   return Status::OK();
