@@ -204,7 +204,8 @@ def train_mnist_cnn(FLAGS):
               step +=1
               if step % 10 == 0:
                 t = time.time()
-                print('step %d, training accuracy %g, %g sec to evaluate' % (step,
+                if hvd.rank() == 0:
+                  print('step %d training accuracy %g %g sec to evaluate' % (step,
                        sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
                        time.time() - t))
 
@@ -217,7 +218,8 @@ def train_mnist_cnn(FLAGS):
                       keep_prob: 0.5
                   })
               loss_values.append(loss)
-              print('step %d, loss %g, %g sec for training step' % (step, loss, time.time() - t ))
+              if hvd.rank() == 0:
+                print('step %d loss %g %g sec for training step' % (step, loss, time.time() - t ))
               train_writer.add_summary(summary, step)
 
               if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
@@ -228,7 +230,6 @@ def train_mnist_cnn(FLAGS):
                                            y_: y_test}
                                            )) 
                 test_accuracy.append(accuracy) 
-
             print( "Training finished. Running test")
 
             return loss_values,test_accuracy
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--batch_size',
         type=int,
-        default=50,
+        default=25,
         help='Batch Size')
 
 

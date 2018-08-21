@@ -185,7 +185,7 @@ def train_mnist_cnn(FLAGS):
                         keep_prob: 1.0
                     })
                     #tf.summary.scalar('Training accuracy', train_accuracy)
-                    print('step %d, training accuracy %g, %g sec to evaluate' % (i,
+                    print('step %d training accuracy %g %g sec to evaluate' % (i,
                                                              train_accuracy, time.time() - t))
                 t = time.time()
                 _, summary, loss = sess.run(
@@ -196,7 +196,7 @@ def train_mnist_cnn(FLAGS):
                         keep_prob: 0.5
                     })
                 loss_values.append(loss)
-                print('step %d, loss %g, %g sec for training step' % (i, loss, time.time() - t ))
+                print('step %d loss %g %g sec for training step' % (i, loss, time.time() - t ))
                 train_writer.add_summary(summary, i)
 
             print( "Training finished. Running test")
