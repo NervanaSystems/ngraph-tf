@@ -40,8 +40,10 @@ Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
   // TODO: confirm that static_input_map cannot be constructed in constructor.
   // It could be different everytime right?
+  // TODO: static_input_map can't be a class variable right? Its different everytime TranslateGraph is called, 
+  // so it must be passed around?
   std::vector<const Tensor*>
-      static_input_map;  // TODO: use this instead of passing it around
+      static_input_map;  
 
   std::vector<TensorShape> inputs(ctx->num_inputs());
 
@@ -283,6 +285,42 @@ Status Builder1::init() {
   is_init = true;
   return Status::OK();
 }
+
+
+
+
+//TODO: move translate ops to a different file
+//TODO: make TranslateOps not static?
+Status TranslateFloorDivOp1(
+    const Node* op, const std::vector<const Tensor*>& static_input_map) {
+  auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
+                        std::shared_ptr<ng::Node> ng_input2) {
+    return std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+  };
+  //TODO
+  //return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floordiv);
+}
+
+Status TranslateFloorModOp1(
+    const Node* op, const std::vector<const Tensor*>& static_input_map) {
+  auto ng_floormod = [](std::shared_ptr<ng::Node> ng_input1,
+                        std::shared_ptr<ng::Node> ng_input2) {
+    auto floordiv = std::make_shared<ng::op::Floor>(
+        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+    return std::make_shared<ng::op::Subtract>(
+        ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
+  };
+  //TODO
+  //return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod);
+}
+
+const std::map<
+    const string,
+    const function<Status(const Node*, const std::vector<const Tensor*>&)>>
+    Builder1::TRANSLATE_OP_MAP{
+        {"FloorDiv", TranslateFloorDivOp1},
+        {"FloorMod", TranslateFloorModOp1}};
 
 }  // namespace ngraph_bridge
 
