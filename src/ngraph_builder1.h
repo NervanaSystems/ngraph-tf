@@ -156,8 +156,7 @@ class Builder1 {
                      << " is static: " << m_input_is_static[index];
     }
   }
-  Status TranslateGraph(const std::vector<TensorShape>& inputs,
-                        OpKernelContext* ctx,
+  Status TranslateGraph(OpKernelContext* ctx,
                         std::shared_ptr<ngraph::Function>& ng_function);
 };
 

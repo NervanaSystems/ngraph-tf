@@ -294,8 +294,7 @@ class NGraphEncapsulateOp : public OpKernel {
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 #else
-      OP_REQUIRES_OK(ctx,
-                     ng_builder.TranslateGraph(input_shapes, ctx, ng_function));
+      OP_REQUIRES_OK(ctx, ng_builder.TranslateGraph(ctx, ng_function));
 #endif
 
       // Serialize to nGraph if needed

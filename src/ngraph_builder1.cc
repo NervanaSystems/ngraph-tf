@@ -37,12 +37,13 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
-    const std::vector<TensorShape>& inputs, OpKernelContext* ctx,
-    std::shared_ptr<ngraph::Function>& ng_function) {
+    OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
   // TODO: confirm that static_input_map cannot be constructed in constructor.
   // It could be different everytime right?
   std::vector<const Tensor*>
       static_input_map;  // TODO: use this instead of passing it around
+
+  std::vector<TensorShape> inputs(ctx->num_inputs());
 
   static_input_map.resize(ctx->num_inputs());
   for (int i = 0; i < ctx->num_inputs(); i++) {
@@ -50,6 +51,7 @@ Status Builder1::TranslateGraph(
     if (m_input_is_static[i]) {
       static_input_map[i] = &input_tensor;
     }
+    inputs[i] = input_tensor.shape();
   }
   // TODO: pass static_input_map to translate_each_op
 
