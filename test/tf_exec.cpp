@@ -174,6 +174,7 @@ TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   std::vector<Tensor> outputs_z1;
   std::vector<Tensor> outputs_z2;
   std::vector<Tensor> outputs_z;
+  // Run and fetch v
   ClientSession session(dev_scope);
   ASSERT_OK(session.Run({Z1}, &outputs_z1));
   ASSERT_OK(session.Run({Z2}, &outputs_z2));
@@ -710,7 +711,7 @@ TEST(tf_exec, Op_Reciprocal) {
   EXPECT_FLOAT_EQ(1.0, mat(1, 1));
 }
 
-TEST(tf_exec, Op_SparseSoftmaxCrossEntropyWithLogits) {
+TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
