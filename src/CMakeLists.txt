@@ -41,6 +41,7 @@ add_dependencies(ngraph_lib ext_ngraph)
 # Compiler-specific logic...
 #-----------------------------------------------------------------------------------------------
 set(SRC 
+   ngraph_api.cc
    ngraph_assign_clusters.cc
    ngraph_builder.cc
    ngraph_capture_variables.cc

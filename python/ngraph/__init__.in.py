@@ -34,19 +34,40 @@ from tensorflow.python.framework import ops
  
 import ctypes
 
-# TODO(amprocte): need some way to detect double-load of plugin.
+
+__all__ = ['enable', 'disable', 'is_enabled']
+
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
+ngraph = None
  
-# We need to revisit this later. We can automate that using cmake configure command.
+
+# We need to revisit this later. We can automate that using cmake configure
+# command.
 if tf.GIT_VERSION == "${TensorFlow_GIT_VERSION}":
     libpath = os.path.dirname(__file__)
-    lib = ctypes.cdll.LoadLibrary(os.path.join(libpath,'libngraph_device.'+ext))
+    ngraph = ctypes.cdll.LoadLibrary(os.path.join(libpath,
+                                                  'libngraph_device.' + ext))
 else:
     raise ValueError(
         "Error: Wrong TensorFlow version " + tf.GIT_VERSION +
-        "\nNeeded: ${TensorFlow_GIT_VERSION}"
-    )
+        "\nNeeded: ${TensorFlow_GIT_VERSION}")
 
 def requested():
-    return ops.get_default_graph()._attr_scope({"_ngraph_requested": attr_value_pb2.AttrValue(b=True)})
+    return ops.get_default_graph()._attr_scope(
+        {"_ngraph_requested": attr_value_pb2.AttrValue(b=True)})
+
+
+ngraph.is_enabled.restype = ctypes.c_bool
+
+
+def enable():
+  ngraph.enable()
+
+
+def disable():
+  ngraph.disable()
+
+
+def is_enabled():
+  return ngraph.is_enabled()

@@ -13,27 +13,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-from ctypes import cdll
-import os
+"""nGraph TensorFlow bridge floor operation test
 
-import pytest
+"""
+from __future__ import absolute_import
 
-from tensorflow.python.framework import ops
-
-from common import LIBNGRAPH_DEVICE
+from common import NgraphTest
 
 
-@pytest.fixture(scope='session', autouse=True)
-def ngraph_device():
-  return cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_DEVICE))
+class TestNgraphAPI(NgraphTest):
+  def test_is_enabled(self, ngraph_device):
+    assert ngraph_device.is_enabled()
 
+  def test_disable(self, ngraph_device):
+    ngraph_device.disable()
+    assert ngraph_device.is_enabled() is False
 
-@pytest.fixture(autouse=True)
-def reset_graph():
-  yield
-  ops.reset_default_graph()
-
-
-@pytest.fixture(scope='session', autouse=True)
-def cleanup():
-  yield
+  def test_enable(self, ngraph_device):
+    ngraph_device.enable()
+    assert ngraph_device.is_enabled() is True
