@@ -123,6 +123,53 @@ Status AssignClusters(Graph* graph) {
     }
   }
 
+  // If we wish to add a constraint that 2 particular nodes not lie in the same
+  // cluster, then all we have to do is add 2 'shadow' edges and 1 'shadow' node
+  // in the gc data structure between the 2 nodes. The shadow edges go from the
+  // node closer to toposort source to the node closer to sink, through a shadow
+  // node. src--->S--->dst. (not the other way round, else it would introduce a
+  // cycle).
+  // TF world node (o), gc world node (+), static input *
+  // Normal edge traslation:
+  // (o)---->(o)   ==>  (+)---->(+)
+  // Static input edge translation:
+  // (o)---->*(o)  ==>  (+)---->(+)
+  //                     |       ^
+  //                     |       |
+  //                      --(+)--
+
+  // The contraction only happens on 'real' edges (edges that are
+  // present in the TF graph itself). Therefore the shadow edges in the gc
+  // data structure will never suffer contraction. Anytime the shadow path's src
+  // and dst attempt a merge (by contracting some real edge between them),
+  // the shadow path will introduce a cycle and not allow it
+
+  // Warning: this relies on the fact that we attempt to contract 'real' edges
+  // from the TF graph. For optimization, one might attempt to contract the gc
+  // edges, which keep decreasing unlike the TF edges. But this fix would break
+  // then, since we have broken the contract that an edge in gc implies an edge
+  // in TF in this fix
+  for (auto node : graph->op_nodes()) {
+    std::vector<int32> static_inputs;
+    GetStaticInputs(node, &static_inputs);
+    if (static_inputs.size() > 0) {
+      std::vector<const Edge*> edges_to_node;
+      TF_RETURN_IF_ERROR(node->input_edges(&edges_to_node));
+      for (auto static_inp_idx : static_inputs) {
+        auto static_edge = edges_to_node[static_inp_idx];
+        if (static_edge->src()->type_string() != "Const") {
+          int shadow_node_index = gc.NewNode();
+          bool gc_success = gc.InsertEdge(
+              cluster_map[static_edge->src()]->index, shadow_node_index);
+          gc_success &= gc.InsertEdge(shadow_node_index,
+                                      cluster_map[static_edge->dst()]->index);
+          if (!gc_success)
+            errors::Internal("Unable to create shadow edges in GraphCycles");
+        }
+      }
+    }
+  }
+
   NGRAPH_VLOG(2) << "Starting contraction";
   bool changed;
 
@@ -137,16 +184,23 @@ Status AssignClusters(Graph* graph) {
         continue;
       }
 
-      if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
-        NGRAPH_VLOG(5) << "Skipping: " << src->name() << " -> " << dst->name();
-        continue;
-      }
-
       int src_index = cluster_map[src]->index;
       int dst_index = cluster_map[dst]->index;
 
+      if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
+        NGRAPH_VLOG(5) << "Skipping (not marked): " << src->name() << "["
+                       << edge->src_output() << "]@" << src_index << " -> "
+                       << dst->name() << "[" << edge->dst_input() << "]@"
+                       << dst_index;
+        continue;
+      }
+
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
+        NGRAPH_VLOG(5) << "Contracting: " << src->name() << "["
+                       << edge->src_output() << "]@" << src_index << " -> "
+                       << dst->name() << "[" << edge->dst_input() << "]@"
+                       << dst_index;
         // using cluster_map[dst]->nodes in the loop directly appears to
         // invalidate the iterator when `node` == `dst`
         // this happens with clang but not gcc
@@ -198,9 +252,11 @@ Status AssignClusters(Graph* graph) {
       int cluster_idx = NGraphClusterManager::NewCluster();
 
       for (auto node : cluster->nodes) {
-        NGRAPH_VLOG(2) << ">> cluster " << cluster_idx << ": " << node
-                       << " :: " << node->name() << " [" << node->type_string()
-                       << "]";
+        if (NGRAPH_VLOG_IS_ON(5)) {
+          NGRAPH_VLOG(5) << ">> cluster " << cluster_idx << ": " << node
+                         << " :: " << node->name() << " ["
+                         << node->type_string() << "]";
+        }
 
         if (!NodeIsMarkedForClustering(node)) {
           return errors::Internal("Node ", node->DebugString(),
@@ -211,6 +267,8 @@ Status AssignClusters(Graph* graph) {
         // TODO(amprocte): move attr name to a constant
         node->AddAttr("_ngraph_cluster", cluster_idx);
       }
+
+      seen.insert(cluster);
     }
   }
   NGRAPH_VLOG(2) << "Tagging done";
