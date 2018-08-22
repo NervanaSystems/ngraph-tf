@@ -2672,6 +2672,12 @@ tf::Status Builder::TranslateGraph(const std::vector<tf::TensorShape>& inputs,
   // Create the nGraph function.
   //
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+
+  // Request row-major layout on results
+  for (auto result : ng_function->get_results()) {
+    result->set_needs_default_layout(true);
+  }
+
   return tf::Status::OK();
 }
 }  // namespace ngraph_bridge
