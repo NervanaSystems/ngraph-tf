@@ -312,7 +312,6 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["SquaredDifference"] =
           SimpleConfirmationFunction();
       confirmation_functions["Squeeze"] = SimpleConfirmationFunction();
->>>>>>> origin/master
       confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
         // Reject if "new_axis_mask" is set.
         int tf_new_axis_mask;
