@@ -1389,7 +1389,7 @@ static Status TranslateFusedBatchNormOp(
     SaveNgOp(ng_op_map, op->name(), ng_mean);
     // Output reserve_space_2: A 1D Tensor for the computed batch variance
     //(inverted variance in the cuDNN case), to be reused in the gradient
-    //computation.
+    // computation.
     SaveNgOp(ng_op_map, op->name(), ng_variance);
   } else {
     ng_batch_norm = make_shared<ng::op::BatchNorm>(tf_epsilon, ng_scale,
