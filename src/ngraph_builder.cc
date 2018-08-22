@@ -141,14 +141,6 @@ static Status GetInputNode(const Builder::OpMap& ng_op_map, const Node* op,
   } catch (const out_of_range&) {
     return Status(error::NOT_FOUND,
                   string("Ngraph op not found for ") + tf_input->name());
-    return Status(error::NOT_FOUND,
-                  string("Ngraph op not found for ") + tf_input->name());
-  }
-  try {
-    *result = ng_op->at(src_output_idx);
-  } catch (const out_of_range&) {
-    return Status(error::NOT_FOUND, string("Input node not found at index ") +
-                                        to_string(src_output_idx));
   }
   try {
     *result = ng_op->at(src_output_idx);
