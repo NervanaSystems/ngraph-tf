@@ -2640,7 +2640,6 @@ const static std::map<
     TRANSLATE_OP_MAP{
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
-        {"HorovodAllreduce", TranslateAllreduceOp},
         {"AddN", TranslateAddNOp},
         {"AvgPool", TranslateAvgPoolOp},
         {"AvgPoolGrad", TranslateAvgPoolGradOp},
@@ -2665,6 +2664,7 @@ const static std::map<
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
+        {"HorovodAllreduce", TranslateAllreduceOp},
         {"Identity", TranslateIdentityOp},
         {"L2Loss", TranslateL2LossOp},
         {"Less", TranslateBinaryOp<ngraph::op::Less>},
