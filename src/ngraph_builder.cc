@@ -432,7 +432,7 @@ static Status TranslateBinaryOp(
 }
 
 static Status TranslateAllreduceOp(
-    const Node* op,
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
