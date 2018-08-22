@@ -124,6 +124,20 @@ set_target_properties(
     ${TensorFlow_DIR}/libtensorflow_framework.so
 )
 
+if(APPLE)
+    set(LIBNGRAPH_SO "libngraph.dylib")
+else()
+    set(LIBNGRAPH_SO "libngraph.so")
+endif(APPLE)
+
+add_library(ngraph_lib SHARED IMPORTED)
+set_target_properties( 
+    ngraph_lib 
+    PROPERTIES IMPORTED_LOCATION 
+    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
+)
+add_dependencies(ngraph_lib ext_ngraph)
+
 # Add the directories to be built
 add_subdirectory(logging)
 add_subdirectory(src)
