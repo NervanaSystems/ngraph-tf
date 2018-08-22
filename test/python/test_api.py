@@ -23,12 +23,12 @@ from common import NgraphTest
 
 class TestNgraphAPI(NgraphTest):
   def test_is_enabled(self, ngraph_device):
-    assert ngraph_device.is_enabled()
+    assert ngraph_device.ngraph_is_enabled()
 
   def test_disable(self, ngraph_device):
-    ngraph_device.disable()
-    assert ngraph_device.is_enabled() is False
+    ngraph_device.ngraph_disable()
+    assert ngraph_device.ngraph_is_enabled() == 0
 
   def test_enable(self, ngraph_device):
-    ngraph_device.enable()
-    assert ngraph_device.is_enabled() is True
+    ngraph_device.ngraph_enable()
+    assert ngraph_device.ngraph_is_enabled() == 1

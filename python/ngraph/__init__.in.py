@@ -58,16 +58,16 @@ def requested():
         {"_ngraph_requested": attr_value_pb2.AttrValue(b=True)})
 
 
-ngraph.is_enabled.restype = ctypes.c_bool
+ngraph.ngraph_is_enabled.restype = ctypes.c_bool
 
 
 def enable():
-  ngraph.enable()
+  ngraph.ngraph_enable()
 
 
 def disable():
-  ngraph.disable()
+  ngraph.ngraph_disable()
 
 
 def is_enabled():
-  return ngraph.is_enabled()
+  return ngraph.ngraph_is_enabled()

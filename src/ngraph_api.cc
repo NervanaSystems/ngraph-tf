@@ -1,16 +1,18 @@
-extern "C" {
 namespace tensorflow {
 namespace ngraph_bridge {
 namespace config {
+extern "C" {
 
-static bool ngraph_is_enabled = true;
+static bool _is_enabled = true;
 
-void enable() { ngraph_is_enabled = true; }
-
-void disable() { ngraph_is_enabled = false; }
-
-bool is_enabled() { return ngraph_is_enabled; }
+void ngraph_enable() { _is_enabled = true; }
+void ngraph_disable() { _is_enabled = false; }
+bool ngraph_is_enabled() { return _is_enabled; }
 }
+
+void enable() { ngraph_enable(); }
+void disable() { ngraph_disable(); }
+bool is_enabled() { return ngraph_is_enabled(); }
 }
 }
 }
