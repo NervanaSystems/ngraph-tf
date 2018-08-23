@@ -113,12 +113,7 @@ OpExecuter::OpExecuter(const Scope sc, const string test_op,
       test_op_type_(test_op),
       expected_output_datatypes_(op_types),
       static_input_map_({}),
-      sess_run_fetchoutputs_(sess_run_fetchops) {
-  NGRAPH_VLOG(5) << " test op " << test_op;
-  for (auto dt : expected_output_datatypes_) {
-    NGRAPH_VLOG(5) << dt;
-  }
-}
+      sess_run_fetchoutputs_(sess_run_fetchops) {}
 
 // Destructor
 OpExecuter::~OpExecuter() {}
@@ -146,9 +141,9 @@ void OpExecuter::CompareNgraphAndTF() {
 //   \   ...  /
 //    \      /
 //     Test_Op
-//      /    \ 
-//     /      \ 
-//  _Retval1   _RetvalM
+//     /     \ 
+//    /  ...  \ 
+// _Retval1   _RetvalM
 //
 // 3. Gets Tensor values from Const Nodes and adds to input_tensors
 // 4. Creates ng::Function
