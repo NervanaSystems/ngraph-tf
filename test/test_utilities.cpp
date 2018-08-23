@@ -68,8 +68,6 @@ void PrintTensor(const Tensor& T1) {
   LOG(INFO) << "print tensor values" << T1.DebugString();
 }
 
-
-
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
   auto T_size = T1.flat<float>().size();
   auto T1_data = T1.flat<float>().data();

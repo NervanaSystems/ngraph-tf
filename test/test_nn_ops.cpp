@@ -52,7 +52,7 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
-TEST(TestNNOps, SparseSoftmaxCrossEntropyWithLogits) {
+TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
   int batch = 1000;
   int num_of_classes = 200;
@@ -60,8 +60,8 @@ TEST(TestNNOps, SparseSoftmaxCrossEntropyWithLogits) {
   Tensor A(DT_FLOAT, TensorShape({batch, num_of_classes}));
   Tensor B(DT_INT32, TensorShape({batch}));
 
-  DummyAssignInputValues(A, 2.0f);
-  DummyAssignInputIntValues(B, num_of_classes);
+  AssignInputValues(A, 2.0f);
+  AssignInputIntValues(B, num_of_classes);
 
   auto R = ops::SparseSoftmaxCrossEntropyWithLogits(root, A, B);
 
