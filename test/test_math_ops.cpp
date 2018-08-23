@@ -52,7 +52,7 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
-TEST(TestMathOps, Add) {
+TEST(MathOps, Add) {
   // Create a tf graph
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -60,9 +60,9 @@ TEST(TestMathOps, Add) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
-  
-  DummyAssignInputValues(A, 2.1f);
-  DummyAssignInputValues(B, 4.1f);
+
+  AssignInputValues(A, 2.1f);
+  AssignInputValues(B, 4.1f);
 
   auto R = ops::Add(root, A, B);
 
@@ -75,7 +75,7 @@ TEST(TestMathOps, Add) {
   opexecuter.CompareNgraphAndTF();
 }
 
-TEST(TestMathOps, RealDiv) {
+TEST(MathOps, RealDiv) {
   Scope root = Scope::NewRootScope();
   int dim1 = 100;
   int dim2 = 200;
@@ -83,8 +83,8 @@ TEST(TestMathOps, RealDiv) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
 
-  DummyAssignInputValues(A, 2.0f);
-  DummyAssignInputValues(B, 7.0f);
+  AssignInputValues(A, 2.0f);
+  AssignInputValues(B, 7.0f);
 
   auto R = ops::RealDiv(root, A, B);
 

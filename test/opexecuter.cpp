@@ -24,6 +24,7 @@ namespace ngraph_bridge {
 
 namespace testing {
 
+// Utility Function to create NodeDef for _Arg and _Retval nodes
 void OpExecuter::CreateNodeDef(const string op_type,
                                const string op_name_prefix, int index,
                                const DataType dt, NodeDef& node_def) {
@@ -34,6 +35,19 @@ void OpExecuter::CreateNodeDef(const string op_type,
   SetAttrValue(index, &((*(node_def.mutable_attr()))["index"]));
 }
 
+// Update data structures for book keeping
+// node_inedge_md : Map of
+//                  key : Node*
+//                  value : vector of pair{Node* src_incoming_edge, int
+//                  src_output_index}
+// node_outedge_md : Map of
+//                  key : Node*
+//                  value : vector of pair{Node* dst_outgoing_edge, int
+//                  dst_input_index}
+// node_outedges : Map of
+//                  key : Node*
+//                  value : vector of outgoing edges (Edge*)
+// test_op : update pointer to test_op pointer
 void OpExecuter::GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
                              NodeMetaData& node_outedge_md,
                              NodeOutEdges& node_outedges, Node** test_op) {
@@ -60,9 +74,16 @@ void OpExecuter::GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
   }
 }
 
+// Validate that the graph has N allowed_nodes and 1 test_op_type node
+// Graph must look like this
+//
+// Const1     ConstN
+//   \    ...    /
+//    \         /
+//      Test_Op
+//
 // TO_DO check for vector allowed_nodes
 // when we allow other than "Const" node type as input
-// Validate that the graph has n allowed_nodes and 1 test_op_type node
 void OpExecuter::ValidateGraph(const Graph& graph,
                                const vector<string> allowed_nodes) {
   NGRAPH_VLOG(5) << "Validate graph";
@@ -82,35 +103,49 @@ void OpExecuter::ValidateGraph(const Graph& graph,
   NGRAPH_VLOG(5) << "Validate graph done";
 }
 
+// Constructor Function
+// TO DO: Add support for ops that take static inputs
+// currently static_input_map is empty
 OpExecuter::OpExecuter(const Scope sc, const string test_op,
                        const vector<DataType>& op_types,
                        const std::vector<Output>& sess_run_fetchops)
     : tf_scope_(sc),
       test_op_type_(test_op),
       expected_output_datatypes_(op_types),
-      sess_run_fetchoutputs_(sess_run_fetchops),
-      static_input_map_({}) {
+      static_input_map_({}),
+      sess_run_fetchoutputs_(sess_run_fetchops) {
   NGRAPH_VLOG(5) << " test op " << test_op;
   for (auto dt : expected_output_datatypes_) {
     NGRAPH_VLOG(5) << dt;
   }
 }
 
+// Destructor
 OpExecuter::~OpExecuter() {}
 
+// Uses tf_scope to execute on TF
 void OpExecuter::ExecuteOnTF() {
-  DummyDeactivateNGraph();
+  DeactivateNGraph();
   ClientSession session(tf_scope_);
   ASSERT_EQ(Status::OK(), session.Run(sess_run_fetchoutputs_, &tf_outputs_));
 }
 
+// Compares tf_outputs_ with ngraph_outputs_
 void OpExecuter::CompareNgraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
-    DummyAssertTensorEquals(tf_outputs_[i], ngraph_outputs_[i]);
+    AssertTensorEquals(tf_outputs_[i], ngraph_outputs_[i]);
   }
 }
 
+// This function does the following:
+// 1. Validates the graph
+// 2. Rewrites the graph to have _Arg and _Retval nodes
+// 3. Gets Tensor values from Const Nodes and adds to input_tensors
+// 4. Creates ng::Function
+// 5. Executes ng::Function on CPU backend
+// 6. Updates output of ng::Function into ngraph_output
+// TO DO : Refactor
 void OpExecuter::ExecuteOnNGraph() {
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
@@ -219,7 +254,8 @@ void OpExecuter::ExecuteOnNGraph() {
   NGRAPH_VLOG(5) << " Create ng function ";
   shared_ptr<ng::Function> ng_function;
   ASSERT_EQ(Status::OK(),
-            Builder::TranslateGraph(input_shapes,static_input_map_,&graph, ng_function));
+            Builder::TranslateGraph(input_shapes, static_input_map_, &graph,
+                                    ng_function));
 
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size());

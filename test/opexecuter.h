@@ -50,6 +50,11 @@ class OpExecuter {
   using NodeMetaData = map<Node*, vector<std::pair<Node*, int>>>;
   using NodeOutEdges = map<Node*, vector<const Edge*>>;
 
+  // Scope sc : TF Scope with execution graph
+  // string test_op : test_op_type e.g. "Add"
+  // vector<DataType>& op_types : expected tf data types of the output e.g.
+  // {DT_FLOAT, DT_INT} const std::vector<Output>& fetch_ops : Output ops to be
+  // fetched, is passed to tf.session.run()
   OpExecuter(const Scope sc, const string test_op,
              const vector<DataType>& op_types,
              const std::vector<Output>& fetch_ops);
@@ -66,10 +71,9 @@ class OpExecuter {
   vector<Tensor> tf_inputs_;
   vector<Tensor> tf_outputs_;
   vector<Tensor> ngraph_outputs_;
-  vector<Tensor> ngraph_outputs_;
   const vector<DataType> expected_output_datatypes_;
   const vector<const Tensor*>& static_input_map_;
-  
+
   // To Do : For placeholder const FeedType sess_run_inputs_;
   const std::vector<Output> sess_run_fetchoutputs_;
 
@@ -77,6 +81,7 @@ class OpExecuter {
                    NodeMetaData& node_outedge_md, NodeOutEdges& node_outedges,
                    Node** test_op);
   void ValidateGraph(const Graph& graph, const vector<string> allowed_nodes);
+
   void CreateNodeDef(const string op_type, const string op_name_prefix,
                      int index, const DataType dt, NodeDef& node_def);
 };
