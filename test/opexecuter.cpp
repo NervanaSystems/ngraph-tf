@@ -141,6 +141,15 @@ void OpExecuter::CompareNgraphAndTF() {
 // This function does the following:
 // 1. Validates the graph
 // 2. Rewrites the graph to have _Arg and _Retval nodes
+//
+// _Arg1    _ArgN
+//   \   ...  /
+//    \      /
+//     Test_Op
+//      /    \ 
+//     /      \ 
+//  _Retval1   _RetvalM
+//
 // 3. Gets Tensor values from Const Nodes and adds to input_tensors
 // 4. Creates ng::Function
 // 5. Executes ng::Function on CPU backend

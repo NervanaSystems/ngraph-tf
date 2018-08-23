@@ -17,6 +17,7 @@
 #include "test_utilities.h"
 
 using namespace std;
+
 namespace ng = ngraph;
 
 namespace tensorflow {
@@ -85,7 +86,6 @@ void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
   }
 }
 
-
 }  // namespace ngraph_bridge
+} //namespace tensorflow
 
-}  // namespace tensorflow
