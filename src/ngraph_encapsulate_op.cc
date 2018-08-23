@@ -489,7 +489,8 @@ class NGraphEncapsulateOp : public OpKernel {
   int m_ngraph_cluster;
   std::vector<bool> m_input_is_static;
 
-  static std::shared_ptr<ng::runtime::Backend> s_ng_backend;
+  static std::shared_ptr<ng::runtime::Backend> s_ng_backend
+      GUARDED_BY(s_ng_backend_lock);
   static std::string s_ng_backend_name;
   static mutex s_ng_backend_lock;
 };
