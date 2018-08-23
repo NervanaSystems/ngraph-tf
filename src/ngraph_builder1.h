@@ -30,6 +30,7 @@
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/graph.h"
 
+
 using namespace std;
 namespace ng = ngraph;
 namespace tensorflow {
@@ -38,12 +39,16 @@ namespace ngraph_bridge {
 
 // TODO: namespace detail? overload certain functions vs default args?
 // TODO: make sure all comments from old builder are copied correctly.
+// TODO: use camelcase, snakecase appropriately
+// TODO add TF_RETURN_IF_ERROR where necessary
 
 /////////////////
 
 class Builder1 {
   using OpMap = std::unordered_map<std::string,
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
+
+typedef const function<Status(const Node*, const std::vector<shared_ptr<ng::Node>>&, const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)> TranslatorFn;
 
  private:
   //
@@ -52,13 +57,17 @@ class Builder1 {
   //
   Builder1::OpMap ng_op_map;
 
-  const static std::map<
-      const string,
-      const function<Status(const Node*, const std::vector<const Tensor*>&)>>
-      TRANSLATE_OP_MAP;
+  struct detail;
 
-  OpKernelConstruction* ctx;  // TODO: do we need to save it?
-  bool is_init = false;       // Prevent init from running twice
+  //const static std::map<
+      //const string,
+      //const function<Status(const Node*, const std::vector<const Tensor*>&,
+      //                      vector<shared_ptr<ng::Node>>&)>>
+      //TRANSLATE_OP_MAP;
+      const static std::map<const string, std::pair<Builder1::TranslatorFn, vector<int>>> TRANSLATE_OP_MAP;
+
+  OpKernelConstruction* ctx;    // TODO: do we need to save it?
+  bool is_initialized = false;  // Prevent init from running twice
   const Graph& tf_graph;
   std::vector<bool> m_input_is_static;
   vector<Node*> ordered;
@@ -115,13 +124,14 @@ class Builder1 {
                 const shared_ptr<ng::Node>& output_node);
 
   // TODO: write description
-  Status get_input_params(const std::vector<TensorShape>&, vector<const Node*>,
-                          vector<shared_ptr<ng::op::Parameter>>*);
-  Status classify_nodes(const vector<Node*>&, vector<const Node*>&,
-                        vector<const Node*>&, vector<const Node*>&);
-  Status translate_each_op(const vector<const Node*>&);
-  Status get_output_nodes(const vector<const Node*>&,
-                          vector<shared_ptr<ng::Node>>&);
+  Status GetInputParams(const std::vector<TensorShape>&, vector<const Node*>,
+                        vector<shared_ptr<ng::op::Parameter>>*);
+  Status ClassifyNodes(const vector<Node*>&, vector<const Node*>&,
+                       vector<const Node*>&, vector<const Node*>&);
+  Status TranslateEachOp(const vector<const Node*>&,
+                         const std::vector<const Tensor*>&);
+  Status GetOutputNodes(const vector<const Node*>&,
+                        vector<shared_ptr<ng::Node>>&);
 
   template <typename T>
   void MakePadding(const std::string& tf_padding_type,
@@ -142,75 +152,14 @@ class Builder1 {
   // values from constructor,
   // we cannot wrap 'classify_nodes' in 'TF_RETURN_IF_ERROR' if we did this part
   // in the constructor.
-  Status init();
+  Status Initialize();
 
  public:
   // TODO: move constructor body to .cc
-  Builder1(const Graph& tf_graph, OpKernelConstruction* ctx)
-      : tf_graph(tf_graph), ctx(ctx) {
-    // TODO: since we have an init anyway, why not move this stuff there
-
-    // TODO: maybe we do not need to copy ctx into a pvt variable., as we do not
-    // use it later
-    // TODO: move m_input_is_static construction to init??
-
-    //
-    // Initialize the "m_input_is_static" vector as follows:
-    // (1) create m_input_is_static with n+1 elements, where n is the max arg
-    //     index
-    // (2) for each _Arg node n, set m_input_is_static[n.index] to true if n
-    //     is driving any static input; else set it to false.
-    //
-
-    // Create the vector.
-    int32 max_arg_index = -1;
-    std::vector<const Node*> arg_nodes;
-
-    for (auto node : tf_graph.nodes()) {
-      if (node->type_string() == "_Arg") {
-        arg_nodes.push_back(node);
-
-        int32 index;
-        // TODO: do we need the ctx here. can we not use it?
-        // macro defn:
-        // https://github.com/petewarden/tensorflow_makefile/blob/master/tensorflow/core/framework/op_kernel.h#L1265
-        // For now, requiring builder to have access to ctx
-        OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
-        if (index > max_arg_index) max_arg_index = index;
-      }
-    }
-
-    m_input_is_static = std::vector<bool>(max_arg_index + 1, false);
-
-    // Fill the vector.
-    for (auto node : arg_nodes) {
-      int32 index;
-      OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
-
-      // bool is_static = false;
-      for (auto edge : node->out_edges()) {
-        if (edge->IsControlEdge() || !edge->dst()->IsOp()) {
-          continue;
-        }
-
-        NGRAPH_VLOG(5) << "For arg " << index << " checking edge "
-                       << edge->DebugString();
-
-        if (InputIsStatic(edge->dst(), edge->dst_input())) {
-          NGRAPH_VLOG(5) << "Marking edge static: " << edge->DebugString();
-          // is_static = true;
-          m_input_is_static[index] = true;
-          break;
-        }
-      }
-
-      // NGRAPH_VLOG(5) << "Marking arg " << index << " is_static: " <<
-      // is_static;
-      // m_input_is_static[index] = is_static;
-      NGRAPH_VLOG(5) << "Marking arg " << index
-                     << " is static: " << m_input_is_static[index];
-    }
-  }
+  Builder1(const Graph& tf_graph,
+          OpKernelConstruction* ctx)  // TODO make ctx const?
+      : tf_graph(tf_graph),
+        ctx(ctx) {}
   Status TranslateGraph(OpKernelContext* ctx,
                         std::shared_ptr<ngraph::Function>& ng_function);
 };
