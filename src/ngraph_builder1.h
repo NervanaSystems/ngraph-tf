@@ -36,7 +36,7 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// TODO: namespace detail? overload certain functions vs default args?
+// TODO: overload certain functions (makepadding) vs default args?
 // TODO: make sure all comments from old builder are copied correctly.
 // TODO: use camelcase, snakecase appropriately
 // TODO add TF_RETURN_IF_ERROR where necessary
@@ -76,7 +76,7 @@ class Builder1 {
                         std::pair<Builder1::TranslatorFn, vector<int>>>
       TRANSLATE_OP_MAP;
 
-  OpKernelConstruction* ctx;    // TODO: do we need to save it?
+  OpKernelConstruction* ctx;  //TODO: is this required? required in OP_REQUIRES_OK is used instead of TF_RETURN_IF_ERROR in Initialize
   bool is_initialized = false;  // Prevent init from running twice
   const Graph& tf_graph;
   std::vector<bool> m_input_is_static;
@@ -98,36 +98,9 @@ class Builder1 {
   template <typename... Arguments>
   Status GetInputNodes(const Node*, Arguments&&...);
 
-  // TODO: reconsider TranslateBinaryOp
-  Status TranslateBinaryOp(
-      const Node* op, const std::vector<const Tensor*>& static_input_map,
-      std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
-                                              std::shared_ptr<ng::Node>)>
-          create_binary_op) {
-    std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
-    TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
-
-    std::tie(ng_lhs, ng_rhs) =
-        ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
-
-    // TODO: enable this
-    // SaveNgOp(ng_op_map, op->name(), create_binary_op(ng_lhs, ng_rhs));
-
-    return Status::OK();
-  }
-
-  template <typename T>
-  Status TranslateBinaryOp(const Node* op,
-                           const std::vector<const Tensor*>& static_input_map) {
-    return TranslateBinaryOp(
-        op, static_input_map,
-        [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
-          return make_shared<T>(ng_lhs, ng_rhs);
-        });
-  }
-
-  Status ValidateInputCount(const Node* op, size_t count);
-  Status ValidateInputCountMin(const Node* op, size_t count);
+  // TODO: move these out of class
+  //Status ValidateInputCount(const Node* op, size_t count);
+  //Status ValidateInputCountMin(const Node* op, size_t count);
 
   // helper function for populating ng_op_map
   void SaveNgOp(const std::string& op_name,
@@ -165,7 +138,6 @@ class Builder1 {
   Status Initialize();
 
  public:
-  // TODO: move constructor body to .cc
   Builder1(const Graph& tf_graph,
            OpKernelConstruction* ctx)  // TODO make ctx const?
       : tf_graph(tf_graph),

@@ -38,13 +38,7 @@ namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
-  // TODO: confirm that static_input_map cannot be constructed in constructor.
-  // It could be different everytime right?
-  // TODO: static_input_map can't be a class variable right? Its different
-  // everytime TranslateGraph is called,
-  // so it must be passed around?
-
-  if (!is_initialized) Initialize();
+  TF_RETURN_IF_ERROR(Initialize());
 
   std::vector<const Tensor*> static_input_map;
 
@@ -58,7 +52,7 @@ Status Builder1::TranslateGraph(
     }
     inputs[i] = input_tensor.shape();
   }
-  // TODO: pass static_input_map to translate_each_op
+  // TODO: pass static_input_map to translate_each_op... or pass the vector<int> ?
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
   TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
@@ -70,10 +64,9 @@ Status Builder1::TranslateGraph(
 
   // Create the nGraph function.
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
-  return Status::OK();  // TODO
+  return Status::OK();
 }
 
-// TODO, is static_input_map const?
 Status Builder1::TranslateEachOp(
     const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
@@ -84,33 +77,11 @@ Status Builder1::TranslateEachOp(
                    << op->type_string();
 
     try {
-      // extract out parent node finding and savengops
-      // have the translateops as a list of pluggable functions (pimpl?)
-
-      // TODO.....TODO....TODO
-      // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
-      //   op, static_input_map, ng_op_map));
-
-      // The static_input_map thing:
-      // some ops have static input, not everyone needs this input.
-      // we can make static_input_map a class data member, and set it to nullptr
-      // once the TranslateGraph is done
-      // That way, we do not pass it around, and make sure we are not reusing
-      // stale static_input_map
-
-      // Note: abstracting parents = GetInputNodes():
-      // unknown number of nodes for each op
-      // std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
-      // TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
-
       vector<shared_ptr<ng::Node>> subgraph_out_nodes;
-      // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(op,
-      // static_input_map));
       auto iter = TRANSLATE_OP_MAP.find(op->type_string());
       if (iter != TRANSLATE_OP_MAP.end()) {
         Builder1::TranslatorFn translate_fn = iter->second.first;
         vector<int> input_idxs = iter->second.second;
-        // std::tie(translate_fn, input_idxs) = iter->second;
         // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
         // like Addn)
         bool variadic_input = input_idxs.size() == 0;
@@ -127,7 +98,7 @@ Status Builder1::TranslateEachOp(
         TF_RETURN_IF_ERROR(iter->second.first(op, ng_arg_vec, static_input_map,
                                               subgraph_out_nodes));
       } else {
-        // TODO TODO::: if-else or try-catch
+        // TODO::: if-else or try-catch
         // -----------------------------
         // Catch-all for unsupported ops
         // -----------------------------
@@ -237,7 +208,7 @@ Status Builder1::GetOutputNodes(const vector<const Node*>& tf_ret_vals,
     }
 
     shared_ptr<ng::Node> result;
-    // TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, n, 0, &result)); //TODO...TODO
+    TF_RETURN_IF_ERROR(GetInputNode(n, 0, &result));
 
     ng_result_list[index] = result;
   }
@@ -310,7 +281,7 @@ void MakePadding(const std::string& tf_padding_type,
   NGRAPH_VLOG(3) << "ng_padding_above: " << ngraph::join(ng_padding_above);
 }
 
-Status Builder1::ValidateInputCount(const Node* op, size_t count) {
+Status ValidateInputCount(const Node* op, size_t count) {
   if (op->num_inputs() != count) {
     return errors::InvalidArgument("\"", op->name(), "\" requires ", count,
                                    " input(s), got ", op->num_inputs(),
@@ -319,7 +290,7 @@ Status Builder1::ValidateInputCount(const Node* op, size_t count) {
   return Status::OK();
 }
 
-Status Builder1::ValidateInputCountMin(const Node* op, size_t count) {
+Status ValidateInputCountMin(const Node* op, size_t count) {
   if (op->num_inputs() < count) {
     return errors::InvalidArgument("\"", op->name(), "\" requires at least ",
                                    count, " input(s), got ", op->num_inputs(),
@@ -345,13 +316,6 @@ Status Builder1::Initialize() {
     GetReversePostOrder(tf_graph, &ordered);
 
     TF_RETURN_IF_ERROR(ClassifyNodes(ordered, tf_params, tf_ret_vals, tf_ops));
-
-    // TODO: since we have an init anyway, why not move this stuff there
-
-    // TODO: maybe we do not need to copy ctx into a pvt variable., as we do not
-    // use it later
-    // TODO: move m_input_is_static construction to init??
-
     //
     // Initialize the "m_input_is_static" vector as follows:
     // (1) create m_input_is_static with n+1 elements, where n is the max arg
@@ -384,6 +348,7 @@ Status Builder1::Initialize() {
     // Fill the vector.
     for (auto node : arg_nodes) {
       int32 index;
+      //TODO: OP_REQUIRES_OK or TF_RETURN_IF_ERROR
       //// OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
       TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "index", &index));
 
@@ -439,34 +404,7 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   return Status::OK();
 }
 
-// TODO: inner class?
-// namespace detail {
-Status Builder1::detail_GetInputNodes(const Node* op, size_t index) {
-  return Status::OK();
-}
-
-template <typename... Arguments>
-Status Builder1::detail_GetInputNodes(const Node* op, size_t index,
-                                      shared_ptr<ng::Node>* result,
-                                      Arguments&&... remaining) {
-  if (result != nullptr) {
-    TF_RETURN_IF_ERROR(GetInputNode(op, index, result));
-  }
-  return Builder1::detail_GetInputNodes(op, index + 1, remaining...);
-}
-//}  // namespace detail
-
-template <typename... Arguments>
-Status Builder1::GetInputNodes(const Node* op, Arguments&&... remaining) {
-  constexpr size_t args_len = sizeof...(Arguments);
-  TF_RETURN_IF_ERROR(ValidateInputCount(op, args_len));
-  // return detail::GetInputNodes(ng_op_map, op, 0, remaining...);  //TODO..
-  // detail namespace
-  return detail_GetInputNodes(op, 0, remaining...);
-}
-
 // TODO: move translate ops to a different file
-// TODO: make TranslateOps not static?
 Status TranslateFloorDivOp1(const Node* op,
                             const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
                             const std::vector<const Tensor*>& static_input_map,
@@ -509,35 +447,6 @@ Status TranslateFloorModOp1(const Node* op,
 // In current implementation, we do not need the non-templated version, because
 // TranslateBinary will be
 // part of the class, and the TranslateOps will not have access to it.
-/*
-template <typename T>
-Status TranslateBinary(
-    const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
-    const std::vector<const Tensor*>& static_input_map,
-    vector<shared_ptr<ng::Node>>& subgraph_out_nodes,
-    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
-                                            std::shared_ptr<ng::Node>)>
-        create_op) {
-  // TODO: assert subgraph_out_nodes.size()==1, ng_arg_vec.size()==2
-  std::tie(ng_arg_vec[0], ng_arg_vec[0]) = ng::builder::numpy_broadcast(
-      std::make_pair(ng_arg_vec[0], ng_arg_vec[1]));
-  subgraph_out_nodes[0] = create_op(ng_arg_vec[0], ng_arg_vec[1]);
-  return Status::OK();
-}
-
-template <typename T>
-Status TranslateBinary(const Node* op,
-                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
-                       const std::vector<const Tensor*>& static_input_map,
-                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
-  return TranslateBinary(
-      op, ng_arg_vec, static_input_map, subgraph_out_nodes,
-      [](std::shared_ptr<ng::Node> n1, std::shared_ptr<ng::Node> n2) {
-        return make_shared<T>(n1, n2);
-      });
-}
-*/
-
 template <typename T>
 Status TranslateBinary(const Node* op,
                        const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
