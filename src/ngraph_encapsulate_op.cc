@@ -38,7 +38,7 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
-#define BUILDER1
+//#define BUILDER1
 
 using namespace std;
 namespace ng = ngraph;

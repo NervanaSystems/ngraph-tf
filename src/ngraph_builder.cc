@@ -2686,6 +2686,7 @@ Status Builder::TranslateGraph(
   // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
   vector<Node*> ordered;
   GetReversePostOrder(*input_graph, &ordered);
+  cout << "input_graph: " << input_graph->num_node_ids() << "\n";
 
   //
   // Split ops into params, retvals, and all others.
@@ -2695,6 +2696,16 @@ Status Builder::TranslateGraph(
   vector<const Node*> tf_ops;
 
   for (const auto n : ordered) {
+    cout << "XXXXX " << n->type_string() << "\n";
+    if (n->type_string() == "Const"){
+      Tensor result;
+      vector<int64> vect;
+      result.FromProto(n->def().attr().at("value").tensor());
+      TensorDataToVector(result, &vect);
+      for (auto vv : vect)
+        cout << " " << vv ;
+      cout << "\n";
+    }
     if (n->IsSink() || n->IsSource()) {
       continue;
     }

@@ -39,7 +39,10 @@ namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
+  cout << "XXX1\n";
   TF_RETURN_IF_ERROR(Initialize());
+  cout << "XXX2 " << ordered.size() << "\n";
+  cout << tf_params.size() << " " << tf_ops.size() << " " << tf_ret_vals.size() << "\n";
 
   std::vector<const Tensor*> static_input_map;
 
@@ -53,16 +56,20 @@ Status Builder1::TranslateGraph(
     }
     inputs[i] = input_tensor.shape();
   }
+  cout << "XXX3\n";
   // TODO: pass static_input_map to translate_each_op... or pass the vector<int>
   // ?
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
   TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
+  cout << "XXX4 " << tf_params.size() << " " << ng_parameter_list.size() << "\n";
 
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
+  cout << "XXX5 " << tf_ops.size() <<  "\n";
 
   vector<shared_ptr<ng::Node>> ng_result_list;
-  TF_RETURN_IF_ERROR(GetOutputNodes(tf_ops, ng_result_list));
+  TF_RETURN_IF_ERROR(GetOutputNodes(tf_ret_vals, ng_result_list));
+   cout << "XXX6 " << tf_ret_vals.size() << " " << ng_result_list.size() << "\n";
 
   // Create the nGraph function.
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
@@ -73,7 +80,7 @@ Status Builder1::TranslateEachOp(
     const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
   // Create the nGraph ops from TensorFlow ops.
-
+cout << "TEO0 " << tf_ops.size() << "\n";
   for (auto op : tf_ops) {
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
@@ -138,8 +145,9 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
                                vector<const Node*>& tf_ret_vals,
                                vector<const Node*>& tf_ops) {
   // Split ops into params, retvals, and all others.
-
+  cout << "Size of ordered: " << ordered.size() << "\n";
   for (const auto n : ordered) {
+    cout << "XXXXXXXX " << n->type_string() << "\n";
     if (n->IsSink() || n->IsSource()) {
       continue;
     }
@@ -149,7 +157,7 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
           "Encountered a control flow op in the nGraph bridge: ",
           n->DebugString());
     }
-
+    cout << n->type_string() << "\n";
     if (n->type_string() == "_Arg") {
       tf_params.push_back(n);
     } else if (n->type_string() == "_Retval") {
@@ -309,12 +317,13 @@ void Builder1::SaveNgOp(const std::string& op_name,
 }
 
 Status Builder1::Initialize() {
-  if (is_initialized) {
+  if (!is_initialized) {
     //
     // We will visit ops in topological order.
     //
     // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
 
+    cout << "b4 revpostorder " << tf_graph.num_node_ids() << "\n";
     GetReversePostOrder(tf_graph, &ordered);
 
     TF_RETURN_IF_ERROR(ClassifyNodes(ordered, tf_params, tf_ret_vals, tf_ops));
@@ -488,7 +497,7 @@ Status TranslateUnary(const Node* op,
 Builder1::DispatchTable Builder1::TRANSLATE_OP_MAP{
     {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
     {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
-    {"AddN", {TranslateAddNOp, {}}},
+    {"AddN", {TranslateAddNOp, {}}}, //TODO: document {}
     {"FloorDiv", {TranslateFloorDivOp, {0, 1}}},
     {"FloorMod", {TranslateFloorModOp, {0, 1}}}};
 

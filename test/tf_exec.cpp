@@ -807,24 +807,31 @@ TEST(tf_exec, Op_Rsqrt) {
 
 TEST(tf_exec, Op_Negate) {
   Scope scope_cpu = Scope::NewRootScope();
-  Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
+  Scope scope_ng = scope_cpu; //scope_cpu.WithDevice("/device:NGRAPH:0");
 
+  ActivateNGraph();
   // ngraph execution
   auto A_ng = ops::Const(scope_ng, {{-256.f, 16.5f}, {0.f, 64.f}});
   auto r_ng = ops::Negate(scope_ng.WithOpName("r"), A_ng);
 
   std::vector<Tensor> outputs_ng;
-  ClientSession session_ng(scope_ng);
+  
+  SessionOptions options;
+  options.config.mutable_graph_options()
+      ->mutable_optimizer_options()
+      ->set_opt_level(OptimizerOptions_Level_L0);
+  ClientSession session_ng(scope_ng, options);
 
   ASSERT_OK(session_ng.Run({r_ng}, &outputs_ng));
   ASSERT_EQ(outputs_ng[0].shape(), TensorShape({2, 2}));
 
+  DeactivateNGraph();
   // reference CPU execution
   auto A_cpu = ops::Const(scope_cpu, {{-256.f, 16.5f}, {0.f, 64.f}});
   auto r_cpu = ops::Negate(scope_cpu.WithOpName("r"), A_cpu);
 
   std::vector<Tensor> outputs_cpu;
-  ClientSession session_cpu(scope_cpu);
+  ClientSession session_cpu(scope_cpu, options);
 
   ASSERT_OK(session_cpu.Run({r_cpu}, &outputs_cpu));
   ASSERT_EQ(outputs_cpu[0].shape(), TensorShape({2, 2}));
@@ -932,8 +939,14 @@ TEST(tf_exec, Op_AddN) {
   // No broadcast test needed since AddN does not support it:
   // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/ops/math_ops.cc#L355
 
+  SessionOptions options;
+  options.config.mutable_graph_options()
+      ->mutable_optimizer_options()
+      ->set_opt_level(OptimizerOptions_Level_L0);
+  ClientSession session_ng(scope_ng, options);
+
   std::vector<Tensor> outputs_ng;
-  ClientSession session_ng(scope_ng);
+  //ClientSession session_ng(scope_ng);
   ASSERT_OK(session_ng.Run({r_ng}, &outputs_ng));
 
   ASSERT_EQ(outputs_ng[0].shape(), TensorShape({2, 2}));
@@ -947,7 +960,7 @@ TEST(tf_exec, Op_AddN) {
       ops::AddN(scope_cpu.WithOpName("r"), {A_cpu, C_cpu, B_cpu, A_cpu, A_cpu});
 
   std::vector<Tensor> outputs_cpu;
-  ClientSession session_cpu(scope_cpu);
+  ClientSession session_cpu(scope_cpu, options);
   ASSERT_OK(session_cpu.Run({r_cpu}, &outputs_cpu));
 
   ASSERT_EQ(outputs_cpu[0].shape(), TensorShape({2, 2}));
