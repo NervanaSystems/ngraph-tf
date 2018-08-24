@@ -18,6 +18,10 @@ extern bool ngraph_is_enabled();
 extern size_t ngraph_backends_len();
 extern bool ngraph_list_backends(char** backends, int backends_len);
 extern bool ngraph_set_backend(const char* backend);
+
+extern void ngraph_start_logging_placement();
+extern void ngraph_stop_logging_placement();
+extern bool ngraph_is_logging_placement();
 }
 
 extern void enable();
@@ -28,6 +32,10 @@ extern size_t backends_len();
 // TODO: why is this not const?
 extern vector<string> list_backends();
 extern void set_backend(const string& type);
+
+extern void start_logging_placement();
+extern void stop_logging_placement();
+extern bool is_logging_placement();
 }
 }
 }

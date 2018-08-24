@@ -7,6 +7,7 @@ namespace ngraph_bridge {
 namespace config {
 
 static bool _is_enabled = true;
+static bool _is_logging_placement = false;
 
 extern "C" {
 void ngraph_enable() { enable(); }
@@ -33,6 +34,10 @@ bool ngraph_set_backend(const char* backend) {
   }
   return true;
 }
+
+void ngraph_start_logging_placement() { start_logging_placement(); }
+void ngraph_stop_logging_placement() { stop_logging_placement(); }
+bool ngraph_is_logging_placement() { return is_logging_placement(); }
 }
 
 void enable() { _is_enabled = true; }
@@ -44,6 +49,10 @@ vector<string> list_backends() {
   return ngraph::runtime::Backend::get_registered_devices();
 }
 void set_backend(const string& type) { ngraph::runtime::Backend::create(type); }
+
+void start_logging_placement() { _is_logging_placement = true; }
+void stop_logging_placement() { _is_logging_placement = false; }
+bool is_logging_placement() { return _is_logging_placement; }
 }
 }
 }
