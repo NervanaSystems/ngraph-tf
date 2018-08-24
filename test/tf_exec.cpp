@@ -15,9 +15,9 @@
  *******************************************************************************/
 #include "gtest/gtest.h"
 
-#include "test_utilities.h"
 #include "ngraph_builder.h"
 #include "ngraph_utils.h"
+#include "test_utilities.h"
 
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/op.h"

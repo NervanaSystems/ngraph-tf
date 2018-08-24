@@ -64,15 +64,17 @@ TEST(MathOps, Add) {
   AssignInputValues(A, 2.1f);
   AssignInputValues(B, 4.1f);
 
+  vector<int> static_input_indexes = {};
   auto R = ops::Add(root, A, B);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
   std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Add", output_datatypes, sess_run_fetchoutputs);
+  OpExecuter opexecuter(root, "Add", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
   opexecuter.ExecuteOnNGraph();
   opexecuter.ExecuteOnTF();
-  opexecuter.CompareNgraphAndTF();
+  opexecuter.CompareNGraphAndTF();
 }
 
 TEST(MathOps, RealDiv) {
@@ -86,17 +88,18 @@ TEST(MathOps, RealDiv) {
   AssignInputValues(A, 2.0f);
   AssignInputValues(B, 7.0f);
 
+  vector<int> static_input_indexes = {};
   auto R = ops::RealDiv(root, A, B);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
 
   std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "RealDiv", output_datatypes,
+  OpExecuter opexecuter(root, "RealDiv", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
 
   opexecuter.ExecuteOnNGraph();
   opexecuter.ExecuteOnTF();
-  opexecuter.CompareNgraphAndTF();
+  opexecuter.CompareNGraphAndTF();
 }
 
 }  // namespace testing

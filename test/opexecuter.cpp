@@ -82,8 +82,9 @@ void OpExecuter::GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
 //    \         /
 //      Test_Op
 //
-// TO_DO check for vector allowed_nodes
+// TODO check for vector allowed_nodes
 // when we allow other than "Const" node type as input
+// Make allowed_nodes const member of the class, use set
 void OpExecuter::ValidateGraph(const Graph& graph,
                                const vector<string> allowed_nodes) {
   NGRAPH_VLOG(5) << "Validate graph";
@@ -100,20 +101,24 @@ void OpExecuter::ValidateGraph(const Graph& graph,
           << "Found Not allowed Op: " << node->type_string();
     }
   }
+
+  ASSERT_TRUE(found_test_op) << " Not found test_op : " << test_op_type_;
+
   NGRAPH_VLOG(5) << "Validate graph done";
-}
+}  // namespace testing
 
 // Constructor Function
-// TO DO: Add support for ops that take static inputs
+// TODO: Add support for ops that take static inputs
 // currently static_input_map is empty
 OpExecuter::OpExecuter(const Scope sc, const string test_op,
+                       const vector<int>& static_input_indexes,
                        const vector<DataType>& op_types,
-                       const std::vector<Output>& sess_run_fetchops,
-                       const vector<int>& static_input_indexes)
+                       const vector<Output>& sess_run_fetchops)
     : tf_scope_(sc),
       test_op_type_(test_op),
+      static_input_indexes_(static_input_indexes.begin(),
+                            static_input_indexes.end()),
       expected_output_datatypes_(op_types),
-      static_input_indexes_(static_input_indexes),
       sess_run_fetchoutputs_(sess_run_fetchops) {}
 
 // Destructor
@@ -127,7 +132,7 @@ void OpExecuter::ExecuteOnTF() {
 }
 
 // Compares tf_outputs_ with ngraph_outputs_
-void OpExecuter::CompareNgraphAndTF() {
+void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
     AssertTensorEquals(tf_outputs_[i], ngraph_outputs_[i]);
@@ -150,7 +155,7 @@ void OpExecuter::CompareNgraphAndTF() {
 // 4. Creates ng::Function
 // 5. Executes ng::Function on CPU backend
 // 6. Updates output of ng::Function into ngraph_output
-// TO DO : Refactor
+// TODO : Refactor
 void OpExecuter::ExecuteOnNGraph() {
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
@@ -171,20 +176,38 @@ void OpExecuter::ExecuteOnNGraph() {
 
   // Get Tensor input shapes and values from the const nodes
   int number_of_inputs = test_op->num_inputs();
+  // TODO : Validate static_input_indexes < number_of_inputs
   vector<TensorShape> input_shapes;
-  vector<Tensor*> static_inputs;
+  vector<DataType> input_dt;
+  vector<Tensor> static_inputs;
+  vector<const Tensor*> static_input_map;
   vector<Node*> input_node;
 
   for (int i = 0; i < number_of_inputs; i++) {
     Node* ip;
-    Tensor ip_tensor;
     ASSERT_EQ(Status::OK(), test_op->input_node(i, &ip));
     input_node.push_back(ip);
+    Tensor ip_tensor;
     ASSERT_EQ(Status::OK(), GetNodeAttr(ip->attrs(), "value", &ip_tensor));
     input_shapes.push_back(ip_tensor.shape());
-    tf_inputs_.push_back(ip_tensor);
-    NGRAPH_VLOG(5) << " Extracted tensor from const " << i << " "
-                   << tf_inputs_[i].DebugString();
+    input_dt.push_back(ip_tensor.dtype());
+    if (static_input_indexes_.find(i) != static_input_indexes_.end()) {
+      static_inputs.push_back(ip_tensor);
+    } else {
+      tf_inputs_.push_back(ip_tensor);
+    }
+    NGRAPH_VLOG(5) << " Extracted tensor  " << i << " "
+                   << ip_tensor.DebugString();
+  }
+  int counter = 0;
+  for (int i = 0; i < number_of_inputs; i++) {
+    if (static_input_indexes_.find(i) != static_input_indexes_.end()) {
+      static_input_map.push_back(&static_inputs[counter++]);
+      NGRAPH_VLOG(5) << "reading static tensor ptr " << i << " "
+                     << (static_input_map[i])->DebugString();
+    } else {
+      static_input_map.push_back(nullptr);
+    }
   }
 
   NGRAPH_VLOG(5) << "Got input nodes and tensors";
@@ -193,7 +216,7 @@ void OpExecuter::ExecuteOnNGraph() {
   for (int i = 0; i < number_of_inputs; i++) {
     Node* ip_node = input_node[i];
     NodeDef new_arg_node_def;
-    CreateNodeDef("_Arg", "arg_", i, tf_inputs_[i].dtype(), new_arg_node_def);
+    CreateNodeDef("_Arg", "arg_", i, input_dt[i], new_arg_node_def);
 
     // Add node to graph
     Status status;
@@ -220,7 +243,7 @@ void OpExecuter::ExecuteOnNGraph() {
   // For all the output edges from test_op (there should be only one, to SINK)
   // get the dest node and the
   // destination_input_index
-  // (TO DO : ) ADD ASSERT to check one?
+  // (TODO : ) ADD ASSERT to check one?
   auto dest_nodes_metadata = node_outedge_metadata[test_op];
 
   // Remove edges from test_op to SINK (not removing might be also ok)
@@ -260,7 +283,7 @@ void OpExecuter::ExecuteOnNGraph() {
   NGRAPH_VLOG(5) << " Create ng function ";
   shared_ptr<ng::Function> ng_function;
   ASSERT_EQ(Status::OK(),
-            Builder::TranslateGraph(input_shapes, static_input_map_, &graph,
+            Builder::TranslateGraph(input_shapes, static_input_map, &graph,
                                     ng_function));
 
   // ng function should get same number of outputs
@@ -275,7 +298,7 @@ void OpExecuter::ExecuteOnNGraph() {
   vector<std::shared_ptr<ngraph::runtime::TensorView>> ng_op_tensors;
 
   NGRAPH_VLOG(5) << " Creating ng inputs ";
-  for (int i = 0; i < number_of_inputs; i++) {
+  for (int i = 0; i < tf_inputs_.size(); i++) {
     ng::Shape ng_shape;
     ASSERT_EQ(Status::OK(),
               TFTensorShapeToNGraphShape(tf_inputs_[i].shape(), &ng_shape));
