@@ -46,17 +46,12 @@ namespace ngraph_bridge {
 class Builder1 {
   using OpMap = std::unordered_map<std::string,
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
-
-  /*
-  typedef const function<Status(
-      const Node*, const std::vector<shared_ptr<ng::Node>>&,
-      const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>
-      TranslatorFn;
-      */
-
   using TranslatorFn = function<Status(
       const Node*, const std::vector<shared_ptr<ng::Node>>&,
       const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>;
+  using DispatchTable =
+      const std::map<const string,
+                     std::pair<Builder1::TranslatorFn, vector<int>>>;
 
  private:
   //
@@ -64,19 +59,13 @@ class Builder1 {
   // vector of generated nGraph nodes.
   //
   Builder1::OpMap ng_op_map;
-
-  struct detail;
-
-  // const static std::map<
-  // const string,
-  // const function<Status(const Node*, const std::vector<const Tensor*>&,
-  //                      vector<shared_ptr<ng::Node>>&)>>
-  // TRANSLATE_OP_MAP;
   const static std::map<const string,
                         std::pair<Builder1::TranslatorFn, vector<int>>>
       TRANSLATE_OP_MAP;
 
-  OpKernelConstruction* ctx;  //TODO: is this required? required in OP_REQUIRES_OK is used instead of TF_RETURN_IF_ERROR in Initialize
+  OpKernelConstruction* ctx;  // TODO: is this required? required in
+                              // OP_REQUIRES_OK is used instead of
+                              // TF_RETURN_IF_ERROR in Initialize
   bool is_initialized = false;  // Prevent init from running twice
   const Graph& tf_graph;
   std::vector<bool> m_input_is_static;
@@ -85,24 +74,8 @@ class Builder1 {
 
   Status GetInputNode(const Node*, size_t, shared_ptr<ng::Node>*);
 
-  // TODO: enable detail namespace?
-  // Note: namespace details prevents template recursion error during
-  // compilation
-  // cannot use namespace in class, so using different names
-  Status detail_GetInputNodes(const Node* op, size_t index);
-
-  template <typename... Arguments>
-  Status detail_GetInputNodes(const Node*, size_t, shared_ptr<ng::Node>*,
-                              Arguments&&...);
-
-  template <typename... Arguments>
-  Status GetInputNodes(const Node*, Arguments&&...);
-
-  // TODO: move these out of class
-  //Status ValidateInputCount(const Node* op, size_t count);
-  //Status ValidateInputCountMin(const Node* op, size_t count);
-
   // helper function for populating ng_op_map
+  // TODO: no one to use it (except 1 place). delete?
   void SaveNgOp(const std::string& op_name,
                 const shared_ptr<ng::Node>& output_node);
 
@@ -131,10 +104,6 @@ class Builder1 {
                    const ngraph::Strides& ng_strides, T& ng_padding_below,
                    T& ng_padding_above);
 
-  // Note: we need a separate init function for this. because we cant return
-  // values from constructor,
-  // we cannot wrap 'classify_nodes' in 'TF_RETURN_IF_ERROR' if we did this part
-  // in the constructor.
   Status Initialize();
 
  public:

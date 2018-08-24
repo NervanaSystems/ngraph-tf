@@ -52,7 +52,8 @@ Status Builder1::TranslateGraph(
     }
     inputs[i] = input_tensor.shape();
   }
-  // TODO: pass static_input_map to translate_each_op... or pass the vector<int> ?
+  // TODO: pass static_input_map to translate_each_op... or pass the vector<int>
+  // ?
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
   TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
@@ -348,7 +349,7 @@ Status Builder1::Initialize() {
     // Fill the vector.
     for (auto node : arg_nodes) {
       int32 index;
-      //TODO: OP_REQUIRES_OK or TF_RETURN_IF_ERROR
+      // TODO: OP_REQUIRES_OK or TF_RETURN_IF_ERROR
       //// OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
       TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "index", &index));
 
@@ -405,19 +406,19 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
 }
 
 // TODO: move translate ops to a different file
-Status TranslateFloorDivOp1(const Node* op,
-                            const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
-                            const std::vector<const Tensor*>& static_input_map,
-                            vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+Status TranslateFloorDivOp(const Node* op,
+                           const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                           const std::vector<const Tensor*>& static_input_map,
+                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   return Status::OK();
 }
 
-Status TranslateFloorModOp1(const Node* op,
-                            const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
-                            const std::vector<const Tensor*>& static_input_map,
-                            vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+Status TranslateFloorModOp(const Node* op,
+                           const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                           const std::vector<const Tensor*>& static_input_map,
+                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   auto floordiv =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   subgraph_out_nodes[0] = ng_arg_vec[0] - (floordiv * ng_arg_vec[1]);
@@ -426,6 +427,17 @@ Status TranslateFloorModOp1(const Node* op,
   // TranslateFloorDivOp1(op, ng_arg_vec, static_input_map, subgraph_out_nodes);
   // subgraph_out_nodes[0] = ng_arg_vec[0] - (subgraph_out_nodes[0] *
   // ng_arg_vec[1]);
+  return Status::OK();
+}
+
+Status TranslateAddNOp(const Node* op,
+                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                       const std::vector<const Tensor*>& static_input_map,
+                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  subgraph_out_nodes[0] =
+      std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
+                      ng_arg_vec.at(0));  // accumulation: start with first
+                                          // element. default op is addition
   return Status::OK();
 }
 
@@ -469,14 +481,12 @@ Status TranslateUnary(const Node* op,
   return Status::OK();
 }
 
-const std::map<const string, std::pair<Builder1::TranslatorFn, vector<int>>>
-    Builder1::TRANSLATE_OP_MAP{
-        {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
-        {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
-        {"FloorDiv", {TranslateFloorDivOp1, {0, 1}}},
-        {"FloorMod", {TranslateFloorModOp1, {0, 1}}}};
-
-// std::function<int (int...) > f3 = [](int... x){return x+1;};
+Builder1::DispatchTable Builder1::TRANSLATE_OP_MAP{
+    {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
+    {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
+    {"AddN", {TranslateAddNOp, {}}},
+    {"FloorDiv", {TranslateFloorDivOp, {0, 1}}},
+    {"FloorMod", {TranslateFloorModOp, {0, 1}}}};
 
 }  // namespace ngraph_bridge
 
