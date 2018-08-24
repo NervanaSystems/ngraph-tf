@@ -108,11 +108,12 @@ void OpExecuter::ValidateGraph(const Graph& graph,
 // currently static_input_map is empty
 OpExecuter::OpExecuter(const Scope sc, const string test_op,
                        const vector<DataType>& op_types,
-                       const std::vector<Output>& sess_run_fetchops)
+                       const std::vector<Output>& sess_run_fetchops,
+                       const vector<int>& static_input_indexes)
     : tf_scope_(sc),
       test_op_type_(test_op),
       expected_output_datatypes_(op_types),
-      static_input_map_({}),
+      static_input_indexes_(static_input_indexes),
       sess_run_fetchoutputs_(sess_run_fetchops) {}
 
 // Destructor
@@ -171,6 +172,7 @@ void OpExecuter::ExecuteOnNGraph() {
   // Get Tensor input shapes and values from the const nodes
   int number_of_inputs = test_op->num_inputs();
   vector<TensorShape> input_shapes;
+  vector<Tensor*> static_inputs;
   vector<Node*> input_node;
 
   for (int i = 0; i < number_of_inputs; i++) {
