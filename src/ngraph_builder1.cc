@@ -72,6 +72,7 @@ Status Builder1::TranslateGraph(
    cout << "XXX6 " << tf_ret_vals.size() << " " << ng_result_list.size() << "\n";
 
   // Create the nGraph function.
+  cout << "XXX7 " << ng_result_list.size() << " " << ng_parameter_list.size() << "\n";
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
   return Status::OK();
 }
@@ -82,6 +83,7 @@ Status Builder1::TranslateEachOp(
   // Create the nGraph ops from TensorFlow ops.
 cout << "TEO0 " << tf_ops.size() << "\n";
   for (auto op : tf_ops) {
+    cout << "TEO:: " << op->type_string() << "\n";
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
@@ -96,6 +98,7 @@ cout << "TEO0 " << tf_ops.size() << "\n";
         bool variadic_input = input_idxs.size() == 0;
         int num_inputs = variadic_input ? op->num_inputs() : input_idxs.size();
         std::vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
+        cout << "TEO3\n";
         for (int idx = 0; idx < num_inputs; idx++) {
           TF_RETURN_IF_ERROR(GetInputNode(
               op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
@@ -397,18 +400,23 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   // input op may have resulted in more than one ng::Node (eg. Split)
   // we need to look at Edge to check index of the input op
   std::vector<const Edge*> edges;
+  cout << op->type_string();
+  cout << " GIN0\n";
   TF_RETURN_IF_ERROR(op->input_edges(&edges));
   size_t src_output_idx;
   try {
+    cout << "GIN1 "<<input_idx<<" "<<edges.size()<<"\n";
     src_output_idx = edges.at(input_idx)->src_output();
   } catch (const out_of_range&) {
     return Status(tensorflow::error::NOT_FOUND, "Edge not found");
   }
-
+  cout << "GIN2\n";
   Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
+  cout << "GIN3\n";
   try {
     *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
+    cout << "GIN4\n";
   } catch (const out_of_range&) {
     return Status(tensorflow::error::NOT_FOUND, "Input node not found");
   }
@@ -494,12 +502,80 @@ Status TranslateUnary(const Node* op,
   return Status::OK();
 }
 
+template <typename T, typename VecT = T>
+Status MakeConstOp(const Node* op, ng::element::Type et,
+                          std::shared_ptr<ng::Node>* ng_node) {
+  vector<VecT> const_values;
+  TensorShapeProto shape_proto;
+
+  TF_RETURN_IF_ERROR(
+      ValuesFromConstNode<T, VecT>(op->def(), &shape_proto, &const_values));
+
+  TensorShape const_shape(shape_proto);
+  ng::Shape ng_shape;
+  TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(const_shape, &ng_shape));
+
+  *ng_node = make_shared<ng::op::Constant>(et, ng_shape, const_values);
+  return Status::OK();
+}
+
+static Status TranslateConstOp(const Node* op,
+                      const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                      const std::vector<const Tensor*>& static_input_map,
+                      vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+
+  const static std::map<
+    const DataType,
+    const std::pair<const std::function<Status(const Node*, ng::element::Type,
+                                               std::shared_ptr<ng::Node>*)>,
+                    const ngraph::element::Type>>
+    TF_NGRAPH_CONST_MAP = {
+        {DataType::DT_FLOAT, make_pair(MakeConstOp<float>, ng::element::f32)},
+        {DataType::DT_DOUBLE, make_pair(MakeConstOp<double>, ng::element::f64)},
+        {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
+        {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+        {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
+        {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
+        {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
+        {DataType::DT_UINT16, make_pair(MakeConstOp<uint16>, ng::element::u16)},
+        {DataType::DT_BOOL,
+         make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
+
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dtype", &dtype));
+  // For some reason the following do not work (no specialization of
+  // tensorflow::checkpoint::SavedTypeTraits...)
+  // case DataType::DT_UINT32:
+  //   TF_RETURN_IF_ERROR(MakeConstOp<uint32>(op, ng::element::u32,
+  //   &ng_node));
+  //   break;
+  // case DataType::DT_UINT64:
+  //   TF_RETURN_IF_ERROR(MakeConstOp<uint64>(op, ng::element::u64,
+  //   &ng_node));
+  //   break;
+  try {
+    const auto& func_param = TF_NGRAPH_CONST_MAP.at(dtype);
+    TF_RETURN_IF_ERROR(func_param.first(op, func_param.second, &subgraph_out_nodes[0]));
+  } catch (const std::out_of_range&) {
+    return errors::Unimplemented("Unsupported TensorFlow data type: ",
+                                 DataType_Name(dtype));
+  }
+  return Status::OK();
+}
+
 Builder1::DispatchTable Builder1::TRANSLATE_OP_MAP{
     {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
     {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
-    {"AddN", {TranslateAddNOp, {}}}, //TODO: document {}
+    {"AddN", {TranslateAddNOp, {}}}, //TODO: document {} (variadic input ops)
+    {"Const", {TranslateConstOp, {0}}},
     {"FloorDiv", {TranslateFloorDivOp, {0, 1}}},
-    {"FloorMod", {TranslateFloorModOp, {0, 1}}}};
+    {"FloorMod", {TranslateFloorModOp, {0, 1}}},
+    {"Neg",{TranslateUnary<ngraph::op::Negative>, {0}}},
+    {"NoOp", {[](const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
+                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK(); }, {}}}
+    };
+
+
 
 }  // namespace ngraph_bridge
 
