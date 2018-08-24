@@ -28,6 +28,7 @@
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/stream_executor/lib/statusor.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -405,11 +406,14 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   return Status::OK();
 }
 
+
+using VectNg = std::vector<shared_ptr<ng::Node>>;
+
 // TODO: move translate ops to a different file
 Status TranslateFloorDivOp(const Node* op,
-                           const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                           const VectNg& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
-                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+                           VectNg& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   return Status::OK();
@@ -418,7 +422,7 @@ Status TranslateFloorDivOp(const Node* op,
 Status TranslateFloorModOp(const Node* op,
                            const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
-                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+                           VectNg& subgraph_out_nodes) {
   auto floordiv =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   subgraph_out_nodes[0] = ng_arg_vec[0] - (floordiv * ng_arg_vec[1]);
@@ -431,9 +435,9 @@ Status TranslateFloorModOp(const Node* op,
 }
 
 Status TranslateAddNOp(const Node* op,
-                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                       const VectNg &ng_arg_vec,
                        const std::vector<const Tensor*>& static_input_map,
-                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+                       VectNg& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
       std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
                       ng_arg_vec.at(0));  // accumulation: start with first
