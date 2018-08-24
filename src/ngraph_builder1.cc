@@ -73,8 +73,10 @@ Status Builder1::TranslateGraph(
   return Status::OK();  // TODO
 }
 
-//TODO, is static_input_map const?
-Status Builder1::TranslateEachOp(const vector<const Node*>& tf_ops, const std::vector<const Tensor*>& static_input_map) {
+// TODO, is static_input_map const?
+Status Builder1::TranslateEachOp(
+    const vector<const Node*>& tf_ops,
+    const std::vector<const Tensor*>& static_input_map) {
   // Create the nGraph ops from TensorFlow ops.
 
   for (auto op : tf_ops) {
@@ -82,61 +84,68 @@ Status Builder1::TranslateEachOp(const vector<const Node*>& tf_ops, const std::v
                    << op->type_string();
 
     try {
-      //extract out parent node finding and savengops
+      // extract out parent node finding and savengops
       // have the translateops as a list of pluggable functions (pimpl?)
 
       // TODO.....TODO....TODO
       // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
       //   op, static_input_map, ng_op_map));
-     
-      //The static_input_map thing:
-      //some ops have static input, not everyone needs this input.
-      //we can make static_input_map a class data member, and set it to nullptr once the TranslateGraph is done
-      // That way, we do not pass it around, and make sure we are not reusing stale static_input_map
 
+      // The static_input_map thing:
+      // some ops have static input, not everyone needs this input.
+      // we can make static_input_map a class data member, and set it to nullptr
+      // once the TranslateGraph is done
+      // That way, we do not pass it around, and make sure we are not reusing
+      // stale static_input_map
 
-      //Note: abstracting parents = GetInputNodes():
+      // Note: abstracting parents = GetInputNodes():
       // unknown number of nodes for each op
-      //std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
-      //TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
+      // std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
+      // TF_RETURN_IF_ERROR(GetInputNodes(op, &ng_lhs, &ng_rhs));
 
       vector<shared_ptr<ng::Node>> subgraph_out_nodes;
-      //TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(op, static_input_map));
+      // TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(op,
+      // static_input_map));
       auto iter = TRANSLATE_OP_MAP.find(op->type_string());
-      if (iter != TRANSLATE_OP_MAP.end()){
+      if (iter != TRANSLATE_OP_MAP.end()) {
         Builder1::TranslatorFn translate_fn = iter->second.first;
         vector<int> input_idxs = iter->second.second;
-        //std::tie(translate_fn, input_idxs) = iter->second;
-        // input_idxs can be size 0 (to indicate/handle variadic inputs nodes like Addn)
-        bool variadic_input = input_idxs.size()==0;
+        // std::tie(translate_fn, input_idxs) = iter->second;
+        // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
+        // like Addn)
+        bool variadic_input = input_idxs.size() == 0;
         int num_inputs = variadic_input ? op->num_inputs() : input_idxs.size();
         std::vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
-        for (int idx = 0; idx < num_inputs; idx++){
-          TF_RETURN_IF_ERROR(GetInputNode(op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
+        for (int idx = 0; idx < num_inputs; idx++) {
+          TF_RETURN_IF_ERROR(GetInputNode(
+              op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
         }
-        TF_RETURN_IF_ERROR(iter->second.first(op, ng_arg_vec, static_input_map, subgraph_out_nodes));
-      }
-      else{
-        //TODO TODO::: if-else or try-catch
+        // TODO: instead of pass static_input_map, use GetStaticInputVector and
+        // pass the vector<T>
+        // Then we'd have to pass a vector of vectors, in case a node has >1
+        // static inputs
+        TF_RETURN_IF_ERROR(iter->second.first(op, ng_arg_vec, static_input_map,
+                                              subgraph_out_nodes));
+      } else {
+        // TODO TODO::: if-else or try-catch
         // -----------------------------
         // Catch-all for unsupported ops
         // -----------------------------
         NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
-                      << op->type_string() << ")";
+                       << op->type_string() << ")";
         NGRAPH_VLOG(3) << op->def().DebugString();
         return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                      op->type_string(), ")");
+                                       op->type_string(), ")");
       }
 
-      
-      //for (auto ng_node : subgraph_out_nodes)
+      // for (auto ng_node : subgraph_out_nodes)
       //  SaveNgOp(ng_op_map, op->name(), ng_node);
-      ng_op_map[op->name()] = subgraph_out_nodes; //SaveNgOp
+      ng_op_map[op->name()] = subgraph_out_nodes;  // SaveNgOp
 
-      //TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod)
+      // TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod)
 
-    } 
-    //TODO: catching the error above. do we keep the try catch or use if-else?
+    }
+    // TODO: catching the error above. do we keep the try catch or use if-else?
     catch (const std::out_of_range&) {
       // -----------------------------
       // Catch-all for unsupported ops
@@ -152,9 +161,9 @@ Status Builder1::TranslateEachOp(const vector<const Node*>& tf_ops, const std::v
 }
 
 Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
-                                vector<const Node*>& tf_params,
-                                vector<const Node*>& tf_ret_vals,
-                                vector<const Node*>& tf_ops) {
+                               vector<const Node*>& tf_params,
+                               vector<const Node*>& tf_ret_vals,
+                               vector<const Node*>& tf_ops) {
   // Split ops into params, retvals, and all others.
 
   for (const auto n : ordered) {
@@ -209,9 +218,8 @@ Status Builder1::GetInputParams(
   return Status::OK();
 }
 
-Status Builder1::GetOutputNodes(
-    const vector<const Node*>& tf_ret_vals,
-    vector<shared_ptr<ng::Node>>& ng_result_list) {
+Status Builder1::GetOutputNodes(const vector<const Node*>& tf_ret_vals,
+                                vector<shared_ptr<ng::Node>>& ng_result_list) {
   // Populate the result list.
 
   ng_result_list.resize(tf_ret_vals.size());
@@ -337,8 +345,8 @@ Status Builder1::Initialize() {
     GetReversePostOrder(tf_graph, &ordered);
 
     TF_RETURN_IF_ERROR(ClassifyNodes(ordered, tf_params, tf_ret_vals, tf_ops));
-  
-  // TODO: since we have an init anyway, why not move this stuff there
+
+    // TODO: since we have an init anyway, why not move this stuff there
 
     // TODO: maybe we do not need to copy ctx into a pvt variable., as we do not
     // use it later
@@ -363,8 +371,8 @@ Status Builder1::Initialize() {
         int32 index;
         // macro defn:
         // https://github.com/petewarden/tensorflow_makefile/blob/master/tensorflow/core/framework/op_kernel.h#L1265
-        
-        //TODO check : removing OP_REQUIRES_OK for now
+
+        // TODO check : removing OP_REQUIRES_OK for now
         //// OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "index", &index));
         if (index > max_arg_index) max_arg_index = index;
@@ -403,7 +411,7 @@ Status Builder1::Initialize() {
                      << " is static: " << m_input_is_static[index];
     }
 
-  is_initialized = true;
+    is_initialized = true;
   }
   return Status::OK();
 }
@@ -431,8 +439,7 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   return Status::OK();
 }
 
-
-//TODO: inner class?
+// TODO: inner class?
 // namespace detail {
 Status Builder1::detail_GetInputNodes(const Node* op, size_t index) {
   return Status::OK();
@@ -449,7 +456,6 @@ Status Builder1::detail_GetInputNodes(const Node* op, size_t index,
 }
 //}  // namespace detail
 
-
 template <typename... Arguments>
 Status Builder1::GetInputNodes(const Node* op, Arguments&&... remaining) {
   constexpr size_t args_len = sizeof...(Arguments);
@@ -461,28 +467,27 @@ Status Builder1::GetInputNodes(const Node* op, Arguments&&... remaining) {
 
 // TODO: move translate ops to a different file
 // TODO: make TranslateOps not static?
-Status TranslateFloorDivOp1(const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map, vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
-  subgraph_out_nodes[0] = std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
+Status TranslateFloorDivOp1(const Node* op,
+                            const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                            const std::vector<const Tensor*>& static_input_map,
+                            vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  subgraph_out_nodes[0] =
+      std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   return Status::OK();
 }
 
-Status TranslateFloorModOp1(const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map, vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
-  auto floordiv = std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
+Status TranslateFloorModOp1(const Node* op,
+                            const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                            const std::vector<const Tensor*>& static_input_map,
+                            vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  auto floordiv =
+      std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   subgraph_out_nodes[0] = ng_arg_vec[0] - (floordiv * ng_arg_vec[1]);
-  return Status::OK();
-}
 
-
-static Status TranslateBinaryOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    vector<shared_ptr<ng::Node>>& subgraph_out_nodes,
-    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
-                                            std::shared_ptr<ng::Node>)>
-        create_binary_op) {
-  std::shared_ptr<ng::Node> ng_lhs, ng_rhs;
-
-  std::tie(ng_lhs, ng_rhs) =
-      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+  // Possible reuse of floordiv:
+  // TranslateFloorDivOp1(op, ng_arg_vec, static_input_map, subgraph_out_nodes);
+  // subgraph_out_nodes[0] = ng_arg_vec[0] - (subgraph_out_nodes[0] *
+  // ng_arg_vec[1]);
   return Status::OK();
 }
 
@@ -496,24 +501,73 @@ static Status TranslateBinaryOp(
 //    ng_op_map));
 //  }
 //
+
+// Note: Earlier TranslateBinary had 2 forms: templated (to conver a ng:Node)
+// into a function
+// and non-templated, which converted an arbitrary function that accepts 2 nodes
+// and returns 1 node.
+// In current implementation, we do not need the non-templated version, because
+// TranslateBinary will be
+// part of the class, and the TranslateOps will not have access to it.
+/*
 template <typename T>
-static Status TranslateBinaryOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
-  return TranslateBinaryOp(
-      op, static_input_map,
-      [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
-        return make_shared<T>(ng_lhs, ng_rhs);
-      });
+Status TranslateBinary(
+    const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+    const std::vector<const Tensor*>& static_input_map,
+    vector<shared_ptr<ng::Node>>& subgraph_out_nodes,
+    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
+                                            std::shared_ptr<ng::Node>)>
+        create_op) {
+  // TODO: assert subgraph_out_nodes.size()==1, ng_arg_vec.size()==2
+  std::tie(ng_arg_vec[0], ng_arg_vec[0]) = ng::builder::numpy_broadcast(
+      std::make_pair(ng_arg_vec[0], ng_arg_vec[1]));
+  subgraph_out_nodes[0] = create_op(ng_arg_vec[0], ng_arg_vec[1]);
+  return Status::OK();
 }
 
+template <typename T>
+Status TranslateBinary(const Node* op,
+                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                       const std::vector<const Tensor*>& static_input_map,
+                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  return TranslateBinary(
+      op, ng_arg_vec, static_input_map, subgraph_out_nodes,
+      [](std::shared_ptr<ng::Node> n1, std::shared_ptr<ng::Node> n2) {
+        return make_shared<T>(n1, n2);
+      });
+}
+*/
 
-const std::map<
-    const string, std::pair<Builder1::TranslatorFn, vector<int>>
-    >
-    Builder1::TRANSLATE_OP_MAP{{"FloorDiv", {TranslateFloorDivOp1, {0,1}}},
-                               {"FloorMod", {TranslateFloorModOp1, {0,1}}}};
+template <typename T>
+Status TranslateBinary(const Node* op,
+                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                       const std::vector<const Tensor*>& static_input_map,
+                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  // TODO: assert subgraph_out_nodes.size()==1, ng_arg_vec.size()==2
+  auto node_pair = ng::builder::numpy_broadcast(
+      std::make_pair(ng_arg_vec[0], ng_arg_vec[1]));
+  subgraph_out_nodes[0] = make_shared<T>(node_pair.first, node_pair.second);
+  return Status::OK();
+}
 
+template <typename T>
+Status TranslateUnary(const Node* op,
+                      const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                      const std::vector<const Tensor*>& static_input_map,
+                      vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+  // TODO: assert subgraph_out_nodes.size()==1, ng_arg_vec.size()==1
+  subgraph_out_nodes[0] = make_shared<T>(ng_arg_vec[0]);
+  return Status::OK();
+}
+
+const std::map<const string, std::pair<Builder1::TranslatorFn, vector<int>>>
+    Builder1::TRANSLATE_OP_MAP{
+        {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
+        {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
+        {"FloorDiv", {TranslateFloorDivOp1, {0, 1}}},
+        {"FloorMod", {TranslateFloorModOp1, {0, 1}}}};
+
+// std::function<int (int...) > f3 = [](int... x){return x+1;};
 
 }  // namespace ngraph_bridge
 

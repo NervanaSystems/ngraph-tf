@@ -30,7 +30,6 @@
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/graph.h"
 
-
 using namespace std;
 namespace ng = ngraph;
 namespace tensorflow {
@@ -48,7 +47,16 @@ class Builder1 {
   using OpMap = std::unordered_map<std::string,
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
 
-typedef const function<Status(const Node*, const std::vector<shared_ptr<ng::Node>>&, const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)> TranslatorFn;
+  /*
+  typedef const function<Status(
+      const Node*, const std::vector<shared_ptr<ng::Node>>&,
+      const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>
+      TranslatorFn;
+      */
+
+  using TranslatorFn = function<Status(
+      const Node*, const std::vector<shared_ptr<ng::Node>>&,
+      const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>;
 
  private:
   //
@@ -59,12 +67,14 @@ typedef const function<Status(const Node*, const std::vector<shared_ptr<ng::Node
 
   struct detail;
 
-  //const static std::map<
-      //const string,
-      //const function<Status(const Node*, const std::vector<const Tensor*>&,
-      //                      vector<shared_ptr<ng::Node>>&)>>
-      //TRANSLATE_OP_MAP;
-      const static std::map<const string, std::pair<Builder1::TranslatorFn, vector<int>>> TRANSLATE_OP_MAP;
+  // const static std::map<
+  // const string,
+  // const function<Status(const Node*, const std::vector<const Tensor*>&,
+  //                      vector<shared_ptr<ng::Node>>&)>>
+  // TRANSLATE_OP_MAP;
+  const static std::map<const string,
+                        std::pair<Builder1::TranslatorFn, vector<int>>>
+      TRANSLATE_OP_MAP;
 
   OpKernelConstruction* ctx;    // TODO: do we need to save it?
   bool is_initialized = false;  // Prevent init from running twice
@@ -157,7 +167,7 @@ typedef const function<Status(const Node*, const std::vector<shared_ptr<ng::Node
  public:
   // TODO: move constructor body to .cc
   Builder1(const Graph& tf_graph,
-          OpKernelConstruction* ctx)  // TODO make ctx const?
+           OpKernelConstruction* ctx)  // TODO make ctx const?
       : tf_graph(tf_graph),
         ctx(ctx) {}
   Status TranslateGraph(OpKernelContext* ctx,
