@@ -54,6 +54,8 @@ class Builder1 {
                      std::pair<Builder1::TranslatorFn, vector<int>>>;
 
  private:
+
+  Status GetOpTranslationRequirements();
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
   // vector of generated nGraph nodes.

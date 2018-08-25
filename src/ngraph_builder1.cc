@@ -39,10 +39,7 @@ namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
-  cout << "XXX1\n";
   TF_RETURN_IF_ERROR(Initialize());
-  cout << "XXX2 " << ordered.size() << "\n";
-  cout << tf_params.size() << " " << tf_ops.size() << " " << tf_ret_vals.size() << "\n";
 
   std::vector<const Tensor*> static_input_map;
 
@@ -56,23 +53,18 @@ Status Builder1::TranslateGraph(
     }
     inputs[i] = input_tensor.shape();
   }
-  cout << "XXX3\n";
   // TODO: pass static_input_map to translate_each_op... or pass the vector<int>
   // ?
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
   TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
-  cout << "XXX4 " << tf_params.size() << " " << ng_parameter_list.size() << "\n";
 
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
-  cout << "XXX5 " << tf_ops.size() <<  "\n";
 
   vector<shared_ptr<ng::Node>> ng_result_list;
   TF_RETURN_IF_ERROR(GetOutputNodes(tf_ret_vals, ng_result_list));
-   cout << "XXX6 " << tf_ret_vals.size() << " " << ng_result_list.size() << "\n";
 
   // Create the nGraph function.
-  cout << "XXX7 " << ng_result_list.size() << " " << ng_parameter_list.size() << "\n";
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
   return Status::OK();
 }
@@ -81,33 +73,33 @@ Status Builder1::TranslateEachOp(
     const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
   // Create the nGraph ops from TensorFlow ops.
-cout << "TEO0 " << tf_ops.size() << "\n";
   for (auto op : tf_ops) {
-    cout << "TEO:: " << op->type_string() << "\n";
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
     try {
-      vector<shared_ptr<ng::Node>> subgraph_out_nodes;
+      vector<shared_ptr<ng::Node>> subgraph_out_nodes(op->num_outputs()); //TODOOOO: assign subgraph_out_nodes enough space... it size should be equal to number of outputs expected form the node
       auto iter = TRANSLATE_OP_MAP.find(op->type_string());
       if (iter != TRANSLATE_OP_MAP.end()) {
-        Builder1::TranslatorFn translate_fn = iter->second.first;
-        vector<int> input_idxs = iter->second.second;
+        Builder1::TranslatorFn translate_fn;
+        vector<int> input_idxs;
+        std::tie(translate_fn, input_idxs) = iter->second;
         // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
         // like Addn)
         bool variadic_input = input_idxs.size() == 0;
         int num_inputs = variadic_input ? op->num_inputs() : input_idxs.size();
         std::vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
-        cout << "TEO3\n";
-        for (int idx = 0; idx < num_inputs; idx++) {
-          TF_RETURN_IF_ERROR(GetInputNode(
-              op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
+        if (op->type_string() != "Const"){
+          for (int idx = 0; idx < num_inputs; idx++) {
+            TF_RETURN_IF_ERROR(GetInputNode(
+                op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
+          }
         }
         // TODO: instead of pass static_input_map, use GetStaticInputVector and
         // pass the vector<T>
         // Then we'd have to pass a vector of vectors, in case a node has >1
         // static inputs
-        TF_RETURN_IF_ERROR(iter->second.first(op, ng_arg_vec, static_input_map,
+        TF_RETURN_IF_ERROR(translate_fn(op, ng_arg_vec, static_input_map,
                                               subgraph_out_nodes));
       } else {
         // TODO::: if-else or try-catch
@@ -148,9 +140,7 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
                                vector<const Node*>& tf_ret_vals,
                                vector<const Node*>& tf_ops) {
   // Split ops into params, retvals, and all others.
-  cout << "Size of ordered: " << ordered.size() << "\n";
   for (const auto n : ordered) {
-    cout << "XXXXXXXX " << n->type_string() << "\n";
     if (n->IsSink() || n->IsSource()) {
       continue;
     }
@@ -160,7 +150,6 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
           "Encountered a control flow op in the nGraph bridge: ",
           n->DebugString());
     }
-    cout << n->type_string() << "\n";
     if (n->type_string() == "_Arg") {
       tf_params.push_back(n);
     } else if (n->type_string() == "_Retval") {
@@ -326,7 +315,6 @@ Status Builder1::Initialize() {
     //
     // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
 
-    cout << "b4 revpostorder " << tf_graph.num_node_ids() << "\n";
     GetReversePostOrder(tf_graph, &ordered);
 
     TF_RETURN_IF_ERROR(ClassifyNodes(ordered, tf_params, tf_ret_vals, tf_ops));
@@ -400,23 +388,17 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   // input op may have resulted in more than one ng::Node (eg. Split)
   // we need to look at Edge to check index of the input op
   std::vector<const Edge*> edges;
-  cout << op->type_string();
-  cout << " GIN0\n";
   TF_RETURN_IF_ERROR(op->input_edges(&edges));
   size_t src_output_idx;
   try {
-    cout << "GIN1 "<<input_idx<<" "<<edges.size()<<"\n";
     src_output_idx = edges.at(input_idx)->src_output();
   } catch (const out_of_range&) {
     return Status(tensorflow::error::NOT_FOUND, "Edge not found");
   }
-  cout << "GIN2\n";
   Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
-  cout << "GIN3\n";
   try {
     *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
-    cout << "GIN4\n";
   } catch (const out_of_range&) {
     return Status(tensorflow::error::NOT_FOUND, "Input node not found");
   }
@@ -516,6 +498,7 @@ Status MakeConstOp(const Node* op, ng::element::Type et,
   TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(const_shape, &ng_shape));
 
   *ng_node = make_shared<ng::op::Constant>(et, ng_shape, const_values);
+
   return Status::OK();
 }
 
@@ -575,6 +558,24 @@ Builder1::DispatchTable Builder1::TRANSLATE_OP_MAP{
                     vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK(); }, {}}}
     };
 
+//Just pass it the op. we can read its name inside.
+//Also if #inputs, #outputs are not specified, we can construct them here
+Status Builder1::GetOpTranslationRequirements(){
+  //auto fn = TRANSLATE_OP_MAP[op_type];
+
+  //TODO: this function wraps TRANSLATE_OP_MAP.
+  //It returns a translate function, input indexes, and number of outputs
+  //The translate function MUST be present in TRANSLATE_OP_MAP
+  // input_idx and num outputs may not be present, or inferred from op
+  //Note: op itself may specify the number of outputs... so maybe we dont need to specify that.
+  //Is there a case we ask for less outputs than what TF provides?
+
+  //For input idxs, by default we should return {0,1, ..., (op->num_inputs)-1}...unless otherwise specified.
+
+
+
+  return Status::OK();
+}
 
 
 }  // namespace ngraph_bridge
