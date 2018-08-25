@@ -124,7 +124,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Create the backend
     if (s_ng_backend == nullptr) {
-      mutex_lock l(s_ng_backend_lock);
+      mutex_lock l(s_ng_backend_mutex);
 
       if (s_ng_backend == nullptr) {
 #if defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
@@ -353,7 +353,6 @@ class NGraphEncapsulateOp : public OpKernel {
           }
           current_tv = last_tv;
         } else {
-          mutex_lock l(s_ng_backend_lock);
           current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape,
                                                    current_src_ptr);
           current_tv->set_stale(true);
@@ -362,7 +361,6 @@ class NGraphEncapsulateOp : public OpKernel {
         if (last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          mutex_lock l(s_ng_backend_lock);
           current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape);
         }
         current_tv->write(current_src_ptr, 0, current_tv->get_element_count() *
@@ -423,7 +421,6 @@ class NGraphEncapsulateOp : public OpKernel {
         if (current_dst_ptr == last_dst_ptr && last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          mutex_lock l(s_ng_backend_lock);
           current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape,
                                                    current_dst_ptr);
         }
@@ -431,7 +428,6 @@ class NGraphEncapsulateOp : public OpKernel {
         if (last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          mutex_lock l(s_ng_backend_lock);
           current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape);
         }
       }  // if (s_ng_backend_name == "CPU")
@@ -447,7 +443,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Execute the nGraph function.
     {
-      mutex_lock l(s_ng_backend_lock);
+      mutex_lock l(s_ng_backend_mutex);
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
@@ -490,14 +486,14 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
 
   static std::shared_ptr<ng::runtime::Backend> s_ng_backend
-      GUARDED_BY(s_ng_backend_lock);
+      GUARDED_BY(s_ng_backend_mutex);
   static std::string s_ng_backend_name;
-  static mutex s_ng_backend_lock;
+  static mutex s_ng_backend_mutex;
 };
 
 std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::s_ng_backend;
 std::string NGraphEncapsulateOp::s_ng_backend_name;
-mutex NGraphEncapsulateOp::s_ng_backend_lock;
+mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 
 }  // namespace ngraph_bridge
 
