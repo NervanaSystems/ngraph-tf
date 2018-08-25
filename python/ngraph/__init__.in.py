@@ -32,7 +32,7 @@ from tensorflow.python.framework import errors_impl
 
 TF_VERSION = tf.VERSION
 TF_GIT_VERSION = tf.GIT_VERSION
-TF_VERSION_NEEDED = ${TensorFlow_GIT_VERSION}
+TF_VERSION_NEEDED = "${TensorFlow_GIT_VERSION}"
 
 try:
   TF_VERSION = str(TF_VERSION, 'ascii')
@@ -47,6 +47,8 @@ except TypeError:
   pass
  
 try:
+  if TF_VERSION_NEEDED.startswith("b'"):
+    TF_VERSION_NEEDED = eval(TF_VERSION_NEEDED)
   TF_VERSION_NEEDED = str(TF_VERSION_NEEDED, 'ascii')
 except TypeError:
   pass
