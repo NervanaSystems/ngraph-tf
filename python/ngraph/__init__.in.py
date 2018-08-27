@@ -59,6 +59,8 @@ def requested():
 
 
 ngraph.ngraph_is_enabled.restype = ctypes.c_bool
+ngraph.ngraph_list_backends.restype = ctypes.c_bool
+ngraph.ngraph_set_backend.restype = ctypes.c_bool
 
 
 def enable():
@@ -71,3 +73,20 @@ def disable():
 
 def is_enabled():
   return ngraph.ngraph_is_enabled()
+
+
+def backends_len():
+  return ngraph.ngraph_backends_len()
+
+
+def list_backends():
+  len_backends = backends_len()
+  result = (ctypes.c_string * len_backends)(*(None * len_backends))
+  if not ngraph.ngraph_build_backends(result, len_backends):
+    raise Exception("Backends fluctuated while listing")
+  return result
+
+
+def set_backend(backend):
+  if not ngraph.ngraph_set_backend(backend):
+    raise Exception("Backend " + backend + " unavailable.")
