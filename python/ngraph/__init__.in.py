@@ -34,13 +34,14 @@ TF_VERSION = tf.VERSION
 TF_GIT_VERSION = tf.GIT_VERSION
 TF_VERSION_NEEDED = "${TensorFlow_GIT_VERSION}"
 
+# converting version representations to strings if not already
 try:
   TF_VERSION = str(TF_VERSION, 'ascii')
-except TypeError:  # will happen for python 2 or  if already string
+except TypeError:  # will happen for python 2 or if already string
   pass
 
 try:
-  if TF_GIT_VERSION.startswith("b'"):  # oh god...
+  if TF_GIT_VERSION.startswith("b'"):  # TF version can be a bytes __repr__()
     TF_GIT_VERSION = eval(TF_GIT_VERSION)
   TF_GIT_VERSION = str(TF_GIT_VERSION, 'ascii')
 except TypeError:
