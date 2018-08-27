@@ -31,7 +31,7 @@ extern bool is_enabled();
 extern size_t backends_len();
 // TODO: why is this not const?
 extern vector<string> list_backends();
-extern void set_backend(const string& type);
+extern tensorflow::Status set_backend(const string& type);
 
 extern void start_logging_placement();
 extern void stop_logging_placement();
