@@ -26,9 +26,7 @@ bool ngraph_list_backends(char** backends, int backends_len) {
   return true;
 }
 bool ngraph_set_backend(const char* backend) {
-  try {
-    set_backend(string(backend));
-  } catch (const runtime_error& e) {
+  if (set_backend(string(backend)) != tensorflow::Status::OK()) {
     return false;
   }
   return true;
@@ -43,7 +41,14 @@ size_t backends_len() { return list_backends().size(); }
 vector<string> list_backends() {
   return ngraph::runtime::Backend::get_registered_devices();
 }
-void set_backend(const string& type) { ngraph::runtime::Backend::create(type); }
+tensorflow::Status set_backend(const string& type) {
+  try {
+    ngraph::runtime::Backend::create(type);
+  } catch (const runtime_error& e) {
+    return tensorflow::errors::Unavailable("Backend unavailable: ", type);
+  }
+  return tensorflow::Status::OK();
+}
 }
 }
 }
