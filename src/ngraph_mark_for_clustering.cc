@@ -381,6 +381,11 @@ Status MarkForClustering(Graph* graph) {
         NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
                        << node->type_string() << "]";
       }
+
+      if (config::is_logging_placement()) {
+        const char* status = confirmed ? "Accepting: " : "Rejecting: ";
+        cout << status << node->name() << "[" << node->type_string() << "]";
+      }
     }
   }
 
