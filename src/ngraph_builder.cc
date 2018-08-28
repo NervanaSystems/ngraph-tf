@@ -2438,6 +2438,10 @@ static Status TranslateStridedSliceOp(
   std::shared_ptr<ng::Node> ng_strided_slice =
       make_shared<ng::op::Slice>(ng_input, l, u, s);
   if (tf_shrink_axis_mask) {
+    NGRAPH_VLOG(3) << "shrink_axis_mask: " << tf_shrink_axis_mask;
+    NGRAPH_VLOG(3) << "shape of slice before axis shrinking: "
+                   << ng_strided_slice->get_shape();
+
     ng::AxisVector ng_axis_order(input_shape.size());
     for (size_t i = 0; i < input_shape.size(); i++) {
       ng_axis_order[i] = i;
@@ -2796,23 +2800,29 @@ Status Builder::TranslateGraph(
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
+    const function<Status(const Node*, const std::vector<const Tensor*>&,
+                          Builder::OpMap&)>* op_fun;
     try {
-      TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
-          op, static_input_map, ng_op_map));
+      op_fun = &(TRANSLATE_OP_MAP.at(op->type_string()));
     } catch (const std::out_of_range&) {
       // -----------------------------
       // Catch-all for unsupported ops
       // -----------------------------
-      NGRAPH_VLOG(3) << "Out of range Op: " << op->name() << " ("
-                     << op->type_string() << ")";
+      NGRAPH_VLOG(3) << "No translation handler registered for op: "
+                     << op->name() << " (" << op->type_string() << ")";
       NGRAPH_VLOG(3) << op->def().DebugString();
-      return errors::InvalidArgument("Out of Range for Op: ", op->name(), " (",
-                                     op->type_string(), ")\n",
-                                     op->def().DebugString());
-    } catch (...) {
-      return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                     op->type_string(), ")\n",
-                                     op->def().DebugString());
+      return errors::InvalidArgument(
+          "No translation handler registered for op: ", op->name(), " (",
+          op->type_string(), ")\n", op->def().DebugString());
+    }
+
+    try {
+      TF_RETURN_IF_ERROR((*op_fun)(op, static_input_map, ng_op_map));
+    } catch (const std::exception& e) {
+      return errors::Internal("Unhandled exception in op handler: ", op->name(),
+                              " (", op->type_string(), ")\n",
+                              op->def().DebugString(), "\n", "what(): ",
+                              e.what());
     }
   }
 
