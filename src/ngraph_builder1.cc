@@ -15,7 +15,7 @@
  *******************************************************************************/
 
 #include "ngraph_builder1.h"
-//#include "ngraph_conversions.h"
+#include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
@@ -36,6 +36,9 @@ namespace ng = ngraph;
 namespace tensorflow {
 
 namespace ngraph_bridge {
+
+//TODO: move this to .h
+using VectNg = std::vector<shared_ptr<ng::Node>>;
 
 Status Builder1::TranslateGraph(
     const std::vector<TensorShape>& inputs,
@@ -89,7 +92,6 @@ Status Builder1::TranslateGraph(
 Status Builder1::TranslateEachOp(
     const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
-  cout << "======TranslateEachOp======\n";
   // Create the nGraph ops from TensorFlow ops.
   for (auto op : tf_ops) {
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
@@ -100,12 +102,12 @@ Status Builder1::TranslateEachOp(
       TF_RETURN_IF_ERROR(GetOpTranslationRequirements(op, translate_fn, input_indexes));
       // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
       // like Addn)
-      vector<shared_ptr<ng::Node>> subgraph_out_nodes(op->num_outputs());
+      VectNg subgraph_out_nodes(op->num_outputs());
       
 
         bool variadic_input = input_indexes.size() == 0;
         int num_inputs = variadic_input ? op->num_inputs() : input_indexes.size();
-        std::vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
+        VectNg ng_arg_vec(num_inputs);
         if (op->type_string() != "Const"){
           for (int idx = 0; idx < num_inputs; idx++) {
             TF_RETURN_IF_ERROR(GetInputNode(
@@ -399,12 +401,9 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   return Status::OK();
 }
 
-
-using VectNg = std::vector<shared_ptr<ng::Node>>;
-
 // TODO: move translate ops to a different file
 Status TranslateFloorDivOp(const Node* op,
-                           const VectNg& ng_arg_vec,
+                           VectNg& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
                            VectNg& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
@@ -413,7 +412,7 @@ Status TranslateFloorDivOp(const Node* op,
 }
 
 Status TranslateFloorModOp(const Node* op,
-                           const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                           VectNg& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
                            VectNg& subgraph_out_nodes) {
   auto floordiv =
@@ -428,7 +427,7 @@ Status TranslateFloorModOp(const Node* op,
 }
 
 Status TranslateAddNOp(const Node* op,
-                       const VectNg &ng_arg_vec,
+                       VectNg &ng_arg_vec,
                        const std::vector<const Tensor*>& static_input_map,
                        VectNg& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
@@ -458,9 +457,9 @@ Status TranslateAddNOp(const Node* op,
 // part of the class, and the TranslateOps will not have access to it.
 template <typename T>
 Status TranslateBinary(const Node* op,
-                       const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                       VectNg& ng_arg_vec,
                        const std::vector<const Tensor*>& static_input_map,
-                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+                       VectNg& subgraph_out_nodes) {
   // TODO: assert subgraph_out_nodes.size()==1, ng_arg_vec.size()==2
   auto node_pair = ng::builder::numpy_broadcast(
       std::make_pair(ng_arg_vec[0], ng_arg_vec[1]));
@@ -497,9 +496,9 @@ Status MakeConstOp(const Node* op, ng::element::Type et,
 }
 
 static Status TranslateConstOp(const Node* op,
-                      const std::vector<shared_ptr<ng::Node>>& ng_arg_vec,
+                      VectNg& ng_arg_vec,
                       const std::vector<const Tensor*>& static_input_map,
-                      vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+                      VectNg& subgraph_out_nodes) {
 
   const static std::map<
     const DataType,
@@ -540,16 +539,80 @@ static Status TranslateConstOp(const Node* op,
   return Status::OK();
 }
 
+//TODO: document why ng_arg_vec is not const. (BatchToNGraph changes it)
+Status TranslateAvgPoolOp(const Node* op,
+                           VectNg& ng_arg_vec,
+                           const std::vector<const Tensor*>& static_input_map,
+                           VectNg& subgraph_out_nodes){
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return errors::InvalidArgument(
+        "AvgPool data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+
+  //TODO: should these be in Builder instead of in ngraph_conversions.h?
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_arg_vec[0]->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph(is_nhwc, ng_arg_vec[0]);
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  // TODO: change this once nGraph supports negative padding
+  // (CoordinateDiff) for AvgPool
+  // ng::CoordinateDiff ng_padding_below{0,0};
+  // ng::CoordinateDiff ng_padding_above{0,0};
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+
+  MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_avgpool =
+      make_shared<ng::op::AvgPool>(ng_arg_vec[0], ng_kernel_shape, ng_strides,
+                                   ng_padding_below, ng_padding_above, false);
+
+  BatchToTensorflow(is_nhwc, ng_avgpool);
+  NGRAPH_VLOG(3) << "avgpool outshape: {" << ng::join(ng_avgpool->get_shape())
+                 << "}";
+
+  subgraph_out_nodes[0] = ng_avgpool;
+  //SaveNgOp(ng_op_map, op->name(), ng_avgpool);
+  return Status::OK();
+}
+
+
 const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
     {"Abs", TranslateUnary<ngraph::op::Abs>},
     {"Add", TranslateBinary<ngraph::op::Add>},
     {"AddN", TranslateAddNOp},
+    {"AvgPool", TranslateAvgPoolOp},
     {"Const", TranslateConstOp},
     {"FloorDiv", TranslateFloorDivOp},
     {"FloorMod", TranslateFloorModOp},
     {"Neg", TranslateUnary<ngraph::op::Negative>},
-    {"NoOp", [](const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
-                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK();}},
+    {"NoOp", [](const Node* op, VectNg& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
+                    VectNg& subgraph_out_nodes) { return Status::OK();}},
     {"RealDiv", TranslateBinary<ngraph::op::Divide>}
     };
 

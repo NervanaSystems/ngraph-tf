@@ -19,6 +19,8 @@
 #include <ostream>
 #include <vector>
 
+//#include "ngraph_conversions.h"
+
 #include "ngraph/ngraph.hpp"
 
 #include "ngraph_log.h"
@@ -48,7 +50,7 @@ class Builder1 {
   using OpMap = std::unordered_map<std::string,
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
   using TranslatorFn = function<Status(
-      const Node*, const std::vector<shared_ptr<ng::Node>>&,
+      const Node*, std::vector<shared_ptr<ng::Node>>&,
       const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>;
   //using DispatchTable =
   //    const std::map<const string,

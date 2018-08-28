@@ -56,6 +56,7 @@ set(SRC
    ngraph_tracked_variable.cc
    ngraph_utils.cc
    tf_graphcycles.cc
+   ngraph_conversions.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})

@@ -14,6 +14,8 @@
  * limitations under the License.
  *******************************************************************************/
 
+#ifndef NGRAPH_TF_BRIDGE_CONVERSIONS_
+#define NGRAPH_TF_BRIDGE_CONVERSIONS_
 #pragma once
 
 #include "ngraph_builder.h"
@@ -24,7 +26,7 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 template <size_t a, size_t b, size_t c, size_t d>
-void Reshape(std::shared_ptr<ngraph::Node>& ng_node) {
+void Reshape(std::shared_ptr<ngraph::Node>& ng_node){
   static_assert(a < 4 && b < 4 && c < 4 && d < 4,
                 "Number of dimensions cannot exceed 4");
   static_assert(a != b && a != c && a != d && b != c && b != d && c != d,
@@ -43,9 +45,7 @@ void NhwcToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
   dst[1] = src[2];
 }
 
-void NhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node) {
-  Reshape<0, 3, 1, 2>(ng_node);
-}
+void NhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node);
 
 template <typename T>
 void NchwToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
@@ -62,11 +62,7 @@ void NhwcToNchw(const std::vector<T>& src, std::vector<size_t>& dst) {
 }
 }
 
-void BatchToNGraph(bool is_nhwc, std::shared_ptr<ngraph::Node>& ng_input) {
-  if (is_nhwc) {
-    detail::NhwcToNGraph(ng_input);
-  }
-}
+void BatchToNGraph(bool is_nhwc, std::shared_ptr<ngraph::Node>& ng_input);
 
 template <typename T>
 void BatchedOpParamToNGraph(bool is_nhwc, const std::vector<T>& src,
@@ -88,13 +84,8 @@ void BatchedOpParamReshape(bool is_nhwc, const std::vector<T>& src,
   }
 }
 
-void BatchToTensorflow(bool is_nhwc, std::shared_ptr<ngraph::Node>& ng_node) {
-  if (!is_nhwc) {
-    return;
-  }
-  Reshape<0, 2, 3, 1>(ng_node);
-}
-
+void BatchToTensorflow(bool is_nhwc, std::shared_ptr<ngraph::Node>& ng_node);
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
+#endif
