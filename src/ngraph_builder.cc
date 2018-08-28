@@ -1300,9 +1300,8 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
+                                      ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2717,15 +2716,6 @@ Status Builder::TranslateGraph(
   // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
   vector<Node*> ordered;
   GetReversePostOrder(*input_graph, &ordered);
-
-  NGRAPH_VLOG(5) << "static inps size" << static_input_map.size();
-
-  for (int i = 0; i < static_input_map.size(); i++) {
-    if (static_input_map[i] == nullptr) {
-      continue;
-    }
-    NGRAPH_VLOG(5) << "static inps " << static_input_map[i]->DebugString();
-  }
 
   //
   // Split ops into params, retvals, and all others.

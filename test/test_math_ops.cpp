@@ -72,15 +72,13 @@ TEST(MathOps, Add) {
   OpExecuter opexecuter(root, "Add", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
 
-  opexecuter.ExecuteOnNGraph();
-  opexecuter.ExecuteOnTF();
-  opexecuter.CompareNGraphAndTF();
+  opexecuter.RunTest();
 }
 
 TEST(MathOps, RealDiv) {
   Scope root = Scope::NewRootScope();
-  int dim1 = 100;
-  int dim2 = 200;
+  int dim1 = 2;
+  int dim2 = 2;
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
@@ -97,9 +95,7 @@ TEST(MathOps, RealDiv) {
   OpExecuter opexecuter(root, "RealDiv", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
 
-  opexecuter.ExecuteOnNGraph();
-  opexecuter.ExecuteOnTF();
-  opexecuter.CompareNGraphAndTF();
+  opexecuter.RunTest();
 }
 
 }  // namespace testing
