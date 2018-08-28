@@ -77,22 +77,21 @@ Status Builder1::TranslateEachOp(
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
-    try {
-      vector<shared_ptr<ng::Node>> subgraph_out_nodes(op->num_outputs()); //TODOOOO: assign subgraph_out_nodes enough space... it size should be equal to number of outputs expected form the node
-      auto iter = TRANSLATE_OP_MAP.find(op->type_string());
-      if (iter != TRANSLATE_OP_MAP.end()) {
-        Builder1::TranslatorFn translate_fn;
-        vector<int> input_idxs;
-        std::tie(translate_fn, input_idxs) = iter->second;
-        // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
-        // like Addn)
-        bool variadic_input = input_idxs.size() == 0;
-        int num_inputs = variadic_input ? op->num_inputs() : input_idxs.size();
+      Builder1::TranslatorFn translate_fn;
+      vector<int> input_indexes;
+      TF_RETURN_IF_ERROR(GetOpTranslationRequirements(op, translate_fn, input_indexes));
+      // input_idxs can be size 0 (to indicate/handle variadic inputs nodes
+      // like Addn)
+      vector<shared_ptr<ng::Node>> subgraph_out_nodes(op->num_outputs());
+      
+
+        bool variadic_input = input_indexes.size() == 0;
+        int num_inputs = variadic_input ? op->num_inputs() : input_indexes.size();
         std::vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
         if (op->type_string() != "Const"){
           for (int idx = 0; idx < num_inputs; idx++) {
             TF_RETURN_IF_ERROR(GetInputNode(
-                op, (variadic_input ? idx : input_idxs[idx]), &ng_arg_vec[idx]));
+                op, (variadic_input ? idx : input_indexes[idx]), &ng_arg_vec[idx]));
           }
         }
         // TODO: instead of pass static_input_map, use GetStaticInputVector and
@@ -101,36 +100,12 @@ Status Builder1::TranslateEachOp(
         // static inputs
         TF_RETURN_IF_ERROR(translate_fn(op, ng_arg_vec, static_input_map,
                                               subgraph_out_nodes));
-      } else {
-        // TODO::: if-else or try-catch
-        // -----------------------------
-        // Catch-all for unsupported ops
-        // -----------------------------
-        NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
-                       << op->type_string() << ")";
-        NGRAPH_VLOG(3) << op->def().DebugString();
-        return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                       op->type_string(), ")");
-      }
+     
 
       // for (auto ng_node : subgraph_out_nodes)
       //  SaveNgOp(ng_op_map, op->name(), ng_node);
       ng_op_map[op->name()] = subgraph_out_nodes;  // SaveNgOp
-
       // TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod)
-
-    }
-    // TODO: catching the error above. do we keep the try catch or use if-else?
-    catch (const std::out_of_range&) {
-      // -----------------------------
-      // Catch-all for unsupported ops
-      // -----------------------------
-      NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
-                     << op->type_string() << ")";
-      NGRAPH_VLOG(3) << op->def().DebugString();
-      return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                     op->type_string(), ")");
-    }
   }
   return Status::OK();
 }
@@ -301,6 +276,7 @@ Status ValidateInputCountMin(const Node* op, size_t count) {
   return Status::OK();
 }
 
+//TODO: remove if not needed
 void Builder1::SaveNgOp(const std::string& op_name,
                         const shared_ptr<ng::Node>& output_node) {
   // no need to try-catch, map[key] will create vector object
@@ -546,33 +522,68 @@ static Status TranslateConstOp(const Node* op,
   return Status::OK();
 }
 
-Builder1::DispatchTable Builder1::TRANSLATE_OP_MAP{
-    {"Abs", {TranslateUnary<ngraph::op::Abs>, {0}}},
-    {"Add", {TranslateBinary<ngraph::op::Add>, {0, 1}}},
-    {"AddN", {TranslateAddNOp, {}}}, //TODO: document {} (variadic input ops)
-    {"Const", {TranslateConstOp, {0}}},
-    {"FloorDiv", {TranslateFloorDivOp, {0, 1}}},
-    {"FloorMod", {TranslateFloorModOp, {0, 1}}},
-    {"Neg",{TranslateUnary<ngraph::op::Negative>, {0}}},
-    {"NoOp", {[](const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
-                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK(); }, {}}}
+const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
+    {"Abs", TranslateUnary<ngraph::op::Abs>},
+    {"Add", TranslateBinary<ngraph::op::Add>},
+    {"AddN", TranslateAddNOp},
+    {"Const", TranslateConstOp},
+    {"FloorDiv", TranslateFloorDivOp},
+    {"FloorMod", TranslateFloorModOp},
+    {"Neg", TranslateUnary<ngraph::op::Negative>},
+    {"NoOp", [](const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
+                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK();}}
     };
+
+const std::map<const string, vector<int>> Builder1::INPUT_INDEX_MAP{};
 
 //Just pass it the op. we can read its name inside.
 //Also if #inputs, #outputs are not specified, we can construct them here
-Status Builder1::GetOpTranslationRequirements(){
+Status Builder1::GetOpTranslationRequirements(const Node* op, Builder1::TranslatorFn& translate_fn, vector<int>& input_indexes){
   //auto fn = TRANSLATE_OP_MAP[op_type];
 
   //TODO: this function wraps TRANSLATE_OP_MAP.
-  //It returns a translate function, input indexes, and number of outputs
+  //It returns a translate function and input indexes
   //The translate function MUST be present in TRANSLATE_OP_MAP
-  // input_idx and num outputs may not be present, or inferred from op
+  // input_idx may not be present, since it can be inferred from op
+
+  //about num_outputs:
   //Note: op itself may specify the number of outputs... so maybe we dont need to specify that.
   //Is there a case we ask for less outputs than what TF provides?
 
   //For input idxs, by default we should return {0,1, ..., (op->num_inputs)-1}...unless otherwise specified.
 
+  auto iter_fn = TRANSLATE_OP_MAP.find(op->type_string());
+  if (iter_fn != TRANSLATE_OP_MAP.end()) {
+    translate_fn = iter_fn->second;
+  } else {
+    // TODO::: if-else or try-catch
+    // -----------------------------
+    // Catch-all for unsupported ops
+    // -----------------------------
+    NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
+                    << op->type_string() << ")";
+    NGRAPH_VLOG(3) << op->def().DebugString();
+    return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
+                                    op->type_string(), ")");
+  }
 
+  auto iter_input_indexes = INPUT_INDEX_MAP.find(op->type_string());
+  if (iter_input_indexes != INPUT_INDEX_MAP.end()){
+    input_indexes = iter_input_indexes->second;
+  } else{
+    input_indexes.resize(op->num_inputs());
+    std::iota(std::begin(input_indexes), std::end(input_indexes), 0);  //Populate with increasing integers 1,2...
+  }
+
+  //TODO: do we even need this? Activate this if there is an op that returns < num_outputs outputs
+  /*
+  auto iter_num_outputs = NUM_OUTPUTS_MAP.find(op->type_string());
+  if (iter_num_outputs != NUM_OUTPUTS_MAP.end()){
+    num_outputs = iter_num_outputs->second;
+  } else{
+    num_outputs = op->num_outputs();
+  }
+  */
 
   return Status::OK();
 }

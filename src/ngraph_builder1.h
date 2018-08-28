@@ -44,26 +44,30 @@ namespace ngraph_bridge {
 /////////////////
 
 class Builder1 {
+  //TODO: Do we need to typedef OpMap, as it is used only once
   using OpMap = std::unordered_map<std::string,
                                    std::vector<std::shared_ptr<ngraph::Node>>>;
   using TranslatorFn = function<Status(
       const Node*, const std::vector<shared_ptr<ng::Node>>&,
       const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>;
-  using DispatchTable =
-      const std::map<const string,
-                     std::pair<Builder1::TranslatorFn, vector<int>>>;
+  //using DispatchTable =
+  //    const std::map<const string,
+  //                   std::pair<Builder1::TranslatorFn, vector<int>>>;
 
  private:
 
-  Status GetOpTranslationRequirements();
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
   // vector of generated nGraph nodes.
   //
   Builder1::OpMap ng_op_map;
-  const static std::map<const string,
-                        std::pair<Builder1::TranslatorFn, vector<int>>>
-      TRANSLATE_OP_MAP;
+
+  
+  
+
+  const static std::map<const string, Builder1::TranslatorFn> TRANSLATE_OP_MAP;
+
+  const static std::map<const string, vector<int>> INPUT_INDEX_MAP;
 
   OpKernelConstruction* ctx;  // TODO: is this required? required in
                               // OP_REQUIRES_OK is used instead of
@@ -73,6 +77,8 @@ class Builder1 {
   std::vector<bool> m_input_is_static;
   vector<Node*> ordered;
   vector<const Node *> tf_params, tf_ret_vals, tf_ops;
+
+  Status GetOpTranslationRequirements(const Node*, Builder1::TranslatorFn&, vector<int>&);
 
   Status GetInputNode(const Node*, size_t, shared_ptr<ng::Node>*);
 
