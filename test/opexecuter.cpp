@@ -124,6 +124,12 @@ OpExecuter::OpExecuter(const Scope sc, const string test_op,
 // Destructor
 OpExecuter::~OpExecuter() {}
 
+void OpExecuter::RunTest() {
+  ExecuteOnNGraph();
+  ExecuteOnTF();
+  CompareNGraphAndTF();
+}
+
 // Uses tf_scope to execute on TF
 void OpExecuter::ExecuteOnTF() {
   DeactivateNGraph();
@@ -151,7 +157,7 @@ void OpExecuter::CompareNGraphAndTF() {
 //    /  ...  \ 
 // _Retval1   _RetvalM
 //
-// 3. Gets Tensor values from Const Nodes and adds to input_tensors
+// 3. Gets Tensor values from Const Nodes for inputs to ng::Function call
 // 4. Creates ng::Function
 // 5. Executes ng::Function on CPU backend
 // 6. Updates output of ng::Function into ngraph_output
@@ -161,7 +167,7 @@ void OpExecuter::ExecuteOnNGraph() {
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
 
   // For debug
-  GraphToPbTextFile(&graph, "tf_graph.pbtxt");
+  GraphToPbTextFile(&graph, "tf_graph_" + test_op_type_ + ".pbtxt");
 
   ValidateGraph(graph, {"Const"});
 
@@ -179,7 +185,7 @@ void OpExecuter::ExecuteOnNGraph() {
   // TODO : Validate static_input_indexes < number_of_inputs
   vector<TensorShape> input_shapes;
   vector<DataType> input_dt;
-  vector<Tensor> static_inputs;
+  // vector<Tensor> static_inputs;
   vector<const Tensor*> static_input_map;
   vector<Node*> input_node;
 
@@ -187,22 +193,21 @@ void OpExecuter::ExecuteOnNGraph() {
     Node* ip;
     ASSERT_EQ(Status::OK(), test_op->input_node(i, &ip));
     input_node.push_back(ip);
+
     Tensor ip_tensor;
     ASSERT_EQ(Status::OK(), GetNodeAttr(ip->attrs(), "value", &ip_tensor));
     input_shapes.push_back(ip_tensor.shape());
     input_dt.push_back(ip_tensor.dtype());
-    if (static_input_indexes_.find(i) != static_input_indexes_.end()) {
-      static_inputs.push_back(ip_tensor);
-    } else {
-      tf_inputs_.push_back(ip_tensor);
-    }
+    tf_inputs_.push_back(ip_tensor);
+
     NGRAPH_VLOG(5) << " Extracted tensor  " << i << " "
                    << ip_tensor.DebugString();
   }
-  int counter = 0;
+
+  // Update static_input_map
   for (int i = 0; i < number_of_inputs; i++) {
     if (static_input_indexes_.find(i) != static_input_indexes_.end()) {
-      static_input_map.push_back(&static_inputs[counter++]);
+      static_input_map.push_back(&tf_inputs_[i]);
       NGRAPH_VLOG(5) << "reading static tensor ptr " << i << " "
                      << (static_input_map[i])->DebugString();
     } else {
@@ -277,7 +282,7 @@ void OpExecuter::ExecuteOnNGraph() {
                    << " ,Dst: " << e->dst()->name();
   }
   // For debug
-  GraphToPbTextFile(&graph, "rewrite_ngraph.pbtxt");
+  GraphToPbTextFile(&graph, "rewrite_ngraph_" + test_op_type_ + ".pbtxt");
 
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
@@ -298,6 +303,7 @@ void OpExecuter::ExecuteOnNGraph() {
   vector<std::shared_ptr<ngraph::runtime::TensorView>> ng_op_tensors;
 
   NGRAPH_VLOG(5) << " Creating ng inputs ";
+  NGRAPH_VLOG(5) << "No of inputs " << tf_inputs_.size();
   for (int i = 0; i < tf_inputs_.size(); i++) {
     ng::Shape ng_shape;
     ASSERT_EQ(Status::OK(),
@@ -308,6 +314,9 @@ void OpExecuter::ExecuteOnNGraph() {
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs_[i]);
     auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
     ng_ip_tensors.push_back(result);
+    NGRAPH_VLOG(5) << "Dumping ng ip " << i;
+    DumpNGTensor(cout, "ng_ip_tensorview_" + to_string(i), ng_ip_tensors[i]);
+    cout << endl;
   }
 
   NGRAPH_VLOG(5) << " Creating ng outputs ";
@@ -343,8 +352,9 @@ void OpExecuter::ExecuteOnNGraph() {
     void* dst_ptr = DMAHelper::base(&output_tensor);
     ng_op_tensors[i]->read(dst_ptr, 0, output_tensor.TotalBytes());
     ngraph_outputs_.push_back(output_tensor);
-    // DumpNGTensor(cout, ng_function->get_output_op(i)->get_name(),
-    // ng_op_tensors[i]);
+    DumpNGTensor(cout, ng_function->get_output_op(i)->get_name(),
+                 ng_op_tensors[i]);
+    cout << endl;
   }
 
 }  // ExecuteOnNGraph

@@ -56,14 +56,13 @@ class OpExecuter {
   //                                           are static for nGraph
   //                                         : e.g. Conv2DBackPropFilter {1}
   // vector<DataType>& op_types              : expected tf data types of the
-  // output e.g.
+  //                                            output e.g.
   //                                           {DT_FLOAT, DT_INT}
-  // const std::vector<Output>& fetch_ops    : Output ops to be fetched
+  // const std::vector<Output>& fetch_ops    : Output ops to be fetched,
   //                                           is passed to tf.session.run()
   OpExecuter(const Scope sc, const string test_op,
              const vector<int>& static_input_indexes,
-             const vector<DataType>& op_types,
-             const vector<Output>& fetch_ops);
+             const vector<DataType>& op_types, const vector<Output>& fetch_ops);
 
   ~OpExecuter();
 
@@ -72,18 +71,19 @@ class OpExecuter {
   // To Do : Overload CompareNGraphAndTF() to take in tolerance
   void CompareNGraphAndTF();
   void CompareNGraphAndTF(float tolerance);
+  // Executes on NGraph, executes on TF, compares the results
+  void RunTest();
 
  private:
   Scope tf_scope_;
   const string test_op_type_;
   set<int> static_input_indexes_;
+  // TODO : tf_inputs_ only needed for execution on NGraph, remove from here
   vector<Tensor> tf_inputs_;
   vector<Tensor> tf_outputs_;
   vector<Tensor> ngraph_outputs_;
   const vector<DataType> expected_output_datatypes_;
 
-
-  // To Do : For placeholder const FeedType sess_run_inputs_;
   const std::vector<Output> sess_run_fetchoutputs_;
 
   void GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
