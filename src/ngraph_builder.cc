@@ -130,7 +130,7 @@ static Status GetInputNode(const Builder::OpMap& ng_op_map, const Node* op,
   try {
     src_output_idx = edges.at(input_idx)->src_output();
   } catch (const out_of_range&) {
-    return Status(tensorflow::error::NOT_FOUND, "Edge not found");
+    return Status(error::NOT_FOUND, "Edge not found");
   }
 
   Node* tf_input;
@@ -2331,7 +2331,7 @@ static Status TranslateSqueezeOp(
         if (input_shape[i] == 1) {
           skip = true;
         } else {
-          throw tensorflow::errors::InvalidArgument(
+          throw errors::InvalidArgument(
               "Tried to explicitly squeeze "
               "dimension ",
               i, " but dimension was not 1: ", input_shape[i]);
@@ -2706,6 +2706,7 @@ const static std::map<
          TranslateSparseSoftmaxCrossEntropyWithLogitsOp},
         {"Split", TranslateSplitOp},
         {"SplitV", TranslateSplitVOp},
+        {"Sqrt", TranslateUnaryOp<ngraph::op::Sqrt>},
         {"Square", TranslateSquareOp},
         {"SquaredDifference", TranslateSquaredDifferenceOp},
         {"Squeeze", TranslateSqueezeOp},
@@ -2836,6 +2837,14 @@ Status Builder::TranslateGraph(
   // Create the nGraph function.
   //
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+
+  //
+  // Request row-major layout on results.
+  //
+  for (auto result : ng_function->get_results()) {
+    result->set_needs_default_layout(true);
+  }
+
   return Status::OK();
 }
 
