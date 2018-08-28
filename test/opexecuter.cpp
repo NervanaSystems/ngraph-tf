@@ -257,9 +257,16 @@ void OpExecuter::ExecuteOnNGraph() {
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
   shared_ptr<ng::Function> ng_function;
+  if (false){
   ASSERT_EQ(Status::OK(),
             Builder::TranslateGraph(input_shapes, static_input_map_, &graph,
                                     ng_function));
+  }
+  else{
+    auto builder = Builder1(graph);
+    ASSERT_EQ(Status::OK(),
+            builder.TranslateGraph(input_shapes, static_input_map_, ng_function));
+  }
 
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size());

@@ -38,27 +38,17 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
-    OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
+    const std::vector<TensorShape>& inputs,
+    const std::vector<const Tensor*>& static_input_map,
+    shared_ptr<ng::Function>& ng_function){
+
   TF_RETURN_IF_ERROR(Initialize());
-
-  std::vector<const Tensor*> static_input_map;
-
-  std::vector<TensorShape> inputs(ctx->num_inputs());
-
-  static_input_map.resize(ctx->num_inputs());
-  for (int i = 0; i < ctx->num_inputs(); i++) {
-    const Tensor& input_tensor = ctx->input(i);
-    if (m_input_is_static[i]) {
-      static_input_map[i] = &input_tensor;
-    }
-    inputs[i] = input_tensor.shape();
-  }
-  // TODO: pass static_input_map to translate_each_op... or pass the vector<int>
-  // ?
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
   TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
 
+  // TODO: pass static_input_map to translate_each_op... or pass the vector<int>
+  // ?
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
 
   vector<shared_ptr<ng::Node>> ng_result_list;
@@ -76,9 +66,30 @@ Status Builder1::TranslateGraph(
   return Status::OK();
 }
 
+Status Builder1::TranslateGraph(
+    OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
+  TF_RETURN_IF_ERROR(Initialize());
+
+  std::vector<const Tensor*> static_input_map;
+
+  std::vector<TensorShape> inputs(ctx->num_inputs());
+
+  static_input_map.resize(ctx->num_inputs());
+  for (int i = 0; i < ctx->num_inputs(); i++) {
+    const Tensor& input_tensor = ctx->input(i);
+    if (m_input_is_static[i]) {
+      static_input_map[i] = &input_tensor;
+    }
+    inputs[i] = input_tensor.shape();
+  }
+  
+  return TranslateGraph(inputs, static_input_map, ng_function);
+}
+
 Status Builder1::TranslateEachOp(
     const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
+  cout << "======TranslateEachOp======\n";
   // Create the nGraph ops from TensorFlow ops.
   for (auto op : tf_ops) {
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
@@ -538,7 +549,8 @@ const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
     {"FloorMod", TranslateFloorModOp},
     {"Neg", TranslateUnary<ngraph::op::Negative>},
     {"NoOp", [](const Node* op, const std::vector<shared_ptr<ng::Node>>& ng_arg_vec, const std::vector<const Tensor*>& static_input_map,
-                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK();}}
+                    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) { return Status::OK();}},
+    {"RealDiv", TranslateBinary<ngraph::op::Divide>}
     };
 
 const std::map<const string, vector<int>> Builder1::INPUT_INDEX_MAP{};

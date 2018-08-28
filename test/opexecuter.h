@@ -18,6 +18,7 @@
 
 #include "ngraph/ngraph.hpp"
 #include "ngraph_builder.h"
+#include "ngraph_builder1.h"
 #include "ngraph_utils.h"
 #include "test_utilities.h"
 #include "tf_graph_writer.h"

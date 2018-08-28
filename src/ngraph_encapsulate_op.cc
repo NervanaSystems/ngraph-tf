@@ -73,7 +73,7 @@ class NGraphEncapsulateOp : public OpKernel {
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
 #ifdef BUILDER1
-        ng_builder(m_graph, ctx),
+        ng_builder(m_graph, ctx), //TODO: does ng_builder get the correct graph before ConvertGraphDefToGraph is called?
 #endif
         m_freshness_tracker(nullptr) {
     GraphDef* graph_def;

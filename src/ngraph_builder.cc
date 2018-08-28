@@ -2686,7 +2686,6 @@ Status Builder::TranslateGraph(
   // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
   vector<Node*> ordered;
   GetReversePostOrder(*input_graph, &ordered);
-  cout << "input_graph: " << input_graph->num_node_ids() << "\n";
 
   //
   // Split ops into params, retvals, and all others.

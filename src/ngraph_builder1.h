@@ -115,10 +115,19 @@ class Builder1 {
   Status Initialize();
 
  public:
+
   Builder1(const Graph& tf_graph,
            OpKernelConstruction* ctx)  // TODO make ctx const?
       : tf_graph(tf_graph),
         ctx(ctx) {}
+
+  Builder1(const Graph& tf_graph) : tf_graph(tf_graph) {}
+
+  Status TranslateGraph(
+    const std::vector<TensorShape>&,
+    const std::vector<const Tensor*>&,
+    shared_ptr<ng::Function>&);
+
   Status TranslateGraph(OpKernelContext* ctx,
                         std::shared_ptr<ngraph::Function>& ng_function);
 };
