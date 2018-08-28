@@ -167,7 +167,7 @@ void OpExecuter::ExecuteOnNGraph() {
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
 
   // For debug
-  GraphToPbTextFile(&graph, "tf_graph_" + test_op_type_ + ".pbtxt");
+  // GraphToPbTextFile(&graph, "tf_graph_" + test_op_type_ + ".pbtxt");
 
   ValidateGraph(graph, {"Const"});
 
@@ -282,7 +282,7 @@ void OpExecuter::ExecuteOnNGraph() {
                    << " ,Dst: " << e->dst()->name();
   }
   // For debug
-  GraphToPbTextFile(&graph, "rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+  // GraphToPbTextFile(&graph, "rewrite_ngraph_" + test_op_type_ + ".pbtxt");
 
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
@@ -314,9 +314,6 @@ void OpExecuter::ExecuteOnNGraph() {
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs_[i]);
     auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
     ng_ip_tensors.push_back(result);
-    NGRAPH_VLOG(5) << "Dumping ng ip " << i;
-    DumpNGTensor(cout, "ng_ip_tensorview_" + to_string(i), ng_ip_tensors[i]);
-    cout << endl;
   }
 
   NGRAPH_VLOG(5) << " Creating ng outputs ";
@@ -352,9 +349,6 @@ void OpExecuter::ExecuteOnNGraph() {
     void* dst_ptr = DMAHelper::base(&output_tensor);
     ng_op_tensors[i]->read(dst_ptr, 0, output_tensor.TotalBytes());
     ngraph_outputs_.push_back(output_tensor);
-    DumpNGTensor(cout, ng_function->get_output_op(i)->get_name(),
-                 ng_op_tensors[i]);
-    cout << endl;
   }
 
 }  // ExecuteOnNGraph
