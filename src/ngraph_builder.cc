@@ -36,16 +36,20 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-const static std::map<const DataType, const ngraph::element::Type>
-    TF_NGRAPH_TYPE_MAP = {{DataType::DT_FLOAT, ng::element::f32},
-                          {DataType::DT_DOUBLE, ng::element::f64},
-                          {DataType::DT_INT8, ng::element::i8},
-                          {DataType::DT_INT16, ng::element::i16},
-                          {DataType::DT_INT32, ng::element::i32},
-                          {DataType::DT_INT64, ng::element::i64},
-                          {DataType::DT_UINT8, ng::element::u8},
-                          {DataType::DT_UINT16, ng::element::u16},
-                          {DataType::DT_BOOL, ng::element::boolean}};
+const std::map<const DataType, const ngraph::element::Type>&
+Builder::TF_NGRAPH_TYPE_MAP() {
+  static const std::map<const DataType, const ngraph::element::Type> the_map = {
+      {DataType::DT_FLOAT, ng::element::f32},
+      {DataType::DT_DOUBLE, ng::element::f64},
+      {DataType::DT_INT8, ng::element::i8},
+      {DataType::DT_INT16, ng::element::i16},
+      {DataType::DT_INT32, ng::element::i32},
+      {DataType::DT_INT64, ng::element::i64},
+      {DataType::DT_UINT8, ng::element::u8},
+      {DataType::DT_UINT16, ng::element::u16},
+      {DataType::DT_BOOL, ng::element::boolean}};
+  return the_map;
+}
 
 static Status ValidateInputCount(const Node* op, size_t count) {
   if (op->num_inputs() != count) {
@@ -292,6 +296,7 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
       ValuesFromConstNode<T, VecT>(op->def(), &shape_proto, &const_values));
 
   TensorShape const_shape(shape_proto);
+
   ng::Shape ng_shape;
   TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(const_shape, &ng_shape));
 
@@ -299,22 +304,30 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
   return Status::OK();
 }
 
-const static std::map<
-    const DataType,
-    const std::pair<const std::function<Status(const Node*, ng::element::Type,
+const std::map<DataType,
+               std::pair<std::function<Status(const Node*, ng::element::Type,
+                                              std::shared_ptr<ng::Node>*)>,
+                         const ngraph::element::Type>>&
+Builder::TF_NGRAPH_CONST_MAP() {
+  static const std::map<
+      DataType, std::pair<std::function<Status(const Node*, ng::element::Type,
                                                std::shared_ptr<ng::Node>*)>,
-                    const ngraph::element::Type>>
-    TF_NGRAPH_CONST_MAP = {
-        {DataType::DT_FLOAT, make_pair(MakeConstOp<float>, ng::element::f32)},
-        {DataType::DT_DOUBLE, make_pair(MakeConstOp<double>, ng::element::f64)},
-        {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
-        {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
-        {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
-        {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
-        {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
-        {DataType::DT_UINT16, make_pair(MakeConstOp<uint16>, ng::element::u16)},
-        {DataType::DT_BOOL,
-         make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
+                          const ngraph::element::Type>>
+      the_map = {
+          {DataType::DT_FLOAT, make_pair(MakeConstOp<float>, ng::element::f32)},
+          {DataType::DT_DOUBLE,
+           make_pair(MakeConstOp<double>, ng::element::f64)},
+          {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
+          {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+          {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
+          {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
+          {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
+          {DataType::DT_UINT16,
+           make_pair(MakeConstOp<uint16>, ng::element::u16)},
+          {DataType::DT_BOOL,
+           make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
+  return the_map;
+}
 
 // Helper function to translate a unary op.
 //
@@ -803,9 +816,9 @@ static Status TranslateCastOp(
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "DstT", &dtype));
 
   try {
-    SaveNgOp(
-        ng_op_map, op->name(),
-        make_shared<ng::op::Convert>(ng_input, TF_NGRAPH_TYPE_MAP.at(dtype)));
+    SaveNgOp(ng_op_map, op->name(),
+             make_shared<ng::op::Convert>(
+                 ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(dtype)));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                  DataType_Name(dtype));
@@ -863,7 +876,7 @@ static Status TranslateConstOp(
   //   &ng_node));
   //   break;
   try {
-    const auto& func_param = TF_NGRAPH_CONST_MAP.at(dtype);
+    const auto& func_param = Builder::TF_NGRAPH_CONST_MAP().at(dtype);
     TF_RETURN_IF_ERROR(func_param.first(op, func_param.second, &ng_node));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
@@ -2790,11 +2803,16 @@ Status Builder::TranslateGraph(
       // -----------------------------
       // Catch-all for unsupported ops
       // -----------------------------
-      NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
+      NGRAPH_VLOG(3) << "Out of range Op: " << op->name() << " ("
                      << op->type_string() << ")";
       NGRAPH_VLOG(3) << op->def().DebugString();
+      return errors::InvalidArgument("Out of Range for Op: ", op->name(), " (",
+                                     op->type_string(), ")\n",
+                                     op->def().DebugString());
+    } catch (...) {
       return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                     op->type_string(), ")");
+                                     op->type_string(), ")\n",
+                                     op->def().DebugString());
     }
   }
 
