@@ -37,7 +37,7 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
-#define BUILDER1 // (un)comment this line to (de)activate old builder
+//#define BUILDER1 // (un)comment this line to (de)activate old builder
 
 #ifdef BUILDER1
 #include "ngraph_builder1.h"
