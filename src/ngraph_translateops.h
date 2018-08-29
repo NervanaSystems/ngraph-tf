@@ -33,8 +33,7 @@ using VectNg = std::vector<shared_ptr<ng::Node>>;
 // TODO (sarkars): why does MakePadding handle only 2 dimensions... generalize
 // it?
 // TODO (sarkars): add unit tests for 1D conv. 1d pooling etc. check if
-// MakePadding works
-// in that case
+// MakePadding works in that case
 template <typename T>
 void MakePadding(const std::string& tf_padding_type,
                  const ngraph::Shape& ng_image_shape,
@@ -122,7 +121,7 @@ Status TranslateAddNOp(const Node* op, VectNg& ng_arg_vec,
   return Status::OK();
 }
 
-// TODO: document why ng_arg_vec is not const. (BatchToNGraph changes it)
+// ng_arg_vec is not const. For example, BatchToNGraph changes it
 Status TranslateAvgPoolOp(const Node* op, VectNg& ng_arg_vec,
                           const std::vector<const Tensor*>& static_input_map,
                           VectNg& subgraph_out_nodes) {
@@ -151,7 +150,6 @@ Status TranslateAvgPoolOp(const Node* op, VectNg& ng_arg_vec,
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
 
-  // TODO: should these be in Builder instead of in ngraph_conversions.h?
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, ng_arg_vec[0]->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);

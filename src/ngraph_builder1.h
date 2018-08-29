@@ -19,19 +19,13 @@
 #include <ostream>
 #include <vector>
 
-//#include "ngraph_conversions.h"
-
 #include "ngraph/ngraph.hpp"
-
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 
-// TODO: remove headers if not needed
-//#include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/graph/algorithm.h"
-//#include "tensorflow/core/graph/graph.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -39,11 +33,19 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// TODO: make sure all comments from old builder are copied correctly.
+// TODO (sarkars): make sure all comments from old builder are copied correctly.
 // TODO: use camelcase, snakecase appropriately
 // TODO add TF_RETURN_IF_ERROR where necessary
 
-/////////////////
+
+// The purpose of Builder is to accept a TF graph and convert it to a
+// equivalent ngraph fucntion. To that end, it acts as an interface to
+// a library of 'TranslateOps' functions. These functions are defined
+// in ngraph_translateops.h. Builder just goes through each TF op and
+// calls the appropriate 'TranslatorFn'. It does not implement the per-op
+// translation, the heavy-lifting being done by ngraph_translateops.h;
+// It merely does some bookkeeping, such as process the nodes in correct
+// order, keep track of and retrieve parent nGraph nodes etc.
 
 class Builder1 {
   using VectNg = std::vector<shared_ptr<ng::Node>>;
@@ -51,83 +53,84 @@ class Builder1 {
       const Node*, VectNg&, const std::vector<const Tensor*>&, VectNg&)>;
 
  public:
-  // Note: in case we want to get rid of Initialize,
-  // pass a OpKernelConstruction* ctx to the constructor,
-  // and use OP_REQUIRES_OK instead of TF_RETURN_IF_ERROR
-  // This gets rid of Initialize() as it can handle errors in construction
+  // Note: in case we want to get rid of Initialize, pass an
+  // OpKernelConstruction* ctx to the constructor, and use OP_REQUIRES_OK
+  // instead of TF_RETURN_IF_ERROR. This gets rid of Initialize() as it
+  // can handle errors in construction.
   // But in the case of overloaded constructor that does not accept a ctx,
   // which is used for OpExecuter test class, we cannot handle error during
   // construction.
   // Hence keeping the Initialize() function
-  Builder1(const Graph& tf_graph,
-           OpKernelConstruction* ctx)  // TODO make ctx const?
+
+  // This constructor is for actual use (encapsulate_op)
+  Builder1(const Graph& tf_graph, OpKernelConstruction* ctx)
       : tf_graph(tf_graph) {}
 
+  // And this version is for tests (OpExecuter)
   Builder1(const Graph& tf_graph) : Builder1(tf_graph, nullptr) {}
 
+  // TranslateGraph is overloaded. This is for actual use (encapsulate_op)
+  Status TranslateGraph(OpKernelContext* ctx,
+                        std::shared_ptr<ngraph::Function>& ng_function);
+
+  // And this version is for tests (OpExecuter)
   Status TranslateGraph(const std::vector<TensorShape>&,
                         const std::vector<const Tensor*>&,
                         shared_ptr<ng::Function>&);
 
-  Status TranslateGraph(OpKernelContext* ctx,
-                        std::shared_ptr<ngraph::Function>& ng_function);
-
  private:
-  //
   // The op map holds a mapping from TensorFlow op names (strings) to
-  // vector of generated nGraph nodes.
-  //
+  // vector of generated nGraph nodes. Since we process nodes in toposort
+  // order, it is guaranteed when processing a TF node, its parents
+  // will already have been processed and safely stowed in ng_op_map
   std::unordered_map<std::string, VectNg> ng_op_map;
 
-  const static std::map<const string, vector<int>> INPUT_INDEX_MAP;
-
-  bool is_initialized = false;  // Prevent Initialize from running twice
+  // Prevent Initialize from running twice
+  bool is_initialized = false;
   const Graph& tf_graph;
+
+  // An array that will be useful in creating the static_input_map
   std::vector<bool> m_input_is_static;
-  vector<Node*> ordered;
+
+  // Vectors containing TF nodes in 3 bins: inputs, outputs, actual ops
   vector<const Node *> tf_params, tf_ret_vals, tf_ops;
+
+  // This map tells us which inputs to read for a particular node. If no
+  // information is present explicitly in the map, we read all inputs
+  // from 0 to num_inputs-1
+  const static std::map<const string, vector<int>> INPUT_INDEX_MAP;
 
   // A map from Tf op type_string to a TranslateOp
   const static std::map<const string, Builder1::TranslatorFn> TRANSLATE_OP_MAP;
-  // Given a TF node, return its corresponding TranslateOp function and required input indexes
-  // A wrapper for TRANSLATE_OP_MAP
+
+  // Given a TF node, return its corresponding TranslateOp function and required
+  // input indexes. A wrapper for TRANSLATE_OP_MAP and INPUT_INDEX_MAP
   Status GetOpTranslationRequirements(const Node*, Builder1::TranslatorFn&,
                                       vector<int>&);
 
+  // Given a TF node, an index i, it returns the ith nGraph input
   Status GetInputNode(const Node*, size_t, shared_ptr<ng::Node>*);
 
   // Classify a list of TF nodes into _Arg (input), _Retval (output) and other
-  // nodes
-  Status ClassifyNodes(const vector<Node*>&, vector<const Node*>&,
-                       vector<const Node*>&, vector<const Node*>&);
+  // nodes. Used to populate tf_params, tf_ret_vals, tf_ops
+  Status ClassifyNodes(const vector<Node*>&);
 
   // Given the input shapes and a list of TF _Arg nodes, create corresponding
   // nGraph parameters. Also populate the ng_op_map
   Status GetInputParams(const std::vector<TensorShape>&, vector<const Node*>,
                         vector<shared_ptr<ng::op::Parameter>>&);
+
   // Given a TF node, retrieve its corresponding nGraph nodes (using ng_op_map),
   // then call the appropriate TranslateOp function
   Status TranslateEachOp(const vector<const Node*>&,
                          const std::vector<const Tensor*>&);
+
   // After each TF op has been translated, find the nGraph nodes corresponding
   // to the _Retval nodes
   Status GetOutputNodes(const vector<const Node*>&, VectNg&);
 
-  template <typename T>
-  void MakePadding(const std::string& tf_padding_type,
-                   const ngraph::Shape& ng_image_shape,
-                   const ngraph::Shape& ng_kernel_shape,
-                   const ngraph::Strides& ng_strides,
-                   const ngraph::Shape& ng_dilations, T& ng_padding_below,
-                   T& ng_padding_above);
-
-  template <typename T>
-  void MakePadding(const std::string& tf_padding_type,
-                   const ngraph::Shape& ng_image_shape,
-                   const ngraph::Shape& ng_kernel_shape,
-                   const ngraph::Strides& ng_strides, T& ng_padding_below,
-                   T& ng_padding_above);
-
+  // Since the constructor does not return Status, delegating its job to a
+  // separate function that is evaluated lazily and only once.
   Status Initialize();
 };
 

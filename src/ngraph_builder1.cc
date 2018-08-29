@@ -17,17 +17,6 @@
 #include "ngraph_builder1.h"
 #include "ngraph_translateops.h"
 
-//#include "ngraph/builder/autobroadcast.hpp"
-//#include "ngraph/builder/numpy_transpose.hpp"
-
-// TODO: remove the header files, if not needed
-//#include "tensorflow/core/framework/tensor.pb.h"
-//#include "tensorflow/core/framework/tensor_shape.pb.h"
-//#include "tensorflow/core/framework/tensor_shape.pb_text.h"
-//#include "tensorflow/core/graph/algorithm.h"
-//#include "tensorflow/core/graph/edgeset.h"
-//#include "tensorflow/core/lib/core/errors.h"
-
 using namespace std;
 namespace ng = ngraph;
 
@@ -50,7 +39,11 @@ Status Builder1::TranslateGraph(
   TF_RETURN_IF_ERROR(GetOutputNodes(tf_ret_vals, ng_result_list));
 
   // Create the nGraph function.
-  ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+  try {
+    ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+  } catch (...) {
+    return errors::Unimplemented("Unable to create nGraph function");
+  }
 
   //
   // Request row-major layout on results.
@@ -114,10 +107,7 @@ Status Builder1::TranslateEachOp(
   return Status::OK();
 }
 
-Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
-                               vector<const Node*>& tf_params,
-                               vector<const Node*>& tf_ret_vals,
-                               vector<const Node*>& tf_ops) {
+Status Builder1::ClassifyNodes(const vector<Node*>& ordered) {
   // Split ops into params, retvals, and all others.
   for (const auto n : ordered) {
     if (n->IsSink() || n->IsSource()) {
@@ -203,9 +193,10 @@ Status Builder1::Initialize() {
     //
     // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
 
+    vector<Node*> ordered;
     GetReversePostOrder(tf_graph, &ordered);
 
-    TF_RETURN_IF_ERROR(ClassifyNodes(ordered, tf_params, tf_ret_vals, tf_ops));
+    TF_RETURN_IF_ERROR(ClassifyNodes(ordered));
     //
     // Initialize the "m_input_is_static" vector as follows:
     // (1) create m_input_is_static with n+1 elements, where n is the max arg
@@ -351,7 +342,6 @@ Status Builder1::GetOpTranslationRequirements(
   if (iter_fn != TRANSLATE_OP_MAP.end()) {
     translate_fn = iter_fn->second;
   } else {
-    // TODO::: if-else or try-catch
     // -----------------------------
     // Catch-all for unsupported ops
     // -----------------------------
@@ -370,7 +360,7 @@ Status Builder1::GetOpTranslationRequirements(
     // otherwise specified.
     input_indexes.resize(op->num_inputs());
     std::iota(std::begin(input_indexes), std::end(input_indexes),
-              0);  // Populate with increasing integers 1,2...
+              0);  // iota: Populate with increasing integers 1,2...
   }
   return Status::OK();
 }
