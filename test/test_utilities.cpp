@@ -71,6 +71,7 @@ void PrintTensor(const Tensor& T1) {
 }
 
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
+  ASSERT_EQ(T1.shape(), T2.shape());
   auto T_size = T1.flat<float>().size();
   auto T1_data = T1.flat<float>().data();
   auto T2_data = T2.flat<float>().data();
@@ -88,5 +89,4 @@ void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
 }
 
 }  // namespace ngraph_bridge
-} //namespace tensorflow
-
+}  // namespace tensorflow
