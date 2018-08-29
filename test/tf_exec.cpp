@@ -946,4 +946,3 @@ TEST(tf_exec, DISABLED_Op_Sqrt) {
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
-    
