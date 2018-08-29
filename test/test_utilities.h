@@ -15,15 +15,15 @@
  *******************************************************************************/
 #ifndef NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
 #define NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
- #include "gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "ngraph/ngraph.hpp"
- #include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/platform/env.h"
- using namespace std;
+using namespace std;
 namespace ng = ngraph;
- namespace tensorflow {
- namespace ngraph_bridge {
+namespace tensorflow {
+namespace ngraph_bridge {
 // some utility functions copied from tf_exec.cpp
 void ActivateNGraph();
 void DeactivateNGraph();
@@ -32,6 +32,6 @@ void AssignInputIntValues(Tensor& A, int maxval);
 void AssignInputValues(Tensor& A, float x);
 void PrintTensor(const Tensor& T1);
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
- }  // namespace ngraph_bridge
- }  // namespace tensorflow
- #endif  // NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
+}  // namespace ngraph_bridge
+}  // namespace tensorflow
+#endif  // NGRAPH_TF_BRIDGE_TESTUTILITIES_H_

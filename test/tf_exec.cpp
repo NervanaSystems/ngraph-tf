@@ -807,7 +807,7 @@ TEST(tf_exec, Op_Rsqrt) {
 
 TEST(tf_exec, Op_Negate) {
   Scope scope_cpu = Scope::NewRootScope();
-  Scope scope_ng = scope_cpu; //scope_cpu.WithDevice("/device:NGRAPH:0");
+  Scope scope_ng = scope_cpu;  // scope_cpu.WithDevice("/device:NGRAPH:0");
 
   ActivateNGraph();
   // ngraph execution
@@ -815,7 +815,7 @@ TEST(tf_exec, Op_Negate) {
   auto r_ng = ops::Negate(scope_ng.WithOpName("r"), A_ng);
 
   std::vector<Tensor> outputs_ng;
-  
+
   SessionOptions options;
   options.config.mutable_graph_options()
       ->mutable_optimizer_options()
@@ -841,7 +841,7 @@ TEST(tf_exec, Op_Negate) {
 
 TEST(tf_exec, Op_FloorDiv) {
   Scope scope_cpu = Scope::NewRootScope();
-  Scope scope_ng = scope_cpu; //scope_cpu.WithDevice("/device:NGRAPH:0");
+  Scope scope_ng = scope_cpu;  // scope_cpu.WithDevice("/device:NGRAPH:0");
 
   DeactivateNGraph();
   // ngraph execution
@@ -927,7 +927,7 @@ TEST(tf_exec, Op_FloorMod) {
 
 TEST(tf_exec, Op_AddN) {
   Scope scope_cpu = Scope::NewRootScope();
-  Scope scope_ng = scope_cpu; //scope_cpu.WithDevice("/device:NGRAPH:0");
+  Scope scope_ng = scope_cpu;  // scope_cpu.WithDevice("/device:NGRAPH:0");
 
   ActivateNGraph();
   // ngraph execution
@@ -946,7 +946,7 @@ TEST(tf_exec, Op_AddN) {
   ClientSession session_ng(scope_ng, options);
 
   std::vector<Tensor> outputs_ng;
-  //ClientSession session_ng(scope_ng);
+  // ClientSession session_ng(scope_ng);
   ASSERT_OK(session_ng.Run({r_ng}, &outputs_ng));
 
   ASSERT_EQ(outputs_ng[0].shape(), TensorShape({2, 2}));

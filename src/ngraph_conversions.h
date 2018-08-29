@@ -26,7 +26,7 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 template <size_t a, size_t b, size_t c, size_t d>
-void Reshape(std::shared_ptr<ngraph::Node>& ng_node){
+void Reshape(std::shared_ptr<ngraph::Node>& ng_node) {
   static_assert(a < 4 && b < 4 && c < 4 && d < 4,
                 "Number of dimensions cannot exceed 4");
   static_assert(a != b && a != c && a != d && b != c && b != d && c != d,

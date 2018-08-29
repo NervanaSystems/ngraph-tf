@@ -14,7 +14,6 @@
  * limitations under the License.
  *******************************************************************************/
 
-
 #include "ngraph_conversions.h"
 #include "ngraph_builder.h"
 #include "ngraph_log.h"
