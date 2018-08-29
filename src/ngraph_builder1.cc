@@ -321,13 +321,32 @@ const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
     {"AddN", TranslateAddNOp},
     {"AvgPool", TranslateAvgPoolOp},
     {"Const", TranslateConstOp},
+    {"Equal", TranslateBinary<ngraph::op::Equal>},
+    {"Exp", TranslateUnary<ngraph::op::Exp>},
+    {"Floor", TranslateUnary<ngraph::op::Floor>},
     {"FloorDiv", TranslateFloorDivOp},
     {"FloorMod", TranslateFloorModOp},
+    {"Greater", TranslateBinary<ngraph::op::Greater>},
+    {"GreaterEqual", TranslateBinary<ngraph::op::GreaterEq>},
+    {"Less", TranslateBinary<ngraph::op::Less>},
+    {"LessEqual", TranslateBinary<ngraph::op::LessEq>},
+    {"Log", TranslateUnary<ngraph::op::Log>},
+    {"LogicalAnd", TranslateBinary<ngraph::op::And>},
+    {"LogicalNot", TranslateUnary<ngraph::op::Not>},
+    {"Maximum", TranslateBinary<ngraph::op::Maximum>},
+    {"Minimum", TranslateBinary<ngraph::op::Minimum>},
+    {"Mul", TranslateBinary<ngraph::op::Multiply>},
+    {"Neg", TranslateUnary<ngraph::op::Negative>},
     {"Neg", TranslateUnary<ngraph::op::Negative>},
     {"NoOp", [](const Node* op, VectNg& ng_arg_vec,
                 const std::vector<const Tensor*>& static_input_map,
                 VectNg& subgraph_out_nodes) { return Status::OK(); }},
-    {"RealDiv", TranslateBinary<ngraph::op::Divide>}};
+    {"Pow", TranslateBinary<ngraph::op::Power>},
+    {"RealDiv", TranslateBinary<ngraph::op::Divide>},
+    {"Sign", TranslateUnary<ngraph::op::Sign>},
+    {"Sqrt", TranslateUnary<ngraph::op::Sqrt>},
+    {"Sub", TranslateBinary<ngraph::op::Subtract>},
+    {"Tanh", TranslateUnary<ngraph::op::Tanh>}};
 
 const std::map<const string, vector<int>> Builder1::INPUT_INDEX_MAP{};
 
