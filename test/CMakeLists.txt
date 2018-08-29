@@ -40,6 +40,10 @@ set(SRC
     padding.cpp
     conversions.cpp
     graph_rewrites/assign_clusters.cc
+    test_utilities.cpp
+    test_math_ops.cpp
+    test_nn_ops.cpp
+    opexecuter.cpp
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -71,6 +75,7 @@ add_dependencies(gtest_ngtf build_tf_cc)
 target_link_libraries(
     gtest_ngtf 
     ngraph_device 
+    ngraph_lib
     libgtest 
     pthread 
     tensorflow_framework_lib

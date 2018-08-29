@@ -17,6 +17,7 @@
 
 #include "ngraph_builder.h"
 #include "ngraph_utils.h"
+#include "test_utilities.h"
 
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/op.h"
@@ -58,8 +59,7 @@ TEST(tf_exec, hello_world) {
   LOG(INFO) << outputs[0].matrix<float>();
 }
 
-#if !defined(NGRAPH_EMBEDDED_IN_TENSORFLOW)
-TEST(tf_exec, axpy) {
+TEST(tf_exec, DISABLED_axpy) {
   GraphDef gdef;
   // auto status = ReadTextProto(Env::Default(), "test_py.pbtxt",
   // &gdef);
@@ -109,53 +109,6 @@ TEST(tf_exec, axpy) {
     cout << endl;
   }
 }
-#endif
-
-void AssertTensorEquals(Tensor& T1, Tensor& T2) {
-  auto T_size = T1.flat<float>().size();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1.flat<float>().data()[k];
-    auto b = T2.flat<float>().data()[k];
-    EXPECT_FLOAT_EQ(a, b);
-  }
-}
-
-void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
-  auto T_size = T1.flat<float>().size();
-  auto T1_data = T1.flat<float>().data();
-  auto T2_data = T2.flat<float>().data();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1_data[k];
-    auto b = T2_data[k];
-    if (a == 0) {
-      EXPECT_NEAR(a, b, tol);
-    } else {
-      auto rel = a - b;
-      auto rel_div = std::abs(rel / a);
-      EXPECT_TRUE(rel_div < tol);
-    }
-  }
-}
-
-void AssignInputValues(Tensor& A, float x) {
-  auto A_flat = A.flat<float>();
-  auto A_flat_data = A_flat.data();
-  for (int i = 0; i < A_flat.size(); i++) {
-    A_flat_data[i] = x * i;
-  }
-}
-
-void AssignInputIntValues(Tensor& A, int maxval) {
-  auto A_flat = A.flat<int>();
-  auto A_flat_data = A_flat.data();
-  int counter = 0;
-  for (int i = 0; i < A_flat.size(); i++) {
-    A_flat_data[i] = counter++;
-    if (counter == maxval) {
-      counter = 0;
-    }
-  }
-}
 
 TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   Scope root = Scope::NewRootScope();
@@ -174,7 +127,6 @@ TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   std::vector<Tensor> outputs_z1;
   std::vector<Tensor> outputs_z2;
   std::vector<Tensor> outputs_z;
-  // Run and fetch v
   ClientSession session(dev_scope);
   ASSERT_OK(session.Run({Z1}, &outputs_z1));
   ASSERT_OK(session.Run({Z2}, &outputs_z2));
@@ -196,16 +148,6 @@ TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   AssertTensorEquals(outputs_z1[0], outputs_z1_cpu[0]);
   AssertTensorEquals(outputs_z2[0], outputs_z2_cpu[0]);
   AssertTensorEquals(outputs_z[0], outputs_z_cpu[0]);
-}
-
-void ActivateNGraph() {
-  setenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS", "1", 1);
-  unsetenv("NGRAPH_TF_DISABLE");
-}
-
-void DeactivateNGraph() {
-  unsetenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS");
-  setenv("NGRAPH_TF_DISABLE", "1", 1);
 }
 
 TEST(tf_exec, BatchMatMul) {
@@ -333,7 +275,7 @@ TEST(tf_exec, DISABLED_BatchMatMul_2D) {
   AssertTensorEquals(outputs[0], outputs_cpu[0]);
 }
 
-TEST(tf_exec, BiasAddGrad) {
+TEST(tf_exec, DISABLED_BiasAddGrad) {
   Scope root = Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   Tensor X(DT_FLOAT, TensorShape({2, 3, 4, 5}));
@@ -406,7 +348,7 @@ TEST(tf_exec, BiasAddGrad) {
   ValidateTensorData(outputs_ngraph_nchw[0], outputs_CPU_nchw[0], 1e-6);
 }
 
-TEST(tf_exec, FusedBatchNormGrad_NHWC) {
+TEST(tf_exec, DISABLED_FusedBatchNormGrad_NHWC) {
   Scope root = Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   Tensor tf_input(DT_FLOAT, TensorShape({5, 3, 4, 2}));
@@ -464,7 +406,7 @@ TEST(tf_exec, FusedBatchNormGrad_NHWC) {
 }
 
 // Test Op :"Op_L2Loss"
-TEST(tf_exec, Op_L2Loss) {
+TEST(tf_exec, DISABLED_Op_L2Loss) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -494,7 +436,7 @@ TEST(tf_exec, Op_L2Loss) {
 }
 
 // Test Op :"Op_Unpack"
-TEST(tf_exec, Op_Unpack) {
+TEST(tf_exec, DISABLED_Op_Unpack) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root = root.WithDevice("/device:CPU:0");
@@ -535,7 +477,7 @@ TEST(tf_exec, Op_Unpack) {
   }
 }
 
-TEST(tf_exec, Tile) {
+TEST(tf_exec, DISABLED_Tile) {
   Scope root = Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   Tensor A(DT_FLOAT, TensorShape({2, 3, 4}));
@@ -567,7 +509,7 @@ TEST(tf_exec, Tile) {
   AssertTensorEquals(outputs_D[0], outputs_D_cpu[0]);
 }
 
-TEST(tf_exec, Op_Conv2DBackpropFilter) {
+TEST(tf_exec, DISABLED_Op_Conv2DBackpropFilter) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -662,7 +604,7 @@ TEST(tf_exec, Op_Conv2DBackpropFilter) {
 // With Const inputs tensorflow's constant folding optimisation converts the op
 // to "Mul". To test "RealDiv" operator, explicitly placed the op on NGRAPH and
 // the inputs as placeholders
-TEST(tf_exec, Op_RealDiv) {
+TEST(tf_exec, DISABLED_Op_RealDiv) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -687,7 +629,7 @@ TEST(tf_exec, Op_RealDiv) {
   EXPECT_FLOAT_EQ(0.0, mat(1, 1));
 }
 
-TEST(tf_exec, Op_Reciprocal) {
+TEST(tf_exec, DISABLED_Op_Reciprocal) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -732,14 +674,14 @@ TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
   std::vector<Tensor> outputs_ngraph, outputs_cpu;
   ClientSession session(root);
 
-  TF_CHECK_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
-  TF_CHECK_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
+  ASSERT_OK(session.Run({R_ngraph.loss, R_ngraph.backprop}, &outputs_ngraph));
+  ASSERT_OK(session.Run({R_cpu.loss, R_cpu.backprop}, &outputs_cpu));
 
   ValidateTensorData(outputs_ngraph[0], outputs_cpu[0], 1e-6);
   ValidateTensorData(outputs_ngraph[1], outputs_cpu[1], 1e-6);
 }
 
-TEST(tf_exec, Op_Square) {
+TEST(tf_exec, DISABLED_Op_Square) {
   Scope root = Scope::NewRootScope();
   root = root.WithDevice("/device:NGRAPH:0");
 
@@ -760,7 +702,7 @@ TEST(tf_exec, Op_Square) {
   EXPECT_FLOAT_EQ(0.0, mat(1, 1));
 }
 
-TEST(tf_exec, Op_SquaredDifference) {
+TEST(tf_exec, DISABLED_Op_SquaredDifference) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
   root_ngraph = root_ngraph.WithDevice("/device:NGRAPH:0");
@@ -784,7 +726,7 @@ TEST(tf_exec, Op_SquaredDifference) {
   EXPECT_FLOAT_EQ(1.0, mat(1, 1));
 }
 
-TEST(tf_exec, Op_Rsqrt) {
+TEST(tf_exec, DISABLED_Op_Rsqrt) {
   Scope root = Scope::NewRootScope();
   root = root.WithDevice("/device:NGRAPH:0");
 
@@ -805,7 +747,7 @@ TEST(tf_exec, Op_Rsqrt) {
   EXPECT_FLOAT_EQ(1.f / 8.f, mat(1, 1));
 }
 
-TEST(tf_exec, Op_Negate) {
+TEST(tf_exec, DISABLED_Op_Negate) {
   Scope scope_cpu = Scope::NewRootScope();
   Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
@@ -832,7 +774,7 @@ TEST(tf_exec, Op_Negate) {
   AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
 }
 
-TEST(tf_exec, Op_FloorDiv) {
+TEST(tf_exec, DISABLED_Op_FloorDiv) {
   Scope scope_cpu = Scope::NewRootScope();
   Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
@@ -873,7 +815,7 @@ TEST(tf_exec, Op_FloorDiv) {
   AssertTensorEquals(outputs_cpu[1], outputs_ng[1]);
 }
 
-TEST(tf_exec, Op_FloorMod) {
+TEST(tf_exec, DISABLED_Op_FloorMod) {
   Scope scope_cpu = Scope::NewRootScope();
   Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
@@ -914,7 +856,7 @@ TEST(tf_exec, Op_FloorMod) {
   AssertTensorEquals(outputs_cpu[1], outputs_ng[1]);
 }
 
-TEST(tf_exec, Op_AddN) {
+TEST(tf_exec, DISABLED_Op_AddN) {
   Scope scope_cpu = Scope::NewRootScope();
   Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
@@ -949,7 +891,7 @@ TEST(tf_exec, Op_AddN) {
   AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
 }
 
-TEST(tf_exec, Op_PreventGradient) {
+TEST(tf_exec, DISABLED_Op_PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();
   Scope scope_ng = scope_cpu.WithDevice("/device:NGRAPH:0");
 
@@ -976,6 +918,27 @@ TEST(tf_exec, Op_PreventGradient) {
   ASSERT_EQ(outputs_cpu[0].shape(), TensorShape({2, 2}));
 
   AssertTensorEquals(outputs_cpu[0], outputs_ng[0]);
+}
+
+TEST(tf_exec, DISABLED_Op_Sqrt) {
+  Scope root = Scope::NewRootScope();
+  root = root.WithDevice("/device:NGRAPH:0");
+
+  auto A = ops::Const(root, {{256.f, 16.f}, {4.f, 64.f}});
+  auto r = ops::Sqrt(root.WithOpName("r"), A);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+
+  ASSERT_OK(session.Run({r}, &outputs));
+
+  ASSERT_EQ(outputs[0].shape(), TensorShape({2, 2}));
+
+  auto mat = outputs[0].matrix<float>();
+  EXPECT_FLOAT_EQ(16.f, mat(0, 0));
+  EXPECT_FLOAT_EQ(4.f, mat(0, 1));
+  EXPECT_FLOAT_EQ(2.f, mat(1, 0));
+  EXPECT_FLOAT_EQ(8.f, mat(1, 1));
 }
 
 #undef ASSERT_OK

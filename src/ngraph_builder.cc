@@ -36,16 +36,20 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-const static std::map<const DataType, const ngraph::element::Type>
-    TF_NGRAPH_TYPE_MAP = {{DataType::DT_FLOAT, ng::element::f32},
-                          {DataType::DT_DOUBLE, ng::element::f64},
-                          {DataType::DT_INT8, ng::element::i8},
-                          {DataType::DT_INT16, ng::element::i16},
-                          {DataType::DT_INT32, ng::element::i32},
-                          {DataType::DT_INT64, ng::element::i64},
-                          {DataType::DT_UINT8, ng::element::u8},
-                          {DataType::DT_UINT16, ng::element::u16},
-                          {DataType::DT_BOOL, ng::element::boolean}};
+const std::map<const DataType, const ngraph::element::Type>&
+Builder::TF_NGRAPH_TYPE_MAP() {
+  static const std::map<const DataType, const ngraph::element::Type> the_map = {
+      {DataType::DT_FLOAT, ng::element::f32},
+      {DataType::DT_DOUBLE, ng::element::f64},
+      {DataType::DT_INT8, ng::element::i8},
+      {DataType::DT_INT16, ng::element::i16},
+      {DataType::DT_INT32, ng::element::i32},
+      {DataType::DT_INT64, ng::element::i64},
+      {DataType::DT_UINT8, ng::element::u8},
+      {DataType::DT_UINT16, ng::element::u16},
+      {DataType::DT_BOOL, ng::element::boolean}};
+  return the_map;
+}
 
 static Status ValidateInputCount(const Node* op, size_t count) {
   if (op->num_inputs() != count) {
@@ -130,15 +134,23 @@ static Status GetInputNode(const Builder::OpMap& ng_op_map, const Node* op,
   try {
     src_output_idx = edges.at(input_idx)->src_output();
   } catch (const out_of_range&) {
-    return Status(tensorflow::error::NOT_FOUND, "Edge not found");
+    return Status(error::NOT_FOUND, "Edge not found");
   }
 
   Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
+  const std::vector<shared_ptr<ng::Node>>* ng_op = nullptr;
   try {
-    *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
+    ng_op = &ng_op_map.at(tf_input->name());
   } catch (const out_of_range&) {
-    return Status(tensorflow::error::NOT_FOUND, "Input node not found");
+    return Status(error::NOT_FOUND,
+                  string("Ngraph op not found for ") + tf_input->name());
+  }
+  try {
+    *result = ng_op->at(src_output_idx);
+  } catch (const out_of_range&) {
+    return Status(error::NOT_FOUND, string("Input node not found at index ") +
+                                        to_string(src_output_idx));
   }
   return Status::OK();
 }
@@ -284,6 +296,7 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
       ValuesFromConstNode<T, VecT>(op->def(), &shape_proto, &const_values));
 
   TensorShape const_shape(shape_proto);
+
   ng::Shape ng_shape;
   TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(const_shape, &ng_shape));
 
@@ -291,22 +304,30 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
   return Status::OK();
 }
 
-const static std::map<
-    const DataType,
-    const std::pair<const std::function<Status(const Node*, ng::element::Type,
+const std::map<DataType,
+               std::pair<std::function<Status(const Node*, ng::element::Type,
+                                              std::shared_ptr<ng::Node>*)>,
+                         const ngraph::element::Type>>&
+Builder::TF_NGRAPH_CONST_MAP() {
+  static const std::map<
+      DataType, std::pair<std::function<Status(const Node*, ng::element::Type,
                                                std::shared_ptr<ng::Node>*)>,
-                    const ngraph::element::Type>>
-    TF_NGRAPH_CONST_MAP = {
-        {DataType::DT_FLOAT, make_pair(MakeConstOp<float>, ng::element::f32)},
-        {DataType::DT_DOUBLE, make_pair(MakeConstOp<double>, ng::element::f64)},
-        {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
-        {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
-        {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
-        {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
-        {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
-        {DataType::DT_UINT16, make_pair(MakeConstOp<uint16>, ng::element::u16)},
-        {DataType::DT_BOOL,
-         make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
+                          const ngraph::element::Type>>
+      the_map = {
+          {DataType::DT_FLOAT, make_pair(MakeConstOp<float>, ng::element::f32)},
+          {DataType::DT_DOUBLE,
+           make_pair(MakeConstOp<double>, ng::element::f64)},
+          {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
+          {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+          {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
+          {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
+          {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
+          {DataType::DT_UINT16,
+           make_pair(MakeConstOp<uint16>, ng::element::u16)},
+          {DataType::DT_BOOL,
+           make_pair(MakeConstOp<bool, char>, ng::element::boolean)}};
+  return the_map;
+}
 
 // Helper function to translate a unary op.
 //
@@ -795,9 +816,9 @@ static Status TranslateCastOp(
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "DstT", &dtype));
 
   try {
-    SaveNgOp(
-        ng_op_map, op->name(),
-        make_shared<ng::op::Convert>(ng_input, TF_NGRAPH_TYPE_MAP.at(dtype)));
+    SaveNgOp(ng_op_map, op->name(),
+             make_shared<ng::op::Convert>(
+                 ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(dtype)));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                  DataType_Name(dtype));
@@ -855,7 +876,7 @@ static Status TranslateConstOp(
   //   &ng_node));
   //   break;
   try {
-    const auto& func_param = TF_NGRAPH_CONST_MAP.at(dtype);
+    const auto& func_param = Builder::TF_NGRAPH_CONST_MAP().at(dtype);
     TF_RETURN_IF_ERROR(func_param.first(op, func_param.second, &ng_node));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
@@ -1351,8 +1372,9 @@ static Status TranslateFusedBatchNormOp(
 
   float tf_epsilon;
   if (GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon) != Status::OK()) {
-    NGRAPH_VLOG(3) << "epsilon attribute not present, setting to zero";
-    tf_epsilon = 0;  // FIXME(amprocte): is this the right default?
+    NGRAPH_VLOG(3) << "epsilon attribute not present, setting to 0.0001";
+    // TensorFlow default
+    tf_epsilon = 0.0001;
   }
 
   NGRAPH_VLOG(3) << "epsilon: " << tf_epsilon;
@@ -1361,11 +1383,34 @@ static Status TranslateFusedBatchNormOp(
 
   std::shared_ptr<ng::Node> ng_batch_norm;
 
-  ng_batch_norm =
-      make_shared<ng::op::BatchNorm>(tf_epsilon, ng_scale, ng_offset, ng_input,
-                                     ng_mean, ng_variance, tf_is_training);
+  if (tf_is_training) {
+    ng_batch_norm = make_shared<ng::op::BatchNorm>(tf_epsilon, ng_scale,
+                                                   ng_offset, ng_input);
 
-  BatchToTensorflow(is_nhwc, ng_batch_norm);
+    shared_ptr<ngraph::Node> ng_y, ng_mean, ng_variance;
+    ng_y = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
+    ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
+    ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
+
+    BatchToTensorflow(is_nhwc, ng_y);
+
+    SaveNgOp(ng_op_map, op->name(), ng_y);
+    SaveNgOp(ng_op_map, op->name(), ng_mean);
+    SaveNgOp(ng_op_map, op->name(), ng_variance);
+    // Output reserve_space_1: A 1D Tensor for the computed batch mean, to be
+    // reused in the gradient computation.
+    SaveNgOp(ng_op_map, op->name(), ng_mean);
+    // Output reserve_space_2: A 1D Tensor for the computed batch variance
+    //(inverted variance in the cuDNN case), to be reused in the gradient
+    // computation.
+    SaveNgOp(ng_op_map, op->name(), ng_variance);
+  } else {
+    ng_batch_norm = make_shared<ng::op::BatchNorm>(tf_epsilon, ng_scale,
+                                                   ng_offset, ng_input, ng_mean,
+                                                   ng_variance, tf_is_training);
+    BatchToTensorflow(is_nhwc, ng_batch_norm);
+    SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
+  }
 
   SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   return Status::OK();
@@ -1390,11 +1435,8 @@ static Status TranslateFusedBatchNormGradOp(
   shared_ptr<ng::Node> ng_scale;
   shared_ptr<ng::Node> ng_mean;
   shared_ptr<ng::Node> ng_variance;
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_delta));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_input));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_scale));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 3, &ng_mean));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 4, &ng_variance));
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_delta, &ng_input,
+                                   &ng_scale, &ng_mean, &ng_variance));
 
   std::string tf_data_format;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
@@ -2291,7 +2333,7 @@ static Status TranslateSqueezeOp(
         if (input_shape[i] == 1) {
           skip = true;
         } else {
-          throw tensorflow::errors::InvalidArgument(
+          throw errors::InvalidArgument(
               "Tried to explicitly squeeze "
               "dimension ",
               i, " but dimension was not 1: ", input_shape[i]);
@@ -2396,6 +2438,10 @@ static Status TranslateStridedSliceOp(
   std::shared_ptr<ng::Node> ng_strided_slice =
       make_shared<ng::op::Slice>(ng_input, l, u, s);
   if (tf_shrink_axis_mask) {
+    NGRAPH_VLOG(3) << "shrink_axis_mask: " << tf_shrink_axis_mask;
+    NGRAPH_VLOG(3) << "shape of slice before axis shrinking: "
+                   << ng_strided_slice->get_shape();
+
     ng::AxisVector ng_axis_order(input_shape.size());
     for (size_t i = 0; i < input_shape.size(); i++) {
       ng_axis_order[i] = i;
@@ -2665,6 +2711,7 @@ const static std::map<
          TranslateSparseSoftmaxCrossEntropyWithLogitsOp},
         {"Split", TranslateSplitOp},
         {"SplitV", TranslateSplitVOp},
+        {"Sqrt", TranslateUnaryOp<ngraph::op::Sqrt>},
         {"Square", TranslateSquareOp},
         {"SquaredDifference", TranslateSquaredDifferenceOp},
         {"Squeeze", TranslateSqueezeOp},
@@ -2753,18 +2800,29 @@ Status Builder::TranslateGraph(
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
+    const function<Status(const Node*, const std::vector<const Tensor*>&,
+                          Builder::OpMap&)>* op_fun;
     try {
-      TF_RETURN_IF_ERROR(TRANSLATE_OP_MAP.at(op->type_string())(
-          op, static_input_map, ng_op_map));
+      op_fun = &(TRANSLATE_OP_MAP.at(op->type_string()));
     } catch (const std::out_of_range&) {
       // -----------------------------
       // Catch-all for unsupported ops
       // -----------------------------
-      NGRAPH_VLOG(3) << "Unsupported Op: " << op->name() << " ("
-                     << op->type_string() << ")";
+      NGRAPH_VLOG(3) << "No translation handler registered for op: "
+                     << op->name() << " (" << op->type_string() << ")";
       NGRAPH_VLOG(3) << op->def().DebugString();
-      return errors::InvalidArgument("Unsupported Op: ", op->name(), " (",
-                                     op->type_string(), ")");
+      return errors::InvalidArgument(
+          "No translation handler registered for op: ", op->name(), " (",
+          op->type_string(), ")\n", op->def().DebugString());
+    }
+
+    try {
+      TF_RETURN_IF_ERROR((*op_fun)(op, static_input_map, ng_op_map));
+    } catch (const std::exception& e) {
+      return errors::Internal("Unhandled exception in op handler: ", op->name(),
+                              " (", op->type_string(), ")\n",
+                              op->def().DebugString(), "\n", "what(): ",
+                              e.what());
     }
   }
 
@@ -2795,6 +2853,14 @@ Status Builder::TranslateGraph(
   // Create the nGraph function.
   //
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+
+  //
+  // Request row-major layout on results.
+  //
+  for (auto result : ng_function->get_results()) {
+    result->set_needs_default_layout(true);
+  }
+
   return Status::OK();
 }
 
