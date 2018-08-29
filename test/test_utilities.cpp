@@ -35,6 +35,7 @@ void DeactivateNGraph() {
 }
 
 void AssertTensorEquals(Tensor& T1, Tensor& T2) {
+  ASSERT_EQ(T1.shape(), T2.shape());
   auto T_size = T1.flat<float>().size();
   auto T1_data = T1.flat<float>().data();
   auto T2_data = T2.flat<float>().data();
