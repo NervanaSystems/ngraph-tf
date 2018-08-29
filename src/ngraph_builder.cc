@@ -1300,8 +1300,9 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
-                                      ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(
+      ng_op_map, op->name(),
+      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2424,6 +2425,23 @@ static Status TranslateStridedSliceOp(
 
   std::shared_ptr<ng::Node> ng_strided_slice =
       make_shared<ng::op::Slice>(ng_input, l, u, s);
+  
+  
+  // Get shrink axis
+  vector<int> shrink_axis;
+  int shrink_axis_mask = tf_shrink_axis_mask;
+
+  int axis=0;
+  while(shrink_axis_mask!=0){
+    if((shrink_axis_mask & 1) ==1){
+      shrink_axis.push_back(axis);
+    }
+    axis++;
+    shrink_axis_mask>>=1;
+  }
+
+  NGRAPH_VLOG(3) << " Shrink axis "<< ng::join(shrink_axis);
+
   if (tf_shrink_axis_mask) {
     ng::AxisVector ng_axis_order(input_shape.size());
     for (size_t i = 0; i < input_shape.size(); i++) {
