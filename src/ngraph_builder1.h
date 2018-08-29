@@ -35,7 +35,6 @@ namespace ngraph_bridge {
 
 // TODO (sarkars): make sure all comments from old builder are copied correctly.
 
-
 // The purpose of Builder is to accept a TF graph and convert it to a
 // equivalent ngraph fucntion. To that end, it acts as an interface to
 // a library of 'TranslateOps' functions. These functions are defined
