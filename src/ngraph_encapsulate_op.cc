@@ -29,7 +29,6 @@
 #include "ngraph/serializer.hpp"
 
 #include "ngraph_builder.h"
-#include "ngraph_builder1.h"
 #include "ngraph_cluster_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
@@ -38,7 +37,11 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
-#define BUILDER1
+#define BUILDER1 // (un)comment this line to (de)activate old builder
+
+#ifdef BUILDER1
+#include "ngraph_builder1.h"
+#endif
 
 using namespace std;
 namespace ng = ngraph;
@@ -63,8 +66,6 @@ REGISTER_OP("NGraphEncapsulate")
 
 class NGraphEncapsulateOp : public OpKernel {
 #ifdef BUILDER1
-  // TODO: remove "m_input_is_static" etc from constructor of
-  // NGraphEncapsulateOp.
  private:
   Builder1 ng_builder;
 #endif
@@ -87,10 +88,8 @@ class NGraphEncapsulateOp : public OpKernel {
     opts.allow_internal_ops = true;
     OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
-#ifdef BUILDER1
-//    ng_builder.init();  //Now TranslateGraph will call init() if needed
-#else
-
+#ifndef BUILDER1
+    // TODO (sarkars): remove "m_input_is_static" etc from this constructor
     //
     // Initialize the "m_input_is_static" vector as follows:
     // (1) create m_input_is_static with n+1 elements, where n is the max arg
@@ -291,7 +290,6 @@ class NGraphEncapsulateOp : public OpKernel {
     if (it == m_ng_functions.end()) {
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
 #ifndef BUILDER1
-
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));

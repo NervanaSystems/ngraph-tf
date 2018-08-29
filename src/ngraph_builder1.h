@@ -34,8 +34,6 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 // TODO (sarkars): make sure all comments from old builder are copied correctly.
-// TODO: use camelcase, snakecase appropriately
-// TODO add TF_RETURN_IF_ERROR where necessary
 
 
 // The purpose of Builder is to accept a TF graph and convert it to a

@@ -2695,15 +2695,6 @@ Status Builder::TranslateGraph(
   vector<const Node*> tf_ops;
 
   for (const auto n : ordered) {
-    cout << "XXXXX " << n->type_string() << "\n";
-    if (n->type_string() == "Const") {
-      Tensor result;
-      vector<int64> vect;
-      result.FromProto(n->def().attr().at("value").tensor());
-      TensorDataToVector(result, &vect);
-      for (auto vv : vect) cout << " " << vv;
-      cout << "\n";
-    }
     if (n->IsSink() || n->IsSource()) {
       continue;
     }
