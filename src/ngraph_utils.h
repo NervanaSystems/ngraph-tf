@@ -115,8 +115,9 @@ Status ValuesFromConstNode(const NodeDef& node,
                                                       : tensor.bool_val()[i]);
           break;
         case DT_DOUBLE:
-          (*values)[i] = (tensor.double_val_size() == 1 ? tensor.double_val()[0]
-                                                       : tensor.double_val()[i]);
+          (*values)[i] =
+              (tensor.double_val_size() == 1 ? tensor.double_val()[0]
+                                             : tensor.double_val()[i]);
           break;
         default:
           NGRAPH_VLOG(0)
