@@ -26,7 +26,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 
-//TODO: remove headers if not needed
+// TODO: remove headers if not needed
 //#include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -50,6 +50,28 @@ class Builder1 {
   using TranslatorFn = function<Status(
       const Node*, VectNg&, const std::vector<const Tensor*>&, VectNg&)>;
 
+ public:
+  // Note: in case we want to get rid of Initialize,
+  // pass a OpKernelConstruction* ctx to the constructor,
+  // and use OP_REQUIRES_OK instead of TF_RETURN_IF_ERROR
+  // This gets rid of Initialize() as it can handle errors in construction
+  // But in the case of overloaded constructor that does not accept a ctx,
+  // which is used for OpExecuter test class, we cannot handle error during
+  // construction.
+  // Hence keeping the Initialize() function
+  Builder1(const Graph& tf_graph,
+           OpKernelConstruction* ctx)  // TODO make ctx const?
+      : tf_graph(tf_graph) {}
+
+  Builder1(const Graph& tf_graph) : Builder1(tf_graph, nullptr) {}
+
+  Status TranslateGraph(const std::vector<TensorShape>&,
+                        const std::vector<const Tensor*>&,
+                        shared_ptr<ng::Function>&);
+
+  Status TranslateGraph(OpKernelContext* ctx,
+                        std::shared_ptr<ngraph::Function>& ng_function);
+
  private:
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
@@ -57,31 +79,38 @@ class Builder1 {
   //
   std::unordered_map<std::string, VectNg> ng_op_map;
 
-  const static std::map<const string, Builder1::TranslatorFn> TRANSLATE_OP_MAP;
-
   const static std::map<const string, vector<int>> INPUT_INDEX_MAP;
 
-  OpKernelConstruction* ctx;    // TODO: is this required? required in
-                                // OP_REQUIRES_OK is used instead of
-                                // TF_RETURN_IF_ERROR in Initialize
-  bool is_initialized = false;  // Prevent init from running twice
+  bool is_initialized = false;  // Prevent Initialize from running twice
   const Graph& tf_graph;
   std::vector<bool> m_input_is_static;
   vector<Node*> ordered;
   vector<const Node *> tf_params, tf_ret_vals, tf_ops;
 
+  // A map from Tf op type_string to a TranslateOp
+  const static std::map<const string, Builder1::TranslatorFn> TRANSLATE_OP_MAP;
+  // Given a TF node, return its corresponding TranslateOp function and required input indexes
+  // A wrapper for TRANSLATE_OP_MAP
   Status GetOpTranslationRequirements(const Node*, Builder1::TranslatorFn&,
                                       vector<int>&);
 
   Status GetInputNode(const Node*, size_t, shared_ptr<ng::Node>*);
 
-  // TODO: write description
-  Status GetInputParams(const std::vector<TensorShape>&, vector<const Node*>,
-                        vector<shared_ptr<ng::op::Parameter>>*);
+  // Classify a list of TF nodes into _Arg (input), _Retval (output) and other
+  // nodes
   Status ClassifyNodes(const vector<Node*>&, vector<const Node*>&,
                        vector<const Node*>&, vector<const Node*>&);
+
+  // Given the input shapes and a list of TF _Arg nodes, create corresponding
+  // nGraph parameters. Also populate the ng_op_map
+  Status GetInputParams(const std::vector<TensorShape>&, vector<const Node*>,
+                        vector<shared_ptr<ng::op::Parameter>>&);
+  // Given a TF node, retrieve its corresponding nGraph nodes (using ng_op_map),
+  // then call the appropriate TranslateOp function
   Status TranslateEachOp(const vector<const Node*>&,
                          const std::vector<const Tensor*>&);
+  // After each TF op has been translated, find the nGraph nodes corresponding
+  // to the _Retval nodes
   Status GetOutputNodes(const vector<const Node*>&, VectNg&);
 
   template <typename T>
@@ -100,21 +129,6 @@ class Builder1 {
                    T& ng_padding_above);
 
   Status Initialize();
-
- public:
-  Builder1(const Graph& tf_graph,
-           OpKernelConstruction* ctx)  // TODO make ctx const?
-      : tf_graph(tf_graph),
-        ctx(ctx) {}
-
-  Builder1(const Graph& tf_graph) : tf_graph(tf_graph) {}
-
-  Status TranslateGraph(const std::vector<TensorShape>&,
-                        const std::vector<const Tensor*>&,
-                        shared_ptr<ng::Function>&);
-
-  Status TranslateGraph(OpKernelContext* ctx,
-                        std::shared_ptr<ngraph::Function>& ng_function);
 };
 
 }  // namespace ngraph_bridge

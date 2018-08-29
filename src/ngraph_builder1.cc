@@ -20,7 +20,7 @@
 //#include "ngraph/builder/autobroadcast.hpp"
 //#include "ngraph/builder/numpy_transpose.hpp"
 
-//TODO: remove the header files, if not needed
+// TODO: remove the header files, if not needed
 //#include "tensorflow/core/framework/tensor.pb.h"
 //#include "tensorflow/core/framework/tensor_shape.pb.h"
 //#include "tensorflow/core/framework/tensor_shape.pb_text.h"
@@ -42,7 +42,7 @@ Status Builder1::TranslateGraph(
   TF_RETURN_IF_ERROR(Initialize());
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
-  TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, &ng_parameter_list));
+  TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, ng_parameter_list));
 
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
 
@@ -142,10 +142,10 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered,
 
 Status Builder1::GetInputParams(
     const std::vector<TensorShape>& inputs, vector<const Node*> tf_params,
-    vector<shared_ptr<ng::op::Parameter>>* ng_parameter_list) {
+    vector<shared_ptr<ng::op::Parameter>>& ng_parameter_list) {
   // Populate the parameter list, and also put parameters into the op map.
 
-  ng_parameter_list->resize(tf_params.size());
+  ng_parameter_list.resize(tf_params.size());
 
   for (auto parm : tf_params) {
     DataType dtype;
@@ -165,7 +165,7 @@ Status Builder1::GetInputParams(
 
     auto ng_param = make_shared<ng::op::Parameter>(ng_et, ng_shape);
     ng_op_map[parm->name()].push_back(ng_param);
-    (*ng_parameter_list)[index] = ng_param;
+    ng_parameter_list[index] = ng_param;
   }
   return Status::OK();
 }
@@ -221,13 +221,7 @@ Status Builder1::Initialize() {
     for (auto node : tf_graph.nodes()) {
       if (node->type_string() == "_Arg") {
         arg_nodes.push_back(node);
-
         int32 index;
-        // macro defn:
-        // https://github.com/petewarden/tensorflow_makefile/blob/master/tensorflow/core/framework/op_kernel.h#L1265
-
-        // TODO check : removing OP_REQUIRES_OK for now
-        // OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "index", &index));
         if (index > max_arg_index) max_arg_index = index;
       }
@@ -238,11 +232,8 @@ Status Builder1::Initialize() {
     // Fill the vector.
     for (auto node : arg_nodes) {
       int32 index;
-      // TODO: OP_REQUIRES_OK or TF_RETURN_IF_ERROR
-      //// OP_REQUIRES_OK(ctx, GetNodeAttr(node->attrs(), "index", &index));
       TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "index", &index));
 
-      // bool is_static = false;
       for (auto edge : node->out_edges()) {
         if (edge->IsControlEdge() || !edge->dst()->IsOp()) {
           continue;
