@@ -48,3 +48,11 @@ class TestNgraphAPI(NgraphTest):
     backends_count = ngraph_device.ngraph_backends_len()
     assert ngraph_device.ngraph_list_backends(
         (ctypes.c_char_p * backends_count)(None), backends_count) == 1
+
+  def test_start_logging_placement(self, ngraph_device):
+    ngraph_device.ngraph_start_logging_placement()
+    assert ngraph_device.ngraph_is_logging_placement() == 1
+
+  def test_stop_logging_placement(self, ngraph_device):
+    ngraph_device.ngraph_stop_logging_placement()
+    assert ngraph_device.ngraph_is_logging_placement() == 0
