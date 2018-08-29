@@ -35,7 +35,9 @@ from tensorflow.python.framework import ops
 import ctypes
 
 
-__all__ = ['enable', 'disable', 'is_enabled']
+__all__ = ['enable', 'disable', 'is_enabled', 'backends_len', 'list_backends',
+    'set_backend', 'start_logging_placement', 'stop_logging_placement',
+    'is_logging_placement']
 
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
@@ -59,6 +61,9 @@ def requested():
 
 
 ngraph.ngraph_is_enabled.restype = ctypes.c_bool
+ngraph.ngraph_list_backends.restype = ctypes.c_bool
+ngraph.ngraph_set_backend.restype = ctypes.c_bool
+ngraph.ngraph_is_logging_placement.restype = ctypes.c_bool
 
 
 def enable():
@@ -71,3 +76,32 @@ def disable():
 
 def is_enabled():
   return ngraph.ngraph_is_enabled()
+
+
+def backends_len():
+  return ngraph.ngraph_backends_len()
+
+
+def list_backends():
+  len_backends = backends_len()
+  result = (ctypes.c_string * len_backends)(*(None * len_backends))
+  if not ngraph.ngraph_build_backends(result, len_backends):
+    raise Exception("Backends fluctuated while listing")
+  return result
+
+
+def set_backend(backend):
+  if not ngraph.ngraph_set_backend(backend):
+    raise Exception("Backend " + backend + " unavailable.")
+
+
+def start_logging_placement():
+  ngraph.ngraph_start_logging_placement()
+
+
+def stop_logging_placement():
+  ngraph.ngraph_stop_logging_placement()
+
+
+def is_logging_placement():
+  return ngraph.ngraph_is_logging_placement()
