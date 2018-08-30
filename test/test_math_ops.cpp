@@ -138,6 +138,7 @@ TEST(MathOps, Negate) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+
 }
 
 }  // namespace testing
