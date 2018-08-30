@@ -1300,9 +1300,8 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
+                                      ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2425,32 +2424,42 @@ static Status TranslateStridedSliceOp(
 
   std::shared_ptr<ng::Node> ng_strided_slice =
       make_shared<ng::op::Slice>(ng_input, l, u, s);
-  
-  
-  // Get shrink axis
-  vector<int> shrink_axis;
-  int shrink_axis_mask = tf_shrink_axis_mask;
 
-  int axis=0;
-  while(shrink_axis_mask!=0){
-    if((shrink_axis_mask & 1) ==1){
-      shrink_axis.push_back(axis);
-    }
-    axis++;
-    shrink_axis_mask>>=1;
-  }
-
-  NGRAPH_VLOG(3) << " Shrink axis "<< ng::join(shrink_axis);
+  NGRAPH_VLOG(3) << " NG Lower Vector " << ng::join(lower_vec);
+  NGRAPH_VLOG(3) << " NG End Vector " << ng::join(end_vec);
+  NGRAPH_VLOG(3) << " NG Stride Vector " << ng::join(stride_vec);
 
   if (tf_shrink_axis_mask) {
+    set<int> shrink_axis;
+    int64 shrink_axis_mask = tf_shrink_axis_mask;
+
+    for (int i = 0; i < 64; i++) {
+      if ((shrink_axis_mask & 1) == 1) {
+        shrink_axis.insert(i);
+      }
+      shrink_axis_mask >>= 1;
+    }
+
+    NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
+    NGRAPH_VLOG(3) << " Shrink axis " << ng::join(shrink_axis);
+
+    vector<size_t> output_shape;
+    for (int i = 0; i < lower_vec.size(); i++) {
+      if (shrink_axis.find(i) == shrink_axis.end()) {
+        output_shape.push_back(end_vec[i] - lower_vec[i]);
+      }
+    }
+
+    ng::Shape ng_final_shape(output_shape);
     ng::AxisVector ng_axis_order(input_shape.size());
     for (size_t i = 0; i < input_shape.size(); i++) {
       ng_axis_order[i] = i;
     }
+    NGRAPH_VLOG(3) << " Output  shape " << ng::join(output_shape);
+    NGRAPH_VLOG(3) << " NG  axis order " << ng::join(ng_axis_order);
 
-    ng::Shape ng_shape(input_shape.begin() + 1, input_shape.end());
-    ng_strided_slice =
-        make_shared<ng::op::Reshape>(ng_strided_slice, ng_axis_order, ng_shape);
+    ng_strided_slice = make_shared<ng::op::Reshape>(
+        ng_strided_slice, ng_axis_order, ng_final_shape);
   }
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);

@@ -32,7 +32,6 @@ from common import NgraphTest
 
 
 class TestSliceOperations(NgraphTest):
-  '''
   def test_slice(self):
     inp = np.random.rand(4, 4).astype("f")
     slice_ts = []
@@ -56,9 +55,8 @@ class TestSliceOperations(NgraphTest):
 
     for v, e in zip(slice_vals, expected):
         np.testing.assert_array_equal(v, e)
-  '''
+
   def test_strided_slice(self):
-    print("Running strided slice")
     inp = np.random.rand(4, 5).astype("f")
     slice_ts = []
     expected = []
@@ -68,19 +66,17 @@ class TestSliceOperations(NgraphTest):
     x = tf.placeholder(dtype=dtypes.float32)
     
     slice_ts.append(x[:])
-    
     slice_ts.append(x[...])
     slice_ts.append(x[:, :])
     slice_ts.append(x[:, ...])
     slice_ts.append(x[1:, :-2])
     slice_ts.append(x[::2,:-2])
-    #slice_ts.append(x[1, :])
-    #slice_ts.append(x[:, 1])
+    slice_ts.append(x[1, :])
+    slice_ts.append(x[:, 1])
     slice_ts.append(x[1, 1])
     slice_ts.append(x[0])
     slice_ts.append(x[0][1])
     slice_ts.append(x[-1])
-    
 
     def run_test(sess):
         return sess.run(slice_ts, feed_dict={ x: a })
@@ -89,19 +85,17 @@ class TestSliceOperations(NgraphTest):
 
     
     expected.append(inp[:])
-    
     expected.append(inp[...])
     expected.append(inp[:, :])
     expected.append(inp[:, ...])
     expected.append(inp[1:, :-2])
     expected.append(inp[::2,:-2])
-    #expected.append(inp[1, :])
-    #expected.append(inp[:, 1])
+    expected.append(inp[1, :])
+    expected.append(inp[:, 1])
     expected.append(inp[1, 1])
     expected.append(inp[0])
     expected.append(inp[0][1])
     expected.append(inp[-1])
-    
 
     for v, e in zip(slice_vals, expected):
         np.testing.assert_array_equal(v, e)
