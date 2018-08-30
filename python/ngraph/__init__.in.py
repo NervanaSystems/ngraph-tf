@@ -41,7 +41,7 @@ ext = 'dylib' if system() == 'Darwin' else 'so'
 # We need to revisit this later. We can automate that using cmake configure command.
 if tf.GIT_VERSION == "${TensorFlow_GIT_VERSION}":
     libpath = os.path.dirname(__file__)
-    lib = ctypes.cdll.LoadLibrary(os.path.join(libpath,'libngraph_device.'+ext))
+    lib = ctypes.cdll.LoadLibrary(os.path.join(libpath,'libngraph_bridge.'+ext))
 else:
     raise ValueError(
         "Error: Wrong TensorFlow version " + tf.GIT_VERSION +

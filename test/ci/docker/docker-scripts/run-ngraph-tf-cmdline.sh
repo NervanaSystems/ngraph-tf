@@ -101,8 +101,8 @@ setup_tf_and_ngraph_wheels() {
     echo  ' '
 
     # TODO: Remove when appropriate
-    # if [ ! -f "${NGTF_DIST}/libngraph_device.so" ] ; then
-    #     ( >&2 echo "FATAL ERROR: libngraph_device.so not found in ${NGTF_DIST}" )
+    # if [ ! -f "${NGTF_DIST}/libngraph_bridge.so" ] ; then
+    #     ( >&2 echo "FATAL ERROR: libngraph_bridge.so not found in ${NGTF_DIST}" )
     #     exit 1
     # fi
     # 

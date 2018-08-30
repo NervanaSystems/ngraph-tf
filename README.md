@@ -123,7 +123,7 @@ TensorFlow [prepare environment] for linux.
     ```
 
 This final step automatically downloads the necessary version of `ngraph` and 
-the dependencies. The resulting plugin [DSO] is named `libngraph_device.so`.
+the dependencies. The resulting plugin [DSO] is named `libngraph_bridge.so`.
 
 Once the build and installation steps are complete, you can start experimenting 
 with nGraph backends. 

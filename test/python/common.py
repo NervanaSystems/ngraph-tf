@@ -5,12 +5,12 @@ import os
 
 import random
 
-__all__ = ['LIBNGRAPH_DEVICE', 'NgraphTest']
+__all__ = ['LIBNGRAPH_BRIDGE', 'NgraphTest']
 
 
 _ext = 'dylib' if platform.system() == 'Darwin' else 'so'
 
-LIBNGRAPH_DEVICE = 'libngraph_device.' + _ext
+LIBNGRAPH_BRIDGE = 'libngraph_bridge.' + _ext
 
 
 class NgraphTest(object):

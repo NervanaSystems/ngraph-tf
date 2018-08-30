@@ -22,12 +22,12 @@ import pytest
 
 from tensorflow.python.framework import ops
 
-from common import LIBNGRAPH_DEVICE
+from common import LIBNGRAPH_BRIDGE
 
 
 @pytest.fixture(scope='session', autouse=True)
-def load_ngraph_device():
-  cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_DEVICE))
+def load_ngraph_bridge():
+  cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_BRIDGE))
 
 
 @pytest.fixture(autouse=True)

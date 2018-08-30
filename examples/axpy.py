@@ -36,7 +36,7 @@ train_writer = tf.summary.FileWriter(graph_location)
 # Define LD_LIBRARY_PATH indicating where nGraph library is located for now.
 # Eventually this won't be needed as the library will be available in either
 # the Python site-packages or some other means
-lib = ctypes.cdll.LoadLibrary('libngraph_device.so')
+lib = ctypes.cdll.LoadLibrary('libngraph_bridge.so')
 
 # Define the data
 a = tf.constant(np.full((2, 3), 5.0, dtype=np.float32), name='alpha')
