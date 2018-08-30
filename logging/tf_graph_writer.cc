@@ -30,7 +30,6 @@
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/protobuf.h"
 
-
 #include "ngraph_log.h"
 
 using namespace std;
@@ -218,7 +217,9 @@ std::string GraphToDot(Graph* graph, const std::string& title) {
 //-----------------------------------------------------------------------------
 // PbTextFileToDotFile
 //-----------------------------------------------------------------------------
-void PbTextFileToDotFile(const std::string& pbtxt_filename, const std::string& dot_filename, const std::string& title) {
+void PbTextFileToDotFile(const std::string& pbtxt_filename,
+                         const std::string& dot_filename,
+                         const std::string& title) {
   GraphDef gdef;
   auto status = ReadTextProto(Env::Default(), pbtxt_filename, &gdef);
   if (status != Status::OK()) {
