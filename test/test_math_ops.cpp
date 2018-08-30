@@ -117,6 +117,7 @@ TEST(MathOps, Sqrt) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+
 }
 
 }  // namespace testing
