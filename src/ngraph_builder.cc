@@ -2442,26 +2442,19 @@ static Status TranslateStridedSliceOp(
   NGRAPH_VLOG(3) << " NG End Vector " << ng::join(end_vec);
   NGRAPH_VLOG(3) << " NG Stride Vector " << ng::join(stride_vec);
 
+  vector<size_t> output_shape;
   if (tf_shrink_axis_mask) {
-    set<int> shrink_axis;
     int64 shrink_axis_mask = tf_shrink_axis_mask;
+    vector<size_t> output_shape;
 
-    for (int i = 0; i < 64; i++) {
-      if ((shrink_axis_mask & 1) == 1) {
-        shrink_axis.insert(i);
+    for (int i = 0; i < lower_vec.size(); i++) {
+      if ((shrink_axis_mask & 1) != 1) {
+        output_shape.push_back(end_vec[i] - lower_vec[i]);
       }
       shrink_axis_mask >>= 1;
     }
 
     NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
-    NGRAPH_VLOG(3) << " Shrink axis " << ng::join(shrink_axis);
-
-    vector<size_t> output_shape;
-    for (int i = 0; i < lower_vec.size(); i++) {
-      if (shrink_axis.find(i) == shrink_axis.end()) {
-        output_shape.push_back(end_vec[i] - lower_vec[i]);
-      }
-    }
 
     ng::Shape ng_final_shape(output_shape);
     ng::AxisVector ng_axis_order(input_shape.size());

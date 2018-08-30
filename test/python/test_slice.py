@@ -78,6 +78,9 @@ class TestSliceOperations(NgraphTest):
     slice_ts.append(x[0][1])
     slice_ts.append(x[-1])
 
+    # unsupported currently
+    # slice_ts.append(x[:, tf.newaxis])
+
     def run_test(sess):
       return sess.run(slice_ts, feed_dict={x: a})
 
