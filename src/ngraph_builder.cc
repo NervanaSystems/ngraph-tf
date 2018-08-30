@@ -1313,9 +1313,8 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
+                                      ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2845,8 +2844,8 @@ Status Builder::TranslateGraph(
     } catch (const std::exception& e) {
       return errors::Internal("Unhandled exception in op handler: ", op->name(),
                               " (", op->type_string(), ")\n",
-                              op->def().DebugString(), "\n",
-                              "what(): ", e.what());
+                              op->def().DebugString(), "\n", "what(): ",
+                              e.what());
     }
   }
 
