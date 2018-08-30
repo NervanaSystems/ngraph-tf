@@ -161,6 +161,52 @@ TEST(MathOps, Square) {
   opexecuter.RunTest();
 }
 
+TEST(MathOps, Reciprocal) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 2.0f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Reciprocal(root, A);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Reciprocal", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, AddN) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor C(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 4.5f);
+  AssignInputValues(B, 3.2f);
+  AssignInputValues(C, 2.3f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::AddN(root, {A, B, C});
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "AddN", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
 }  // namespace testing
 
 }  // namespace ngraph_bridge
