@@ -13,26 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-
-#include <dlfcn.h>
-#include <chrono>
-#include <iostream>
+#ifndef NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
+#define NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
 
 #include "gtest/gtest.h"
+#include "ngraph/ngraph.hpp"
 
+#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/platform/env.h"
 
-#ifdef __APPLE__
-#define EXT "dylib"
-#else
-#define EXT "so"
-#endif
-
 using namespace std;
+namespace ng = ngraph;
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
+namespace tensorflow {
 
-  int rc = RUN_ALL_TESTS();
-  return rc;
-}
+namespace ngraph_bridge {
+// some utility functions copied from tf_exec.cpp
+void ActivateNGraph();
+void DeactivateNGraph();
+void AssertTensorEquals(Tensor& T1, Tensor& T2);
+void AssignInputIntValues(Tensor& A, int maxval);
+void AssignInputValues(Tensor& A, float x);
+void PrintTensor(const Tensor& T1);
+void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
+
+}  // namespace ngraph_bridge
+
+}  // namespace tensorflow
+
+#endif  // NGRAPH_TF_BRIDGE_TESTUTILITIES_H_
