@@ -24,18 +24,18 @@ extern void ngraph_stop_logging_placement();
 extern bool ngraph_is_logging_placement();
 }
 
-extern void enable();
-extern void disable();
-extern bool is_enabled();
+extern void Enable();
+extern void Disable();
+extern bool IsEnabled();
 
-extern size_t backends_len();
+extern size_t BackendsLen();
 // TODO: why is this not const?
-extern vector<string> list_backends();
-extern tensorflow::Status set_backend(const string& type);
+extern vector<string> ListBackends();
+extern tensorflow::Status SetBackend(const string& type);
 
-extern void start_logging_placement();
-extern void stop_logging_placement();
-extern bool is_logging_placement();
+extern void StartLoggingPlacement();
+extern void StopLoggingPlacement();
+extern bool IsLoggingPlacement();
 }
 }
 }

@@ -26,9 +26,11 @@
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/util/device_name_utils.h"
 
+#include "ngraph_api.h"
 #include "ngraph_assign_clusters.h"
 #include "ngraph_deassign_clusters.h"
 #include "ngraph_log.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 
 using namespace std;
@@ -141,6 +143,21 @@ Status DeassignClusters(Graph* graph) {
       }
 
       NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: ";
+    }
+  }
+
+  if (config::IsLoggingPlacement()) {
+    vector<string> placement_rows;
+    for (const auto node : graph->nodes()) {
+      placement_rows.push_back(
+          (NodeIsMarkedForClustering(node) ? string("nGraph")
+                                           : string("TensorFlow")) +
+          "\t" + node->name() + "\t" + node->type_string());
+    }
+    sort(placement_rows.begin(), placement_rows.end());
+    cout << "device\top_type\top_name" << endl;
+    for (const auto& row : placement_rows) {
+      cout << row << endl;
     }
   }
 

@@ -2440,7 +2440,7 @@ static Status TranslateStridedSliceOp(
   if (tf_shrink_axis_mask) {
     NGRAPH_VLOG(3) << "shrink_axis_mask: " << tf_shrink_axis_mask;
     NGRAPH_VLOG(3) << "shape of slice before axis shrinking: "
-                   << ng_strided_slice->get_shape();
+                   << ng::join(ng_strided_slice->get_shape());
 
     ng::AxisVector ng_axis_order(input_shape.size());
     for (size_t i = 0; i < input_shape.size(); i++) {

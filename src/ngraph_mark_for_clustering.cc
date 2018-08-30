@@ -87,7 +87,7 @@ static ConfirmationFunction SimpleConfirmationFunction(
 // Main entry point for the marking pass.
 //
 Status MarkForClustering(Graph* graph) {
-  if (config::is_enabled() == false) {
+  if (config::IsEnabled() == false) {
     return Status::OK();
   }
 
@@ -380,11 +380,6 @@ Status MarkForClustering(Graph* graph) {
       } else {
         NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
                        << node->type_string() << "]";
-      }
-
-      if (config::is_logging_placement()) {
-        const char* status = confirmed ? "Accepting: " : "Rejecting: ";
-        cout << status << node->name() << "[" << node->type_string() << "]";
       }
     }
   }

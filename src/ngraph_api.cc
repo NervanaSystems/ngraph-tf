@@ -10,13 +10,13 @@ static bool _is_enabled = true;
 static bool _is_logging_placement = false;
 
 extern "C" {
-void ngraph_enable() { enable(); }
-void ngraph_disable() { disable(); }
-bool ngraph_is_enabled() { return is_enabled(); }
+void ngraph_enable() { Enable(); }
+void ngraph_disable() { Disable(); }
+bool ngraph_is_enabled() { return IsEnabled(); }
 
-size_t ngraph_backends_len() { return backends_len(); }
+size_t ngraph_backends_len() { return BackendsLen(); }
 bool ngraph_list_backends(char** backends, int backends_len) {
-  const auto ngraph_backends = list_backends();
+  const auto ngraph_backends = ListBackends();
   if (backends_len != ngraph_backends.size()) {
     return false;
   }
@@ -27,26 +27,28 @@ bool ngraph_list_backends(char** backends, int backends_len) {
   return true;
 }
 bool ngraph_set_backend(const char* backend) {
-  if (set_backend(string(backend)) != tensorflow::Status::OK()) {
+  if (SetBackend(string(backend)) != tensorflow::Status::OK()) {
     return false;
   }
   return true;
 }
 
-void ngraph_start_logging_placement() { start_logging_placement(); }
-void ngraph_stop_logging_placement() { stop_logging_placement(); }
-bool ngraph_is_logging_placement() { return is_logging_placement(); }
+void ngraph_start_logging_placement() { StartLoggingPlacement(); }
+void ngraph_stop_logging_placement() { StopLoggingPlacement(); }
+bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 }
 
-void enable() { _is_enabled = true; }
-void disable() { _is_enabled = false; }
-bool is_enabled() { return _is_enabled; }
+// note that TensorFlow always uses camel case for the C++ API, but not for
+// Python
+void Enable() { _is_enabled = true; }
+void Disable() { _is_enabled = false; }
+bool IsEnabled() { return _is_enabled; }
 
-size_t backends_len() { return list_backends().size(); }
-vector<string> list_backends() {
+size_t BackendsLen() { return ListBackends().size(); }
+vector<string> ListBackends() {
   return ngraph::runtime::Backend::get_registered_devices();
 }
-tensorflow::Status set_backend(const string& type) {
+tensorflow::Status SetBackend(const string& type) {
   try {
     ngraph::runtime::Backend::create(type);
   } catch (const runtime_error& e) {
@@ -55,9 +57,9 @@ tensorflow::Status set_backend(const string& type) {
   return tensorflow::Status::OK();
 }
 
-void start_logging_placement() { _is_logging_placement = true; }
-void stop_logging_placement() { _is_logging_placement = false; }
-bool is_logging_placement() { return _is_logging_placement; }
+void StartLoggingPlacement() { _is_logging_placement = true; }
+void StopLoggingPlacement() { _is_logging_placement = false; }
+bool IsLoggingPlacement() { return _is_logging_placement; }
 }
 }
 }

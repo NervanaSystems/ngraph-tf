@@ -38,7 +38,7 @@ static bool NGraphPlacementRequested(const Node* node) { return true; }
 // Main entry point for the variable-capture.
 //
 Status CaptureVariables(Graph* graph) {
-  if (config::is_enabled() == false) {
+  if (config::IsEnabled() == false) {
     return Status::OK();
   }
 
