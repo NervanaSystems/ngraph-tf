@@ -53,12 +53,30 @@ namespace ngraph_bridge {
 
 static const int MIN_NONTRIVIAL_NODES = 2;
 
+static void maybe_log_placement(const Graph* graph) {
+  if (config::IsLoggingPlacement()) {
+    vector<string> placement_rows;
+    for (const auto node : graph->nodes()) {
+      placement_rows.push_back(
+          (NodeIsMarkedForClustering(node) ? string("nGraph")
+                                           : string("TensorFlow")) +
+          "\t" + node->type_string() + "\t" + node->name());
+    }
+    sort(placement_rows.begin(), placement_rows.end());
+    cout << "device\top_type\top_name" << endl;
+    for (const auto& row : placement_rows) {
+      cout << row << endl;
+    }
+  }
+}
+
 Status DeassignClusters(Graph* graph) {
   //
   // When running unit tests, we do not want to see trivial clusters
   // deassigned. This flag (used by the Python tests) makes this possible.
   //
   if (std::getenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS") != nullptr) {
+    maybe_log_placement(graph);
     return Status::OK();
   }
 
@@ -146,20 +164,7 @@ Status DeassignClusters(Graph* graph) {
     }
   }
 
-  if (config::IsLoggingPlacement()) {
-    vector<string> placement_rows;
-    for (const auto node : graph->nodes()) {
-      placement_rows.push_back(
-          (NodeIsMarkedForClustering(node) ? string("nGraph")
-                                           : string("TensorFlow")) +
-          "\t" + node->name() + "\t" + node->type_string());
-    }
-    sort(placement_rows.begin(), placement_rows.end());
-    cout << "device\top_type\top_name" << endl;
-    for (const auto& row : placement_rows) {
-      cout << row << endl;
-    }
-  }
+  maybe_log_placement(graph);
 
   return Status::OK();
 }
