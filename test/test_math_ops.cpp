@@ -159,6 +159,7 @@ TEST(MathOps, Square) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+
 }
 
 }  // namespace testing
