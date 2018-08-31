@@ -31,7 +31,8 @@ Status Builder1::TranslateGraph(
   TF_RETURN_IF_ERROR(Initialize());
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
-  TF_RETURN_IF_ERROR(GetInputParams(input_shapes, tf_params, ng_parameter_list));
+  TF_RETURN_IF_ERROR(
+      GetInputParams(input_shapes, tf_params, ng_parameter_list));
 
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
 
@@ -153,7 +154,8 @@ Status Builder1::GetInputParams(
     TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
     ng::Shape ng_shape;
-    TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(input_shapes[index], &ng_shape));
+    TF_RETURN_IF_ERROR(
+        TFTensorShapeToNGraphShape(input_shapes[index], &ng_shape));
 
     auto ng_param = make_shared<ng::op::Parameter>(ng_et, ng_shape);
     ng_op_map[parm->name()].push_back(ng_param);
