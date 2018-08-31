@@ -167,7 +167,7 @@ TODO
 
 ## OS X Instructions
 
-The build and installation instructions are idential for Ubuntu 16.04 and US X.
+The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 
 ### Running tests
 
