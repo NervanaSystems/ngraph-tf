@@ -25,13 +25,13 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status Builder1::TranslateGraph(
-    const std::vector<TensorShape>& inputs,
+    const std::vector<TensorShape>& input_shapes,
     const std::vector<const Tensor*>& static_input_map,
     shared_ptr<ng::Function>& ng_function) {
   TF_RETURN_IF_ERROR(Initialize());
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
-  TF_RETURN_IF_ERROR(GetInputParams(inputs, tf_params, ng_parameter_list));
+  TF_RETURN_IF_ERROR(GetInputParams(input_shapes, tf_params, ng_parameter_list));
 
   TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
 
@@ -41,8 +41,12 @@ Status Builder1::TranslateGraph(
   // Create the nGraph function.
   try {
     ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+  } catch (const std::exception& e) {
+    return errors::Internal(
+        "Exception thrown while constructing nGraph function: ", e.what());
   } catch (...) {
-    return errors::Unimplemented("Unable to create nGraph function");
+    return errors::Internal(
+        "Exception of unknown type thrown while constructing nGraph function");
   }
 
   //
@@ -58,20 +62,18 @@ Status Builder1::TranslateGraph(
     OpKernelContext* ctx, std::shared_ptr<ngraph::Function>& ng_function) {
   TF_RETURN_IF_ERROR(Initialize());
 
-  std::vector<const Tensor*> static_input_map;
+  std::vector<const Tensor*> static_input_map(ctx->num_inputs());
+  std::vector<TensorShape> input_shapes(ctx->num_inputs());
 
-  std::vector<TensorShape> inputs(ctx->num_inputs());
-
-  static_input_map.resize(ctx->num_inputs());
   for (int i = 0; i < ctx->num_inputs(); i++) {
     const Tensor& input_tensor = ctx->input(i);
     if (m_input_is_static[i]) {
       static_input_map[i] = &input_tensor;
     }
-    inputs[i] = input_tensor.shape();
+    input_shapes[i] = input_tensor.shape();
   }
 
-  return TranslateGraph(inputs, static_input_map, ng_function);
+  return TranslateGraph(input_shapes, static_input_map, ng_function);
 }
 
 Status Builder1::TranslateEachOp(
@@ -131,7 +133,7 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered) {
 }
 
 Status Builder1::GetInputParams(
-    const std::vector<TensorShape>& inputs, vector<const Node*> tf_params,
+    const std::vector<TensorShape>& input_shapes, vector<const Node*> tf_params,
     vector<shared_ptr<ng::op::Parameter>>& ng_parameter_list) {
   // Populate the parameter list, and also put parameters into the op map.
 
@@ -151,7 +153,7 @@ Status Builder1::GetInputParams(
     TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
     ng::Shape ng_shape;
-    TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(inputs[index], &ng_shape));
+    TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(input_shapes[index], &ng_shape));
 
     auto ng_param = make_shared<ng::op::Parameter>(ng_et, ng_shape);
     ng_op_map[parm->name()].push_back(ng_param);

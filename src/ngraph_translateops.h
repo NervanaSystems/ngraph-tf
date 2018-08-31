@@ -57,7 +57,6 @@ void MakePadding(const std::string& tf_padding_type,
                  T& ng_padding_above) {
   if (tf_padding_type == "SAME") {
     for (size_t i = 0; i < 2; i++) {
-      /*
       size_t image_size = ng_image_shape[i];
       size_t filter_shape = ng_kernel_shape[i];
       size_t filter_stride = ng_strides[i];
@@ -71,16 +70,6 @@ void MakePadding(const std::string& tf_padding_type,
       if (padding_needed < 0) {
         padding_needed = 0;
       }
-      */
-
-      // TODO: check this:. This formula is documented well documented here.
-      // So I prefer this, compared to the one above (though both are exactly
-      // the same)
-      // https://www.tensorflow.org/api_guides/python/nn#Notes_on_SAME_Convolution_Padding
-      int64 out_shape = ceil(ng_image_shape[i] / ng_strides[i]);
-      int64 padding_needed = ng_strides[i] * (out_shape - 1) +
-                             ng_kernel_shape[i] - ng_image_shape[i];
-      padding_needed = padding_needed < 0 ? 0 : padding_needed;
 
       size_t padding_lhs = padding_needed / 2;
       size_t padding_rhs = padding_needed - padding_lhs;
