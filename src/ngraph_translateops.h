@@ -254,5 +254,5 @@ Status TranslateFloorModOp(const Node* op, VectNg& ng_arg_vec,
   // ng_arg_vec[1]);
   return Status::OK();
 }
-}
-}
+} // namespace ngraph_bridge
+} // namespace tensorflow

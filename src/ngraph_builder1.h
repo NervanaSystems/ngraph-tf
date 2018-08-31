@@ -61,7 +61,7 @@ class Builder1 {
 
   // This constructor is for actual use (encapsulate_op)
   Builder1(const Graph& tf_graph, OpKernelConstruction* ctx)
-      : tf_graph(tf_graph) {}
+      : tf_graph(tf_graph), is_initialized(false) {}
 
   // And this version is for tests (OpExecuter)
   Builder1(const Graph& tf_graph) : Builder1(tf_graph, nullptr) {}
@@ -83,7 +83,7 @@ class Builder1 {
   std::unordered_map<std::string, VectNg> ng_op_map;
 
   // Prevent Initialize from running twice
-  bool is_initialized = false;
+  bool is_initialized;
   const Graph& tf_graph;
 
   // An array that will be useful in creating the static_input_map
