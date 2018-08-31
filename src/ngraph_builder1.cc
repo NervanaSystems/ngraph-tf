@@ -318,53 +318,54 @@ Status TranslateUnary(const Node* op,
   return Status::OK();
 }
 
-const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
-    {"Abs", TranslateUnary<ngraph::op::Abs>},
-    {"Add", TranslateBinary<ngraph::op::Add>},
-    {"AddN", TranslateAddNOp},
-    {"AvgPool", TranslateAvgPoolOp},
-    {"Const", TranslateConstOp},
-    {"Equal", TranslateBinary<ngraph::op::Equal>},
-    {"Exp", TranslateUnary<ngraph::op::Exp>},
-    {"Floor", TranslateUnary<ngraph::op::Floor>},
-    {"FloorDiv", TranslateFloorDivOp},
-    {"FloorMod", TranslateFloorModOp},
-    {"Greater", TranslateBinary<ngraph::op::Greater>},
-    {"GreaterEqual", TranslateBinary<ngraph::op::GreaterEq>},
-    {"Less", TranslateBinary<ngraph::op::Less>},
-    {"LessEqual", TranslateBinary<ngraph::op::LessEq>},
-    {"Log", TranslateUnary<ngraph::op::Log>},
-    {"LogicalAnd", TranslateBinary<ngraph::op::And>},
-    {"LogicalNot", TranslateUnary<ngraph::op::Not>},
-    {"Maximum", TranslateBinary<ngraph::op::Maximum>},
-    {"Minimum", TranslateBinary<ngraph::op::Minimum>},
-    {"Mul", TranslateBinary<ngraph::op::Multiply>},
-    {"Neg", TranslateUnary<ngraph::op::Negative>},
-    {"Neg", TranslateUnary<ngraph::op::Negative>},
-    {"NoOp",
-     [](const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
-        const std::vector<const Tensor*>& static_input_map,
-        vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
-       return Status::OK();
-     }},
-    {"Pow", TranslateBinary<ngraph::op::Power>},
-    {"RealDiv", TranslateBinary<ngraph::op::Divide>},
-    {"Sign", TranslateUnary<ngraph::op::Sign>},
-    {"Sqrt", TranslateUnary<ngraph::op::Sqrt>},
-    {"Sub", TranslateBinary<ngraph::op::Subtract>},
-    {"Tanh", TranslateUnary<ngraph::op::Tanh>}};
+const std::map<const string, Builder1::TranslatorFn>
+    Builder1::s_translate_op_map{
+        {"Abs", TranslateUnary<ngraph::op::Abs>},
+        {"Add", TranslateBinary<ngraph::op::Add>},
+        {"AddN", TranslateAddNOp},
+        {"AvgPool", TranslateAvgPoolOp},
+        {"Const", TranslateConstOp},
+        {"Equal", TranslateBinary<ngraph::op::Equal>},
+        {"Exp", TranslateUnary<ngraph::op::Exp>},
+        {"Floor", TranslateUnary<ngraph::op::Floor>},
+        {"FloorDiv", TranslateFloorDivOp},
+        {"FloorMod", TranslateFloorModOp},
+        {"Greater", TranslateBinary<ngraph::op::Greater>},
+        {"GreaterEqual", TranslateBinary<ngraph::op::GreaterEq>},
+        {"Less", TranslateBinary<ngraph::op::Less>},
+        {"LessEqual", TranslateBinary<ngraph::op::LessEq>},
+        {"Log", TranslateUnary<ngraph::op::Log>},
+        {"LogicalAnd", TranslateBinary<ngraph::op::And>},
+        {"LogicalNot", TranslateUnary<ngraph::op::Not>},
+        {"Maximum", TranslateBinary<ngraph::op::Maximum>},
+        {"Minimum", TranslateBinary<ngraph::op::Minimum>},
+        {"Mul", TranslateBinary<ngraph::op::Multiply>},
+        {"Neg", TranslateUnary<ngraph::op::Negative>},
+        {"Neg", TranslateUnary<ngraph::op::Negative>},
+        {"NoOp",
+         [](const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
+            const std::vector<const Tensor*>& static_input_map,
+            vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+           return Status::OK();
+         }},
+        {"Pow", TranslateBinary<ngraph::op::Power>},
+        {"RealDiv", TranslateBinary<ngraph::op::Divide>},
+        {"Sign", TranslateUnary<ngraph::op::Sign>},
+        {"Sqrt", TranslateUnary<ngraph::op::Sqrt>},
+        {"Sub", TranslateBinary<ngraph::op::Subtract>},
+        {"Tanh", TranslateUnary<ngraph::op::Tanh>}};
 
-const std::map<const string, vector<int>> Builder1::INPUT_INDEX_MAP{};
+const std::map<const string, vector<int>> Builder1::s_input_index_map{};
 
 Status Builder1::GetOpTranslationRequirements(
     const Node*& op, Builder1::TranslatorFn& translate_fn,
     vector<int>& input_indexes) {
-  // This function wraps TRANSLATE_OP_MAP.
+  // This function wraps s_translate_op_map.
   // It returns a translate function and input indexes
-  // The translate function MUST be present in TRANSLATE_OP_MAP
+  // The translate function MUST be present in s_translate_op_map
   // input_idx may not be present, since it can be inferred from op
-  auto iter_fn = TRANSLATE_OP_MAP.find(op->type_string());
-  if (iter_fn != TRANSLATE_OP_MAP.end()) {
+  auto iter_fn = s_translate_op_map.find(op->type_string());
+  if (iter_fn != s_translate_op_map.end()) {
     translate_fn = iter_fn->second;
   } else {
     // -----------------------------
@@ -377,8 +378,8 @@ Status Builder1::GetOpTranslationRequirements(
                                    op->type_string(), ")");
   }
 
-  auto iter_input_indexes = INPUT_INDEX_MAP.find(op->type_string());
-  if (iter_input_indexes != INPUT_INDEX_MAP.end()) {
+  auto iter_input_indexes = s_input_index_map.find(op->type_string());
+  if (iter_input_indexes != s_input_index_map.end()) {
     input_indexes = iter_input_indexes->second;
   } else {
     // By default we should return {0,1, ..., (op->num_inputs)-1}...unless

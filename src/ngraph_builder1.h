@@ -95,13 +95,14 @@ class Builder1 {
   // This map tells us which inputs to read for a particular node. If no
   // information is present explicitly in the map, we read all inputs
   // from 0 to num_inputs-1
-  const static std::map<const string, vector<int>> INPUT_INDEX_MAP;
+  const static std::map<const string, vector<int>> s_input_index_map;
 
   // A map from Tf op type_string to a TranslateOp
-  const static std::map<const string, Builder1::TranslatorFn> TRANSLATE_OP_MAP;
+  const static std::map<const string, Builder1::TranslatorFn>
+      s_translate_op_map;
 
   // Given a TF node, return its corresponding TranslateOp function and required
-  // input indexes. A wrapper for TRANSLATE_OP_MAP and INPUT_INDEX_MAP
+  // input indexes. A wrapper for s_translate_op_map and s_input_index_map
   Status GetOpTranslationRequirements(const Node*&, Builder1::TranslatorFn&,
                                       vector<int>&);
 
