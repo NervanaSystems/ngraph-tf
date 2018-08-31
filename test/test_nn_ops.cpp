@@ -52,31 +52,58 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
-TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
+// The backword operation for "BiasAdd" on the bias tensor.
+TEST(NNOps, BiasAddGrad) {
   Scope root = Scope::NewRootScope();
-  int batch = 10;
-  int num_of_classes = 2;
+  
+  // define the shape for the out_backprop input
+  // which can take any number of dimensions
+  vector<int64> out_backprop_shape_2D = {10,20}; 
+  vector<int64> out_backprop_shape_3D = {1,3,6}; 
+  vector<int64> out_backprop_shape_5D = {2,4,6,8,10}; 
 
-  Tensor A(DT_FLOAT, TensorShape({batch, num_of_classes}));
-  Tensor B(DT_INT32, TensorShape({batch}));
+  Tensor out_backprop_2D(DT_FLOAT, TensorShape(out_backprop_shape_2D));
+  AssignInputValues(out_backprop_2D, 0.86f);
+  Tensor out_backprop_3D(DT_FLOAT, TensorShape(out_backprop_shape_3D));
+  AssignInputValues(out_backprop_3D, -0.83f);
+  Tensor out_backprop_5D(DT_FLOAT, TensorShape(out_backprop_shape_5D));
+  AssignInputValues(out_backprop_5D, -20.3f);
 
-  AssignInputValues(A, 2.0f);
-  AssignInputIntValues(B, num_of_classes);
+  // op has one attribute : data_format 
+  auto attrs = ops::BiasAddGrad::Attrs();
+  attrs.data_format_ = "NCHW";  
 
-  vector<int> static_input_indexes = {};
-  auto R = ops::SparseSoftmaxCrossEntropyWithLogits(root, A, B);
+  vector<int> static_input_indexes = {}; 
+  vector<DataType> output_datatypes = {DT_FLOAT};
 
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT};
+  // 2D 
+  // auto R_2D = ops::BiasAddGrad(root, out_backprop_2D, attrs);
+  // std::vector<Output> sess_run_fetchoutputs_2D = {R_2D}; // tf session run parameter
+  // OpExecuter opexecuter_2D(root, "BiasAddGrad",
+  //                       static_input_indexes, output_datatypes,
+  //                       sess_run_fetchoutputs_2D);
+  // opexecuter_2D.RunTest();
+  
+  // 3D
+  // auto R_3D = ops::BiasAddGrad(root, out_backprop_3D, attrs);
+  // std::vector<Output> sess_run_fetchoutputs_3D = {R_3D}; // tf session run parameter
+  // OpExecuter opexecuter_3D(root, "BiasAddGrad",
+  //                       static_input_indexes, output_datatypes,
+  //                       sess_run_fetchoutputs_3D);
+  // //opexecuter_3D.RunTest();
+  // opexecuter_3D.ExecuteOnTF();
+  // // 5D
+  auto R_5D = ops::BiasAddGrad(root, out_backprop_5D, attrs);
+  std::vector<Output> sess_run_fetchoutputs_5D = {R_5D}; // tf session run parameter
 
-  std::vector<Output> sess_run_fetchoutputs = {R.loss, R.backprop};
-  OpExecuter opexecuter(root, "SparseSoftmaxCrossEntropyWithLogits",
+  OpExecuter opexecuter_5D(root, "BiasAddGrad",
                         static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
+                        sess_run_fetchoutputs_5D);
+  //opexecuter.RunTest();
+  opexecuter_5D.ExecuteOnTF();
 }
 
-TEST(NNOps, Conv2DBackpropFilter_NHWC) {
+TEST(NNOps, Conv2DBackpropFilterNHWC) {
   // TF Default formats
   // Input NHWC :[batch, in_height, in_width, in_channels]
   vector<int64> input_size_NHWC = {1, 7, 6, 2};
@@ -117,6 +144,34 @@ TEST(NNOps, Conv2DBackpropFilter_NHWC) {
     opexecuter.RunTest();
   }
 }
+
+// Computes softmax cross entropy cost and gradients to backpropagate. 
+TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
+  Scope root = Scope::NewRootScope();
+  int batch = 10;
+  int num_of_classes = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({batch, num_of_classes}));
+  Tensor B(DT_INT32, TensorShape({batch}));
+
+  AssignInputValues(A, 2.0f);
+  AssignInputIntValues(B, num_of_classes);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::SparseSoftmaxCrossEntropyWithLogits(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.loss, R.backprop};
+  OpExecuter opexecuter(root, "SparseSoftmaxCrossEntropyWithLogits",
+                        static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+
+
 
 }  // namespace testing
 
