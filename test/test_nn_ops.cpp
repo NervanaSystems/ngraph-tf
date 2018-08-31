@@ -54,16 +54,17 @@ namespace testing {
 
 // The backword operation for "BiasAdd" on the bias tensor.
 // NHWC: out_backprop input at least rank 2
-// NCHW: out_backprop input only rank 4 
+// NCHW: out_backprop input only rank 4
 TEST(NNOps, BiasAddGrad) {
   // define the shape for the out_backprop input shape
-  vector<int64> out_backprop_shape_2D = {10,20}; 
-  vector<int64> out_backprop_shape_3D = {1,3,6}; 
-  vector<int64> out_backprop_shape_4D = {1,2,3,4}; // NCHW only supports 4D input/output 
-  vector<int64> out_backprop_shape_5D = {2,4,6,8,10}; 
+  vector<int64> out_backprop_shape_2D = {10, 20};
+  vector<int64> out_backprop_shape_3D = {1, 3, 6};
+  vector<int64> out_backprop_shape_4D = {
+      1, 2, 3, 4};  // NCHW only supports 4D input/output
+  vector<int64> out_backprop_shape_5D = {2, 4, 6, 8, 10};
 
   vector<vector<int64>> shape_vector;
-  vector<int64> value_vector; 
+  vector<int64> value_vector;
 
   shape_vector.push_back(out_backprop_shape_2D);
   shape_vector.push_back(out_backprop_shape_3D);
@@ -75,14 +76,14 @@ TEST(NNOps, BiasAddGrad) {
   value_vector.push_back(-0.0003f);
   value_vector.push_back(29.09f);
 
-  // op has one attribute : data_format 
+  // op has one attribute : data_format
   auto attrs = ops::BiasAddGrad::Attrs();
-  attrs.data_format_ = "NHWC";  
+  attrs.data_format_ = "NHWC";
 
-  vector<int> static_input_indexes = {}; 
+  vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT};
 
-   for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     Scope root = Scope::NewRootScope();
     auto tensor_shape = shape_vector[i];
     auto tensor_value = value_vector[i];
@@ -91,25 +92,25 @@ TEST(NNOps, BiasAddGrad) {
     AssignInputValues(out_backprop, tensor_value);
 
     auto R = ops::BiasAddGrad(root, out_backprop, attrs);
-    std::vector<Output> sess_run_fetchoutputs = {R}; // tf session run parameter
-    OpExecuter opexecuter(root, "BiasAddGrad",
-                        static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);  
+    std::vector<Output> sess_run_fetchoutputs = {
+        R};  // tf session run parameter
+    OpExecuter opexecuter(root, "BiasAddGrad", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
     opexecuter.RunTest();
   }
 
-  attrs.data_format_ = "NCHW"; 
+  attrs.data_format_ = "NCHW";
   Scope s_nchw = Scope::NewRootScope();
 
   Tensor out_backprop_4D(DT_FLOAT, TensorShape(out_backprop_shape_4D));
   AssignInputValues(out_backprop_4D, 0.99f);
 
   auto R_4D = ops::BiasAddGrad(s_nchw, out_backprop_4D, attrs);
-  std::vector<Output> sess_run_fetchoutputs_4D = {R_4D}; // tf session run parameter
-  OpExecuter opexecuter_4D(s_nchw, "BiasAddGrad",
-                        static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs_4D);  
-  
+  std::vector<Output> sess_run_fetchoutputs_4D = {
+      R_4D};  // tf session run parameter
+  OpExecuter opexecuter_4D(s_nchw, "BiasAddGrad", static_input_indexes,
+                           output_datatypes, sess_run_fetchoutputs_4D);
+
   opexecuter_4D.RunTest();
 }
 
@@ -155,7 +156,7 @@ TEST(NNOps, Conv2DBackpropFilterNHWC) {
   }
 }
 
-// Computes softmax cross entropy cost and gradients to backpropagate. 
+// Computes softmax cross entropy cost and gradients to backpropagate.
 TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
   int batch = 10;
@@ -179,9 +180,6 @@ TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
 
   opexecuter.RunTest();
 }
-
-
-
 
 }  // namespace testing
 
