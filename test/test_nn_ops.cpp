@@ -53,54 +53,64 @@ namespace testing {
 // Use only Tensors and ops::Const() to provide input to the test op
 
 // The backword operation for "BiasAdd" on the bias tensor.
+// NHWC: out_backprop input at least rank 2
+// NCHW: out_backprop input only rank 4 
 TEST(NNOps, BiasAddGrad) {
-  Scope root = Scope::NewRootScope();
-  
-  // define the shape for the out_backprop input
-  // which can take any number of dimensions
+  // define the shape for the out_backprop input shape
   vector<int64> out_backprop_shape_2D = {10,20}; 
   vector<int64> out_backprop_shape_3D = {1,3,6}; 
+  vector<int64> out_backprop_shape_4D = {1,2,3,4}; // NCHW only supports 4D input/output 
   vector<int64> out_backprop_shape_5D = {2,4,6,8,10}; 
 
-  Tensor out_backprop_2D(DT_FLOAT, TensorShape(out_backprop_shape_2D));
-  AssignInputValues(out_backprop_2D, 0.86f);
-  Tensor out_backprop_3D(DT_FLOAT, TensorShape(out_backprop_shape_3D));
-  AssignInputValues(out_backprop_3D, -0.83f);
-  Tensor out_backprop_5D(DT_FLOAT, TensorShape(out_backprop_shape_5D));
-  AssignInputValues(out_backprop_5D, -20.3f);
+  vector<vector<int64>> shape_vector;
+  vector<int64> value_vector; 
+
+  shape_vector.push_back(out_backprop_shape_2D);
+  shape_vector.push_back(out_backprop_shape_3D);
+  shape_vector.push_back(out_backprop_shape_4D);
+  shape_vector.push_back(out_backprop_shape_5D);
+
+  value_vector.push_back(0.86f);
+  value_vector.push_back(-0.83f);
+  value_vector.push_back(-0.0003f);
+  value_vector.push_back(29.09f);
 
   // op has one attribute : data_format 
   auto attrs = ops::BiasAddGrad::Attrs();
-  attrs.data_format_ = "NCHW";  
+  attrs.data_format_ = "NHWC";  
 
   vector<int> static_input_indexes = {}; 
   vector<DataType> output_datatypes = {DT_FLOAT};
 
-  // 2D 
-  // auto R_2D = ops::BiasAddGrad(root, out_backprop_2D, attrs);
-  // std::vector<Output> sess_run_fetchoutputs_2D = {R_2D}; // tf session run parameter
-  // OpExecuter opexecuter_2D(root, "BiasAddGrad",
-  //                       static_input_indexes, output_datatypes,
-  //                       sess_run_fetchoutputs_2D);
-  // opexecuter_2D.RunTest();
-  
-  // 3D
-  // auto R_3D = ops::BiasAddGrad(root, out_backprop_3D, attrs);
-  // std::vector<Output> sess_run_fetchoutputs_3D = {R_3D}; // tf session run parameter
-  // OpExecuter opexecuter_3D(root, "BiasAddGrad",
-  //                       static_input_indexes, output_datatypes,
-  //                       sess_run_fetchoutputs_3D);
-  // //opexecuter_3D.RunTest();
-  // opexecuter_3D.ExecuteOnTF();
-  // // 5D
-  auto R_5D = ops::BiasAddGrad(root, out_backprop_5D, attrs);
-  std::vector<Output> sess_run_fetchoutputs_5D = {R_5D}; // tf session run parameter
+   for (int i = 0; i < 4; i++) {
+    Scope root = Scope::NewRootScope();
+    auto tensor_shape = shape_vector[i];
+    auto tensor_value = value_vector[i];
 
-  OpExecuter opexecuter_5D(root, "BiasAddGrad",
+    Tensor out_backprop(DT_FLOAT, TensorShape(tensor_shape));
+    AssignInputValues(out_backprop, tensor_value);
+
+    auto R = ops::BiasAddGrad(root, out_backprop, attrs);
+    std::vector<Output> sess_run_fetchoutputs = {R}; // tf session run parameter
+    OpExecuter opexecuter(root, "BiasAddGrad",
                         static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs_5D);
-  //opexecuter.RunTest();
-  opexecuter_5D.ExecuteOnTF();
+                        sess_run_fetchoutputs);  
+    opexecuter.RunTest();
+  }
+
+  attrs.data_format_ = "NCHW"; 
+  Scope s_nchw = Scope::NewRootScope();
+
+  Tensor out_backprop_4D(DT_FLOAT, TensorShape(out_backprop_shape_4D));
+  AssignInputValues(out_backprop_4D, 0.99f);
+
+  auto R_4D = ops::BiasAddGrad(s_nchw, out_backprop_4D, attrs);
+  std::vector<Output> sess_run_fetchoutputs_4D = {R_4D}; // tf session run parameter
+  OpExecuter opexecuter_4D(s_nchw, "BiasAddGrad",
+                        static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs_4D);  
+  
+  opexecuter_4D.RunTest();
 }
 
 TEST(NNOps, Conv2DBackpropFilterNHWC) {
