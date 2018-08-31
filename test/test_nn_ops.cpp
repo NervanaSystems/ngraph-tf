@@ -158,8 +158,7 @@ TEST(NNOps, Conv2DBackpropFilterNHWC) {
 
 // Test Op :"Op_L2Loss"
 TEST(NNOps, Op_L2Loss) {
-
-  std::vector<std::vector<int64> > input_sizes;
+  std::vector<std::vector<int64>> input_sizes;
   input_sizes.push_back({2, 3, 4});
   input_sizes.push_back({0});
 
@@ -174,7 +173,7 @@ TEST(NNOps, Op_L2Loss) {
     auto R = ops::L2Loss(root, input_data);
     vector<DataType> output_datatypes = {DT_FLOAT};
     std::vector<Output> sess_run_fetchoutputs = {R};
-    
+
     OpExecuter opexecuter(root, "L2Loss", static_input_indexes,
                           output_datatypes, sess_run_fetchoutputs);
 
