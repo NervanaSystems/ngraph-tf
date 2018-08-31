@@ -98,6 +98,29 @@ TEST(MathOps, RealDiv) {
   opexecuter.RunTest();
 }
 
+TEST(MathOps, RealDivBroadcasting) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1}));
+
+  AssignInputValues(A, 2.0f);
+  AssignInputValues(B, 7.0f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::RealDiv(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "RealDiv", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
 TEST(MathOps, Sqrt) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -207,7 +230,6 @@ TEST(MathOps, AddN) {
   opexecuter.RunTest();
 }
 
-// TODO: Check if broadcasting needs to be tested
 TEST(MathOps, FloorDiv) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -215,7 +237,6 @@ TEST(MathOps, FloorDiv) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
-  Tensor C(DT_FLOAT, TensorShape({dim1}));
 
   AssignInputValues(A, 4.5f);
   AssignInputValues(B, 3.2f);
@@ -232,7 +253,29 @@ TEST(MathOps, FloorDiv) {
   opexecuter.RunTest();
 }
 
-// TODO: Check if broadcasting needs to be tested
+TEST(MathOps, FloorDivBroadcasting) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1}));
+
+  AssignInputValues(A, 4.5f);
+  AssignInputValues(B, 3.2f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::FloorDiv(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "FloorDiv", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
 TEST(MathOps, FloorMod) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -240,6 +283,29 @@ TEST(MathOps, FloorMod) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 7.5f);
+  AssignInputValues(B, 5.2f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::FloorMod(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "FloorMod", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, FloorModBroadcasting) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1}));
 
   AssignInputValues(A, 7.5f);
   AssignInputValues(B, 5.2f);
@@ -277,7 +343,6 @@ TEST(MathOps, Rsqrt) {
   opexecuter.RunTest();
 }
 
-// TODO: Check if broadcasting needs to be tested
 TEST(MathOps, SquaredDifference) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -285,6 +350,29 @@ TEST(MathOps, SquaredDifference) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 7.5f);
+  AssignInputValues(B, 5.2f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::SquaredDifference(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "SquaredDifference", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, SquaredDifferenceBroadcasting) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1}));
 
   AssignInputValues(A, 7.5f);
   AssignInputValues(B, 5.2f);
