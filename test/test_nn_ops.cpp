@@ -156,6 +156,64 @@ TEST(NNOps, Conv2DBackpropFilterNHWC) {
   }
 }
 
+// FusedBatchNormGrad : Gradient for batch normalization
+TEST(NNOps, FusedBatchNormGrad_NHWC) {
+  Scope root = Scope::NewRootScope();
+
+  // 4D tensor for the gradient with respect to y
+  Tensor y_backprop(DT_FLOAT, TensorShape({5, 4, 3, 2}));
+  // 4D tensor for input data
+  Tensor x(DT_FLOAT, TensorShape({5, 4, 3, 2}));
+  // 1D tensor for scaling the normalized x
+  Tensor scale(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for population mean
+  Tensor reserve_space_1_mean(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for population varience
+  Tensor reserve_space_2_varience(DT_FLOAT, TensorShape({2}));
+
+  AssignInputValuesAnchor(y_backprop, -2.1f);
+  AssignInputValuesAnchor(x, -1.1f);
+  AssignInputValuesAnchor(scale, -1.6f);
+  AssignInputValuesAnchor(reserve_space_1_mean, 1.1f);
+  AssignInputValuesAnchor(reserve_space_2_varience, 0.5f);
+
+  auto attrs = ops::FusedBatchNormGrad::Attrs();
+  attrs.is_training_ = true;
+  attrs.epsilon_ = 0.0001f;
+  attrs.data_format_ = "NHWC";
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT};
+
+  auto R =
+      ops::FusedBatchNormGrad(root, y_backprop, x, scale, reserve_space_1_mean,
+                              reserve_space_2_varience, attrs);
+  std::vector<Output> sess_run_fetchoutputs = {R.x_backprop, R.scale_backprop,
+                                               R.offset_backprop};
+
+  OpExecuter opexecuter(root, "FusedBatchNormGrad", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+
+  // To do : Fail right now
+
+  // attrs.is_training_ = false;
+  // Scope inference_scope = Scope::NewRootScope();
+  // auto R = ops::FusedBatchNormGrad(inference_scope, y_backprop, x,
+  //                                 scale, reserve_space_1_mean,
+  //                                 reserve_space_2_varience,attrs);
+  // std::vector<Output> sess_run_fetchoutputs = {R.x_backprop,
+  // R.scale_backprop, R.offset_backprop};
+  // OpExecuter opexecuter_inference(inference_scope, "FusedBatchNormGrad",
+  // static_input_indexes,
+  //                                 output_datatypes, sess_run_fetchoutputs);
+
+  // opexecuter_inference.RunTest();
+  // opexecuter_inference.ExecuteOnNGraph();
+  // opexecuter_inference.ExecuteOnTF();
+}
+
 // Test Op :"Op_L2Loss"
 TEST(NNOps, Op_L2Loss) {
   std::vector<std::vector<int64>> input_sizes;
