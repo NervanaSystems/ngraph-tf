@@ -452,8 +452,6 @@ flags.DEFINE_string('result_storage', None,
                     'in cbuild datastore (note: this option requires special '
                     'permissions and meant to be used from cbuilds).')
 
-flags.DEFINE_string('select_device','NGRAPH','Enter the device to execute on')
-
 platforms_util.define_platform_params()
 
 
