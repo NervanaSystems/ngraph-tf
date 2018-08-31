@@ -102,7 +102,7 @@ class Builder1 {
 
   // Given a TF node, return its corresponding TranslateOp function and required
   // input indexes. A wrapper for TRANSLATE_OP_MAP and INPUT_INDEX_MAP
-  Status GetOpTranslationRequirements(const Node*, Builder1::TranslatorFn&,
+  Status GetOpTranslationRequirements(const Node*&, Builder1::TranslatorFn&,
                                       vector<int>&);
 
   // Given a TF node, an index i, it returns the ith nGraph input

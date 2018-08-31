@@ -100,6 +100,8 @@ Status Builder1::TranslateEachOp(
             op, (variadic_input ? idx : input_indexes[idx]), &ng_arg_vec[idx]));
       }
     }
+    // TODO (sarkars): Instead of passing static_input_map,
+    // pass extracted tensors
     TF_RETURN_IF_ERROR(
         translate_fn(op, ng_arg_vec, static_input_map, subgraph_out_nodes));
 
@@ -355,7 +357,7 @@ const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
 const std::map<const string, vector<int>> Builder1::INPUT_INDEX_MAP{};
 
 Status Builder1::GetOpTranslationRequirements(
-    const Node* op, Builder1::TranslatorFn& translate_fn,
+    const Node*& op, Builder1::TranslatorFn& translate_fn,
     vector<int>& input_indexes) {
   // This function wraps TRANSLATE_OP_MAP.
   // It returns a translate function and input indexes
