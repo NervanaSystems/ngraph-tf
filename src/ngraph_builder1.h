@@ -45,11 +45,11 @@ namespace ngraph_bridge {
 // order, keep track of and retrieve parent nGraph nodes etc.
 
 class Builder1 {
-  using VectNg = std::vector<shared_ptr<ng::Node>>;
-  using TranslatorFn = function<Status(
-      const Node*, VectNg&, const std::vector<const Tensor*>&, VectNg&)>;
-
  public:
+  using TranslatorFn = function<Status(
+      const Node*, vector<shared_ptr<ng::Node>>&,
+      const std::vector<const Tensor*>&, vector<shared_ptr<ng::Node>>&)>;
+
   // Note: in case we want to get rid of Initialize, pass an
   // OpKernelConstruction* ctx to the constructor, and use OP_REQUIRES_OK
   // instead of TF_RETURN_IF_ERROR. This gets rid of Initialize() as it
@@ -61,7 +61,7 @@ class Builder1 {
 
   // This constructor is for actual use (encapsulate_op)
   Builder1(const Graph& tf_graph, OpKernelConstruction* ctx)
-      : tf_graph(tf_graph), is_initialized(false) {}
+      : m_tf_graph(tf_graph), m_is_initialized(false) {}
 
   // And this version is for tests (OpExecuter)
   Builder1(const Graph& tf_graph) : Builder1(tf_graph, nullptr) {}
@@ -80,17 +80,17 @@ class Builder1 {
   // vector of generated nGraph nodes. Since we process nodes in toposort
   // order, it is guaranteed when processing a TF node, its parents
   // will already have been processed and safely stowed in ng_op_map
-  std::unordered_map<std::string, VectNg> ng_op_map;
+  std::unordered_map<std::string, vector<shared_ptr<ng::Node>>> m_ng_op_map;
 
   // Prevent Initialize from running twice
-  bool is_initialized;
-  const Graph& tf_graph;
+  bool m_is_initialized;
+  const Graph& m_tf_graph;
 
   // An array that will be useful in creating the static_input_map
   std::vector<bool> m_input_is_static;
 
   // Vectors containing TF nodes in 3 bins: inputs, outputs, actual ops
-  vector<const Node *> tf_params, tf_ret_vals, tf_ops;
+  vector<const Node *> m_tf_params, m_tf_ret_vals, m_tf_ops;
 
   // This map tells us which inputs to read for a particular node. If no
   // information is present explicitly in the map, we read all inputs
@@ -114,17 +114,16 @@ class Builder1 {
 
   // Given the input shapes and a list of TF _Arg nodes, create corresponding
   // nGraph parameters. Also populate the ng_op_map
-  Status GetInputParams(const std::vector<TensorShape>&, vector<const Node*>,
+  Status GetInputParams(const std::vector<TensorShape>&,
                         vector<shared_ptr<ng::op::Parameter>>&);
 
   // Given a TF node, retrieve its corresponding nGraph nodes (using ng_op_map),
   // then call the appropriate TranslateOp function
-  Status TranslateEachOp(const vector<const Node*>&,
-                         const std::vector<const Tensor*>&);
+  Status TranslateEachOp(const std::vector<const Tensor*>&);
 
   // After each TF op has been translated, find the nGraph nodes corresponding
   // to the _Retval nodes
-  Status GetOutputNodes(const vector<const Node*>&, VectNg&);
+  Status GetOutputNodes(vector<shared_ptr<ng::Node>>&);
 
   // Since the constructor does not return Status, delegating its job to a
   // separate function that is evaluated lazily and only once.

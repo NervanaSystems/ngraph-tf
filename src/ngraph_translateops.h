@@ -14,6 +14,7 @@
  * limitations under the License.
  *******************************************************************************/
 
+#include "ngraph_builder1.h"
 #include "ngraph_conversions.h"
 #include "ngraph_utils.h"
 
@@ -23,8 +24,6 @@ namespace ng = ngraph;
 namespace tensorflow {
 
 namespace ngraph_bridge {
-
-using VectNg = std::vector<shared_ptr<ng::Node>>;
 
 // TODO (sarkars): combine the 2 MakePaddings together? with default args?
 // would want the default args to be at the end of the paramlist,
@@ -100,9 +99,9 @@ Status ValidateInputCountMin(const Node* op, size_t count) {
   return Status::OK();
 }
 
-Status TranslateAddNOp(const Node* op, VectNg& ng_arg_vec,
+Status TranslateAddNOp(const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
                        const std::vector<const Tensor*>& static_input_map,
-                       VectNg& subgraph_out_nodes) {
+                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
       std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
                       ng_arg_vec.at(0));  // accumulation: start with first
@@ -111,9 +110,10 @@ Status TranslateAddNOp(const Node* op, VectNg& ng_arg_vec,
 }
 
 // ng_arg_vec is not const. For example, BatchToNGraph changes it
-Status TranslateAvgPoolOp(const Node* op, VectNg& ng_arg_vec,
+Status TranslateAvgPoolOp(const Node* op,
+                          vector<shared_ptr<ng::Node>>& ng_arg_vec,
                           const std::vector<const Tensor*>& static_input_map,
-                          VectNg& subgraph_out_nodes) {
+                          vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   std::vector<int32> tf_strides;
   std::vector<int32> tf_ksize;
   std::string tf_padding_type;
@@ -188,9 +188,9 @@ Status MakeConstOp(const Node* op, ng::element::Type et,
 }
 
 static Status TranslateConstOp(
-    const Node* op, VectNg& ng_arg_vec,
+    const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
     const std::vector<const Tensor*>& static_input_map,
-    VectNg& subgraph_out_nodes) {
+    vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   const static std::map<
       const DataType,
       const std::pair<const std::function<Status(const Node*, ng::element::Type,
@@ -233,17 +233,19 @@ static Status TranslateConstOp(
   return Status::OK();
 }
 
-Status TranslateFloorDivOp(const Node* op, VectNg& ng_arg_vec,
+Status TranslateFloorDivOp(const Node* op,
+                           vector<shared_ptr<ng::Node>>& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
-                           VectNg& subgraph_out_nodes) {
+                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   subgraph_out_nodes[0] =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   return Status::OK();
 }
 
-Status TranslateFloorModOp(const Node* op, VectNg& ng_arg_vec,
+Status TranslateFloorModOp(const Node* op,
+                           vector<shared_ptr<ng::Node>>& ng_arg_vec,
                            const std::vector<const Tensor*>& static_input_map,
-                           VectNg& subgraph_out_nodes) {
+                           vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   auto floordiv =
       std::make_shared<ng::op::Floor>(ng_arg_vec[0] / ng_arg_vec[1]);
   subgraph_out_nodes[0] = ng_arg_vec[0] - (floordiv * ng_arg_vec[1]);
@@ -254,5 +256,5 @@ Status TranslateFloorModOp(const Node* op, VectNg& ng_arg_vec,
   // ng_arg_vec[1]);
   return Status::OK();
 }
-} // namespace ngraph_bridge
-} // namespace tensorflow
+}  // namespace ngraph_bridge
+}  // namespace tensorflow

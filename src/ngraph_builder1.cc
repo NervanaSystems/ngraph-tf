@@ -31,13 +31,12 @@ Status Builder1::TranslateGraph(
   TF_RETURN_IF_ERROR(Initialize());
 
   vector<shared_ptr<ng::op::Parameter>> ng_parameter_list;
-  TF_RETURN_IF_ERROR(
-      GetInputParams(input_shapes, tf_params, ng_parameter_list));
+  TF_RETURN_IF_ERROR(GetInputParams(input_shapes, ng_parameter_list));
 
-  TF_RETURN_IF_ERROR(TranslateEachOp(tf_ops, static_input_map));
+  TF_RETURN_IF_ERROR(TranslateEachOp(static_input_map));
 
-  VectNg ng_result_list;
-  TF_RETURN_IF_ERROR(GetOutputNodes(tf_ret_vals, ng_result_list));
+  vector<shared_ptr<ng::Node>> ng_result_list;
+  TF_RETURN_IF_ERROR(GetOutputNodes(ng_result_list));
 
   // Create the nGraph function.
   try {
@@ -78,10 +77,9 @@ Status Builder1::TranslateGraph(
 }
 
 Status Builder1::TranslateEachOp(
-    const vector<const Node*>& tf_ops,
     const std::vector<const Tensor*>& static_input_map) {
   // Create the nGraph ops from TensorFlow ops.
-  for (auto op : tf_ops) {
+  for (auto op : m_tf_ops) {
     NGRAPH_VLOG(2) << "Constructing op " << op->name() << " which is "
                    << op->type_string();
 
@@ -91,11 +89,11 @@ Status Builder1::TranslateEachOp(
         GetOpTranslationRequirements(op, translate_fn, input_indexes));
     // input_indexes can be size 0 (to indicate/handle variadic inputs nodes
     // like Addn)
-    VectNg subgraph_out_nodes(op->num_outputs());
+    vector<shared_ptr<ng::Node>> subgraph_out_nodes(op->num_outputs());
 
     bool variadic_input = input_indexes.size() == 0;
     int num_inputs = variadic_input ? op->num_inputs() : input_indexes.size();
-    VectNg ng_arg_vec(num_inputs);
+    vector<shared_ptr<ng::Node>> ng_arg_vec(num_inputs);
     if (op->type_string() != "Const") {
       for (int idx = 0; idx < num_inputs; idx++) {
         TF_RETURN_IF_ERROR(GetInputNode(
@@ -105,7 +103,7 @@ Status Builder1::TranslateEachOp(
     TF_RETURN_IF_ERROR(
         translate_fn(op, ng_arg_vec, static_input_map, subgraph_out_nodes));
 
-    ng_op_map[op->name()] = subgraph_out_nodes;
+    m_ng_op_map[op->name()] = subgraph_out_nodes;
   }
   return Status::OK();
 }
@@ -123,24 +121,23 @@ Status Builder1::ClassifyNodes(const vector<Node*>& ordered) {
           n->DebugString());
     }
     if (n->type_string() == "_Arg") {
-      tf_params.push_back(n);
+      m_tf_params.push_back(n);
     } else if (n->type_string() == "_Retval") {
-      tf_ret_vals.push_back(n);
+      m_tf_ret_vals.push_back(n);
     } else {
-      tf_ops.push_back(n);
+      m_tf_ops.push_back(n);
     }
   }
   return Status::OK();
 }
 
 Status Builder1::GetInputParams(
-    const std::vector<TensorShape>& input_shapes, vector<const Node*> tf_params,
+    const std::vector<TensorShape>& input_shapes,
     vector<shared_ptr<ng::op::Parameter>>& ng_parameter_list) {
   // Populate the parameter list, and also put parameters into the op map.
+  ng_parameter_list.resize(m_tf_params.size());
 
-  ng_parameter_list.resize(tf_params.size());
-
-  for (auto parm : tf_params) {
+  for (auto parm : m_tf_params) {
     DataType dtype;
     if (GetNodeAttr(parm->attrs(), "T", &dtype) != Status::OK()) {
       return errors::InvalidArgument("No data type defined for _Arg");
@@ -158,19 +155,18 @@ Status Builder1::GetInputParams(
         TFTensorShapeToNGraphShape(input_shapes[index], &ng_shape));
 
     auto ng_param = make_shared<ng::op::Parameter>(ng_et, ng_shape);
-    ng_op_map[parm->name()].push_back(ng_param);
+    m_ng_op_map[parm->name()].push_back(ng_param);
     ng_parameter_list[index] = ng_param;
   }
   return Status::OK();
 }
 
-Status Builder1::GetOutputNodes(const vector<const Node*>& tf_ret_vals,
-                                VectNg& ng_result_list) {
+Status Builder1::GetOutputNodes(vector<shared_ptr<ng::Node>>& ng_result_list) {
   // Populate the result list.
 
-  ng_result_list.resize(tf_ret_vals.size());
+  ng_result_list.resize(m_tf_ret_vals.size());
 
-  for (auto n : tf_ret_vals) {
+  for (auto n : m_tf_ret_vals) {
     // Make sure that this _Retval only has one input node.
     if (n->num_inputs() != 1) {
       return errors::InvalidArgument("_Retval has ", n->num_inputs(),
@@ -191,14 +187,14 @@ Status Builder1::GetOutputNodes(const vector<const Node*>& tf_ret_vals,
 }
 
 Status Builder1::Initialize() {
-  if (!is_initialized) {
+  if (!m_is_initialized) {
     //
     // We will visit ops in topological order.
     //
     // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
 
     vector<Node*> ordered;
-    GetReversePostOrder(tf_graph, &ordered);
+    GetReversePostOrder(m_tf_graph, &ordered);
 
     TF_RETURN_IF_ERROR(ClassifyNodes(ordered));
     //
@@ -213,7 +209,7 @@ Status Builder1::Initialize() {
     int32 max_arg_index = -1;
     std::vector<const Node*> arg_nodes;
 
-    for (auto node : tf_graph.nodes()) {
+    for (auto node : m_tf_graph.nodes()) {
       if (node->type_string() == "_Arg") {
         arg_nodes.push_back(node);
         int32 index;
@@ -246,7 +242,7 @@ Status Builder1::Initialize() {
       NGRAPH_VLOG(5) << "Marking arg " << index
                      << " is static: " << m_input_is_static[index];
     }
-    is_initialized = true;
+    m_is_initialized = true;
   }
   return Status::OK();
 }
@@ -266,7 +262,7 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
   Node* tf_input;
   TF_RETURN_IF_ERROR(op->input_node(input_idx, &tf_input));
   try {
-    *result = ng_op_map.at(tf_input->name()).at(src_output_idx);
+    *result = m_ng_op_map.at(tf_input->name()).at(src_output_idx);
   } catch (const out_of_range&) {
     return Status(tensorflow::error::NOT_FOUND, "Input node not found");
   }
@@ -285,9 +281,9 @@ Status Builder1::GetInputNode(const Node* op, size_t input_idx,
 //  }
 //
 template <typename T>
-Status TranslateBinary(const Node* op, VectNg& ng_arg_vec,
+Status TranslateBinary(const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
                        const std::vector<const Tensor*>& static_input_map,
-                       VectNg& subgraph_out_nodes) {
+                       vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   if (subgraph_out_nodes.size() != 1)
     return errors::InvalidArgument(
         "TranslateBinary call for ", op->type_string(), " expects ",
@@ -303,9 +299,10 @@ Status TranslateBinary(const Node* op, VectNg& ng_arg_vec,
 }
 
 template <typename T>
-Status TranslateUnary(const Node* op, const VectNg& ng_arg_vec,
+Status TranslateUnary(const Node* op,
+                      const vector<shared_ptr<ng::Node>>& ng_arg_vec,
                       const std::vector<const Tensor*>& static_input_map,
-                      VectNg& subgraph_out_nodes) {
+                      vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
   if (subgraph_out_nodes.size() != 1)
     return errors::InvalidArgument(
         "TranslateUnary call for ", op->type_string(), " expects ",
@@ -342,9 +339,12 @@ const std::map<const string, Builder1::TranslatorFn> Builder1::TRANSLATE_OP_MAP{
     {"Mul", TranslateBinary<ngraph::op::Multiply>},
     {"Neg", TranslateUnary<ngraph::op::Negative>},
     {"Neg", TranslateUnary<ngraph::op::Negative>},
-    {"NoOp", [](const Node* op, VectNg& ng_arg_vec,
-                const std::vector<const Tensor*>& static_input_map,
-                VectNg& subgraph_out_nodes) { return Status::OK(); }},
+    {"NoOp",
+     [](const Node* op, vector<shared_ptr<ng::Node>>& ng_arg_vec,
+        const std::vector<const Tensor*>& static_input_map,
+        vector<shared_ptr<ng::Node>>& subgraph_out_nodes) {
+       return Status::OK();
+     }},
     {"Pow", TranslateBinary<ngraph::op::Power>},
     {"RealDiv", TranslateBinary<ngraph::op::Divide>},
     {"Sign", TranslateUnary<ngraph::op::Sign>},
