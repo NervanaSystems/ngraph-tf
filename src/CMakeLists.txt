@@ -33,7 +33,8 @@ add_library(ngraph_lib SHARED IMPORTED)
 set_target_properties( 
     ngraph_lib 
     PROPERTIES IMPORTED_LOCATION 
-    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
+    #${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
+    ${NGRAPH_INSTALL_DIR}/lib64/${LIBNGRAPH_SO}
 )
 add_dependencies(ngraph_lib ext_ngraph)
 
@@ -84,12 +85,15 @@ else()
 endif()
 
 # First install the libngraph_device.so
-install(TARGETS ngraph_device DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")  
+#install(TARGETS ngraph_device DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")  
+install(TARGETS ngraph_device DESTINATION "${CMAKE_INSTALL_PREFIX}/lib64")  
 
 # Next install all the other prerequisites
-install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" )
+#install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" )
+install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${CMAKE_INSTALL_PREFIX}/lib64" )
 
 # Now create the Python pip package
-install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
+install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib64\")")
+#install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
