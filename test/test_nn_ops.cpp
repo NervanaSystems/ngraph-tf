@@ -52,7 +52,7 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
-// The backword operation for "BiasAdd" on the bias tensor.
+// The backward operation for "BiasAdd" on the bias tensor.
 // NHWC: out_backprop input at least rank 2
 // NCHW: out_backprop input only rank 4
 TEST(NNOps, BiasAddGrad) {
