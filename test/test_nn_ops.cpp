@@ -89,7 +89,8 @@ TEST(NNOps, BiasAddGrad) {
     auto tensor_value = value_vector[i];
 
     Tensor out_backprop(DT_FLOAT, TensorShape(tensor_shape));
-    AssignInputValues(out_backprop, tensor_value);
+    // AssignInputValues(out_backprop, tensor_value);
+    AssignInputValuesRandom(out_backprop);
 
     auto R = ops::BiasAddGrad(root, out_backprop, attrs);
     std::vector<Output> sess_run_fetchoutputs = {
@@ -218,6 +219,7 @@ TEST(NNOps, FusedBatchNormGrad_NHWC) {
   // 1D tensor for population varience
   Tensor reserve_space_2_varience(DT_FLOAT, TensorShape({2}));
 
+  // can't use random because value restriction
   AssignInputValuesAnchor(y_backprop, -2.1f);
   AssignInputValuesAnchor(x, -1.1f);
   AssignInputValuesAnchor(scale, -1.6f);
@@ -287,7 +289,7 @@ TEST(NNOps, Op_L2Loss) {
     Scope root = Scope::NewRootScope();
 
     Tensor input_data(DT_FLOAT, TensorShape(input_size));
-    AssignInputValues(input_data, 0.0);
+    AssignInputValuesRandom(input_data);
 
     auto R = ops::L2Loss(root, input_data);
     vector<DataType> output_datatypes = {DT_FLOAT};
