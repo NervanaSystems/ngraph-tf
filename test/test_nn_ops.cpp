@@ -156,7 +156,54 @@ TEST(NNOps, Conv2DBackpropFilterNHWC) {
   }
 }
 
+TEST(NNOps, DISABLED_Conv2DBackpropFilterNCHW) {
+  // Input NCHW :[batch, in_height, in_width, in_channels]
+  vector<int64> input_size_NCHW = {1, 2, 7, 6};
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+
+  // Out_delta :[batch, out_height, out_width, out_channels]
+  vector<int64> output_del_size_valid = {1, 3, 2, 2};
+  vector<int64> output_del_size_same = {1, 4, 3, 2};
+  std::vector<int> stride = {1, 2, 2, 1};
+
+  std::map<std::string, vector<int64>> out_delta_size_map = {
+      {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+
+  vector<int> static_input_indexes = {1};
+  auto attrs = ops::Conv2DBackpropFilter::Attrs();
+  attrs.data_format_ = "NCHW";
+
+  // TEST NCHW
+  for (auto map_iterator : out_delta_size_map) {
+    Scope root = Scope::NewRootScope();
+    auto padding_type = map_iterator.first;
+    auto output_delta_size = out_delta_size_map[padding_type];
+
+    Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
+    AssignInputValues(output_delta, -1.1f);
+
+    auto filter_sizes = ops::Const(root, {3, 3, 2, 2});
+
+    Tensor input_data(DT_FLOAT, TensorShape(input_size_NCHW));
+    AssignInputValues(input_data, -1.1f);
+
+    auto R =
+        ops::Conv2DBackpropFilter(root, input_data, filter_sizes, output_delta,
+                                  stride, padding_type, attrs);
+
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Conv2DBackpropFilter", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+    // opexecuter.ExecuteOnTF();
+  }
+}
+
 // FusedBatchNormGrad : Gradient for batch normalization
+// On TF CPU: only supports NHWC
 TEST(NNOps, FusedBatchNormGrad_NHWC) {
   Scope root = Scope::NewRootScope();
 
