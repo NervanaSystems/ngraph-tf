@@ -76,7 +76,7 @@ TensorFlow [prepare environment] for linux.
 
     ```
     bazel build --config=opt //tensorflow/tools/pip_package:build_pip_package
-    bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
+    bazel-bin/tensorflow/tools/pip_package/build_pip_package ./
     ```
 
    **Note:** You may run into the following error:
@@ -97,7 +97,7 @@ TensorFlow [prepare environment] for linux.
    version of TensorFlow:
 
     ```
-    pip install -U /tmp/tensorflow_pkg/tensorflow-1.*whl
+    pip install -U ./tensorflow-1.*whl
     ```  
 
 6. Now clone the `ngraph-tf` repo one level above -- in the 
@@ -124,7 +124,7 @@ TensorFlow [prepare environment] for linux.
 This final step automatically downloads the necessary version of `ngraph` and 
 the dependencies. The resulting plugin [DSO] is named `libngraph_bridge.so`.
 
-Once the build and installation steps are complete, you can start experimenting 
+Once the build and installation steps are complete, you can start using TensorFlow 
 with nGraph backends. 
 
 Note: The actual filename for the pip package may be different as it's version 
@@ -132,53 +132,36 @@ dependent. Please check the `build/python/dist` directory for the actual pip whe
 
 ### Running tests
 
-In order to run the unit tests, you need `pytest` installed:
-```
-pip install -U pytest
-```
-Now run the tests using the following instructions:
-1. Go to the ngraph-tf/build/test directory
-    ```
-    cd build/test
-    ./gtest_ngtf
-    cd python
-    python -m pytest
-    ```
+To run the C++ unit tests, please do the following:
 
+1. Go to the build/test directory and run the following command:
+    ```
+    cd test
+    ./gtest_ngtf
+    ```
 Next is to run a few DL models to validate the end-to-end functionality.
 
 2. Go to the ngraph-tf/examples directory and run the following models.
     ```
-    cd examples/resnet
+    cd examples/mnist
     python mnist_fprop_only.py \
         --data_dir <input_data_location> 
-    python tf_cnn_benchmarks.py --model=resnet50 --eval \
-        --num_inter_threads=1 --batch_size=1 \
-        --train_dir <rep-trained-model-location>/resnet50 \
-        --data_format NCHW \
-        --num_batches=10
     ```
-
-<!--
-### Run MNIST Softmax with the activated bridge 
-TODO
--->
-
 
 ## OS X Instructions
 
-The build and installation instructions are idential for Ubuntu 16.04 and US X.
+The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 
 ### Running tests
 
 1. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `DYLD_LIBRARY_PATH`
 2. Follow the C++ and Python instructions from the Linux based testing described above.
 
-### Debugging
+<!-- ### Debugging
 
 Don't just use `lldb` -- it likely refers to `/usr/bin/lldb` and OS X security 
 preferences will prevent it from inheriting your `LD_LIBRARY_PATH`.  Instead, 
-a better approach is to alias it to `/Applications/Xcode.app/Contents/Developer/usr/bin/lldb`.
+a better approach is to alias it to `/Applications/Xcode.app/Contents/Developer/usr/bin/lldb`. -->
 
 ## Support
 
