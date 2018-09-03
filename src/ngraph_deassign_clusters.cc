@@ -54,6 +54,8 @@ namespace ngraph_bridge {
 static const int MIN_NONTRIVIAL_NODES = 2;
 
 static void MaybeLogPlacement(const Graph* graph) {
+  if (!config::IsLoggingPlacement()) return;
+
   std::map<int, std::set<const Node*>> final_cluster_map;
 
   for (auto node : graph->nodes()) {
@@ -70,10 +72,11 @@ static void MaybeLogPlacement(const Graph* graph) {
 
     for (auto node : nodes) {
       std::stringstream placement_dev;
+      placement_dev << "OP_placement:\t";
       if (cluster_idx == -1) {
-        placement_dev << "Host:\t";
+        placement_dev << "Host\t";
       } else {
-        placement_dev << "nGraph[" << cluster_idx << "]:\t";
+        placement_dev << "nGraph[" << cluster_idx << "]\t";
       }
       placement_dev << node->name() << "(" << node->type_string() << ")";
       // string placement_str = placement_dev.str() +
