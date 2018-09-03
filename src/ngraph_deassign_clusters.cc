@@ -53,19 +53,32 @@ namespace ngraph_bridge {
 
 static const int MIN_NONTRIVIAL_NODES = 2;
 
-static void maybe_log_placement(const Graph* graph) {
-  if (config::IsLoggingPlacement()) {
-    vector<string> placement_rows;
-    for (const auto node : graph->nodes()) {
-      placement_rows.push_back(
-          (NodeIsMarkedForClustering(node) ? string("nGraph")
-                                           : string("TensorFlow")) +
-          "\t" + node->type_string() + "\t" + node->name());
+static void MaybeLogPlacement(const Graph* graph) {
+  std::map<int, std::set<const Node*>> final_cluster_map;
+
+  for (auto node : graph->nodes()) {
+    int cluster_idx;
+    if (!GetNodeCluster(node, &cluster_idx).ok()) {
+      cluster_idx = -1;
     }
-    sort(placement_rows.begin(), placement_rows.end());
-    cout << "device\top_type\top_name" << endl;
-    for (const auto& row : placement_rows) {
-      cout << row << endl;
+    final_cluster_map[cluster_idx].insert(node);
+  }
+
+  for (auto kv : final_cluster_map) {
+    int cluster_idx = kv.first;
+    std::set<const Node*>& nodes = kv.second;
+
+    for (auto node : nodes) {
+      std::stringstream placement_dev;
+      if (cluster_idx == -1) {
+        placement_dev << "Host:\t";
+      } else {
+        placement_dev << "nGraph[" << cluster_idx << "]:\t";
+      }
+      placement_dev << node->name() << "(" << node->type_string() << ")";
+      // string placement_str = placement_dev.str() +
+      //               node->type_string() + "\t" + node->name();
+      std::cout << placement_dev.str() << std::endl;
     }
   }
 }
@@ -76,7 +89,7 @@ Status DeassignClusters(Graph* graph) {
   // deassigned. This flag (used by the Python tests) makes this possible.
   //
   if (std::getenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS") != nullptr) {
-    maybe_log_placement(graph);
+    MaybeLogPlacement(graph);
     return Status::OK();
   }
 
@@ -123,48 +136,7 @@ Status DeassignClusters(Graph* graph) {
   // At this point we have made our final decision about cluster assignment, so
   // we will log the cluster assignment now.
   //
-  if (NGRAPH_VLOG_IS_ON(2)) {
-    // Can't quite reuse cluster_map here, unfortunately.
-    std::map<int, std::set<const Node*>> final_cluster_map;
-
-    for (auto node : graph->nodes()) {
-      int cluster_idx;
-      if (!GetNodeCluster(node, &cluster_idx).ok()) {
-        cluster_idx = -1;
-      }
-      final_cluster_map[cluster_idx].insert(node);
-    }
-
-    for (auto kv : final_cluster_map) {
-      int cluster_idx = kv.first;
-      std::set<const Node*>& nodes = kv.second;
-
-      if (cluster_idx == -1) {
-        NGRAPH_VLOG(2)
-            << "NGRAPH_CLUSTERS: FINAL CLUSTER ASSIGNMENT: NO CLUSTER ("
-            << nodes.size() << " NODES)";
-        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: "
-                          "===================================================="
-                          "===============";
-      } else {
-        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: FINAL CLUSTER ASSIGNMENT: CLUSTER "
-                       << cluster_idx << " (" << nodes.size() << " NODES)";
-        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: "
-                          "===================================================="
-                          "===============";
-      }
-
-      for (auto node : nodes) {
-        NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: " << node->name() << " ["
-                       << node->type_string() << "]";
-        NGRAPH_VLOG(3) << "NGRAPH_CLUSTERS: " << node->DebugString();
-      }
-
-      NGRAPH_VLOG(2) << "NGRAPH_CLUSTERS: ";
-    }
-  }
-
-  maybe_log_placement(graph);
+  MaybeLogPlacement(graph);
 
   return Status::OK();
 }
