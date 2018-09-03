@@ -14,9 +14,7 @@
 #  limitations under the License.
 # ==============================================================================
 from ctypes import cdll
-import glob
 import os
-import shutil
 
 import pytest
 
