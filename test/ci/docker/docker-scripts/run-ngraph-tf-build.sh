@@ -288,7 +288,6 @@ echo  ' '
 cd "${bbuild_dir}/test"
 export NGRAPH_IMAGENET_DATASET="${imagenet_dataset}"
 export NGRAPH_TRAINED_MODEL="${trained_resnet50_model}"
-export GTEST_OUTPUT="xml:${bbuild_dir}/ngraph_tf_unit_test_results.xml"
 "${bridge_dir}/test/ci/run-premerge-ci-checks.sh"
 
 xtime="$(date)"
