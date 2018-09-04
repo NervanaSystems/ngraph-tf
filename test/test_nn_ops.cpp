@@ -243,21 +243,21 @@ TEST(NNOps, FusedBatchNormGrad_NHWC) {
   opexecuter.RunTest();
 
   // To do: runs on TF and gives error when running on NGRAPH
-  // Scope all_output_test = Scope::NewRootScope();
-  // vector<DataType> output_datatypes_all = {DT_FLOAT, DT_FLOAT,
-  // DT_FLOAT,DT_FLOAT,DT_FLOAT};
-  // R = ops::FusedBatchNormGrad(all_output_test, y_backprop, x, scale,
-  // reserve_space_1_mean,
-  //                             reserve_space_2_varience, attrs);
-  // std::vector<Output> sess_run_fetchoutputs_all = {R.x_backprop,
-  // R.scale_backprop,
-  //                                                   R.offset_backprop,R.reserve_space_3,
-  //                                                   R.reserve_space_4};
-  // OpExecuter opexecuter_all_output(all_output_test, "FusedBatchNormGrad",
-  // static_input_indexes,
-  //                       output_datatypes_all, sess_run_fetchoutputs_all);
-  // opexecuter_all_output.RunTest();
-  // opexecuter_all_output.ExecuteOnTF();
+  Scope all_output_test = Scope::NewRootScope();
+  vector<DataType> output_datatypes_all = {DT_FLOAT, DT_FLOAT,
+  DT_FLOAT,DT_FLOAT,DT_FLOAT};
+  R = ops::FusedBatchNormGrad(all_output_test, y_backprop, x, scale,
+  reserve_space_1_mean,
+                              reserve_space_2_varience, attrs);
+  std::vector<Output> sess_run_fetchoutputs_all = {R.x_backprop,
+  R.scale_backprop,
+                                                    R.offset_backprop,R.reserve_space_3,
+                                                    R.reserve_space_4};
+  OpExecuter opexecuter_all_output(all_output_test, "FusedBatchNormGrad",
+  static_input_indexes,
+                        output_datatypes_all, sess_run_fetchoutputs_all);
+  opexecuter_all_output.RunTest();
+  opexecuter_all_output.ExecuteOnTF();
 
   // To do : Fail right now
 
