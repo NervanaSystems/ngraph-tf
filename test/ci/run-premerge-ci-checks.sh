@@ -12,7 +12,9 @@ echo "Run TensorFlow bridge <----> NGraph-C++ Pre-Merge CI Tests..."
 echo "**************************************************************************"
 
 declare THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-declare NG_TF_ROOT='../..'
+
+# Relative to ngraph-tf/build-dir/test, where this script is run
+declare BUILD_DIR="$( realpath .. )"  
 
 if [ -z ${TF_ROOT+x} ]; then
     TF_ROOT="$THIS_SCRIPT_DIR"/../../../tensorflow
@@ -42,7 +44,7 @@ echo "--------------------------------------------------------------------------
 echo "Running TensorFlow unit tests"
 echo "--------------------------------------------------------------------------"
 
-export GTEST_OUTPUT="xml:${NG_TF_ROOT}/xunit_gtest.xml"
+export GTEST_OUTPUT="xml:${BUILD_DIR}/xunit_gtest.xml"
 ./gtest_ngtf 
 
 ####### Disabled tests for now #######
@@ -57,7 +59,7 @@ export GTEST_OUTPUT="xml:${NG_TF_ROOT}/xunit_gtest.xml"
 echo "--------------------------------------------------------------------------"
 echo "Running test for installation of the ngraph module"
 echo "--------------------------------------------------------------------------"
-export JUNIT_WRAP_FILE="${NG_TF_ROOT}/junit_install_test.xml"
+export JUNIT_WRAP_FILE="${BUILD_DIR}/junit_install_test.xml"
 export JUNIT_WRAP_SUITE='installer'
 export JUNIT_WRAP_TEST='install_test.py'
 ${JUNIT} python ../../test/install_test.py
@@ -67,7 +69,7 @@ echo "Running a quick inference test"
 echo "--------------------------------------------------------------------------"
 
 pushd ../../examples/resnet
-export JUNIT_WRAP_FILE="${NG_TF_ROOT}/junit_resnet50_imagenet_inference.xml"
+export JUNIT_WRAP_FILE="${BUILD_DIR}/junit_resnet50_imagenet_inference.xml"
 export JUNIT_WRAP_SUITE='inference_validation'
 export JUNIT_WRAP_TEST='tf_cnn_benchmarks_resnet50'
 ${JUNIT} python tf_cnn_benchmarks.py --model=resnet50 --eval --num_inter_threads=1 \
