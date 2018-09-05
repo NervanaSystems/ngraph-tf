@@ -2055,6 +2055,8 @@ static Status TranslateSliceOp(
 
   std::vector<int> upper_vec(lower_vec.size());
   const auto ng_input_shape = ng_input->get_shape();
+  stringstream err_stream;
+  string err_msg;
   for (size_t i = 0; i < size_vec.size(); i++) {
     if (size_vec[i] != -1) {
       upper_vec[i] = lower_vec[i] + size_vec[i];
@@ -2062,6 +2064,23 @@ static Status TranslateSliceOp(
       // support -1 for size_vec, to the end of the tensor
       upper_vec[i] = ng_input_shape[i];
     }
+
+    // check for this condition: 0 <= begin[i] <= begin[i] + size[i] <= Di
+    if (0 > lower_vec[i])
+      err_stream << "lower < 0: " << lower_vec[i]
+                 << ". It should have been positive.\n";
+    if (lower_vec[i] > upper_vec[i])
+      err_stream << "upper < lower: upper = " << upper_vec[i]
+                 << ", lower = " << lower_vec[i] << "\n";
+    if (upper_vec[i] > ng_input_shape[i])
+      err_stream << "dim < upper: dim = " << ng_input_shape[i]
+                 << ", upper = " << upper_vec[i] << "\n";
+
+    err_msg = err_stream.str();
+    if (!err_msg.empty())
+      return errors::InvalidArgument("Cannot translate sliceop at position ", i,
+                                     " of ", size_vec.size(),
+                                     ". The reasons are:\n", err_msg);
   }
 
   std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
