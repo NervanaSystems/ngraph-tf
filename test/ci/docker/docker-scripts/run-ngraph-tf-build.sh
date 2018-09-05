@@ -226,7 +226,7 @@ cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
-cmake -DTF_SRC_DIR="${tf_dir}" ..
+cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR="${tf_dir}" ..
 make -j16
 make install
 make -j16 gtest_ngtf
