@@ -96,13 +96,16 @@ else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()
 
-# Find and build ngraph
+# Find and build ngraph 
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
     GIT_TAG v0.6.0
-    CMAKE_ARGS 
-        -DNGRAPH_DISTRIBUTED_ENABLE=1 
+    CMAKE_ARGS
+        if(NGRAPH_DISTRIBUTED_ENABLE)
+            -DNGRAPH_DISTRIBUTED_ENABLE=1
+        endif()
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_UNIT_TEST_ENABLE=FALSE
         -DNGRAPH_TOOLS_ENABLE=FALSE 
