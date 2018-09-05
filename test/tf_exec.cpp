@@ -600,7 +600,6 @@ TEST(tf_exec, DISABLED_Op_Conv2DBackpropFilter) {
 
 }  // namespace ngraph_bridge
 
-
 TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
   Scope root_ngraph = root.NewSubScope("sub_scope_ngraph");
@@ -628,7 +627,6 @@ TEST(tf_exec, DISABLED_Op_SparseSoftmaxCrossEntropyWithLogits) {
   ValidateTensorData(outputs_ngraph[0], outputs_cpu[0], 1e-6);
   ValidateTensorData(outputs_ngraph[1], outputs_cpu[1], 1e-6);
 }
-
 
 TEST(tf_exec, DISABLED_Op_PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();
