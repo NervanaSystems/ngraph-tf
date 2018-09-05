@@ -64,19 +64,12 @@ TEST(NNOps, BiasAddGrad) {
   vector<int64> out_backprop_shape_5D = {2, 4, 6, 8, 10};
 
   vector<vector<int64>> shape_vector;
-  vector<int64> value_vector;
 
   shape_vector.push_back(out_backprop_shape_2D);
   shape_vector.push_back(out_backprop_shape_3D);
   shape_vector.push_back(out_backprop_shape_4D);
   shape_vector.push_back(out_backprop_shape_5D);
 
-  value_vector.push_back(0.86f);
-  value_vector.push_back(-0.83f);
-  value_vector.push_back(-0.0003f);
-  value_vector.push_back(29.09f);
-
-  // op has one attribute : data_format
   auto attrs = ops::BiasAddGrad::Attrs();
   attrs.data_format_ = "NHWC";
 
