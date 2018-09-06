@@ -70,7 +70,15 @@ TensorFlow [prepare environment] for linux.
    source <your_virtual_env_dir>/bin/activate # bash, sh, ksh, or zsh
    ```
 
-3. Now run `./configure` and choose all the defaults when prompted to build TensorFlow.
+3. Now run `./configure` and choose `no` for all the questions when prompted to build TensorFlow.
+
+    Note that if you are running TensorFlow on a Skylake falily processor then select
+    `-march=broadwell` when prompted to specify the optimization flags:
+    ```
+    Please specify optimization flags to use during compilation when bazel option "--config=opt" is specified [Default is -march=native]: -march=broadwell
+    ```
+    This is due to an issue in TensorFlow which is being actively worked on: 
+    https://github.com/tensorflow/tensorflow/issues/17273
 
 4. Prepare the pip package and the TensorFlow C++ library:
 
@@ -118,7 +126,7 @@ TensorFlow [prepare environment] for linux.
     cmake ..
     make -j <your_processor_cores>
     make install 
-    pip install python/dist/<ngraph-0.5.0-py2.py3-none-linux_x86_64.whl>
+    pip install -U python/dist/<ngraph-0.5.0-py2.py3-none-linux_x86_64.whl>
     ```
 
 This final step automatically downloads the necessary version of `ngraph` and 
@@ -134,7 +142,7 @@ dependent. Please check the `build/python/dist` directory for the actual pip whe
 
 To run the C++ unit tests, please do the following:
 
-1. Go to the build/test directory and run the following command:
+1. Go to the build directory and run the following command:
     ```
     cd test
     ./gtest_ngtf
