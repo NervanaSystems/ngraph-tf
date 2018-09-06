@@ -276,7 +276,7 @@ Status MarkForClustering(Graph* graph) {
         // Reject if "is_training" is set false.
         bool tf_is_training;
         TF_RETURN_IF_ERROR( 
-            GetNodeAttr(n->attrs(), "new_axis_mask", &tf_is_training));
+            GetNodeAttr(n->attrs(), "is_training", &tf_is_training));
         if (!tf_is_training) {
           *result = false;
           return Status::OK();
