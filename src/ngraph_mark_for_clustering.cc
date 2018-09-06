@@ -281,7 +281,7 @@ Status MarkForClustering(Graph* graph) {
           *result = false;
           return Status::OK();
         }
-          SimpleConfirmationFunction()(n, result);
+        SimpleConfirmationFunction()(n, result);
       };
       confirmation_functions["Greater"] = SimpleConfirmationFunction();
       confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
