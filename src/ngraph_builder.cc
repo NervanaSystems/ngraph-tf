@@ -2050,6 +2050,11 @@ static Status TranslateSliceOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lower_vec));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &size_vec));
 
+  if (lower_vec.size() != size_vec.size())
+    return errors::InvalidArgument(
+        "Cannot translate sliceop: Size of lower = ", lower_vec.size(),
+        ", size of size_vec = ", size_vec.size(), ". Expected them to match.");
+
   NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
   NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
 
