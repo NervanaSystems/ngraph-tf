@@ -52,40 +52,34 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
-// Unpacks the given dimension of a rank R tensor into a (R-1) tensor
-// TEST(ArrayOps, DISABLED_Unstack) {
-//   std::vector<std::vector<int64> > input_sizes;
+TEST(ArrayOps, PreventGradient) {
+  Scope scope_cpu = Scope::NewRootScope();
 
-//   input_sizes.push_back({3, 2, 3});
-//   input_sizes.push_back({4, 3, 6});
-//   input_sizes.push_back({7, 8, 3});
+  std::vector<std::vector<int64>> input_sizes;
 
-//   std::vector<int64> axes({0, 1, 2});
+  input_sizes.push_back({2, 3, 4, 20});
+  input_sizes.push_back({10, 10, 10});
+  input_sizes.push_back({1, 5});
+  input_sizes.push_back({0});
 
-//   vector<int> static_input_indexes = {};
+  vector<int> static_input_indexes = {};  // has static input
 
-//   for (auto i = 0; i < input_sizes.size(); ++i) {
-//     Scope root = Scope::NewRootScope();
-//     Tensor input_data(DT_FLOAT, TensorShape(input_sizes[i]));
-//     //AssignInputValues(input_data, 0.0);
-//     AssignInputValuesRandom(input_data);
+  for (auto const& input_size : input_sizes) {
+    Scope root = Scope::NewRootScope();
 
-//     ops::Unstack::Attrs attrs;
-//     attrs.axis_ = axes[i];
+    Tensor input_data(DT_FLOAT, TensorShape(input_size));
+    AssignInputValuesRandom(input_data);
 
-//     auto R = ops::Unstack(root, input_data,
-//                           input_sizes[i][axes[i]], attrs);
+    auto R = ops::PreventGradient(root, input_data);
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
 
-//     std::vector<Output> sess_run_fetchoutputs={R};
+    OpExecuter opexecuter(root, "PreventGradient", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
 
-//     vector<DataType> output_datatypes = {DT_FLOAT};
-
-//     OpExecuter opexecuter(root, "Unstack", static_input_indexes,
-//                           output_datatypes, sess_run_fetchoutputs);
-
-//     opexecuter.RunTest();
-//   } // end of for loop
-// }
+    opexecuter.RunTest();
+  }
+}  // end of op PreventGradient
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
@@ -124,7 +118,44 @@ TEST(ArrayOps, Tile) {
 
     opexecuter.RunTest();
   }
-}
+}  // end of test op Tile
+
+// Unpacks the given dimension of a rank R tensor into a (R-1) tensor
+TEST(ArrayOps, Unpack) {
+  std::vector<std::vector<int64>> input_sizes;
+
+  // rank > 0
+  input_sizes.push_back({3, 2, 3});
+  input_sizes.push_back({4, 3});
+  input_sizes.push_back({3});
+
+  std::vector<int64> axes({0, 1, 0});
+
+  vector<int> static_input_indexes = {};
+  for (auto i = 0; i < input_sizes.size(); ++i) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(input_sizes[i]));
+    AssignInputValuesRandom(input_data);
+
+    ops::Unstack::Attrs attrs;
+    attrs.axis_ = axes[i];
+
+    auto R = ops::Unstack(root, input_data, input_sizes[i][axes[i]], attrs);
+
+    // Unpack returns a list of Tensors
+    // which internally flatten to multiple outputs
+    // retrieve using indexes
+    // the indexes matches the axies dimension of the input size
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2]};
+    vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT};
+
+    OpExecuter opexecuter(root, "Unpack", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }  // end of for loop
+}  // end of testing Unpack
 
 }  // namespace testing
 
