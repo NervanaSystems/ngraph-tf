@@ -15,7 +15,7 @@ Notation used:
 * ```NGRAPH_VLOG_LEVEL=5```: Generate ngraph-tf logging info for different passes
 * ```NGRAPH_GENERATE_GRAPHS_PBTXT=1```: Generate .pbtxt files for different phases in ngraph-tf bridge
 * ```NGRAPH_TF_LOG_PLACEMENT=1```: will generate op placement log to stdout
-* ```NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS=1```: Dumps Encapsulated TF Graphs: ngraph_cluster_<cluster_num>
+* ```NGRAPH_TF_DUMP_CLUSTERS=1```: Dumps Encapsulated TF Graphs: ngraph_cluster_<cluster_num>
 * ```NGRAPH_TF_DUMP_GRAPHS=1```: dumps TF graphs for different passes : precapture, capture, unmarked, marked, clustered, declustered, encapsulated
 * ```TF_CPP_MIN_VLOG_LEVEL=1```: Enables TF CPP Logs 
 * ```NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS=1```: To view TF computation graph with colored nodes indicating clusters
