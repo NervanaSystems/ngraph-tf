@@ -135,6 +135,9 @@ void OpExecuter::ExecuteOnTF() {
   DeactivateNGraph();
   ClientSession session(tf_scope_);
   ASSERT_EQ(Status::OK(), session.Run(sess_run_fetchoutputs_, &tf_outputs_));
+  for(int i=0; i<tf_outputs_.size(); i++){
+    NGRAPH_VLOG(5) << " TF op " << i << tf_outputs_[i].DebugString();
+  }
 }
 
 // Compares tf_outputs_ with ngraph_outputs_
@@ -349,6 +352,7 @@ void OpExecuter::ExecuteOnNGraph() {
     void* dst_ptr = DMAHelper::base(&output_tensor);
     ng_op_tensors[i]->read(dst_ptr, 0, output_tensor.TotalBytes());
     ngraph_outputs_.push_back(output_tensor);
+    NGRAPH_VLOG(5) << " NGRAPH op " << i << ngraph_outputs_[i].DebugString();
   }
 
 }  // ExecuteOnNGraph
