@@ -5,8 +5,41 @@ plugin that can be used with Intel® nGraph™. nGraph is an [open-source C++ li
 train and run DNN models efficiently on custom backends: GPU, CPU, and custom 
 silicon.
 
-
 ## Linux instructions
+
+There are a few ways you can run nGraph with TensorFlow. They are described in the 
+following section.
+
+## Build nGraph bridge from source using existing TensorFlow installation
+
+1. Install TensorFlow using the instructions from the TensorFlow web site
+   https://www.tensorflow.org/install/install_linux
+
+2. Now clone the `ngraph-tf` repo and go to the `ngraph-tf` directory
+
+    ```
+    git clone https://github.com/NervanaSystems/ngraph-tf.git
+    cd ngraph-tf
+    ```
+
+3. Next, build and install nGraph bridge. 
+   :warning: You must be inside the `virtualenv` wher TensorFlow installed 
+   during the ngraph-tf build.
+
+    ```
+    mkdir build
+    cd build
+    cmake ..
+    make -j <your_processor_cores>
+    make install 
+    pip install -U python/dist/<ngraph-0.5.0-py2.py3-none-linux_x86_64.whl>
+    ```
+
+
+## Build nGraph bridge from source using TensorFlow source
+
+If you want to run unit tests or planning to contribute, then you need to install 
+the nGraph bridge using the TensorFlow source tree. 
 
 ### Prepare the build environment
 
@@ -123,7 +156,7 @@ TensorFlow [prepare environment] for linux.
     ```
     mkdir build
     cd build
-    cmake ..
+    cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=<location of the TensorFlow source directory> ..
     make -j <your_processor_cores>
     make install 
     pip install -U python/dist/<ngraph-0.5.0-py2.py3-none-linux_x86_64.whl>
@@ -165,11 +198,9 @@ The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 1. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `DYLD_LIBRARY_PATH`
 2. Follow the C++ and Python instructions from the Linux based testing described above.
 
-<!-- ### Debugging
+## Debugging
 
-Don't just use `lldb` -- it likely refers to `/usr/bin/lldb` and OS X security 
-preferences will prevent it from inheriting your `LD_LIBRARY_PATH`.  Instead, 
-a better approach is to alias it to `/Applications/Xcode.app/Contents/Developer/usr/bin/lldb`. -->
+TODO.
 
 ## Support
 
@@ -218,3 +249,5 @@ See the full documentation here:  <http://ngraph.nervanasys.com/docs/latest>
 [prepare environment]: https://www.tensorflow.org/install/install_sources#prepare_environment_for_linux
 [installing with Virtualenv]: https://www.tensorflow.org/install/install_linux#installing_with_virtualenv
 [0.11.1 also works]:https://github.com/bazelbuild/bazel/releases/tag/0.11.1
+ 
+ 
