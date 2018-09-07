@@ -8,17 +8,31 @@ from tensorflow.python.platform import gfile
 import argparse, pickle as pkl
 
 def modify_node_names(graph_def, node_map):
+    #aaa = [ii for ii in graph_def.node if 'Reshape' == ii.name]
+    #bbb = [ii for ii in graph_def.node if 'Decode/get_center_coordinates_and_sizes/transpose/sub_1/_490__cf__496' == ii.name]
+    #pdb.set_trace()
     for node in graph_def.node:
         if node.name in node_map:
             old_name = node.name
             new_name = node_map.get(node.name)
-            print("Replacing: ", node.name, " with ", new_name)
+            #print("Replacing: ", node.name, " with ", new_name)
             node.name = new_name
-            for node in graph_def.node:
-                for idx, inp_name in enumerate(node.input):
-                    if inp_name == old_name:
-                        node.input[idx] = new_name
+            for _node in graph_def.node:
+                for idx, inp_name in enumerate(_node.input):
+                    # removing the part after ':' in the name
+                    # removing ^ if present (control dependency)
+                    colon_split = inp_name.split(':')
+                    assert len(colon_split) <= 2
+                    control_dependency_part = '^' if inp_name[0] == '^' else ''
+                    colon_part = '' if len(colon_split) == 1 else ':'+colon_split[1]
+                    if inp_name.lstrip('^').split(':')[0] == old_name:
+                        _node.input[idx] = control_dependency_part + new_name + colon_part
                 #TODO: Do we need to edit this anywhere else other than inputs?
+
+    
+    #aaa1 = [ii for ii in graph_def.node if node_map['Reshape'] == ii.name]
+    #bbb1 = [ii for ii in graph_def.node if node_map['Decode/get_center_coordinates_and_sizes/transpose/sub_1/_490__cf__496'] == ii.name]
+    #pdb.set_trace()
     return graph_def
 
 # remove '_' from node names
@@ -33,9 +47,6 @@ def prepend_to_name(graph_def, node_map):
 def load_file(graph_file, input_binary, modifier_function_list=[]):
     if not gfile.Exists(graph_file):
         raise Exception("Input graph file '" + graph_file + "' does not exist!")
-    if input_binary and len(modifier_function_list) > 0:
-        # TODO: can we support modifications on .pb? perhaps by: pb->pbtxt->modify->pb?
-        raise Exception("Input of type .pb. Modifications supported only in .pbtxt")
 
     graphdef = graph_pb2.GraphDef()
     with open(graph_file, "r") as f:
@@ -54,7 +65,7 @@ def load_file(graph_file, input_binary, modifier_function_list=[]):
 def preprocess(input_filename, out_dir, input_binary, node_map):
     # Note: node_map should be applied before sanitize_node_names.
     # Else sanitize_node_names might change the node names, which might become unrecognizable to node_map
-    modifiers = [] if input_binary else [lambda pbtxt_str : prepend_to_name(pbtxt_str, node_map), sanitize_node_names]
+    modifiers = [lambda pbtxt_str : prepend_to_name(pbtxt_str, node_map), sanitize_node_names]
     gdef = load_file(input_filename, input_binary, modifiers)
     if not os.path.exists(out_dir): #create output dir if it does not exist
         os.makedirs(out_dir)
