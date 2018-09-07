@@ -15,6 +15,8 @@
  *******************************************************************************/
 
 #include "test_utilities.h"
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
@@ -63,6 +65,33 @@ void AssignInputValues(Tensor& A, float x) {
   auto A_flat_data = A_flat.data();
   for (int i = 0; i < A_flat.size(); i++) {
     A_flat_data[i] = x;
+  }
+}
+
+// Input x will be used as an anchor
+// Actual value assigned equals to x * i
+void AssignInputValuesAnchor(Tensor& A, float x) {
+  auto A_flat = A.flat<float>();
+  auto A_flat_data = A_flat.data();
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat_data[i] = x * i;
+  }
+}
+
+// Randomly generate a float number between -10.00 ~ 10.99
+void AssignInputValuesRandom(Tensor& A) {
+  auto A_flat = A.flat<float>();
+  auto A_flat_data = A_flat.data();
+  srand(static_cast<unsigned>(time(0)));
+  for (int i = 0; i < A_flat.size(); i++) {
+    // give a number between 0 and 20
+    float value =
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX / 20.0f);
+    value = (value - 10.0f);  // range from -10 to 10
+    value =
+        roundf(value * 100) / 100.0;  // change the precision of the float to
+                                      // 2 number after the decimal
+    A_flat_data[i] = value;
   }
 }
 
