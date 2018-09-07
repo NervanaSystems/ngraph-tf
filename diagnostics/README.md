@@ -9,6 +9,25 @@ Notation used:
 * protobuf string text: pbtxt
 * NGraph-TF: NGTF
 
+
+## What to do if your network fails
+**TODO**: List steps to generate logs or run diagnostic tools
+
+### Capturing logs in text file
+NGTF uses the std error to output its logs, so it is necessary to pipe it correctly to capture all logs.
+```python run_TF_network.py > log.txt 2>&1```
+
+### A full dump
+To get a **full** dump use the following set of flags
+```NGRAPH_ENABLE_SERIALIZE=1 NGRAPH_CPU_TRACING=1 NGRAPH_VLOG_LEVEL=5 NGRAPH_GENERATE_GRAPHS_PBTXT=1 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS=1 NGRAPH_TF_DUMP_GRAPHS=1 python run_TF_network.py > log.txt 2>&1```
+
+### Visualizing encapsulates using TB
+* Run your script with this flag: ```NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS=1 python run_TF_network.py```
+* Change directory to this diagnostics folder
+* Run this script to parse the dumped graphs to know which encapsulate a node belongs to. At this step nodemap.pkl is created: ```python get_node_encapsulate_map.py ./path/to/folder/where/run_TF_network.py/exists/where/the/dumps/were/created/in/the/last/step/ nodemap.pkl```
+* View the original network with encapsulate information in nodemap.pkl: ```python protobuf_visualize.py -c nodemap.pkl ./path/to/original_network_pbtxtfile.pbtxt```
+
+
 ## Debug flags
 * ```NGRAPH_ENABLE_SERIALIZE=1```: Generate nGraph level serialized graphs .json
 * ```NGRAPH_CPU_TRACING=1```: Generate nGraph level function timelines
@@ -36,7 +55,7 @@ python protobuf_visualization.py -h
 * pbtxt to dot: ```python protobuf_visualize.py -v 1 pbtxtfile.pbtxt ./vis```
 * pb to TB: ```python protobuf_visualize.py -b pbtxtfile.pb ./vis```
 * pb to dot: ```python protobuf_visualize.py -b -v 1 pbtxtfile.pb ./vis```
-* pbtxt to TB after prepending cluster information: ```python protobuf_visualize.py -c nodemap.pkl pbtxtfile.pbtxt ./vis```
+* pbtxt to TB after prepending cluster information. See **Visualizing encapsulates using TB**: ```python protobuf_visualize.py -c nodemap.pkl pbtxtfile.pbtxt ./vis```
 
 
 ### Some other usecases
@@ -50,20 +69,3 @@ python protobuf_visualization.py -h
 * pbtxt to graphdef: ```from protobuf_visualize import load_file; load_file(input_filename, input_binary=False)```
 * modify a graphdef's nodes names: ```from protobuf_visualize import modify_node_names; modify_node_names(graph_def, node_map={"net1/node1":"e1/net1/node1"})```
 
-
-## What to do if your network fails
-**TODO**: List steps to generate logs or run diagnostic tools
-
-### Capturing logs in text file
-NGTF uses the std error to output its logs, so it is necessary to pipe it correctly to capture all logs.
-```python run_TF_network.py > log.txt 2>&1```
-
-### A full dump
-To get a **full** dump use the following set of flags
-```NGRAPH_ENABLE_SERIALIZE=1 NGRAPH_CPU_TRACING=1 NGRAPH_VLOG_LEVEL=5 NGRAPH_GENERATE_GRAPHS_PBTXT=1 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS=1 NGRAPH_TF_DUMP_GRAPHS=1 python run_TF_network.py > log.txt 2>&1```
-
-### Visualizing encapsulates using TB
-* Run your script with this flag: ```NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS=1 python run_TF_network.py```
-* Change directory to this diagnostics folder
-* Run this script to parse the dumped graphs to know which encapsulate a node belongs to: ```python get_node_encapsulate_map.py ./path/to/folder/where/run_TF_network.py/exists/where/the/dumps/were/created/in/the/last/step/ nodemap.pkl```
-* View the original network with encapsulate information: ```python protobuf_visualize.py -c nodemap.pkl ./path/to/original_network_pbtxtfile.pbtxt```
