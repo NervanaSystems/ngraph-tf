@@ -275,7 +275,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["FusedBatchNormGrad"] = [](Node* n, bool* result) {
         // Reject if "is_training" is set false.
         bool tf_is_training;
-        TF_RETURN_IF_ERROR( 
+        TF_RETURN_IF_ERROR(
             GetNodeAttr(n->attrs(), "is_training", &tf_is_training));
         if (!tf_is_training) {
           *result = false;
