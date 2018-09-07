@@ -30,6 +30,10 @@ import pickle as pkl
 
 
 def modify_node_names(graph_def, node_map):
+    '''
+    Accepts a graphdef and a map of node name to new node name.
+    Replaces the nodes with their new names in the graphdef
+    '''
     for node in graph_def.node:
         if node.name in node_map:
             old_name = node.name
@@ -54,7 +58,8 @@ def modify_node_names(graph_def, node_map):
 
 def sanitize_node_names(graph_def):
     '''
-    remove '_' from node names
+    remove '_' from node names. '_' at the beginning of node names indicate internal ops
+    which might cause TB to complain
     '''
     return modify_node_names(graph_def, {node.name: node.name[1:] for node in graph_def.node if node.name[0] == "_"})
 
