@@ -123,24 +123,23 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     // Create the backend
-    if (s_ng_backend == nullptr) {
-      mutex_lock l(s_ng_backend_mutex);
-
-      if (s_ng_backend == nullptr) {
-        const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
-        if (ng_backend_env_value != nullptr) {
-          s_ng_backend_name = std::string(ng_backend_env_value);
-          if (s_ng_backend_name.empty()) {
-            s_ng_backend_name = "CPU";
-          }
-        } else {
-          s_ng_backend_name = "CPU";
-        }
-        s_ng_backend = ng::runtime::Backend::create(s_ng_backend_name);
-        OP_REQUIRES(ctx, s_ng_backend != nullptr,
-                    errors::InvalidArgument("Cannot create nGraph backend"));
-      }
+    if (auto ptr = s_ng_backend_wptr.lock()) {
+        s_ng_backend = ptr;
+        return;
     }
+    const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
+    if (ng_backend_env_value != nullptr) {
+      s_ng_backend_name = std::string(ng_backend_env_value);
+      if (s_ng_backend_name.empty()) {
+        s_ng_backend_name = "CPU";
+      }
+    } else {
+      s_ng_backend_name = "CPU";
+    }
+    s_ng_backend = ng::runtime::Backend::create(s_ng_backend_name);
+    OP_REQUIRES(ctx, s_ng_backend != nullptr,
+                errors::InvalidArgument("Cannot create nGraph backend"));
+    s_ng_backend_wptr = s_ng_backend;
   }
 
   ~NGraphEncapsulateOp() override {
@@ -437,7 +436,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Execute the nGraph function.
     {
-      mutex_lock l(s_ng_backend_mutex);
+      s_ng_backend_wptr.lock();
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
@@ -479,15 +478,13 @@ class NGraphEncapsulateOp : public OpKernel {
   int m_ngraph_cluster;
   std::vector<bool> m_input_is_static;
 
-  static std::shared_ptr<ng::runtime::Backend> s_ng_backend
-      GUARDED_BY(s_ng_backend_mutex);
+  static std::weak_ptr<ng::runtime::Backend> s_ng_backend_wptr;
+  std::shared_ptr<ng::runtime::Backend> s_ng_backend;
   static std::string s_ng_backend_name;
-  static mutex s_ng_backend_mutex;
 };
 
-std::shared_ptr<ng::runtime::Backend> NGraphEncapsulateOp::s_ng_backend;
+std::weak_ptr<ng::runtime::Backend> NGraphEncapsulateOp::s_ng_backend_wptr;
 std::string NGraphEncapsulateOp::s_ng_backend_name;
-mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 
 }  // namespace ngraph_bridge
 
