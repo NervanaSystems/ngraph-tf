@@ -39,7 +39,7 @@ def create_node_encapsulate_map_pkl(input_dir, output_pkl_name):
         print('Processing: ' + filename)
         for idx, node in enumerate(gdef.node):
             if '_ngraph_cluster' in node.attr:
-                node_cluster_map[node.name] = 'encapsulate_' + \
+                node_cluster_map[node.name] = 'ngtf_' + \
                     str(node.attr['_ngraph_cluster'].i)+'/'
     pkl.dump(node_cluster_map, open(output_pkl_name, "wb"), protocol=2)
 
