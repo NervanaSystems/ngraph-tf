@@ -60,23 +60,16 @@ TEST(NNOps, BiasAddGrad) {
   vector<int64> out_backprop_shape_2D = {10, 20};
   vector<int64> out_backprop_shape_3D = {1, 3, 6};
   vector<int64> out_backprop_shape_4D = {
-      1, 2, 3, 4};  // NCHW only supports 4D input/output
+      1, 2, 3, 4};  // NCHW only supports 4D input/output on TF CPU
   vector<int64> out_backprop_shape_5D = {2, 4, 6, 8, 10};
 
   vector<vector<int64>> shape_vector;
-  vector<int64> value_vector;
 
   shape_vector.push_back(out_backprop_shape_2D);
   shape_vector.push_back(out_backprop_shape_3D);
   shape_vector.push_back(out_backprop_shape_4D);
   shape_vector.push_back(out_backprop_shape_5D);
 
-  value_vector.push_back(0.86f);
-  value_vector.push_back(-0.83f);
-  value_vector.push_back(-0.0003f);
-  value_vector.push_back(29.09f);
-
-  // op has one attribute : data_format
   auto attrs = ops::BiasAddGrad::Attrs();
   attrs.data_format_ = "NHWC";
 
@@ -86,10 +79,8 @@ TEST(NNOps, BiasAddGrad) {
   for (int i = 0; i < 4; i++) {
     Scope root = Scope::NewRootScope();
     auto tensor_shape = shape_vector[i];
-    auto tensor_value = value_vector[i];
 
     Tensor out_backprop(DT_FLOAT, TensorShape(tensor_shape));
-    // AssignInputValues(out_backprop, tensor_value);
     AssignInputValuesRandom(out_backprop);
 
     auto R = ops::BiasAddGrad(root, out_backprop, attrs);
@@ -157,6 +148,7 @@ TEST(NNOps, Conv2DBackpropFilterNHWC) {
   }
 }
 
+// NCHW data format not supported on the test framework now
 TEST(NNOps, DISABLED_Conv2DBackpropFilterNCHW) {
   // Input NCHW :[batch, in_height, in_width, in_channels]
   vector<int64> input_size_NCHW = {1, 2, 7, 6};
@@ -199,13 +191,12 @@ TEST(NNOps, DISABLED_Conv2DBackpropFilterNCHW) {
                           output_datatypes, sess_run_fetchoutputs);
 
     opexecuter.RunTest();
-    // opexecuter.ExecuteOnTF();
   }
 }
 
 // FusedBatchNormGrad : Gradient for batch normalization
 // On TF CPU: only supports NHWC
-TEST(NNOps, FusedBatchNormGrad_NHWC) {
+TEST(NNOps, FusedBatchNormGradNHWC) {
   Scope root = Scope::NewRootScope();
 
   // 4D tensor for the gradient with respect to y
@@ -227,10 +218,12 @@ TEST(NNOps, FusedBatchNormGrad_NHWC) {
   AssignInputValuesAnchor(reserve_space_2_variance, 0.5f);
 
   auto attrs = ops::FusedBatchNormGrad::Attrs();
-  attrs.is_training_ = true;
+  attrs.is_training_ =
+      true;  // doesn't support is_training_= false case on ngraph
   attrs.epsilon_ = 0.0001f;
   attrs.data_format_ = "NHWC";
 
+  // test grab the first three outputs from the FusedBatchNormGrad op
   vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT};
   auto R =
@@ -242,7 +235,7 @@ TEST(NNOps, FusedBatchNormGrad_NHWC) {
                         output_datatypes, sess_run_fetchoutputs);
   opexecuter.RunTest();
 
-  // To do: runs on TF and gives error when running on NGRAPH
+  // test grab all the outputs from the FusedBatchNormGrad op
   Scope all_output_test = Scope::NewRootScope();
   vector<DataType> output_datatypes_all = {DT_FLOAT, DT_FLOAT, DT_FLOAT,
                                            DT_FLOAT, DT_FLOAT};
@@ -256,24 +249,6 @@ TEST(NNOps, FusedBatchNormGrad_NHWC) {
                                    static_input_indexes, output_datatypes_all,
                                    sess_run_fetchoutputs_all);
   opexecuter_all_output.RunTest();
-  opexecuter_all_output.ExecuteOnTF();
-
-  // To do : Fail right now
-
-  // attrs.is_training_ = false;
-  // Scope inference_scope = Scope::NewRootScope();
-  // auto R = ops::FusedBatchNormGrad(inference_scope, y_backprop, x,
-  //                                 scale, reserve_space_1_mean,
-  //                                 reserve_space_2_variance,attrs);
-  // std::vector<Output> sess_run_fetchoutputs = {R.x_backprop,
-  // R.scale_backprop, R.offset_backprop};
-  // OpExecuter opexecuter_inference(inference_scope, "FusedBatchNormGrad",
-  // static_input_indexes,
-  //                                 output_datatypes, sess_run_fetchoutputs);
-
-  // opexecuter_inference.RunTest();
-  // opexecuter_inference.ExecuteOnNGraph();
-  // opexecuter_inference.ExecuteOnTF();
 }
 
 // Test Op :"Op_L2Loss"
@@ -327,6 +302,5 @@ TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
 }
 
 }  // namespace testing
-
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
