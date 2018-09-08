@@ -420,11 +420,9 @@ TEST(MathOps, BatchMatMul3D) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
 
-  auto attrs_x = ops::BatchMatMul::Attrs().AdjX(true);
-  auto attrs_y = ops::BatchMatMul::Attrs().AdjY(true);
-
   AssignInputValues(A, 2.0f);
   AssignInputValues(B, 7.0f);
+  AssignInputValues(B, 5.0f);
 
   vector<int> static_input_indexes = {};
 
@@ -438,15 +436,64 @@ TEST(MathOps, BatchMatMul3D) {
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+}
 
-  /*Scope root1 = Scope::NewRootScope();
-  auto R1 = ops::BatchMatMul(root1, A, B);
-  vector<DataType> output_datatypes1 = {DT_FLOAT};
-  std::vector<Output> sess_run_fetchoutputs1 = {R1};
-  OpExecuter opexecuter1(root1, "BatchMatMul", static_input_indexes,
-  output_datatypes1,
-                        sess_run_fetchoutputs1);
-  opexecuter1.ExecuteOnNGraph();*/
+// BatchMatMul 3D with attributes AdjX set to true
+TEST(MathOps, BatchMatMul3DAdjX) {
+  int dim1 = 2;
+  int dim2 = 2;
+  int dim3 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+  Tensor B(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+
+  auto attrs_x = ops::BatchMatMul::Attrs().AdjX(true);
+
+  AssignInputValues(A, 2.0f);
+  AssignInputValues(B, 7.0f);
+  AssignInputValues(B, 5.0f);
+
+  vector<int> static_input_indexes = {};
+
+  Scope root = Scope::NewRootScope();
+  auto R = ops::BatchMatMul(root, A, B, attrs_x);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "BatchMatMul", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+// BatchMatMul 3D with attributes AdjY set to true
+TEST(MathOps, BatchMatMul3DAdjY) {
+  int dim1 = 2;
+  int dim2 = 2;
+  int dim3 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+  Tensor B(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+
+  auto attrs_y = ops::BatchMatMul::Attrs().AdjY(true);
+
+  AssignInputValues(A, 2.0f);
+  AssignInputValues(B, 7.0f);
+  AssignInputValues(B, 5.0f);
+
+  vector<int> static_input_indexes = {};
+
+  Scope root = Scope::NewRootScope();
+  auto R = ops::BatchMatMul(root, A, B, attrs_y);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "BatchMatMul", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
 }
 
 }  // namespace testing
