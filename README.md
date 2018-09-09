@@ -105,7 +105,7 @@ TensorFlow [prepare environment] for linux.
 
 3. Now run `./configure` and choose `no` for all the questions when prompted to build TensorFlow.
 
-    Note that if you are running TensorFlow on a Skylake falily processor then select
+    Note that if you are running TensorFlow on a Skylake family processor then select
     `-march=broadwell` when prompted to specify the optimization flags:
     ```
     Please specify optimization flags to use during compilation when bazel option "--config=opt" is specified [Default is -march=native]: -march=broadwell
