@@ -413,6 +413,7 @@ TEST(MathOps, BatchMatMul2D) {
 }
 
 TEST(MathOps, BatchMatMul3D) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
   int dim3 = 2;
@@ -426,7 +427,6 @@ TEST(MathOps, BatchMatMul3D) {
 
   vector<int> static_input_indexes = {};
 
-  Scope root = Scope::NewRootScope();
   auto R = ops::BatchMatMul(root, A, B);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -440,6 +440,7 @@ TEST(MathOps, BatchMatMul3D) {
 
 // BatchMatMul 3D with attributes AdjX set to true
 TEST(MathOps, BatchMatMul3DAdjX) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
   int dim3 = 2;
@@ -455,7 +456,6 @@ TEST(MathOps, BatchMatMul3DAdjX) {
 
   vector<int> static_input_indexes = {};
 
-  Scope root = Scope::NewRootScope();
   auto R = ops::BatchMatMul(root, A, B, attrs_x);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -469,6 +469,7 @@ TEST(MathOps, BatchMatMul3DAdjX) {
 
 // BatchMatMul 3D with attributes AdjY set to true
 TEST(MathOps, BatchMatMul3DAdjY) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
   int dim3 = 2;
@@ -484,7 +485,6 @@ TEST(MathOps, BatchMatMul3DAdjY) {
 
   vector<int> static_input_indexes = {};
 
-  Scope root = Scope::NewRootScope();
   auto R = ops::BatchMatMul(root, A, B, attrs_y);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
