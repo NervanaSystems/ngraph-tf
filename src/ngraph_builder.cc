@@ -1422,6 +1422,8 @@ static Status TranslateFusedBatchNormGradOp(
   TF_RETURN_IF_ERROR(ValidateInputCount(op, 5));
 
   bool tf_is_training;
+  // Now we only support is_training=true case. We will either mark
+  // or implement is_training=false case later.
   if (GetNodeAttr(op->attrs(), "is_training", &tf_is_training) !=
       Status::OK()) {
     NGRAPH_VLOG(3) << "is_training attribute not present, setting to true";
