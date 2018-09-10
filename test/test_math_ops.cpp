@@ -406,7 +406,7 @@ TEST(MathOps, Abs) {
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Abs", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
-  
+
   opexecuter.RunTest();
 }
 
@@ -448,7 +448,7 @@ TEST(MathOps, Cast2D) {
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Cast", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
-  
+
   opexecuter.RunTest();
 }
 
