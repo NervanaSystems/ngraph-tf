@@ -32,7 +32,8 @@ namespace ngraph_bridge {
 // some utility functions copied from tf_exec.cpp
 void ActivateNGraph();
 void DeactivateNGraph();
-void AssertTensorEquals(Tensor& T1, Tensor& T2);
+void AssertTensorEqualsFloat(Tensor& T1, Tensor& T2);
+void AssertTensorEqualsInt32(Tensor& T1, Tensor& T2);
 void AssignInputIntValues(Tensor& A, int maxval);
 void AssignInputValues(Tensor& A, float x);
 void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index

@@ -423,7 +423,6 @@ TEST(MathOps, Cast1D) {
   auto R = ops::Cast(root, A, DT_INT32);
 
   vector<DataType> output_datatypes = {DT_INT32};
-
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Cast", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
@@ -444,7 +443,7 @@ TEST(MathOps, Cast2D) {
   vector<int> static_input_indexes = {};
   auto R = ops::Cast(root, A, DT_INT32);
 
-  vector<DataType> output_datatypes = {DT_FLOAT};
+  vector<DataType> output_datatypes = {DT_INT32};
 
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Cast", static_input_indexes, output_datatypes,

@@ -144,7 +144,17 @@ void OpExecuter::ExecuteOnTF() {
 void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
-    AssertTensorEquals(tf_outputs_[i], ngraph_outputs_[i]);
+    switch(expected_output_datatypes_[0])
+    {
+      case DT_FLOAT:
+        AssertTensorEqualsFloat(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      case DT_INT32:
+        AssertTensorEqualsInt32(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      default:
+        NGRAPH_VLOG(5) << "Could not find the corresponding function for the expected output datatype.";
+    }
   }
 }
 

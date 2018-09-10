@@ -36,7 +36,7 @@ void DeactivateNGraph() {
   setenv("NGRAPH_TF_DISABLE", "1", 1);
 }
 
-void AssertTensorEquals(Tensor& T1, Tensor& T2) {
+void AssertTensorEqualsFloat(Tensor& T1, Tensor& T2) {
   ASSERT_EQ(T1.shape(), T2.shape());
   auto T_size = T1.flat<float>().size();
   auto T1_data = T1.flat<float>().data();
@@ -45,6 +45,18 @@ void AssertTensorEquals(Tensor& T1, Tensor& T2) {
     auto a = T1_data[k];
     auto b = T2_data[k];
     EXPECT_FLOAT_EQ(a, b);
+  }
+}
+
+void AssertTensorEqualsInt32(Tensor& T1, Tensor& T2) {
+  ASSERT_EQ(T1.shape(), T2.shape());
+  auto T_size = T1.flat<int32>().size();
+  auto T1_data = T1.flat<int32>().data();
+  auto T2_data = T2.flat<int32>().data();
+  for (int k = 0; k < T_size; k++) {
+    auto a = T1_data[k];
+    auto b = T2_data[k];
+    EXPECT_EQ(a, b);
   }
 }
 
