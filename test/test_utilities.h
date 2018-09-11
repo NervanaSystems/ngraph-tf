@@ -46,20 +46,6 @@ bool eq(T arg0, T arg1) {
   return arg0 == arg1;
 }
 
-template<>
-bool eq(float arg0, float arg1) {
-  int x = abs(arg0 - arg1);
-  if(arg0 != 0 && arg1 != 0) {
-    return(abs(x/arg0) <= 0.001 && abs(x/arg1) <= 0.001);
-  } else if(arg0 == 0 && arg1 == 0) {
-    return true;
-  } else if(arg0 == 0 && arg1 != 0) {
-    return false; // because the abs(x/arg1) = 1 > 0.001
-  } else {
-  return false; // because the abs(x/arg0) = 1 > 0.001
-  }
-}
-
 template <typename T>
 static void AssertTensorEquals(Tensor& T1, Tensor& T2) {
   ASSERT_EQ(T1.shape(), T2.shape());

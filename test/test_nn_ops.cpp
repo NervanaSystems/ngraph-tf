@@ -207,7 +207,7 @@ TEST(NNOps, FusedBatchNormGradNHWC) {
   Tensor scale(DT_FLOAT, TensorShape({2}));
   // 1D tensor for population mean
   Tensor reserve_space_1_mean(DT_FLOAT, TensorShape({2}));
-  // 1D tensor for population varience
+  // 1D tensor for population variance
   Tensor reserve_space_2_variance(DT_FLOAT, TensorShape({2}));
 
   // can't use random because value restriction

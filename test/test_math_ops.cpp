@@ -396,7 +396,7 @@ TEST(MathOps, Cast1D) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1}));
 
-  AssignInputValues(A, 3.5f);
+  AssignInputValuesRandom(A);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Cast(root, A, DT_INT32);
@@ -417,7 +417,7 @@ TEST(MathOps, Cast2D) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
 
-  AssignInputValues(A, 3.5f);
+  AssignInputValuesRandom(A);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Cast(root, A, DT_INT32);
@@ -437,7 +437,7 @@ TEST(MathOps, Exp1D) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1}));
 
-  AssignInputValues(A, 3.0f);
+  AssignInputValues(A, 2.5);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Exp(root, A);
@@ -458,7 +458,7 @@ TEST(MathOps, Exp2D) {
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
 
-  AssignInputValues(A, 3.5f);
+  AssignInputValues(A, 3.6);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Exp(root, A);
