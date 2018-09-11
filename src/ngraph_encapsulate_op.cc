@@ -436,7 +436,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Execute the nGraph function.
     {
-      s_ng_backend_wptr.lock();
+      mutex_lock l(s_ng_backend_mutex);
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
@@ -486,13 +486,15 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
 
   static std::weak_ptr<ng::runtime::Backend> s_ng_backend_wptr;
-  std::shared_ptr<ng::runtime::Backend> m_ng_backend;
+  std::shared_ptr<ng::runtime::Backend> m_ng_backend
+      GUARDED_BY(s_ng_backend_mutex);
   static std::string s_ng_backend_name;
+  static mutex s_ng_backend_mutex;
 };
 
 std::weak_ptr<ng::runtime::Backend> NGraphEncapsulateOp::s_ng_backend_wptr;
 std::string NGraphEncapsulateOp::s_ng_backend_name;
-
+mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 }  // namespace ngraph_bridge
 
 REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
