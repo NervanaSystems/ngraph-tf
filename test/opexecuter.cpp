@@ -144,10 +144,6 @@ void OpExecuter::ExecuteOnTF() {
 void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
-    NGRAPH_VLOG(5) << " TF output " << i << tf_outputs_[i].DebugString()
-                   << endl;
-    NGRAPH_VLOG(5) << " NG output " << i << ngraph_outputs_[i].DebugString()
-                   << endl;
     switch (expected_output_datatypes_[i]) {
       case DT_FLOAT:
         AssertTensorEquals<float>(tf_outputs_[i], ngraph_outputs_[i]);

@@ -55,7 +55,12 @@ static void AssertTensorEquals(Tensor& T1, Tensor& T2) {
   for (int k = 0; k < T_size; k++) {
     auto a = T1_data[k];
     auto b = T2_data[k];
-    EXPECT_TRUE(eq<T>(a, b));
+    bool rt = eq<T>(a, b);
+    if (!rt) {
+      cout << " TF output " << a << endl;
+      cout << " NG output " << b << endl;
+    }
+    EXPECT_TRUE(rt);
   }
 }
 
