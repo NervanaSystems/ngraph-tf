@@ -440,7 +440,14 @@ class NGraphEncapsulateOp : public OpKernel {
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
-      m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
+      try {
+        m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
+      } catch (const std::exception& exp) {
+        OP_REQUIRES(
+            ctx, true,
+            errors::Internal("Error in executing the nGraph computation: ",
+                             exp.what(), "\n"));
+      }
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
