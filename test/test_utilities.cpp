@@ -48,18 +48,6 @@ void AssertTensorEqualsFloat(Tensor& T1, Tensor& T2) {
   }
 }
 
-void AssertTensorEqualsInt32(Tensor& T1, Tensor& T2) {
-  ASSERT_EQ(T1.shape(), T2.shape());
-  auto T_size = T1.flat<int32>().size();
-  auto T1_data = T1.flat<int32>().data();
-  auto T2_data = T2.flat<int32>().data();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1_data[k];
-    auto b = T2_data[k];
-    EXPECT_EQ(a, b);
-  }
-}
-
 void AssignInputIntValues(Tensor& A, int maxval) {
   auto A_flat = A.flat<int>();
   auto A_flat_data = A_flat.data();

@@ -40,6 +40,22 @@ void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index
 void AssignInputValuesRandom(Tensor& A);
 void PrintTensor(const Tensor& T1);
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
+template <typename T>
+static void AssertTensorEquals(Tensor& T1, Tensor& T2,
+                               std::function<bool(T, T)> eq = [](T arg0,
+                                                                 T arg1) {
+                                 return arg0 == arg1;
+                               }) {
+  ASSERT_EQ(T1.shape(), T2.shape());
+  auto T_size = T1.flat<T>().size();
+  auto T1_data = T1.flat<T>().data();
+  auto T2_data = T2.flat<T>().data();
+  for (int k = 0; k < T_size; k++) {
+    auto a = T1_data[k];
+    auto b = T2_data[k];
+    EXPECT_TRUE(eq(a, b));
+  }
+}
 
 }  // namespace ngraph_bridge
 

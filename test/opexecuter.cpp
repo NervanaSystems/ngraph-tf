@@ -144,12 +144,16 @@ void OpExecuter::ExecuteOnTF() {
 void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
+    cout << " TF output " << i << tf_outputs_[i].DebugString() << endl;
+    cout << " NG output " << i << ngraph_outputs_[i].DebugString() << endl;
     switch (expected_output_datatypes_[0]) {
       case DT_FLOAT:
-        AssertTensorEqualsFloat(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<float>(
+            tf_outputs_[i], ngraph_outputs_[i],
+            [](float arg0, float arg1) { return abs(abs(arg0) - abs(arg1)) <= 5; });
         break;
       case DT_INT32:
-        AssertTensorEqualsInt32(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
       default:
         NGRAPH_VLOG(5) << "Could not find the corresponding function for the "

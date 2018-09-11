@@ -215,7 +215,7 @@ TEST(NNOps, FusedBatchNormGradNHWC) {
   AssignInputValuesAnchor(x, -1.1f);
   AssignInputValuesAnchor(scale, -1.6f);
   AssignInputValuesAnchor(reserve_space_1_mean, 1.1f);
-  AssignInputValuesAnchor(reserve_space_2_varience, 0.5f);
+  AssignInputValuesAnchor(reserve_space_2_variance, 0.5f);
 
   auto attrs = ops::FusedBatchNormGrad::Attrs();
   attrs.is_training_ =
