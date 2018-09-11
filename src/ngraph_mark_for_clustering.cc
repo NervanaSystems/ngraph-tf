@@ -14,10 +14,10 @@
  * limitations under the License.
  *******************************************************************************/
 
-#include "tensorflow/core/graph/graph.h"
-
 #include "ngraph_api.h"
 #include "ngraph_utils.h"
+#include "tensorflow/core/graph/graph.h"
+#include "tf_deadness_analysis.h"
 
 using namespace std;
 
@@ -46,7 +46,7 @@ namespace ngraph_bridge {
 //
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
-
+std::unique_ptr<DeadnessAnalysis> deadness;
 //
 // Utility function to check if placement on the NGRAPH device has been
 // requested.
@@ -69,15 +69,21 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
 // the right.
 static ConfirmationFunction SimpleConfirmationFunction(
     const std::vector<int32>& static_input_indices = {}) {
-  auto cf = [static_input_indices](Node* n, bool* result) {
+  auto cf = [static_input_indices, deadness](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
     std::transform(indices.begin(), indices.end(), indices.begin(),
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
 
     SetStaticInputs(n, indices);
-
-    *result = true;
+    /*
+     NGRAPH_VLOG(5) << n->name()
+                       << (deadness->HasInputsWithMismatchingDeadness(*n))
+        ? "Mismatching deadness found "
+        : "No mismatch found";
+    */
+    *result = !(n->IsMerge() || deadness->HasInputsWithMismatchingDeadness(*n));
+    //*result = true;
     return Status::OK();
   };
   return cf;
@@ -99,6 +105,7 @@ Status MarkForClustering(Graph* graph) {
     return Status::OK();
   }
 
+  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:
