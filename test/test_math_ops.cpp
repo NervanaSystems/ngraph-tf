@@ -389,27 +389,6 @@ TEST(MathOps, SquaredDifferenceBroadcasting) {
   opexecuter.RunTest();
 }
 
-TEST(MathOps, Abs) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 2;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-
-  AssignInputValues(A, -3.5f);
-
-  vector<int> static_input_indexes = {};
-  auto R = ops::Abs(root, A);
-
-  vector<DataType> output_datatypes = {DT_FLOAT};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Abs", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
-}
-
 // Cast float to int
 TEST(MathOps, Cast1D) {
   Scope root = Scope::NewRootScope();

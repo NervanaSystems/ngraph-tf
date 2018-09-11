@@ -144,13 +144,24 @@ void OpExecuter::ExecuteOnTF() {
 void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
-    cout << " TF output " << i << tf_outputs_[i].DebugString() << endl;
-    cout << " NG output " << i << ngraph_outputs_[i].DebugString() << endl;
-    switch (expected_output_datatypes_[0]) {
+    NGRAPH_VLOG(5) << " TF output " << i << tf_outputs_[i].DebugString() << endl;
+    NGRAPH_VLOG(5) << " NG output " << i << ngraph_outputs_[i].DebugString() << endl;
+    switch (expected_output_datatypes_[i]) {
       case DT_FLOAT:
         AssertTensorEquals<float>(
             tf_outputs_[i], ngraph_outputs_[i],
-            [](float arg0, float arg1) { return abs(abs(arg0) - abs(arg1)) <= 5; });
+            [](float arg0, float arg1)  {  int x = abs(arg0 - arg1);
+                                          if(arg0 != 0 && arg1 != 0) {
+                                            return(abs(x/arg0) <= 0.001 && abs(x/arg1) <= 0.001);
+                                          } else if(arg0 == 0 && arg1 == 0) {
+                                            return true;
+                                          } else if(arg0 == 0 && arg1 != 0) {
+                                            return false; // because the abs(x/arg1) = 1 > 0.001
+                                          } else {
+                                            return false; // because the abs(x/arg0) = 1 > 0.001
+                                          }
+                                      
+                                        });
         break;
       case DT_INT32:
         AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
