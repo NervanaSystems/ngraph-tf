@@ -40,12 +40,28 @@ void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index
 void AssignInputValuesRandom(Tensor& A);
 void PrintTensor(const Tensor& T1);
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
+
+template <class T>
+bool eq(T arg0, T arg1) {
+  return arg0 == arg1;
+}
+
+template<>
+bool eq(float arg0, float arg1) {
+  int x = abs(arg0 - arg1);
+  if(arg0 != 0 && arg1 != 0) {
+    return(abs(x/arg0) <= 0.001 && abs(x/arg1) <= 0.001);
+  } else if(arg0 == 0 && arg1 == 0) {
+    return true;
+  } else if(arg0 == 0 && arg1 != 0) {
+    return false; // because the abs(x/arg1) = 1 > 0.001
+  } else {
+  return false; // because the abs(x/arg0) = 1 > 0.001
+  }
+}
+
 template <typename T>
-static void AssertTensorEquals(Tensor& T1, Tensor& T2,
-                               std::function<bool(T, T)> eq = [](T arg0,
-                                                                 T arg1) {
-                                 return arg0 == arg1;
-                               }) {
+static void AssertTensorEquals(Tensor& T1, Tensor& T2) {
   ASSERT_EQ(T1.shape(), T2.shape());
   auto T_size = T1.flat<T>().size();
   auto T1_data = T1.flat<T>().data();
@@ -53,7 +69,7 @@ static void AssertTensorEquals(Tensor& T1, Tensor& T2,
   for (int k = 0; k < T_size; k++) {
     auto a = T1_data[k];
     auto b = T2_data[k];
-    EXPECT_TRUE(eq(a, b));
+    EXPECT_TRUE(eq<T>(a, b));
   }
 }
 

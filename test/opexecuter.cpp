@@ -148,20 +148,7 @@ void OpExecuter::CompareNGraphAndTF() {
     NGRAPH_VLOG(5) << " NG output " << i << ngraph_outputs_[i].DebugString() << endl;
     switch (expected_output_datatypes_[i]) {
       case DT_FLOAT:
-        AssertTensorEquals<float>(
-            tf_outputs_[i], ngraph_outputs_[i],
-            [](float arg0, float arg1)  {  int x = abs(arg0 - arg1);
-                                          if(arg0 != 0 && arg1 != 0) {
-                                            return(abs(x/arg0) <= 0.001 && abs(x/arg1) <= 0.001);
-                                          } else if(arg0 == 0 && arg1 == 0) {
-                                            return true;
-                                          } else if(arg0 == 0 && arg1 != 0) {
-                                            return false; // because the abs(x/arg1) = 1 > 0.001
-                                          } else {
-                                            return false; // because the abs(x/arg0) = 1 > 0.001
-                                          }
-                                      
-                                        });
+        AssertTensorEquals<float>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
       case DT_INT32:
         AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
