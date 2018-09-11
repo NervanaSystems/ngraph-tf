@@ -124,7 +124,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Create the backend
     if (auto ptr = s_ng_backend_wptr.lock()) {
-        s_ng_backend = ptr;
+        m_ng_backend = ptr;
         return;
     }
     const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
@@ -136,10 +136,10 @@ class NGraphEncapsulateOp : public OpKernel {
     } else {
       s_ng_backend_name = "CPU";
     }
-    s_ng_backend = ng::runtime::Backend::create(s_ng_backend_name);
-    OP_REQUIRES(ctx, s_ng_backend != nullptr,
+    m_ng_backend = ng::runtime::Backend::create(s_ng_backend_name);
+    OP_REQUIRES(ctx, m_ng_backend != nullptr,
                 errors::InvalidArgument("Cannot create nGraph backend"));
-    s_ng_backend_wptr = s_ng_backend;
+    s_ng_backend_wptr = m_ng_backend;
   }
 
   ~NGraphEncapsulateOp() override {
@@ -346,7 +346,7 @@ class NGraphEncapsulateOp : public OpKernel {
           }
           current_tv = last_tv;
         } else {
-          current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape,
+          current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
                                                    current_src_ptr);
           current_tv->set_stale(true);
         }
@@ -354,7 +354,7 @@ class NGraphEncapsulateOp : public OpKernel {
         if (last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape);
+          current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
         }
         current_tv->write(current_src_ptr, 0, current_tv->get_element_count() *
                                                   ng_element_type.size());
@@ -414,14 +414,14 @@ class NGraphEncapsulateOp : public OpKernel {
         if (current_dst_ptr == last_dst_ptr && last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape,
+          current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
                                                    current_dst_ptr);
         }
       } else {
         if (last_tv != nullptr) {
           current_tv = last_tv;
         } else {
-          current_tv = s_ng_backend->create_tensor(ng_element_type, ng_shape);
+          current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
         }
       }  // if (s_ng_backend_name == "CPU")
 
@@ -440,7 +440,7 @@ class NGraphEncapsulateOp : public OpKernel {
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
-      s_ng_backend->call(ng_function, ng_outputs, ng_inputs);
+      m_ng_backend->call(ng_function, ng_outputs, ng_inputs);
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
@@ -479,7 +479,7 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
 
   static std::weak_ptr<ng::runtime::Backend> s_ng_backend_wptr;
-  std::shared_ptr<ng::runtime::Backend> s_ng_backend;
+  std::shared_ptr<ng::runtime::Backend> m_ng_backend;
   static std::string s_ng_backend_name;
 };
 
