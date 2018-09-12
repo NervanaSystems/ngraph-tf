@@ -191,6 +191,8 @@ class NGraphEncapsulateOp : public OpKernel {
         TensorDataToStream<uint8>(ostream, n_elements, data);
         break;
       case DT_UINT16:
+        TensorDataToStream<uint16>(ostream, n_elements, data);
+        break;
       case DT_QUINT16:
         TensorDataToStream<uint16>(ostream, n_elements, data);
         break;
