@@ -2030,6 +2030,34 @@ static Status TranslateRsqrtOp(
       });
 }
 
+static Status TranslateShapeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  
+  // the shape of the input tensor which will be the value to the Constant Op
+  auto input_shape = ng_input->get_shape();
+  
+  // the rank of the input tensor which will be the shape to the Constant Op
+  auto rank = input_shape.size();
+
+  // the inputs to the Constant Op
+  // type
+  auto type = Builder::TF_NGRAPH_TYPE_MAP().at(DataType::DT_FLOAT);
+
+  // shape
+  auto shape = ng::Shape(1,rank);
+  // values
+  std::vector<int> values(rank);
+  for(int i = 0; i < rank; i++) {
+    values[i] = input_shape[i];
+  }
+  SaveNgOp(ng_op_map, op->name(),
+           make_shared<ng::op::Constant>(type, shape, values));
+  return Status::OK();
+}
+
 static Status TranslateSigmoidOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2753,6 +2781,7 @@ const static std::map<
         {"ReluGrad", TranslateReluGradOp},
         {"Reshape", TranslateReshapeOp},
         {"Rsqrt", TranslateRsqrtOp},
+        {"Shape", TranslateShapeOp},
         {"Sigmoid", TranslateSigmoidOp},
         {"Sign", TranslateUnaryOp<ngraph::op::Sign>},
         {"Slice", TranslateSliceOp},
