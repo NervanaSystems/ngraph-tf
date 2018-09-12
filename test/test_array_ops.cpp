@@ -157,6 +157,40 @@ TEST(ArrayOps, Unpack) {
   }  // end of for loop
 }  // end of testing Unpack
 
+TEST(ArrayOps, Fill) {
+  vector<int> static_input_indexes = {0};  // has static input
+
+  Scope root1 = Scope::NewRootScope();
+
+  // 0-D(scalar) value to fill the returned tensor
+  Tensor input_data(DT_FLOAT, TensorShape({}));
+  AssignInputValuesRandom(input_data);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  // Fill creates a tensor filled with scalar value
+  // 1-D shape of the output tensor
+  auto shape1 =
+      ops::Const(root1, {int32(2), int32(1), int32(3)}, TensorShape({3}));
+  auto R1 = ops::Fill(root1, shape1, input_data);
+
+  std::vector<Output> sess_run_fetchoutputs1 = {R1};
+  OpExecuter opexecuter1(root1, "Fill", static_input_indexes, output_datatypes,
+                         sess_run_fetchoutputs1);
+  opexecuter1.RunTest();
+
+  Scope root2 = Scope::NewRootScope();
+  auto shape2 = ops::Const(root2, {int32(2), int32(1), int32(3), int32(1)},
+                           TensorShape({4}));
+  auto R2 = ops::Fill(root2, shape2, input_data);
+
+  std::vector<Output> sess_run_fetchoutputs2 = {R2};
+  OpExecuter opexecuter2(root2, "Fill", static_input_indexes, output_datatypes,
+                         sess_run_fetchoutputs2);
+
+  opexecuter2.RunTest();
+}  // end of op Fill
+
 }  // namespace testing
 
 }  // namespace ngraph_bridge
