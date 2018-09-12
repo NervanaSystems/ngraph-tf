@@ -437,8 +437,8 @@ TEST(MathOps, Pow1d) {
   Tensor A(DT_FLOAT, TensorShape({dim1}));
   Tensor B(DT_FLOAT, TensorShape({dim1}));
 
-  AssignInputValues(A,1.4f);
-  AssignInputValues(B,0.5f);
+  AssignInputValues(A, 1.4f);
+  AssignInputValues(B, 0.5f);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Pow(root, A, B);
@@ -457,11 +457,11 @@ TEST(MathOps, Pow2d) {
   int dim1 = 2;
   int dim2 = 3;
 
-  Tensor A(DT_FLOAT, TensorShape({dim1,dim2}));
-  Tensor B(DT_FLOAT, TensorShape({dim1,dim2}));
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
 
-  AssignInputValues(A,-2.5f);
-  AssignInputValues(B,4.0f);
+  AssignInputValues(A, -2.5f);
+  AssignInputValues(B, 4.0f);
 
   vector<int> static_input_indexes = {};
   auto R = ops::Pow(root, A, B);
