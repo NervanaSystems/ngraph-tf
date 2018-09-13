@@ -272,8 +272,10 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["FloorDiv"] = SimpleConfirmationFunction();
       confirmation_functions["FloorMod"] = SimpleConfirmationFunction();
       confirmation_functions["FusedBatchNorm"] = SimpleConfirmationFunction();
-      confirmation_functions["FusedBatchNormGrad"] =
-          SimpleConfirmationFunction();
+      confirmation_functions["FusedBatchNormGrad"] = [](Node* n, bool* result) {
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
+        return Status::OK();
+      };
       confirmation_functions["Greater"] = SimpleConfirmationFunction();
       confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
       confirmation_functions["Identity"] = SimpleConfirmationFunction();

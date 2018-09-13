@@ -53,6 +53,7 @@ set(SRC
     test_utilities.cpp
     test_math_ops.cpp
     test_nn_ops.cpp
+    test_array_ops.cpp
     opexecuter.cpp
 )
 
@@ -86,7 +87,7 @@ add_dependencies(gtest_ngtf build_tf_cc)
 
 target_link_libraries(
     gtest_ngtf 
-    ngraph_device 
+    ngraph_bridge 
     ngraph_lib
     libgtest 
     pthread 
