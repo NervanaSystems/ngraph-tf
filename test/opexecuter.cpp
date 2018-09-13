@@ -146,12 +146,17 @@ void OpExecuter::CompareNGraphAndTF() {
   for (int i = 0; i < tf_outputs_.size(); i++) {
     switch (expected_output_datatypes_[i]) {
       case DT_FLOAT:
+      case DT_DOUBLE:
         AssertTensorEquals<float>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
+      case DT_INT8:
+      case DT_INT16:
       case DT_INT32:
+      case DT_INT64:
         AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
       default:
+        EXPECT_TRUE(false);
         NGRAPH_VLOG(5) << "Could not find the corresponding function for the "
                           "expected output datatype.";
     }
