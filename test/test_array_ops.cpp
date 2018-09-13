@@ -98,18 +98,13 @@ TEST(ArrayOps, Tile) {
     Tensor input_data(DT_FLOAT, TensorShape(input_size));
     AssignInputValuesRandom(input_data);
 
-    // placeholder, will be modified accordingly by the if loop
-    auto mul = ops::Const(root, {int64(1)}, TensorShape({1}));
+    // Must be of type int32 or int64,
+    // 1-D. Length must be the same as the number of dimensions in input
+    int input_dim = input_size.size();
+    Tensor multiples(DT_INT32, TensorShape({input_dim}));
+    AssignInputIntValues(multiples, 10);
 
-    if (input_size.size() == 3) {
-      mul = ops::Const(root, {int32(10), int32(0), int32(1)}, TensorShape({3}));
-    } else if (input_size.size() == 2) {
-      mul = ops::Const(root, {int32(2), int32(3)}, TensorShape({2}));
-    } else if (input_size.size() == 1) {
-      mul = ops::Const(root, {int64(5)}, TensorShape({1}));
-    }
-
-    auto R = ops::Tile(root, input_data, mul);
+    auto R = ops::Tile(root, input_data, multiples);
     vector<DataType> output_datatypes = {DT_FLOAT};
     std::vector<Output> sess_run_fetchoutputs = {R};
 
