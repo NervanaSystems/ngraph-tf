@@ -32,11 +32,10 @@ format_lib_verify_version() {
     fi
 
     local PROGNAME="${1}"
-    local REQUIRED_VERSION="${2}"
+    local REQUIRED_VERSION_X_Y="${2}"
     local CLANG_OR_YAPF="${3}"
 
-
-    if ! [[ "${REQUIRED_VERSION}" =~ ^[0-9]+.[0-9]+$ ]]; then
+    if ! [[ "${REQUIRED_VERSION_X_Y}" =~ ^[0-9]+.[0-9]+$ ]]; then
         bash_lib_print_error "${FUNCNAME[0]}: required-version-number must have the form (number).(number)."
         return 1
     fi
@@ -91,12 +90,11 @@ format_lib_verify_version() {
         fi
     fi
 
-    if [[ "${REQUIRED_VERSION}" != "${VERSION_X_Y}" ]]; then
+    if [[ "${REQUIRED_VERSION_X_Y}" != "${VERSION_X_Y}" ]]; then
         bash_lib_print_error \
             "Program '${PROGNAME}' reports version number '${VERSION_X_Y}'" \
-            "but we require '${REQUIRED_VERSION}'"
+            "but we require '${REQUIRED_VERSION_X_Y}'"
         return 1
     fi
-
 }
 
