@@ -47,8 +47,7 @@ echo $PYTHON_VERSION_LINE
 if PYTHON_VERSION=$(echo "${PYTHON_VERSION_LINE}" | sed ${SED_FLAGS} 's/^Python ([0-9]+).*$/\1/p')
 then
     if [[ "3" != "${PYTHON_VERSION}" ]]; then
-        bash_lib_print_error "Python reports version number '${PYTHON_VERSION}' so will skip yapf formatting. Please use Python3"
-        exit 1
+        echo "Python reports version number '${PYTHON_VERSION}' so will skip yapf formatting. Please use Python3"
     fi
 else
     bash_lib_print_error "Failed invocation of sed to find Python version."
