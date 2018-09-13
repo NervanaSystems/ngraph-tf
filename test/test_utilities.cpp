@@ -104,14 +104,14 @@ void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
   }
 }
 
-template <>
+/*template <>
 bool eq(float arg0, float arg1) {
   if (arg0 == 0 && arg1 == 0) {
     return true;
   } else {
     return (abs(arg0 - arg1) / max(abs(arg0), abs(arg1)) <= 0.001);
   }
-}
+}*/
 
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

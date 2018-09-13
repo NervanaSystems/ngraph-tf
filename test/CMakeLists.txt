@@ -46,7 +46,7 @@ set_target_properties(
 set(SRC
     main.cpp
     graph_exec.cpp
-    tf_exec.cpp
+    #tf_exec.cpp
     padding.cpp
     conversions.cpp
     graph_rewrites/assign_clusters.cc
