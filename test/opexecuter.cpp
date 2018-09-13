@@ -156,9 +156,9 @@ void OpExecuter::CompareNGraphAndTF() {
         AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
       default:
-        EXPECT_TRUE(false);
-        NGRAPH_VLOG(5) << "Could not find the corresponding function for the "
-                          "expected output datatype.";
+        EXPECT_TRUE(false)
+            << "Could not find the corresponding function for the "
+               "expected output datatype.";
     }
   }
 }
