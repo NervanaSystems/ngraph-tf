@@ -18,7 +18,7 @@ set -u
 # limitations under the License.
 # ******************************************************************************
 
-declare SRC_DIRS="src examples test logging tools"
+declare SRC_DIRS="src examples test logging tools diagnostics"
 
 # NOTE: The results of `clang-format` depend _both_ of the following factors:
 # - The `.clang-format` file, and
@@ -28,6 +28,8 @@ declare SRC_DIRS="src examples test logging tools"
 
 declare CLANG_FORMAT_BASENAME="clang-format-3.9"
 declare REQUIRED_CLANG_FORMAT_VERSION=3.9
+declare YAPF_FORMAT_BASENAME="yapf"
+declare REQUIRED_YAPF_FORMAT_VERSION=0.24
 
 declare THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -39,8 +41,15 @@ if ! CLANG_FORMAT_PROG="$(which "${CLANG_FORMAT_BASENAME}")"; then
     bash_lib_die "Unable to find program ${CLANG_FORMAT_BASENAME}" >&2
 fi
 
-clang_format_lib_verify_version "${CLANG_FORMAT_PROG}" "${REQUIRED_CLANG_FORMAT_VERSION}"
+declare YAPF_FORMAT_PROG
+if ! YAPF_FORMAT_PROG="$(which "${YAPF_FORMAT_BASENAME}")"; then
+    bash_lib_die "Unable to find program ${YAPF_FORMAT_BASENAME}" >&2
+fi
+
+format_lib_verify_version "${CLANG_FORMAT_PROG}" "${REQUIRED_CLANG_FORMAT_VERSION}" "CLANG"
 bash_lib_status "Verified that '${CLANG_FORMAT_PROG}' has version '${REQUIRED_CLANG_FORMAT_VERSION}'"
+format_lib_verify_version "${YAPF_FORMAT_PROG}" "${REQUIRED_YAPF_FORMAT_VERSION}" "YAPF"
+bash_lib_status "Verified that '${YAPF_FORMAT_PROG}' has version '${REQUIRED_YAPF_FORMAT_VERSION}'"
 
 pushd "${THIS_SCRIPT_DIR}/.."
 

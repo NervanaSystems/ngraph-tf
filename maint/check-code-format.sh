@@ -18,7 +18,7 @@ set -u
 # limitations under the License.
 # ******************************************************************************
 
-declare SRC_DIRS="src examples test logging tools"
+declare SRC_DIRS="src examples test logging tools diagnostics python"
 
 # NOTE: The results of `clang-format` depend _both_ of the following factors:
 # - The `.clang-format` file, and
@@ -28,6 +28,8 @@ declare SRC_DIRS="src examples test logging tools"
 
 declare CLANG_FORMAT_BASENAME="clang-format-3.9"
 declare REQUIRED_CLANG_FORMAT_VERSION=3.9
+declare YAPF_FORMAT_BASENAME="yapf"
+declare REQUIRED_YAPF_FORMAT_VERSION=0.24
 
 declare THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -39,11 +41,20 @@ if ! CLANG_FORMAT_PROG="$(which "${CLANG_FORMAT_BASENAME}")"; then
     bash_lib_die "Unable to find program ${CLANG_FORMAT_BASENAME}" >&2
 fi
 
-clang_format_lib_verify_version "${CLANG_FORMAT_PROG}" "${REQUIRED_CLANG_FORMAT_VERSION}"
-bash_lib_status "Verified that '${CLANG_FORMAT_PROG}' has version '${REQUIRED_CLANG_FORMAT_VERSION}'"
+declare YAPF_FORMAT_PROG
+if ! YAPF_FORMAT_PROG="$(which "${YAPF_FORMAT_BASENAME}")"; then
+    bash_lib_die "Unable to find program ${YAPF_FORMAT_BASENAME}" >&2
+fi
 
-declare -a FAILED_FILES=()
-declare NUM_FILES_CHECKED=0
+format_lib_verify_version "${CLANG_FORMAT_PROG}" "${REQUIRED_CLANG_FORMAT_VERSION}" "CLANG"
+bash_lib_status "Verified that '${CLANG_FORMAT_PROG}' has version '${REQUIRED_CLANG_FORMAT_VERSION}'"
+format_lib_verify_version "${YAPF_FORMAT_PROG}" "${REQUIRED_YAPF_FORMAT_VERSION}" "YAPF"
+bash_lib_status "Verified that '${YAPF_FORMAT_PROG}' has version '${REQUIRED_YAPF_FORMAT_VERSION}'"
+
+declare -a FAILED_FILES_CLANG=()
+declare NUM_FILES_CHECKED_CLANG=0
+declare -a FAILED_FILES_YAPF=()
+declare NUM_FILES_CHECKED_YAPF=0
 
 pushd "${THIS_SCRIPT_DIR}/.."
 
@@ -57,30 +68,39 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         # Note that we restrict to "-type f" to exclude symlinks. Emacs sometimes
         # creates dangling symlinks with .cpp/.hpp suffixes as a sort of locking
         # mechanism, and this confuses clang-format.
-        #
-        # We also skip any dir named "cpu_codegen" in case there are
-        # nGraph-generated files lying around from a test run.
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
-                           -name cpu_codegen -prune -o                               \
+                           -prune -o                                                 \
                            \( -type f -and \( -name '*.cc' -or -name '*.h'           \
                                               -or -name '*.cpp' -or -name '*.hpp' \) \
                               -print \) ); do
             if "${CLANG_FORMAT_PROG}" -style=file -output-replacements-xml "${SRC_FILE}" | grep -c "<replacement " >/dev/null; then
-                FAILED_FILES+=( "${SRC_FILE}" )
+                FAILED_FILES_CLANG+=( "${SRC_FILE}" )
             fi
-            NUM_FILES_CHECKED=$((NUM_FILES_CHECKED+1))
+            NUM_FILES_CHECKED_CLANG=$((NUM_FILES_CHECKED_CLANG+1))
+        done
+
+        bash_lib_status "About to check formatting of Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
+        declare SRC_FILE
+        for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
+                           -prune -o                                                 \
+                           \( -type f -and \( -name '*.py' \)                           \
+                              -print \) ); do
+            if "${YAPF_FORMAT_PROG}"  -d -p --style google --no-local-style "${SRC_FILE}" | grep -c "<replacement " >/dev/null; then
+                FAILED_FILES_YAPF+=( "${SRC_FILE}" )
+            fi
+            NUM_FILES_CHECKED_YAPF=$((NUM_FILES_CHECKED_YAPF+1))
         done
     fi
 done
 
 popd
 
-if [[ ${#FAILED_FILES[@]} -eq 0 ]]; then
-    bash_lib_status "All ${NUM_FILES_CHECKED}  C/C++ files pass the code-format check."
+if [[ ${#FAILED_FILES_CLANG[@]} -eq 0 ]]; then
+    bash_lib_status "All ${NUM_FILES_CHECKED_CLANG}  C/C++ files pass the code-format check."
 else
-    echo "${#FAILED_FILES[@]} of ${NUM_FILES_CHECKED} source files failed the code-format check:"
+    echo "${#FAILED_FILES_CLANG[@]} of ${NUM_FILES_CHECKED_CLANG} source files failed the code-format check:"
     declare FAILED_SRC_FILE
-    for FAILED_SRC_FILE in ${FAILED_FILES[@]}; do
+    for FAILED_SRC_FILE in ${FAILED_FILES_CLANG[@]}; do
         echo "    ${FAILED_SRC_FILE}"
     done
     exit 1

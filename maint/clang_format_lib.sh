@@ -25,19 +25,22 @@ declare _maint_SCRIPT_DIR="$( cd $(dirname "${_intelnervana_clang_format_lib_SCR
 
 source "${_maint_SCRIPT_DIR}/bash_lib.sh"
 
-clang_format_lib_verify_version() {
-    if (( $# != 2 )); then
-        bash_lib_print_error "Usage: ${FUNCNAME[0]} <clang-format-prog-pathname> <required-version-number>"
+format_lib_verify_version() {
+    if (( $# != 3 )); then
+        bash_lib_print_error "Usage: ${FUNCNAME[0]} <clang-format-prog-pathname> <required-version-number> <CLANG or YAPF>"
         return 1
     fi
 
     local PROGNAME="${1}"
-    local REQUIRED_VERSION_X_Y="${2}"
+    local REQUIRED_VERSION="${2}"
+    local CLANG_OR_YAPF="${3}"
 
-    if ! [[ "${REQUIRED_VERSION_X_Y}" =~ ^[0-9]+.[0-9]+$ ]]; then
+
+    if ! [[ "${REQUIRED_VERSION}" =~ ^[0-9]+.[0-9]+$ ]]; then
         bash_lib_print_error "${FUNCNAME[0]}: required-version-number must have the form (number).(number)."
         return 1
     fi
+    
 
     if ! [[ -f "${PROGNAME}" ]]; then
         bash_lib_print_error "Unable to find clang-format program named '${PROGNAME}'"
@@ -58,17 +61,42 @@ clang_format_lib_verify_version() {
     fi
 
     local VERSION_X_Y
-    if ! VERSION_X_Y=$(echo "${VERSION_LINE}" | sed ${SED_FLAGS} 's/^clang-format version ([0-9]+.[0-9]+).*$/\1/p')
-    then
-        bash_lib_print_error "Failed invocation of sed."
+    if [[ "${CLANG_OR_YAPF}" =~ "CLANG" ]]; then
+        if ! VERSION_X_Y=$(echo "${VERSION_LINE}" | sed ${SED_FLAGS} 's/^clang-format version ([0-9]+.[0-9]+).*$/\1/p')
+        then
+            bash_lib_print_error "Failed invocation of sed to find clang verion."
+            return 1
+        fi
+    else
+        local PYTHON_VERSION_LINE
+        if ! PYTHON_VERSION_LINE=$(python --version); then
+            bash_lib_print_error "Failed invocation of command 'python --version'"
+            return 1
+        fi
+        echo $PYTHON_VERSION_LINE
+        if PYTHON_VERSION=$(echo "${PYTHON_VERSION_LINE}" | sed ${SED_FLAGS} 's/^Python ([0-9]+).*$/\1/p')
+        then
+            if [[ "3" != "${PYTHON_VERSION}" ]]; then
+                bash_lib_print_error "Python reports version number '${PYTHON_VERSION}' but we require 3"
+                return 1
+            fi
+        else
+            bash_lib_print_error "Failed invocation of sed to find Python version."
+            return 1
+        fi
+        if ! VERSION_X_Y=$(echo "${VERSION_LINE}" | sed ${SED_FLAGS} 's/^yapf ([0-9]+.[0-9]+).*$/\1/p')
+        then
+            bash_lib_print_error "Failed invocation of sed to find yapf version."
+            return 1
+        fi
+    fi
+
+    if [[ "${REQUIRED_VERSION}" != "${VERSION_X_Y}" ]]; then
+        bash_lib_print_error \
+            "Program '${PROGNAME}' reports version number '${VERSION_X_Y}'" \
+            "but we require '${REQUIRED_VERSION}'"
         return 1
     fi
 
-    if [[ "${REQUIRED_VERSION_X_Y}" != "${VERSION_X_Y}" ]]; then
-        bash_lib_print_error \
-            "Program '${PROGNAME}' reports version number '${VERSION_X_Y}'" \
-            "but we require '${REQUIRED_VERSION_X_Y}'"
-        return 1
-    fi
 }
 
