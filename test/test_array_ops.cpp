@@ -97,11 +97,11 @@ TEST(ArrayOps, Shape) {
   vector<DataType> output_datatypes = {DT_INT32};
 
   std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Shape", static_input_indexes,
-                        output_datatypes, sess_run_fetchoutputs);
+  OpExecuter opexecuter(root, "Shape", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-} // end of op Shape
+}  // end of op Shape
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {

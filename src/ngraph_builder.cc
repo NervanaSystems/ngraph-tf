@@ -2035,10 +2035,10 @@ static Status TranslateShapeOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
-  
+
   // the shape of the input tensor which will be the value to the Constant Op
   auto input_shape = ng_input->get_shape();
-  
+
   // the rank of the input tensor which will be the shape to the Constant Op
   auto rank = input_shape.size();
 
@@ -2047,10 +2047,10 @@ static Status TranslateShapeOp(
   auto type = Builder::TF_NGRAPH_TYPE_MAP().at(DataType::DT_INT32);
 
   // shape
-  auto shape = ng::Shape(1,rank);
+  auto shape = ng::Shape(1, rank);
   // values
   std::vector<int> values(rank);
-  for(int i = 0; i < rank; i++) {
+  for (int i = 0; i < rank; i++) {
     values[i] = input_shape[i];
   }
   SaveNgOp(ng_op_map, op->name(),
