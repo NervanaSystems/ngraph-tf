@@ -25,11 +25,43 @@ declare SRC_DIRS="src examples test logging tools diagnostics python"
 # - The particular version of the `clang-format` program being used.
 #
 # For this reason, this script specifies the exact version of clang-format to be used.
+# Similarly for python/yapf, we shall use Pyhton 3 and yapf 0.24
+
+declare _intelnervana_clang_format_lib_SCRIPT_NAME="${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}"
+declare _maint_SCRIPT_DIR="$( cd $(dirname "${_intelnervana_clang_format_lib_SCRIPT_NAME}") && pwd )"
+source "${_maint_SCRIPT_DIR}/bash_lib.sh"
+declare SED_FLAGS
+if [[ "$(uname)" == 'Darwin' ]]; then
+    SED_FLAGS='-En'
+else
+    SED_FLAGS='-rn'
+fi
+
+# Find out python version. Use yapf only when in Python 3
+declare PYTHON_VERSION_LINE
+if ! PYTHON_VERSION_LINE=$(python --version); then
+    bash_lib_print_error "Failed invocation of command 'python --version'"
+    exit 1
+fi
+echo $PYTHON_VERSION_LINE
+if PYTHON_VERSION=$(echo "${PYTHON_VERSION_LINE}" | sed ${SED_FLAGS} 's/^Python ([0-9]+).*$/\1/p')
+then
+    if [[ "3" != "${PYTHON_VERSION}" ]]; then
+        bash_lib_print_error "Python reports version number '${PYTHON_VERSION}' so will skip yapf formatting. Please use Python3"
+        exit 1
+    fi
+else
+    bash_lib_print_error "Failed invocation of sed to find Python version."
+    exit 1
+fi
+
 
 declare CLANG_FORMAT_BASENAME="clang-format-3.9"
 declare REQUIRED_CLANG_FORMAT_VERSION=3.9
-declare YAPF_FORMAT_BASENAME="yapf"
-declare REQUIRED_YAPF_FORMAT_VERSION=0.24
+if [[ "3" == "${PYTHON_VERSION}" ]]; then
+    declare YAPF_FORMAT_BASENAME="yapf"
+    declare REQUIRED_YAPF_FORMAT_VERSION=0.24
+fi
 
 declare THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -41,9 +73,11 @@ if ! CLANG_FORMAT_PROG="$(which "${CLANG_FORMAT_BASENAME}")"; then
     bash_lib_die "Unable to find program ${CLANG_FORMAT_BASENAME}" >&2
 fi
 
-declare YAPF_FORMAT_PROG
-if ! YAPF_FORMAT_PROG="$(which "${YAPF_FORMAT_BASENAME}")"; then
-    bash_lib_die "Unable to find program ${YAPF_FORMAT_BASENAME}" >&2
+if [[ "3" == "${PYTHON_VERSION}" ]]; then
+    declare YAPF_FORMAT_PROG
+    if ! YAPF_FORMAT_PROG="$(which "${YAPF_FORMAT_BASENAME}")"; then
+        bash_lib_die "Unable to find program ${YAPF_FORMAT_BASENAME}" >&2
+    fi
 fi
 
 format_lib_verify_version "${CLANG_FORMAT_PROG}" "${REQUIRED_CLANG_FORMAT_VERSION}" "CLANG"

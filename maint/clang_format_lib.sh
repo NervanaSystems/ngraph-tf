@@ -67,22 +67,6 @@ format_lib_verify_version() {
             return 1
         fi
     else
-        local PYTHON_VERSION_LINE
-        if ! PYTHON_VERSION_LINE=$(python --version); then
-            bash_lib_print_error "Failed invocation of command 'python --version'"
-            return 1
-        fi
-        echo $PYTHON_VERSION_LINE
-        if PYTHON_VERSION=$(echo "${PYTHON_VERSION_LINE}" | sed ${SED_FLAGS} 's/^Python ([0-9]+).*$/\1/p')
-        then
-            if [[ "3" != "${PYTHON_VERSION}" ]]; then
-                bash_lib_print_error "Python reports version number '${PYTHON_VERSION}' but we require 3"
-                return 1
-            fi
-        else
-            bash_lib_print_error "Failed invocation of sed to find Python version."
-            return 1
-        fi
         if ! VERSION_X_Y=$(echo "${VERSION_LINE}" | sed ${SED_FLAGS} 's/^yapf ([0-9]+.[0-9]+).*$/\1/p')
         then
             bash_lib_print_error "Failed invocation of sed to find yapf version."
