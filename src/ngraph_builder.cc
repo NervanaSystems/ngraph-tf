@@ -2044,7 +2044,7 @@ static Status TranslateShapeOp(
 
   // the inputs to the Constant Op
   // type
-  auto type = Builder::TF_NGRAPH_TYPE_MAP().at(DataType::DT_FLOAT);
+  auto type = Builder::TF_NGRAPH_TYPE_MAP().at(DataType::DT_INT32);
 
   // shape
   auto shape = ng::Shape(1,rank);
