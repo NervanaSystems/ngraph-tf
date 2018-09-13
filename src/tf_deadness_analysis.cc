@@ -12,6 +12,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+/*******************************************************************************
+
+This file is a copy of
+Github repository: https://github.com/tensorflow/tensorflow
+Revision: 6619dd5fdcad02f087f5758083e2585bdfef9e78
+File: tensorflow/tensorflow/compiler/jit/deadness_analysis.cc
+
+Github Permanent Link
+https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdfef9e78/tensorflow/compiler/jit/deadness_analysis.cc
+
+*******************************************************************************/
 
 #include "tf_deadness_analysis.h"
 #include "tensorflow/core/graph/algorithm.h"

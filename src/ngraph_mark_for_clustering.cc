@@ -76,14 +76,11 @@ static ConfirmationFunction SimpleConfirmationFunction(
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
 
     SetStaticInputs(n, indices);
-    /*
+    auto check = deadness->HasInputsWithMismatchingDeadness(*n);
      NGRAPH_VLOG(5) << n->name()
-                       << (deadness->HasInputsWithMismatchingDeadness(*n))
-        ? "Mismatching deadness found "
-        : "No mismatch found";
-    */
+                       << (check ? " Mismatching deadness found "
+        : " No mismatching deadness found");
     *result = !(n->IsMerge() || deadness->HasInputsWithMismatchingDeadness(*n));
-    //*result = true;
     return Status::OK();
   };
   return cf;

@@ -13,6 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
+
+/*******************************************************************************
+
+This test is inspired from the deadness test, mentioned in the commit message of
+the deadness analysis found in the below revision
+
+Github repository: https://github.com/tensorflow/tensorflow
+Revision: 6619dd5fdcad02f087f5758083e2585bdfef9e78
+
+Quoted from the commit message ** 
+TensorFlow allows nodes to have some live inputs and some dead inputs.  The
+executor does not execute these nodes but instead propagates a dead signal to
+all their outputs (i.e. these nodes are treated as fully dead).
+
+This is a problem for auto-clustering because it means auto-clustering can kill
+nodes that used to be alive.  For instance say before clustering we have a graph
+like
+
+digraph {
+  Alive0 -> P
+  Alive1 -> Q
+  Dead -> R
+  P -> X
+  Q -> X
+  Q -> Y
+  R -> Y
+}
+
+and we cluster P, Q, R, X and Y into a single XLA cluster.
+
+Then after clustering both X and Y are dead because the cluster is a single node
+as far as the executor is concerned and said node won't get scheduled if any of
+its inputs are dead.
+
+*******************************************************************************/
+
 #include "../test_utilities.h"
 #include "gtest/gtest.h"
 #include "ngraph_utils.h"
@@ -43,9 +79,6 @@ namespace testing {
 
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 
-// Replicate the deadness test mentioned here
-// https://github.com/tensorflow/tensorflow/commit/6619dd5fdcad02f087f5758083e2585bdfef9e78#diff-77b7f1b6308c3eed108508e1a5d8f8dc
-
 TEST(DeadnessCheck, livedead1NGRAPH) {
   Scope root = Scope::NewRootScope();
 
@@ -66,12 +99,10 @@ TEST(DeadnessCheck, livedead1NGRAPH) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_OK(session.Run(
+  ASSERT_NE(session.Run(
       {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-      {M, D}, &outputs));
+      {M, D}, &outputs), Status::OK());
 
-  LOG(INFO) << outputs[0].flat<float>();
-  LOG(INFO) << outputs[1].flat<float>();
 }
 
 TEST(DeadnessCheck, livedead1TF) {
@@ -95,12 +126,9 @@ TEST(DeadnessCheck, livedead1TF) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_OK(session.Run(
+ ASSERT_NE(session.Run(
       {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-      {M, D}, &outputs));
-
-  LOG(INFO) << outputs[0].flat<float>();
-  LOG(INFO) << outputs[1].flat<float>();
+      {M, D}, &outputs), Status::OK());
 }
 
 }  // namespace testing
