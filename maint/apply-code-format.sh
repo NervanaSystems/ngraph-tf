@@ -77,10 +77,14 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         bash_lib_status "Done."
 
         bash_lib_status "About to format Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
-        find "${ROOT_SUBDIR}"                                       \
-          -name *.in.py -prune -o                                   \
-          \( -type f -and \( -name '*.py' \)                        \
-             -print \) | xargs "${YAPF_FORMAT_PROG}" -i -d -p --style google --no-local-style
+        declare SRC_FILE
+        # ignore the .in.py file (python/setup.in.py) which has format that crashes yapf
+        for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
+                           -name *.in.py -prune -o                                   \
+                           \( -type f -and \( -name '*.py' \)                        \
+                              -print \) ); do
+            "${YAPF_FORMAT_PROG}"  -i -p --style google --no-local-style "${SRC_FILE}"
+        done
     fi
 done
 

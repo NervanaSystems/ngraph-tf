@@ -84,6 +84,7 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
 
         bash_lib_status "About to check formatting of Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
         declare SRC_FILE
+        # ignore the .in.py file (python/setup.in.py) which has format that crashes yapf
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
                            -name *.in.py -prune -o                                   \
                            \( -type f -and \( -name '*.py' \)                        \
