@@ -68,8 +68,11 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         # Note that we restrict to "-type f" to exclude symlinks. Emacs sometimes
         # creates dangling symlinks with .cpp/.hpp suffixes as a sort of locking
         # mechanism, and this confuses clang-format.
+        #
+        # We also skip any dir named "cpu_codegen" in case there are
+        # nGraph-generated files lying around from a test run.
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
-                           -name cpu_codegen -prune -o                                                 \
+                           -name cpu_codegen -prune -o                               \
                            \( -type f -and \( -name '*.cc' -or -name '*.h'           \
                                               -or -name '*.cpp' -or -name '*.hpp' \) \
                               -print \) ); do
@@ -82,8 +85,8 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         bash_lib_status "About to check formatting of Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
         declare SRC_FILE
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
-                           -name *.in.py -prune -o                                                 \
-                           \( -type f -and \( -name '*.py' \)                           \
+                           -name *.in.py -prune -o                                   \
+                           \( -type f -and \( -name '*.py' \)                        \
                               -print \) ); do
             if ! "${YAPF_FORMAT_PROG}"  -d -p --style google --no-local-style "${SRC_FILE}" >/dev/null; then
                 FAILED_FILES_YAPF+=( "${SRC_FILE}" )

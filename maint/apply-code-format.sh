@@ -75,6 +75,12 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
              -print \) | xargs "${CLANG_FORMAT_PROG}" -i -style=file
 
         bash_lib_status "Done."
+
+        bash_lib_status "About to format Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
+        find "${ROOT_SUBDIR}"                                       \
+          -name *.in.py -prune -o                                   \
+          \( -type f -and \( -name '*.py' \)                        \
+             -print \) | xargs "${YAPF_FORMAT_PROG}" -i -d -p --style google --no-local-style
     fi
 done
 
