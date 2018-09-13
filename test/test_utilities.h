@@ -32,6 +32,8 @@ namespace ngraph_bridge {
 // some utility functions copied from tf_exec.cpp
 void ActivateNGraph();
 void DeactivateNGraph();
+void AssertTensorEqualsFloat(Tensor& T1, Tensor& T2);
+void AssertTensorEqualsInt32(Tensor& T1, Tensor& T2);
 void AssignInputIntValues(Tensor& A, int maxval);
 void AssignInputValues(Tensor& A, float x);
 void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index
@@ -39,7 +41,7 @@ void AssignInputValuesRandom(Tensor& A);
 void PrintTensor(const Tensor& T1);
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
 
-/*template <class T>
+template <class T>
 bool eq(T arg0, T arg1) {
   return arg0 == arg1;
 }
@@ -59,31 +61,6 @@ static void AssertTensorEquals(Tensor& T1, Tensor& T2) {
       cout << " NG output " << b << endl;
     }
     EXPECT_TRUE(rt);
-  }
-}*/
-
-template<DataType T>
-void AssertTensorEquals(Tensor& T1, Tensor& T2) {
-  ASSERT_EQ(T1.shape(), T2.shape());
-  cout<< "T " << T <<endl;
-  auto T_size = T1.flat<EnumToDataType<DT_FLOAT>::Type>().size();
-  auto T1_data = T1.flat<EnumToDataType<DT_FLOAT>::Type>().data();
-  auto T2_data = T2.flat<EnumToDataType<DT_FLOAT>::Type>().data();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1_data[k];
-    auto b = T2_data[k];
-    switch(T) {
-      case DT_FLOAT:
-      case DT_DOUBLE:
-        EXPECT_FLOAT_EQ(a,b);
-        break;
-      case DT_INT8:
-      case DT_INT16:
-      case DT_INT32:
-      case DT_INT64:
-        EXPECT_EQ(a,b);
-        break;
-    }
   }
 }
 
