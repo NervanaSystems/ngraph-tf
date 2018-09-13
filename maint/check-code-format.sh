@@ -69,7 +69,7 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         # creates dangling symlinks with .cpp/.hpp suffixes as a sort of locking
         # mechanism, and this confuses clang-format.
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
-                           -prune -o                                                 \
+                           -name cpu_codegen -prune -o                                                 \
                            \( -type f -and \( -name '*.cc' -or -name '*.h'           \
                                               -or -name '*.cpp' -or -name '*.hpp' \) \
                               -print \) ); do
@@ -82,10 +82,10 @@ for ROOT_SUBDIR in ${SRC_DIRS}; do
         bash_lib_status "About to check formatting of Python code in directory tree '$(pwd)/${ROOT_SUBDIR}' ..."
         declare SRC_FILE
         for SRC_FILE in $(find "${ROOT_SUBDIR}"                                      \
-                           -prune -o                                                 \
+                           -name *.in.py -prune -o                                                 \
                            \( -type f -and \( -name '*.py' \)                           \
                               -print \) ); do
-            if "${YAPF_FORMAT_PROG}"  -d -p --style google --no-local-style "${SRC_FILE}" | grep -c "<replacement " >/dev/null; then
+            if ! "${YAPF_FORMAT_PROG}"  -d -p --style google --no-local-style "${SRC_FILE}" >/dev/null; then
                 FAILED_FILES_YAPF+=( "${SRC_FILE}" )
             fi
             NUM_FILES_CHECKED_YAPF=$((NUM_FILES_CHECKED_YAPF+1))
@@ -101,6 +101,17 @@ else
     echo "${#FAILED_FILES_CLANG[@]} of ${NUM_FILES_CHECKED_CLANG} source files failed the code-format check:"
     declare FAILED_SRC_FILE
     for FAILED_SRC_FILE in ${FAILED_FILES_CLANG[@]}; do
+        echo "    ${FAILED_SRC_FILE}"
+    done
+    exit 1
+fi
+
+if [[ ${#FAILED_FILES_YAPF[@]} -eq 0 ]]; then
+    bash_lib_status "All ${NUM_FILES_CHECKED_YAPF}  Python files pass the code-format check."
+else
+    echo "${#FAILED_FILES_YAPF[@]} of ${NUM_FILES_CHECKED_YAPF} source files failed the code-format check:"
+    declare FAILED_SRC_FILE
+    for FAILED_SRC_FILE in ${FAILED_FILES_YAPF[@]}; do
         echo "    ${FAILED_SRC_FILE}"
     done
     exit 1
