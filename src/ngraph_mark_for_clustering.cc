@@ -266,6 +266,8 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction({0});
       confirmation_functions["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_functions["Dequantize"] =
+          SimpleConfirmationFunction();
       confirmation_functions["Equal"] = SimpleConfirmationFunction();
       confirmation_functions["Exp"] = SimpleConfirmationFunction();
       confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
@@ -299,6 +301,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
+      confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction();
       confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
       confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
       confirmation_functions["Relu"] = SimpleConfirmationFunction();
@@ -352,12 +355,15 @@ Status MarkForClustering(Graph* graph) {
         auto& type_attr_name = name_and_set.first;
         auto& allowed_types = name_and_set.second;
 
+        cout << node->type_string() << " " << type_attr_name << "\n";
+
         DataType dt;
 
         if (GetNodeAttr(node->attrs(), type_attr_name, &dt) != Status::OK() ||
             std::find(allowed_types.begin(), allowed_types.end(), dt) ==
                 allowed_types.end()) {
           type_constraints_ok = false;
+          cout << "type_constraints_ok is false\n";
           break;
         }
       }
@@ -377,12 +383,12 @@ Status MarkForClustering(Graph* graph) {
       // are satisfied and the confirmation function (if any) has returned
       // true.
       if (confirmed) {
-        NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
+        cout << "Accepting: " << node->name() << "["
                        << node->type_string() << "]";
         // TODO(amprocte): move attr name to a constant
         node->AddAttr("_ngraph_marked_for_clustering", true);
       } else {
-        NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
+        cout << "Rejecting: " << node->name() << "["
                        << node->type_string() << "]";
       }
     }

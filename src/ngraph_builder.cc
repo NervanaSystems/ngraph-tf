@@ -1266,6 +1266,19 @@ static Status TranslateDepthwiseConv2dNativeOp(
   return Status::OK();
 }
 
+static Status TranslateDequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  SaveNgOp(ng_op_map, op->name(),
+            make_shared<ng::op::Convert>(
+                ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(DT_FLOAT)));
+
+  return Status::OK();
+}
+
 static Status TranslateExpandDimsOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -1907,6 +1920,33 @@ static Status TranslateReciprocalOp(
         // Raise each element of the input to the power -1.
         return std::make_shared<ng::op::Power>(n, ng_exponent);
       });
+}
+
+template <typename T>
+static T GetAttr(const Node* op, const string& attr_name, T default_val){
+  T var;
+  if (GetNodeAttr(op->attrs(), attr_name, &var) !=
+      Status::OK()) {
+    NGRAPH_VLOG(3) << attr_name << " attribute not present, setting to " << default_val;
+    var = default_val;
+  }
+  return var;
+}
+
+static Status TranslateQuantizeV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  string mode = GetAttr<string>(op, "mode", "MIN_COMBINE");
+  // Do things with the mode variable if needed
+
+  SaveNgOp(ng_op_map, op->name(),
+            make_shared<ng::op::Convert>(
+                ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(DT_INT32)));
+
+  return Status::OK();
 }
 
 static Status TranslateReluOp(
@@ -2712,6 +2752,7 @@ const static std::map<
         {"Conv2DBackpropFilter", TranslateConv2DBackpropFilterOp},
         {"Conv2DBackpropInput", TranslateConv2DBackpropInputOp},
         {"DepthwiseConv2dNative", TranslateDepthwiseConv2dNativeOp},
+        {"Dequantize", TranslateDequantizeOp},
         {"Equal", TranslateBinaryOp<ngraph::op::Equal>},
         {"Exp", TranslateUnaryOp<ngraph::op::Exp>},
         {"ExpandDims", TranslateExpandDimsOp},
@@ -2748,6 +2789,7 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
+        {"QuantiveV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
         {"Relu", TranslateReluOp},
