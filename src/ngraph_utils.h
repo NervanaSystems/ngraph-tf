@@ -176,6 +176,9 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes();
 // axis/tensor indices.
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes();
 
+// Returns an ArraySlice containing all data types in the quantized domain
+const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes();
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

@@ -164,6 +164,12 @@ const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   return result;
 }
 
+const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{
+      DT_QINT8, DT_QUINT8, DT_QINT16, DT_QUINT16, DT_QINT32};
+  return result;
+}
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
