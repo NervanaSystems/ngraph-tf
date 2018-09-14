@@ -475,46 +475,6 @@ TEST(MathOps, Pow2d) {
   opexecuter.RunTest();
 }
 
-TEST(MathOps, Exp1d) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1}));
-
-  AssignInputValuesRandom(A);
-
-  vector<int> static_input_indexes = {};
-  auto R = ops::Exp(root, A);
-
-  vector<DataType> output_datatypes = {DT_FLOAT};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Exp", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
-}
-
-TEST(MathOps, Exp2d) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 3;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-
-  AssignInputValuesRandom(A);
-
-  vector<int> static_input_indexes = {};
-  auto R = ops::Exp(root, A);
-
-  vector<DataType> output_datatypes = {DT_FLOAT};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Exp", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
-}
 
 }  // namespace testing
 
