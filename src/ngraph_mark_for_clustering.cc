@@ -48,10 +48,6 @@ namespace ngraph_bridge {
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 
-#if (TF_VERSION_GEQ_1_11)
-std::unique_ptr<DeadnessAnalysis> deadness;
-#endif
-
 //
 // Utility function to check if placement on the NGRAPH device has been
 // requested.
@@ -74,33 +70,34 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
 // the right.
 static ConfirmationFunction SimpleConfirmationFunction(
     const std::vector<int32>& static_input_indices = {}) {
-#if (TF_VERSION_GEQ_1_11)
-  auto cf = [static_input_indices, deadness](Node* n, bool* result) {
-    // Adjust negative input indices.
-    auto indices = static_input_indices;
-    std::transform(indices.begin(), indices.end(), indices.begin(),
-                   [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
-
-    SetStaticInputs(n, indices);
-
-    auto check = deadness->HasInputsWithMismatchingDeadness(*n);
-    NGRAPH_VLOG(5) << n->name() << (check ? " Mismatching deadness found "
-                                          : " No mismatching deadness found");
-    *result = !(n->IsMerge() || deadness->HasInputsWithMismatchingDeadness(*n));
-    return Status::OK();
-  };
-#else
   auto cf = [static_input_indices](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
     std::transform(indices.begin(), indices.end(), indices.begin(),
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
     SetStaticInputs(n, indices);
+    NGRAPH_VLOG(5) << " TF VERSION " << TF_MAJOR_VERSION << "."
+                   << TF_MINOR_VERSION;
+
+// If TF Version >= 1.11 do deadness analysis on the node
+#if (TF_VERSION_GEQ_1_11)
+    static std::unique_ptr<DeadnessAnalysis> s_deadness_analyser;
+    if (!s_deadness_analyser) {
+      TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &s_deadness_analyser));
+    }
+
+    auto check = s_deadness_analyser->HasInputsWithMismatchingDeadness(*n);
+    NGRAPH_VLOG(5) << n->name()
+                   << (check ? " Mismatching deadness found "
+                             : " No mismatching deadness found");
+    *result = !(n->IsMerge() ||
+                s_deadness_analyser->HasInputsWithMismatchingDeadness(*n));
+#else
     *result = true;
-    return Status::OK();
-  };
 #endif  // TF_VERSION_GEQ_1_11
 
+    return Status::OK();
+  };
   return cf;
 };
 
@@ -120,9 +117,6 @@ Status MarkForClustering(Graph* graph) {
     return Status::OK();
   }
 
-#if (TF_VERSION_GEQ_1_11)
-  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
-#endif
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:

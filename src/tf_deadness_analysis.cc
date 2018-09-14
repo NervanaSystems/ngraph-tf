@@ -19,9 +19,6 @@ Github repository: https://github.com/tensorflow/tensorflow
 Revision: 6619dd5fdcad02f087f5758083e2585bdfef9e78
 File: tensorflow/tensorflow/compiler/jit/deadness_analysis.cc
 
-Github Permanent Link
-https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdfef9e78/tensorflow/compiler/jit/deadness_analysis.cc
-
 *******************************************************************************/
 #include "ngraph_version_utils.h"
 #if (TF_VERSION_GEQ_1_11)
@@ -466,6 +463,7 @@ void DeadnessAnalysisImpl::Print() const {
 DeadnessAnalysis::~DeadnessAnalysis() {}
 /*static*/ Status DeadnessAnalysis::Run(
     const Graph& graph, std::unique_ptr<DeadnessAnalysis>* result) {
+  NGRAPH_VLOG(5)<<"** In deadness Run ";
   std::unique_ptr<DeadnessAnalysisImpl> analysis(
       new DeadnessAnalysisImpl(&graph));
   TF_RETURN_IF_ERROR(analysis->Populate());
