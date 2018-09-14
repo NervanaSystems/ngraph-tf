@@ -28,9 +28,15 @@ def calculate_output(param_dict, select_device, input_example):
         graph_def = tf.GraphDef()
         graph_def.ParseFromString(f.read())
 
+    if select_device == 'CPU':
+        ngraph.disable()
+    else:
+        # run on NGRAPH
+        if not ngraph.is_enabled():
+            ngraph.enable()
+
     with tf.Graph().as_default() as graph:
-        with tf.device('/job:localhost/replica:0/task:0/device:' + select_device + ':0'):
-            tf.import_graph_def(graph_def)
+        tf.import_graph_def(graph_def)
 
     input_placeholder = graph.get_tensor_by_name(input_tensor_name)
     output_tensor = graph.get_tensor_by_name(output_tensor_name)
@@ -74,14 +80,10 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
 
     factor = np.prod(ngraph_output_squeezed.shape)
 
-    if desired_norm == 'l1_norm':
-        return np.sum(np.abs(ngraph_output_flatten - tf_output_flatten), axis=0) / factor
-    elif desired_norm == 'l2_norm':
-        return np.sum(np.dot(np.abs(ngraph_output_flatten - tf_output_flatten), np.abs(ngraph_output_flatten - tf_output_flatten)))/factor
-    elif desired_norm == 'inf_norm':
-        return np.linalg.norm((ngraph_output_flatten - tf_output_flatten), np.inf)
-    else:
-        print ("Unsupported norm calculation")
+    if desired_norm not in [1,2,np.inf]:
+        raise Exception('Only L2, L2, and inf norms are supported')
+
+    return np.linalg.norm((ngraph_output_flatten - tf_output_flatten), desired_norm)
 
 
 def parse_json():
@@ -127,16 +129,16 @@ if __name__ == '__main__':
     np.random.seed(100)
     input_dimension = parameters["input_dimension"]
     random_input = np.random.rand(1, input_dimension)
+    
+    # Run the model on tensorflow
+    result_tf_graph = calculate_output(parameters, "CPU", random_input)
 
     # Run the model on ngraph
     result_ngraph = calculate_output(parameters, "NGRAPH", random_input)
 
-    # Run the model on tensorflow
-    result_tf_graph = calculate_output(parameters, "CPU", random_input)
-
-    l1_norm = calculate_norm(result_ngraph, result_tf_graph, 'l1_norm')
-    l2_norm = calculate_norm(result_ngraph, result_tf_graph, 'l2_norm')
-    inf_norm = calculate_norm(result_ngraph, result_tf_graph, 'inf_norm')
+    l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
+    l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
+    inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
     l1_norm_threshold = parameters["l1_norm_threshold"]
     l2_norm_threshold = parameters["l2_norm_threshold"]
