@@ -37,9 +37,18 @@ void AssignInputIntValues(Tensor& A, int maxval);
 void AssignInputValues(Tensor& A, float x);
 void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index
 void AssignInputValuesRandom(Tensor& A);
-void AssignInputValuesFromVector(Tensor& A, vector<int> x);
 void PrintTensor(const Tensor& T1);
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
+
+template <typename T>
+void AssignInputValuesFromVector(Tensor& A, vector<T> x) {
+  auto A_flat = A.flat<float>();
+  auto A_flat_data = A_flat.data();
+  assert(A_flat.size()==x.size());
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat_data[i] = x[i];
+  }
+}
 
 }  // namespace ngraph_bridge
 
