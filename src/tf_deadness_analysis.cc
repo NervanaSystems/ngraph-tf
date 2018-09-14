@@ -23,6 +23,8 @@ Github Permanent Link
 https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdfef9e78/tensorflow/compiler/jit/deadness_analysis.cc
 
 *******************************************************************************/
+#include "ngraph_version_utils.h"
+#if (TF_VERSION_GEQ_1_11)
 
 #include "tf_deadness_analysis.h"
 #include "tensorflow/core/graph/algorithm.h"
@@ -473,3 +475,5 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
   return Status::OK();
 }
 }  // namespace tensorflow
+
+#endif // TF_VERSION_GEQ(1,11)

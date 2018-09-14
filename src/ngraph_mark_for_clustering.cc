@@ -15,6 +15,7 @@
  *******************************************************************************/
 
 #include "ngraph_api.h"
+#include "ngraph_version_utils.h"
 #include "ngraph_utils.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tf_deadness_analysis.h"
@@ -46,7 +47,11 @@ namespace ngraph_bridge {
 //
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
+
+#if (TF_VERSION_GEQ_1_11)
 std::unique_ptr<DeadnessAnalysis> deadness;
+#endif
+
 //
 // Utility function to check if placement on the NGRAPH device has been
 // requested.
@@ -69,6 +74,7 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
 // the right.
 static ConfirmationFunction SimpleConfirmationFunction(
     const std::vector<int32>& static_input_indices = {}) {
+  #if (TF_VERSION_GEQ_1_11)
   auto cf = [static_input_indices, deadness](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
@@ -76,6 +82,7 @@ static ConfirmationFunction SimpleConfirmationFunction(
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
 
     SetStaticInputs(n, indices);
+
     auto check = deadness->HasInputsWithMismatchingDeadness(*n);
      NGRAPH_VLOG(5) << n->name()
                        << (check ? " Mismatching deadness found "
@@ -83,6 +90,18 @@ static ConfirmationFunction SimpleConfirmationFunction(
     *result = !(n->IsMerge() || deadness->HasInputsWithMismatchingDeadness(*n));
     return Status::OK();
   };
+  #else
+  auto cf = [static_input_indices](Node* n, bool* result) {
+    // Adjust negative input indices.
+    auto indices = static_input_indices;
+    std::transform(indices.begin(), indices.end(), indices.begin(),
+                   [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
+    SetStaticInputs(n, indices);
+    *result = true;
+    return Status::OK();
+  };
+  #endif //TF_VERSION_GEQ_1_11
+
   return cf;
 };
 
@@ -102,7 +121,9 @@ Status MarkForClustering(Graph* graph) {
     return Status::OK();
   }
 
-  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
+  #if(TF_VERSION_GEQ_1_11)
+    TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
+  #endif
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:

@@ -26,7 +26,9 @@ https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdf
 
 #ifndef TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #define TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#include "ngraph_version_utils.h"
 
+#if (TF_VERSION_GEQ_1_11)
 #include "tensorflow/core/graph/graph.h"
 
 namespace tensorflow {
@@ -73,5 +75,7 @@ class DeadnessAnalysis {
 };
 
 }  // namespace tensorflow
+
+#endif // TF_VERSION_GEQ(1,11)
 
 #endif  // TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
