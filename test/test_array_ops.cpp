@@ -51,7 +51,36 @@ namespace testing {
 // Neither TestCaseName nor TestName should contain underscore
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
+// Please ensure the alphabetical order while adding the test functions
 
+// Test op: ExpandDims, inserts a dimension of 1 into a tensor's shape
+TEST(ArrayOps, ExpandDims) {
+  Scope root = Scope::NewRootScope();
+
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  // axis at which the dimension will be inserted
+  // should be -rank-1 <= axis <= rank
+  auto axis = 0;
+
+  vector<int> static_input_indexes = {1};
+  auto R = ops::ExpandDims(root, A, axis);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "ExpandDims", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+
+}  // end of test op ExpandDims
+
+// Test op: PreventGradient
 TEST(ArrayOps, PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();
 
