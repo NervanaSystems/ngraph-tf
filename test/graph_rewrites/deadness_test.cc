@@ -22,7 +22,7 @@ the deadness analysis found in the below revision
 Github repository: https://github.com/tensorflow/tensorflow
 Revision: 6619dd5fdcad02f087f5758083e2585bdfef9e78
 
-Quoted from the commit message ** 
+Quoted from the commit message **
 TensorFlow allows nodes to have some live inputs and some dead inputs.  The
 executor does not execute these nodes but instead propagates a dead signal to
 all their outputs (i.e. these nodes are treated as fully dead).
@@ -99,9 +99,11 @@ TEST(DeadnessCheck, livedead1NGRAPH) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_NE(session.Run(
-      {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-      {M, D}, &outputs), Status::OK());
+  ASSERT_NE(
+      session.Run(
+          {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
+          {M, D}, &outputs),
+      Status::OK());
 }
 
 TEST(DeadnessCheck, livedead1TF) {
@@ -125,9 +127,11 @@ TEST(DeadnessCheck, livedead1TF) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_NE(session.Run(
-      {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-      {M, D}, &outputs), Status::OK());
+  ASSERT_NE(
+      session.Run(
+          {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
+          {M, D}, &outputs),
+      Status::OK());
 }
 
 }  // namespace testing

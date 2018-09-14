@@ -15,8 +15,8 @@
  *******************************************************************************/
 
 #include "ngraph_api.h"
-#include "ngraph_version_utils.h"
 #include "ngraph_utils.h"
+#include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tf_deadness_analysis.h"
 
@@ -74,7 +74,7 @@ static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
 // the right.
 static ConfirmationFunction SimpleConfirmationFunction(
     const std::vector<int32>& static_input_indices = {}) {
-  #if (TF_VERSION_GEQ_1_11)
+#if (TF_VERSION_GEQ_1_11)
   auto cf = [static_input_indices, deadness](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
@@ -84,13 +84,12 @@ static ConfirmationFunction SimpleConfirmationFunction(
     SetStaticInputs(n, indices);
 
     auto check = deadness->HasInputsWithMismatchingDeadness(*n);
-     NGRAPH_VLOG(5) << n->name()
-                       << (check ? " Mismatching deadness found "
-        : " No mismatching deadness found");
+    NGRAPH_VLOG(5) << n->name() << (check ? " Mismatching deadness found "
+                                          : " No mismatching deadness found");
     *result = !(n->IsMerge() || deadness->HasInputsWithMismatchingDeadness(*n));
     return Status::OK();
   };
-  #else
+#else
   auto cf = [static_input_indices](Node* n, bool* result) {
     // Adjust negative input indices.
     auto indices = static_input_indices;
@@ -100,7 +99,7 @@ static ConfirmationFunction SimpleConfirmationFunction(
     *result = true;
     return Status::OK();
   };
-  #endif //TF_VERSION_GEQ_1_11
+#endif  // TF_VERSION_GEQ_1_11
 
   return cf;
 };
@@ -121,9 +120,9 @@ Status MarkForClustering(Graph* graph) {
     return Status::OK();
   }
 
-  #if(TF_VERSION_GEQ_1_11)
-    TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
-  #endif
+#if (TF_VERSION_GEQ_1_11)
+  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness));
+#endif
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:

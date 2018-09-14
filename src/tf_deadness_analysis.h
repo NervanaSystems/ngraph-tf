@@ -24,15 +24,15 @@ https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdf
 
 *******************************************************************************/
 
-#ifndef TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
-#define TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #include "ngraph_version_utils.h"
 
 #if (TF_VERSION_GEQ_1_11)
+#ifndef TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#define TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #include "tensorflow/core/graph/graph.h"
 
 namespace tensorflow {
- // This analyzes a TensorFlow graph to identify nodes which may have partially
+// This analyzes a TensorFlow graph to identify nodes which may have partially
 // dead inputs (i.e. these nodes may have some dead inputs and some alive
 // inputs).
 //
@@ -63,12 +63,12 @@ class DeadnessAnalysis {
   //
   // REQUIRES: node is not a Merge operation.
   virtual bool HasInputsWithMismatchingDeadness(const Node& node) = 0;
-  
-   // Prints out the internal state of this instance.  For debugging purposes
+
+  // Prints out the internal state of this instance.  For debugging purposes
   // only.
   virtual void Print() const = 0;
   virtual ~DeadnessAnalysis();
-   // Run the deadness analysis over `graph` and returns an error or a populated
+  // Run the deadness analysis over `graph` and returns an error or a populated
   // instance of DeadnessAnalysis in `result`.
   static Status Run(const Graph& graph,
                     std::unique_ptr<DeadnessAnalysis>* result);
@@ -76,6 +76,5 @@ class DeadnessAnalysis {
 
 }  // namespace tensorflow
 
-#endif // TF_VERSION_GEQ(1,11)
-
 #endif  // TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#endif  // TF_VERSION_GEQ(1,11)

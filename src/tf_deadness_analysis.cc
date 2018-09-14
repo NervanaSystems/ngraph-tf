@@ -26,11 +26,11 @@ https://github.com/tensorflow/tensorflow/blob/6619dd5fdcad02f087f5758083e2585bdf
 #include "ngraph_version_utils.h"
 #if (TF_VERSION_GEQ_1_11)
 
-#include "tf_deadness_analysis.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/tensor_id.h"
 #include "tensorflow/core/lib/gtl/flatset.h"
 #include "tensorflow/core/lib/hash/hash.h"
+#include "tf_deadness_analysis.h"
 
 // ALGORITHM OVERVIEW
 //
@@ -367,10 +367,11 @@ Status DeadnessAnalysisImpl::HandleMerge(Node* n) {
         return !e->IsControlEdge() && e->src()->IsNextIteration();
       });
   Predicate* input_data_pred =
-      has_backedge ? predicate_factory_.MakeSymbolPredicate(
-                         TensorId(n->name(), 0), /*must_be_true=*/false)
-                   : predicate_factory_.MakeOrPredicate(
-                         GetIncomingPreds(n, EdgeKind::kDataOnly));
+      has_backedge
+          ? predicate_factory_.MakeSymbolPredicate(TensorId(n->name(), 0),
+                                                   /*must_be_true=*/false)
+          : predicate_factory_.MakeOrPredicate(
+                GetIncomingPreds(n, EdgeKind::kDataOnly));
   SetPred(n, {0, 1, Graph::kControlSlot}, input_data_pred);
   return Status::OK();
 }
@@ -476,4 +477,4 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
 }
 }  // namespace tensorflow
 
-#endif // TF_VERSION_GEQ(1,11)
+#endif  // TF_VERSION_GEQ(1,11)
