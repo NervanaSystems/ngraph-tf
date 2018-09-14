@@ -82,7 +82,7 @@ TEST(ArrayOps, PreventGradient) {
 }  // end of op PreventGradient
 
 // Test op: Shape, outputs the shape of a tensor
-TEST(ArrayOps, Shape) {
+TEST(ArrayOps, Shape2D) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
@@ -101,7 +101,29 @@ TEST(ArrayOps, Shape) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-}  // end of op Shape
+}  // end of op Shape2D
+
+TEST(ArrayOps, Shape3D) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  int dim3 = 4;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+
+  AssignInputValues(A, 7.5f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Shape(root, A);
+
+  vector<DataType> output_datatypes = {DT_INT32};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Shape", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of op Shape3D
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {

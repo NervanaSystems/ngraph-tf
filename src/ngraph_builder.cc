@@ -2033,7 +2033,8 @@ static Status TranslateShapeOp(
 
   // the inputs to the Constant Op
   // type
-  auto type = Builder::TF_NGRAPH_TYPE_MAP().at(DataType::DT_INT32);
+  ng::element::Type type;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(DataType::DT_INT32, &type));
 
   // shape
   auto shape = ng::Shape(1, rank);
