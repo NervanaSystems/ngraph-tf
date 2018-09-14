@@ -158,7 +158,7 @@ TEST(ArrayOps, Unpack) {
 }  // end of testing Unpack
 
 TEST(ArrayOps, Fill) {
-  std::vector<std::vector<int64>> input_sizes;  // 1-D or higher
+  std::vector<std::vector<int>> input_sizes;  // 1-D or higher
 
   input_sizes.push_back({2, 3, 4});
   input_sizes.push_back({10, 10, 10});
@@ -173,7 +173,7 @@ TEST(ArrayOps, Fill) {
 
     int input_dim = input_size.size();
     Tensor shape(DT_INT32, TensorShape({input_dim}));
-    AssignInputIntValues(shape, 5);
+    AssignInputValuesFromVector(shape, input_size);
 
     // 0-D(scalar) value to fill the returned tensor
     Tensor input_data(DT_FLOAT, TensorShape({}));

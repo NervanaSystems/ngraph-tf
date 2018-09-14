@@ -17,6 +17,8 @@
 #include "test_utilities.h"
 #include <cstdlib>
 #include <ctime>
+#include <assert.h>
+#include <cassert>
 
 using namespace std;
 
@@ -92,6 +94,16 @@ void AssignInputValuesRandom(Tensor& A) {
         roundf(value * 100) / 100.0;  // change the precision of the float to
                                       // 2 number after the decimal
     A_flat_data[i] = value;
+  }
+}
+
+//template <typename T>
+void AssignInputValuesFromVector(Tensor& A, vector<int> x) {
+  auto A_flat = A.flat<float>();
+  auto A_flat_data = A_flat.data();
+  assert(A_flat.size()==x.size());
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat_data[i] = x[i];
   }
 }
 
