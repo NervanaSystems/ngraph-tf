@@ -15,10 +15,10 @@
  *******************************************************************************/
 
 #include "test_utilities.h"
-#include <cstdlib>
-#include <ctime>
 #include <assert.h>
 #include <cassert>
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
