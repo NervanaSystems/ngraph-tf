@@ -47,7 +47,9 @@ namespace ngraph_bridge {
 //
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
-using TypeConstraintMap = std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>;
+using TypeConstraintMap =
+    std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>;
+
 // Different Checks before we mark for clustering
 //
 // Utility function to check if placement on the NGRAPH device has been
@@ -55,22 +57,27 @@ using TypeConstraintMap = std::map<std::string, std::map<std::string, gtl::Array
 //
 // FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
 //
-static Status NGraphPlacementRequested(const Node* node, bool& placement_ok) {
-   placement_ok =true;
-   return Status::OK(); 
+static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
+  placement_ok = true;
+  return Status::OK();
 }
 
 #if (TF_VERSION_GEQ_1_11)
 // Checks if the node's inputs have mismatching deadness
-static Status DeadnessOk(const Node* node, std::unique_ptr<DeadnessAnalysis>* deadness_analyzer, bool& deadness_ok){
-  deadness_ok = !(node->IsMerge() ||
-                (*deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
+static Status DeadnessOk(Node* node,
+                         std::unique_ptr<DeadnessAnalysis>* deadness_analyzer,
+                         bool& deadness_ok) {
+  deadness_ok =
+      !(node->IsMerge() ||
+        (*deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
   return Status::OK();
 }
 #endif
 
 // Checks if the node's inputs meet all the type constraints
-static Status TypeConstraintOk(const Node* node, TypeConstraintMap& type_constraint_map, bool& type_constraints_ok){
+static Status TypeConstraintOk(Node* node,
+                               TypeConstraintMap& type_constraint_map,
+                               bool& type_constraints_ok) {
   type_constraints_ok = true;
   for (auto& name_and_set : type_constraint_map[node->type_string()]) {
     auto& type_attr_name = name_and_set.first;
@@ -89,7 +96,10 @@ static Status TypeConstraintOk(const Node* node, TypeConstraintMap& type_constra
 }
 
 // Checks if the node's inputs meets the confirmation constraints
-static Status ConfirmationOk(Node* node, std::map<std::string, ConfirmationFunction>& confirmation_functions, bool& confirmation_ok){
+static Status ConfirmationOk(
+    Node* node,
+    std::map<std::string, ConfirmationFunction>& confirmation_functions,
+    bool& confirmation_ok) {
   auto it = confirmation_functions.find(node->type_string());
 
   if (it != confirmation_functions.end()) {
@@ -97,7 +107,6 @@ static Status ConfirmationOk(Node* node, std::map<std::string, ConfirmationFunct
   }
   return Status::OK();
 }
-
 
 //
 // Marks the input indices in "inputs" as static, i.e., inputs that must be
@@ -124,7 +133,6 @@ static ConfirmationFunction SimpleConfirmationFunction(
   };
   return cf;
 };
-
 
 //
 // Main entry point for the marking pass.
@@ -383,68 +391,73 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
-  // If TF Version >= 1.11 do deadness analysis on the node
-  #if (TF_VERSION_GEQ_1_11)
-    std::unique_ptr<DeadnessAnalysis> deadness_analyzer;  
-    TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
-  #endif
+// If TF Version >= 1.11 do deadness analysis on the node
+#if (TF_VERSION_GEQ_1_11)
+  std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
+  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
+#endif
 
   for (auto node : graph->op_nodes()) {
-    bool mark_for_clustering=false;
+    bool mark_for_clustering = false;
 
-    do{
+    do {
       // check placement
-      bool placement_ok=false;
+      bool placement_ok = false;
       TF_RETURN_IF_ERROR(NGraphPlacementRequested(node, placement_ok));
-      if(!placement_ok){
-        NGRAPH_VLOG(5) << "Placement not requested " <<node->name();
+      if (!placement_ok) {
+        NGRAPH_VLOG(5) << "Placement not requested: " << node->name();
         break;
       }
 
-      #if (TF_VERSION_GEQ_1_11)
-      //check deadness
-      bool deadness_ok=false;
+#if (TF_VERSION_GEQ_1_11)
+      // check deadness
+      bool deadness_ok = false;
       TF_RETURN_IF_ERROR(DeadnessOk(node, &deadness_analyzer, deadness_ok));
-      if(!deadness_ok){
-        NGRAPH_VLOG(5)<< "Node Inputs have mismatching deadness or Node is of type Merge "<< node->name() ;
+      if (!deadness_ok) {
+        NGRAPH_VLOG(5) << "Node Inputs have mismatching deadness or Node is of "
+                          "type Merge: "
+                       << node->name();
         break;
       }
-      #endif
+#endif
 
       // check input type constraints
-      bool type_constraint_ok=false;
-      TF_RETURN_IF_ERROR(TypeConstraintOk(node, type_constraint_map ,type_constraint_ok)); 
-      if(!type_constraint_ok){
-        NGRAPH_VLOG(5)<< "Inputs do not meet type constraints "<<node->name();
+      bool type_constraint_ok = false;
+      TF_RETURN_IF_ERROR(
+          TypeConstraintOk(node, type_constraint_map, type_constraint_ok));
+      if (!type_constraint_ok) {
+        NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
+                       << node->name();
         break;
       }
 
       // check node's confirmation constraints
-      bool confirmation_constraint_ok=false;
-      TF_RETURN_IF_ERROR(ConfirmationOk(node, confirmation_functions, confirmation_constraint_ok)); 
-      if(!confirmation_constraint_ok){
-        NGRAPH_VLOG(5)<< "Node does not meet confirmation constraints "<<node->name();
+      bool confirmation_constraint_ok = false;
+      TF_RETURN_IF_ERROR(ConfirmationOk(node, confirmation_functions,
+                                        confirmation_constraint_ok));
+      if (!confirmation_constraint_ok) {
+        NGRAPH_VLOG(5) << "Node does not meet confirmation constraints: "
+                       << node->name();
         break;
       }
 
-      //if all constraints are met, mark for clustering
-      mark_for_clustering=true;
-    }while(false);
-    
+      // if all constraints are met, mark for clustering
+      mark_for_clustering = true;
+    } while (false);
 
     // Set the _ngraph_marked_for_clustering attribute if all constraints
     // are satisfied
     if (mark_for_clustering) {
       NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
-                      << node->type_string() << "]";
+                     << node->type_string() << "]";
       // TODO(amprocte): move attr name to a constant
       node->AddAttr("_ngraph_marked_for_clustering", true);
     } else {
       NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
-                      << node->type_string() << "]";
+                     << node->type_string() << "]";
     }
   }
-  
+
   return Status::OK();
 }
 

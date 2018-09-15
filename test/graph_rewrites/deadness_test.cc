@@ -99,7 +99,7 @@ TEST(DeadnessCheck, livedead1NGRAPH) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_EQ(
+  ASSERT_NE(
       session.Run(
           {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
           {M, D}, &outputs),
@@ -127,7 +127,7 @@ TEST(DeadnessCheck, livedead1TF) {
   std::vector<Tensor> outputs;
   ClientSession session(root);
 
-  ASSERT_EQ(
+  ASSERT_NE(
       session.Run(
           {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
           {M, D}, &outputs),
