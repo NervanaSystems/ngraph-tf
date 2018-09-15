@@ -95,7 +95,7 @@ static Status TypeConstraintOk(Node* node,
   return Status::OK();
 }
 
-// Checks if the node's inputs meets the confirmation constraints
+// Checks if the node meets the confirmation constraints
 static Status ConfirmationOk(
     Node* node,
     std::map<std::string, ConfirmationFunction>& confirmation_functions,
