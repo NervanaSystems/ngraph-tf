@@ -62,9 +62,9 @@ static Status NGraphPlacementRequested(const Node* node, bool& placement_ok) {
 
 #if (TF_VERSION_GEQ_1_11)
 // Checks if the node's inputs have mismatching deadness
-static Status DeadnessOk(const Node* node, const std::unique_ptr<DeadnessAnalysis> deadness_analyzer, bool& deadness_ok){
+static Status DeadnessOk(const Node* node, std::unique_ptr<DeadnessAnalysis>* deadness_analyzer, bool& deadness_ok){
   deadness_ok = !(node->IsMerge() ||
-                deadness_analyser->HasInputsWithMismatchingDeadness(*node));
+                (*deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
   return Status::OK();
 }
 #endif
@@ -89,7 +89,7 @@ static Status TypeConstraintOk(const Node* node, TypeConstraintMap& type_constra
 }
 
 // Checks if the node's inputs meets the confirmation constraints
-static Status ConfirmationOk(const Node* node, std::map<std::string, ConfirmationFunction>& confirmation_functions, bool& confirmation_ok){
+static Status ConfirmationOk(Node* node, std::map<std::string, ConfirmationFunction>& confirmation_functions, bool& confirmation_ok){
   auto it = confirmation_functions.find(node->type_string());
 
   if (it != confirmation_functions.end()) {
@@ -385,8 +385,8 @@ Status MarkForClustering(Graph* graph) {
 
   // If TF Version >= 1.11 do deadness analysis on the node
   #if (TF_VERSION_GEQ_1_11)
-    std::unique_ptr<DeadnessAnalysis> deadness_analyser;  
-    TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &s_deadness_analyser));
+    std::unique_ptr<DeadnessAnalysis> deadness_analyzer;  
+    TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
   #endif
 
   for (auto node : graph->op_nodes()) {
@@ -397,16 +397,16 @@ Status MarkForClustering(Graph* graph) {
       bool placement_ok=false;
       TF_RETURN_IF_ERROR(NGraphPlacementRequested(node, placement_ok));
       if(!placement_ok){
-        NGRAPH_VLOG(5) << "Placement not requested " << <<node->name();
+        NGRAPH_VLOG(5) << "Placement not requested " <<node->name();
         break;
       }
 
       #if (TF_VERSION_GEQ_1_11)
       //check deadness
       bool deadness_ok=false;
-      TF_RETURN_IF_ERROR(CheckDeadnessOk(node, deadness_analyser, deadness_ok));
+      TF_RETURN_IF_ERROR(DeadnessOk(node, &deadness_analyzer, deadness_ok));
       if(!deadness_ok){
-        NGRAPH_VLOG(5)<< "Inputs have mismatching deadness or Merge Node"<< node->Name() ;
+        NGRAPH_VLOG(5)<< "Node Inputs have mismatching deadness or Node is of type Merge "<< node->name() ;
         break;
       }
       #endif
@@ -415,21 +415,21 @@ Status MarkForClustering(Graph* graph) {
       bool type_constraint_ok=false;
       TF_RETURN_IF_ERROR(TypeConstraintOk(node, type_constraint_map ,type_constraint_ok)); 
       if(!type_constraint_ok){
-        NGRAPH_VLOG(5)<< "Inputs do not meet type constraints"<<node->Name();
+        NGRAPH_VLOG(5)<< "Inputs do not meet type constraints "<<node->name();
         break;
       }
 
       // check node's confirmation constraints
       bool confirmation_constraint_ok=false;
-      TF_RETURN_IF_ERROR(TypeConstraintOk(node, confirmation_functions, confirmation_constraint_ok)); 
+      TF_RETURN_IF_ERROR(ConfirmationOk(node, confirmation_functions, confirmation_constraint_ok)); 
       if(!confirmation_constraint_ok){
-        NGRAPH_VLOG(5)<< "Node does not meet confirmation constraint"<<node->Name();
+        NGRAPH_VLOG(5)<< "Node does not meet confirmation constraints "<<node->name();
         break;
       }
 
       //if all constraints are met, mark for clustering
       mark_for_clustering=true;
-    }while(false)
+    }while(false);
     
 
     // Set the _ngraph_marked_for_clustering attribute if all constraints
@@ -445,7 +445,6 @@ Status MarkForClustering(Graph* graph) {
     }
   }
   
-
   return Status::OK();
 }
 
