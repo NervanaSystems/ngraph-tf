@@ -5,7 +5,6 @@ import ngraph
 import json
 import os
 
-
 def calculate_output(param_dict, select_device, input_example):
     """Calculate the output of the imported frozen graph given the input.
 
@@ -23,6 +22,10 @@ def calculate_output(param_dict, select_device, input_example):
     frozen_graph_filename = param_dict["frozen_graph_location"]
     input_tensor_name = param_dict["input_tensor_name"]
     output_tensor_name = param_dict["output_tensor_name"]
+
+    if not tf.gfile.Exists(frozen_graph_filename):
+        raise Exception("Input graph file '" +
+                        frozen_graph_filename + "' does not exist!")
 
     with tf.gfile.GFile(frozen_graph_filename, "rb") as f:
         graph_def = tf.GraphDef()
@@ -106,6 +109,8 @@ def parse_json():
         inf_norm_threshold = parsed_json['inf_norm_threshold']
         input_dimension = parsed_json['input_dimension']
 
+        print ("dim is ", input_dimension)
+
         param_dict["frozen_graph_location"] = frozen_graph_location
         param_dict["input_tensor_name"] = input_tensor_name
         param_dict["output_tensor_name"] = output_tensor_name
@@ -128,7 +133,8 @@ if __name__ == '__main__':
     # Generate random input based on input_dimension
     np.random.seed(100)
     input_dimension = parameters["input_dimension"]
-    random_input = np.random.rand(1, input_dimension)
+    
+    random_input = np.random.random_sample(tuple([1] + input_dimension))
     
     # Run the model on tensorflow
     result_tf_graph = calculate_output(parameters, "CPU", random_input)
