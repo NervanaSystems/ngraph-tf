@@ -463,7 +463,7 @@ void DeadnessAnalysisImpl::Print() const {
 DeadnessAnalysis::~DeadnessAnalysis() {}
 /*static*/ Status DeadnessAnalysis::Run(
     const Graph& graph, std::unique_ptr<DeadnessAnalysis>* result) {
-  NGRAPH_VLOG(5)<<"** In deadness Run ";
+  std::cout << "** In deadness Run ";
   std::unique_ptr<DeadnessAnalysisImpl> analysis(
       new DeadnessAnalysisImpl(&graph));
   TF_RETURN_IF_ERROR(analysis->Populate());
