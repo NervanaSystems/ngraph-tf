@@ -3,7 +3,6 @@
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
@@ -12,6 +11,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+/*******************************************************************************
+
+This file is a copy of
+Github repository: https://github.com/tensorflow/tensorflow
+Revision: a768f270c15ded657c30fe9ef873251de3556e58
+File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.cc
+
+*******************************************************************************/
 
 // GraphCycles provides incremental cycle detection on a dynamic
 // graph using the following algorithm:
@@ -354,6 +361,16 @@ bool GraphCycles::IsReachableNonConst(int32 x, int32 y) {
   return reachable;
 }
 
+bool GraphCycles::CanContractEdge(int32 a, int32 b) {
+  CHECK(HasEdge(a, b)) << "No edge exists from " << a << " to " << b;
+  RemoveEdge(a, b);
+  bool reachable = IsReachableNonConst(a, b);
+  // Restore the graph to its original state.
+  InsertEdge(a, b);
+  // If reachable, then contracting edge will cause cycle.
+  return !reachable;
+}
+
 bool GraphCycles::ContractEdge(int32 a, int32 b) {
   CHECK(HasEdge(a, b));
   RemoveEdge(a, b);
@@ -386,6 +403,10 @@ bool GraphCycles::ContractEdge(int32 a, int32 b) {
 
 std::unordered_set<int32> GraphCycles::Successors(int32 node) {
   return rep_->nodes_[node]->out;
+}
+
+std::unordered_set<int32> GraphCycles::Predecessors(int32 node) {
+  return rep_->nodes_[node]->in;
 }
 
 }  // namespace tensorflow

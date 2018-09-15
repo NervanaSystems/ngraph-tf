@@ -1,20 +1,25 @@
 /* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+/*******************************************************************************
 
-#ifndef NGRAPH_TF_GRAPHCYCLES_H_
-#define NGRAPH_TF_GRAPHCYCLES_H_
+This file is a copy of
+Github repository: https://github.com/tensorflow/tensorflow
+Revision: a768f270c15ded657c30fe9ef873251de3556e58
+File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.h
+
+*******************************************************************************/
+
+#ifndef TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+#define TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
 
 // GraphCycles detects the introduction of a cycle into a directed
 // graph that is being built up incrementally.
@@ -85,6 +90,9 @@ class GraphCycles {
   // and returns false.
   bool ContractEdge(int32 a, int32 b);
 
+  // Return true if can contract edge, otherwise return false.
+  bool CanContractEdge(int32 a, int32 b);
+
   // Return whether dest_node is reachable from source_node
   // by following edges.
   bool IsReachable(int32 source_node, int32 dest_node) const;
@@ -115,6 +123,7 @@ class GraphCycles {
   bool CheckInvariants() const;
 
   std::unordered_set<int32> Successors(int32 node);
+  std::unordered_set<int32> Predecessors(int32 node);
 
   // ----------------------------------------------------
   struct Rep;
@@ -125,4 +134,4 @@ class GraphCycles {
 };
 
 }  // namespace tensorflow
-#endif  // NGRAPH_TF_GRAPHCYCLES_GRAPHCYCLES_H_
+#endif  // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
