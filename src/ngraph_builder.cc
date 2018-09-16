@@ -1261,7 +1261,7 @@ static Status TranslateDequantizeOp(
 
   SaveNgOp(ng_op_map, op->name(),
             make_shared<ng::op::Convert>(
-                ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(DT_FLOAT)));
+                ng_input, ng::element::f32));
 
   return Status::OK();
 }
@@ -1933,7 +1933,7 @@ static Status TranslateQuantizeV2Op(
 
   SaveNgOp(ng_op_map, op->name(),
             make_shared<ng::op::Convert>(
-                ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(DT_INT32)));
+                ng_input, ng::element::i32));
 
   return Status::OK();
 }
