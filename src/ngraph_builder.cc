@@ -1269,8 +1269,8 @@ static Status TranslateDepthwiseConv2dNativeOp(
 static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
   SaveNgOp(ng_op_map, op->name(),
             make_shared<ng::op::Convert>(
@@ -1937,7 +1937,9 @@ static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  shared_ptr<ng::Node> ng_min;
+  shared_ptr<ng::Node> ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
   string mode = GetAttr<string>(op, "mode", "MIN_COMBINE");
   // Do things with the mode variable if needed
@@ -2789,7 +2791,7 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
-        {"QuantiveV2", TranslateQuantizeV2Op},
+        {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
         {"Relu", TranslateReluOp},
@@ -2826,6 +2828,7 @@ Status Builder::TranslateGraph(
   // We will visit ops in topological order.
   //
   // ought to be `const Node*`, but GetReversePostOrder doesn't use `const`
+
   vector<Node*> ordered;
   GetReversePostOrder(*input_graph, &ordered);
 
@@ -2855,7 +2858,6 @@ Status Builder::TranslateGraph(
       tf_ops.push_back(n);
     }
   }
-
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
   // vector of generated nGraph nodes.
@@ -2887,7 +2889,6 @@ Status Builder::TranslateGraph(
     SaveNgOp(ng_op_map, parm->name(), ng_param);
     ng_parameter_list[index] = ng_param;
   }
-
   //
   // Now create the nGraph ops from TensorFlow ops.
   //

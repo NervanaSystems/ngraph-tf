@@ -355,15 +355,12 @@ Status MarkForClustering(Graph* graph) {
         auto& type_attr_name = name_and_set.first;
         auto& allowed_types = name_and_set.second;
 
-        cout << node->type_string() << " " << type_attr_name << "\n";
-
         DataType dt;
 
         if (GetNodeAttr(node->attrs(), type_attr_name, &dt) != Status::OK() ||
             std::find(allowed_types.begin(), allowed_types.end(), dt) ==
                 allowed_types.end()) {
           type_constraints_ok = false;
-          cout << "type_constraints_ok is false\n";
           break;
         }
       }
@@ -383,12 +380,12 @@ Status MarkForClustering(Graph* graph) {
       // are satisfied and the confirmation function (if any) has returned
       // true.
       if (confirmed) {
-        cout << "Accepting: " << node->name() << "["
+        NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
                        << node->type_string() << "]";
         // TODO(amprocte): move attr name to a constant
         node->AddAttr("_ngraph_marked_for_clustering", true);
       } else {
-        cout << "Rejecting: " << node->name() << "["
+        NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
                        << node->type_string() << "]";
       }
     }
