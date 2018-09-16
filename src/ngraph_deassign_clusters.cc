@@ -51,7 +51,7 @@ namespace ngraph_bridge {
 // NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1.
 //
 
-static const int MIN_NONTRIVIAL_NODES = -1;
+static const int MIN_NONTRIVIAL_NODES = 2;
 
 static void MaybeLogPlacement(const Graph* graph) {
   if (!config::IsLoggingPlacement()) return;

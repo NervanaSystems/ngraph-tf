@@ -1260,8 +1260,7 @@ static Status TranslateDequantizeOp(
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
   SaveNgOp(ng_op_map, op->name(),
-            make_shared<ng::op::Convert>(
-                ng_input, ng::element::f32));
+           make_shared<ng::op::Convert>(ng_input, ng::element::f32));
 
   return Status::OK();
 }
@@ -1910,11 +1909,11 @@ static Status TranslateReciprocalOp(
 }
 
 template <typename T>
-static T GetAttr(const Node* op, const string& attr_name, T default_val){
+static T GetAttr(const Node* op, const string& attr_name, T default_val) {
   T var;
-  if (GetNodeAttr(op->attrs(), attr_name, &var) !=
-      Status::OK()) {
-    NGRAPH_VLOG(3) << attr_name << " attribute not present, setting to " << default_val;
+  if (GetNodeAttr(op->attrs(), attr_name, &var) != Status::OK()) {
+    NGRAPH_VLOG(3) << attr_name << " attribute not present, setting to "
+                   << default_val;
     var = default_val;
   }
   return var;
@@ -1932,8 +1931,7 @@ static Status TranslateQuantizeV2Op(
   // Do things with the mode variable if needed
 
   SaveNgOp(ng_op_map, op->name(),
-            make_shared<ng::op::Convert>(
-                ng_input, ng::element::i32));
+           make_shared<ng::op::Convert>(ng_input, ng::element::i32));
 
   return Status::OK();
 }
@@ -2845,6 +2843,7 @@ Status Builder::TranslateGraph(
       tf_ops.push_back(n);
     }
   }
+
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
   // vector of generated nGraph nodes.
@@ -2876,6 +2875,7 @@ Status Builder::TranslateGraph(
     SaveNgOp(ng_op_map, parm->name(), ng_param);
     ng_parameter_list[index] = ng_param;
   }
+
   //
   // Now create the nGraph ops from TensorFlow ops.
   //

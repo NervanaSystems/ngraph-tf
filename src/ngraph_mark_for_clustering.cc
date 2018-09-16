@@ -266,8 +266,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction({0});
       confirmation_functions["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
-      confirmation_functions["Dequantize"] =
-          SimpleConfirmationFunction();
+      confirmation_functions["Dequantize"] = SimpleConfirmationFunction();
       confirmation_functions["Equal"] = SimpleConfirmationFunction();
       confirmation_functions["Exp"] = SimpleConfirmationFunction();
       confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
