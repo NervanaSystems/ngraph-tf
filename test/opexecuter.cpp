@@ -320,7 +320,7 @@ void OpExecuter::ExecuteOnNGraph() {
   // For debug
   // Serialize to nGraph if needed
   if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
-    std::string file_name = "unit_test" + test_op_type_ + ".json";
+    std::string file_name = "unit_test_" + test_op_type_ + ".json";
     NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
     std::string js = ngraph::serialize(ng_function, 4);
     {
