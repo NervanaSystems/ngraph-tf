@@ -452,7 +452,6 @@ TEST(MathOps, BatchMatMul3DAdjX) {
 
   AssignInputValues(A, 2.0f);
   AssignInputValues(B, 7.0f);
-  AssignInputValues(B, 5.0f);
 
   vector<int> static_input_indexes = {};
 

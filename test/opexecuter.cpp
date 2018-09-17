@@ -294,6 +294,17 @@ void OpExecuter::ExecuteOnNGraph() {
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size());
 
+  // Serialize to nGraph if needed
+  if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
+    std::string file_name = test_op_type_ + ".json";
+    NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
+    std::string js = ngraph::serialize(ng_function, 4);
+    {
+      std::ofstream f(file_name);
+      f << js;
+    }
+  }
+
   // Create nGraph backend
   // Create the nGraph backend
   auto backend = ng::runtime::Backend::create("CPU");
