@@ -185,7 +185,9 @@ void OpExecuter::ExecuteOnNGraph() {
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
 
   // For debug
-  // GraphToPbTextFile(&graph, "tf_graph_" + test_op_type_ + ".pbtxt");
+  if (std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr) {
+    GraphToPbTextFile(&graph, "unit_test_tf_graph_" + test_op_type_ + ".pbtxt");
+  }
 
   ValidateGraph(graph, {"Const"});
 
@@ -299,8 +301,10 @@ void OpExecuter::ExecuteOnNGraph() {
     NGRAPH_VLOG(5) << "Edge between, Src: " << e->src()->name()
                    << " ,Dst: " << e->dst()->name();
   }
-  // For debug
-  // GraphToPbTextFile(&graph, "rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+  // For debug 
+  if (std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr) {
+    GraphToPbTextFile(&graph, "unit_test_rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+  }
 
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
@@ -311,6 +315,18 @@ void OpExecuter::ExecuteOnNGraph() {
 
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size());
+
+  // For debug
+  // Serialize to nGraph if needed
+  if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
+    std::string file_name = "unit_test" + test_op_type_ + ".json";
+    NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
+    std::string js = ngraph::serialize(ng_function, 4);
+    {
+      std::ofstream f(file_name);
+      f << js;
+    }
+  }
 
   // Create nGraph backend
   // Create the nGraph backend
