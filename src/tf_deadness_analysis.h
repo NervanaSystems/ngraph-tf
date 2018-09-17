@@ -24,11 +24,13 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.h
 #include "ngraph_version_utils.h"
 
 #if (TF_VERSION_GEQ_1_11)
-#ifndef TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
-#define TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#ifndef NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#define NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #include "tensorflow/core/graph/graph.h"
 
 namespace tensorflow {
+
+namespace ngraph_bridge {
 // This analyzes a TensorFlow graph to identify nodes which may have partially
 // dead inputs (i.e. these nodes may have some dead inputs and some alive
 // inputs).
@@ -71,7 +73,8 @@ class DeadnessAnalysis {
                     std::unique_ptr<DeadnessAnalysis>* result);
 };
 
+}  // namespace ngraph_bridge
 }  // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#endif  // NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #endif  // TF_VERSION_GEQ(1,11)
