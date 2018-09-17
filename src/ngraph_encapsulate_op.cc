@@ -37,6 +37,12 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
+//#define BUILDER1 // (un)comment this line to (de)activate old builder
+
+#ifdef BUILDER1
+#include "ngraph_builder1.h"
+#endif
+
 using namespace std;
 namespace ng = ngraph;
 
@@ -59,10 +65,19 @@ REGISTER_OP("NGraphEncapsulate")
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
 class NGraphEncapsulateOp : public OpKernel {
+#ifdef BUILDER1
+ private:
+  Builder1 ng_builder;
+#endif
  public:
   explicit NGraphEncapsulateOp(OpKernelConstruction* ctx)
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
+#ifdef BUILDER1
+        ng_builder(m_graph, ctx),  // TODO: does ng_builder get the correct
+                                   // graph before ConvertGraphDefToGraph is
+                                   // called?
+#endif
         m_freshness_tracker(nullptr) {
     GraphDef* graph_def;
 
@@ -73,6 +88,8 @@ class NGraphEncapsulateOp : public OpKernel {
     opts.allow_internal_ops = true;
     OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
 
+#ifndef BUILDER1
+    // TODO (sarkars): remove "m_input_is_static" etc from this constructor
     //
     // Initialize the "m_input_is_static" vector as follows:
     // (1) create m_input_is_static with n+1 elements, where n is the max arg
@@ -121,6 +138,7 @@ class NGraphEncapsulateOp : public OpKernel {
       NGRAPH_VLOG(5) << "Marking arg " << index << " is_static: " << is_static;
       m_input_is_static[index] = is_static;
     }
+#endif
 
     // Create the backend
     if (s_ng_backend == nullptr) {
@@ -238,11 +256,15 @@ class NGraphEncapsulateOp : public OpKernel {
 
     signature_ss << "/";
 
+#ifndef BUILDER1
     std::vector<const Tensor*> static_input_map(ctx->num_inputs());
+#endif
     for (int i = 0; i < ctx->num_inputs(); i++) {
       const Tensor& input_tensor = ctx->input(i);
       if (m_input_is_static[i]) {
+#ifndef BUILDER1
         static_input_map[i] = &input_tensor;
+#endif
         OP_REQUIRES_OK(ctx, TensorToStream(signature_ss, input_tensor));
         signature_ss << ";";
       }
@@ -265,9 +287,13 @@ class NGraphEncapsulateOp : public OpKernel {
     // TODO(amprocte): Investigate performance of the compilation cache.
     if (it == m_ng_functions.end()) {
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
+#ifndef BUILDER1
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
+#else
+      OP_REQUIRES_OK(ctx, ng_builder.TranslateGraph(ctx, ng_function));
+#endif
 
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {

@@ -30,6 +30,7 @@ set(SRC
    ngraph_api.cc
    ngraph_assign_clusters.cc
    ngraph_builder.cc
+   ngraph_builder1.cc
    ngraph_capture_variables.cc
    ngraph_cluster_manager.cc
    ngraph_deassign_clusters.cc
@@ -42,6 +43,7 @@ set(SRC
    ngraph_tracked_variable.cc
    ngraph_utils.cc
    tf_graphcycles.cc
+   ngraph_conversions.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})
