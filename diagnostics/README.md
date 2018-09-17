@@ -30,12 +30,12 @@ To get a **full** dump use the following set of flags
 
 ### Disable NGRAPH in python
 * In your script, import ngraph by having: ```import ngraph```
-* Disable the ngraph by calling: ```ngraph.disable()```
+* Disable ngraph by calling: ```ngraph.disable()```
 * Enable ngraph by calling: ```ngraph.enable()```
 * Checking whether ngraph is enabled by calling: ```ngraph.is_enabled()```
 * You need to enable ngraph every time you called ```ngraph.disable()```, so it is good to check 
 if ngraph is enabled by calling ```ngraph.is_enabled()```
-* For example usage, take a look at the ```verify_model.py```
+* For example usage, take a look at the ```model_test/verify_model.py``` in the diagnostics folder
 
 ## Debug flags
 * ```NGRAPH_ENABLE_SERIALIZE=1```: Generate nGraph level serialized graphs .json
