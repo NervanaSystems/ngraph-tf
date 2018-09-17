@@ -301,9 +301,10 @@ void OpExecuter::ExecuteOnNGraph() {
     NGRAPH_VLOG(5) << "Edge between, Src: " << e->src()->name()
                    << " ,Dst: " << e->dst()->name();
   }
-  // For debug 
+  // For debug
   if (std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr) {
-    GraphToPbTextFile(&graph, "unit_test_rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+    GraphToPbTextFile(&graph,
+                      "unit_test_rewrite_ngraph_" + test_op_type_ + ".pbtxt");
   }
 
   // Create nGraph function
