@@ -158,37 +158,37 @@ TEST(ArrayOps, Unpack) {
 }  // end of testing Unpack
 
 TEST(ArrayOps, Fill) {
+  std::vector<std::vector<int>> input_sizes;  // 1-D or higher
+
+  input_sizes.push_back({2, 3, 4});
+  input_sizes.push_back({10, 10, 10});
+  input_sizes.push_back({1, 5});
+  input_sizes.push_back({0});
+  input_sizes.push_back({2, 5, 1, 3, 1});
+
   vector<int> static_input_indexes = {0};  // has static input
 
-  Scope root1 = Scope::NewRootScope();
+  for (auto const& input_size : input_sizes) {
+    Scope root = Scope::NewRootScope();
 
-  // 0-D(scalar) value to fill the returned tensor
-  Tensor input_data(DT_FLOAT, TensorShape({}));
-  AssignInputValuesRandom(input_data);
+    int input_dim = input_size.size();
+    Tensor shape(DT_INT32, TensorShape({input_dim}));
+    AssignInputValuesFromVector<int>(shape, input_size);
 
-  vector<DataType> output_datatypes = {DT_FLOAT};
+    // 0-D(scalar) value to fill the returned tensor
+    Tensor input_data(DT_FLOAT, TensorShape({}));
+    AssignInputValuesRandom(input_data);
 
-  // Fill creates a tensor filled with scalar value
-  // 1-D shape of the output tensor
-  auto shape1 =
-      ops::Const(root1, {int32(2), int32(1), int32(3)}, TensorShape({3}));
-  auto R1 = ops::Fill(root1, shape1, input_data);
+    // Fill creates a tensor filled with scalar value
+    // 1-D shape of the output tensor
+    auto R = ops::Fill(root, shape, input_data);
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
 
-  std::vector<Output> sess_run_fetchoutputs1 = {R1};
-  OpExecuter opexecuter1(root1, "Fill", static_input_indexes, output_datatypes,
-                         sess_run_fetchoutputs1);
-  opexecuter1.RunTest();
-
-  Scope root2 = Scope::NewRootScope();
-  auto shape2 = ops::Const(root2, {int32(2), int32(1), int32(3), int32(1)},
-                           TensorShape({4}));
-  auto R2 = ops::Fill(root2, shape2, input_data);
-
-  std::vector<Output> sess_run_fetchoutputs2 = {R2};
-  OpExecuter opexecuter2(root2, "Fill", static_input_indexes, output_datatypes,
-                         sess_run_fetchoutputs2);
-
-  opexecuter2.RunTest();
+    OpExecuter opexecuter(root, "Fill", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+    opexecuter.RunTest();
+  }  // end of for loop
 }  // end of op Fill
 
 }  // namespace testing
