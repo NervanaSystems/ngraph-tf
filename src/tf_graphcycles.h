@@ -18,8 +18,8 @@ File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.h
 
 *******************************************************************************/
 
-#ifndef TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
-#define TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+#ifndef NGRAPH_TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+#define NGRAPH_TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
 
 // GraphCycles detects the introduction of a cycle into a directed
 // graph that is being built up incrementally.
@@ -49,6 +49,8 @@ File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.h
 #include "tensorflow/core/platform/types.h"
 
 namespace tensorflow {
+
+namespace ngraph_bridge {
 
 // NOTE!!!
 // For now a copy of this is forked to net/plaque. If you
@@ -133,5 +135,6 @@ class GraphCycles {
   TF_DISALLOW_COPY_AND_ASSIGN(GraphCycles);
 };
 
+} // namespace ngraph_bridge
 }  // namespace tensorflow
-#endif  // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+#endif  // NGRAPH_TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
