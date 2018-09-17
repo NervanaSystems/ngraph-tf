@@ -14,13 +14,12 @@ def calculate_output(param_dict, select_device, input_example):
     Args:
     param_dict: The dictionary contains all the user-input data in the json file.
     select_device: "NGRAPH" or "CPU".
-    input_example: Random generated input or actual image.
+    input_example: A map with key is the name of the input tensor, and value is the random generated example
 
     Returns:
         The output vector obtained from running the input_example through the graph.
     """
     frozen_graph_filename = param_dict["frozen_graph_location"]
-    input_tensor_name = param_dict["input_tensor_name"]
     output_tensor_name = param_dict["output_tensor_name"]
 
     if not tf.gfile.Exists(frozen_graph_filename):
@@ -40,8 +39,14 @@ def calculate_output(param_dict, select_device, input_example):
 
     with tf.Graph().as_default() as graph:
         tf.import_graph_def(graph_def)
+    
+    # Create the tensor to its corresponding example map
+    tensor_to_example_map = {}
+    for item in input_example:
+        t = graph.get_tensor_by_name(item)
+        tensor_to_example_map[t] = input_example[item]
 
-    input_placeholder = graph.get_tensor_by_name(input_tensor_name)
+    #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
     output_tensor = graph.get_tensor_by_name(output_tensor_name)
 
     config = tf.ConfigProto(
@@ -51,8 +56,7 @@ def calculate_output(param_dict, select_device, input_example):
     )
 
     with tf.Session(graph=graph, config=config) as sess:
-        output_tensor = sess.run(output_tensor, feed_dict={
-                                 input_placeholder: input_example})
+        output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
         return output_tensor
 
 
@@ -108,8 +112,7 @@ def parse_json():
         l2_norm_threshold = parsed_json['l2_norm_threshold']
         inf_norm_threshold = parsed_json['inf_norm_threshold']
         input_dimension = parsed_json['input_dimension']
-
-        print ("dim is ", input_dimension)
+        batch_size = parsed_json['batch_size']
 
         param_dict["frozen_graph_location"] = frozen_graph_location
         param_dict["input_tensor_name"] = input_tensor_name
@@ -118,6 +121,7 @@ def parse_json():
         param_dict["l2_norm_threshold"] = l2_norm_threshold
         param_dict["inf_norm_threshold"] = inf_norm_threshold
         param_dict["input_dimension"] = input_dimension
+        param_dict["batch_size"] = batch_size
 
         return param_dict
 
@@ -127,20 +131,26 @@ if __name__ == '__main__':
     parser.add_argument("--json_file", default="./mnist_cnn.json",
                         type=str, help="Model details in json format")
     args = parser.parse_args()
-
     parameters = parse_json()
 
     # Generate random input based on input_dimension
     np.random.seed(100)
     input_dimension = parameters["input_dimension"]
+    input_tensor_name = parameters["input_tensor_name"]
+    bs = int(parameters["batch_size"])
+  
+    assert len(input_dimension) == len(input_tensor_name), "input_tensor_name dimension should match input_dimension in json file"
     
-    random_input = np.random.random_sample(tuple([1] + input_dimension))
-    
-    # Run the model on tensorflow
-    result_tf_graph = calculate_output(parameters, "CPU", random_input)
+    # Matches the input tensors name with its required dimensions
+    input_tensor_dim_map = {}
+    for (dim, name) in zip(input_dimension,input_tensor_name):
+        random_input = np.random.random_sample([bs] + dim)
+        input_tensor_dim_map[name] = random_input
 
+    # Run the model on tensorflow
+    result_tf_graph = calculate_output(parameters, "CPU", input_tensor_dim_map)
     # Run the model on ngraph
-    result_ngraph = calculate_output(parameters, "NGRAPH", random_input)
+    result_ngraph = calculate_output(parameters, "NGRAPH", input_tensor_dim_map)
 
     l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
     l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
