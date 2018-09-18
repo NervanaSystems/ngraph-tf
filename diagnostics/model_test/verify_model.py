@@ -5,6 +5,7 @@ import ngraph
 import json
 import os
 
+
 def calculate_output(param_dict, select_device, input_example):
     """Calculate the output of the imported frozen graph given the input.
 
@@ -23,8 +24,8 @@ def calculate_output(param_dict, select_device, input_example):
     output_tensor_name = param_dict["output_tensor_name"]
 
     if not tf.gfile.Exists(frozen_graph_filename):
-        raise Exception("Input graph file '" +
-                        frozen_graph_filename + "' does not exist!")
+        raise Exception("Input graph file '" + frozen_graph_filename +
+                        "' does not exist!")
 
     with tf.gfile.GFile(frozen_graph_filename, "rb") as f:
         graph_def = tf.GraphDef()
@@ -39,7 +40,7 @@ def calculate_output(param_dict, select_device, input_example):
 
     with tf.Graph().as_default() as graph:
         tf.import_graph_def(graph_def)
-    
+
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
     for item in input_example:
@@ -52,8 +53,7 @@ def calculate_output(param_dict, select_device, input_example):
     config = tf.ConfigProto(
         allow_soft_placement=True,
         # log_device_placement=True,
-        inter_op_parallelism_threads=1
-    )
+        inter_op_parallelism_threads=1)
 
     with tf.Session(graph=graph, config=config) as sess:
         output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
@@ -71,12 +71,12 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
         desired_norm: L1/L2/inf norm. 
 
     Returns:
-        Calcualted norm between the vectors.
+        Calculated norm between the vectors.
 
     Raises:
         Exception: If the dimension of the two vectors mismatch.
     """
-    if(ngraph_output.shape != tf_output.shape):
+    if (ngraph_output.shape != tf_output.shape):
         raise Exception('ngraph output and tf output dimension mismatch')
 
     ngraph_output_squeezed = np.squeeze(ngraph_output)
@@ -87,10 +87,11 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
 
     factor = np.prod(ngraph_output_squeezed.shape)
 
-    if desired_norm not in [1,2,np.inf]:
+    if desired_norm not in [1, 2, np.inf]:
         raise Exception('Only L2, L2, and inf norms are supported')
 
-    return np.linalg.norm((ngraph_output_flatten - tf_output_flatten), desired_norm)
+    return np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
+                          desired_norm)
 
 
 def parse_json():
@@ -128,8 +129,11 @@ def parse_json():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--json_file", default="./mnist_cnn.json",
-                        type=str, help="Model details in json format")
+    parser.add_argument(
+        "--json_file",
+        default="./mnist_cnn.json",
+        type=str,
+        help="Model details in json format")
     args = parser.parse_args()
     parameters = parse_json()
 
@@ -138,12 +142,14 @@ if __name__ == '__main__':
     input_dimension = parameters["input_dimension"]
     input_tensor_name = parameters["input_tensor_name"]
     bs = int(parameters["batch_size"])
-  
-    assert len(input_dimension) == len(input_tensor_name), "input_tensor_name dimension should match input_dimension in json file"
-    
+
+    assert len(input_dimension) == len(
+        input_tensor_name
+    ), "input_tensor_name dimension should match input_dimension in json file"
+
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
-    for (dim, name) in zip(input_dimension,input_tensor_name):
+    for (dim, name) in zip(input_dimension, input_tensor_name):
         random_input = np.random.random_sample([bs] + dim)
         input_tensor_dim_map[name] = random_input
 
@@ -161,19 +167,19 @@ if __name__ == '__main__':
     inf_norm_threshold = parameters["inf_norm_threshold"]
 
     if l1_norm > l1_norm_threshold:
-        print ("The L1 norm %f is greater than the threshold %f " %
-               (l1_norm, l1_norm_threshold))
+        print("The L1 norm %f is greater than the threshold %f " %
+              (l1_norm, l1_norm_threshold))
     else:
-        print ("L1 norm test passed")
+        print("L1 norm test passed")
 
     if l2_norm > l2_norm_threshold:
-        print ("The L2 norm %f is greater than the threshold %f " %
-               (l2_norm, l2_norm_threshold))
+        print("The L2 norm %f is greater than the threshold %f " %
+              (l2_norm, l2_norm_threshold))
     else:
-        print ("L2 norm test passed")
+        print("L2 norm test passed")
 
     if inf_norm > inf_norm_threshold:
-        print ("The inf norm %f is greater than the threshold %f " %
-               (inf_norm, inf_norm_threshold))
+        print("The inf norm %f is greater than the threshold %f " %
+              (inf_norm, inf_norm_threshold))
     else:
-        print ("inf norm test passed")
+        print("inf norm test passed")
