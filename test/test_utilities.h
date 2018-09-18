@@ -51,6 +51,24 @@ void AssignInputValuesFromVector(Tensor& A, vector<T> x) {
   }
 }
 
+template <typename T>
+void AssignInputValuesRandom(Tensor& A, T min, T max) {
+  auto A_flat = A.flat<T>();
+  auto A_flat_data = A_flat.data();
+  srand(static_cast<unsigned>(time(0)));
+  for (int i = 0; i < A_flat.size(); i++) {
+    // give a number between 0 and max
+    T value =
+        static_cast<T>(rand()) / static_cast<T>(RAND_MAX / (max - min));
+    value = value + min;  // range from min to max
+    value =
+        roundf(value * 100) / 100.0;  // change the precision of the float to
+                                      // 2 number after the decimal
+    A_flat_data[i] = value;
+  }
+}
+
+
 template <class T>
 bool eq(T arg0, T arg1) {
   return arg0 == arg1;

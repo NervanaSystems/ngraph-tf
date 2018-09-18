@@ -68,7 +68,7 @@ void AssignInputValuesAnchor(Tensor& A, float x) {
   }
 }
 
-// Randomly generate a float number between -10.00 ~ 10.99
+//Randomly generate a float number between -10.00 ~ 10.99
 void AssignInputValuesRandom(Tensor& A) {
   auto A_flat = A.flat<float>();
   auto A_flat_data = A_flat.data();
@@ -84,6 +84,41 @@ void AssignInputValuesRandom(Tensor& A) {
     A_flat_data[i] = value;
   }
 }
+
+template <>
+void AssignInputValuesRandom(Tensor& A, int32_t min, int32_t max) {
+  auto A_flat = A.flat<int>();
+  auto A_flat_data = A_flat.data();
+  srand(static_cast<unsigned>(time(0)));
+  for (int i = 0; i < A_flat.size(); i++) {
+    // give a number between 0 and max
+    int32_t value =
+        static_cast<int32_t>(rand()) / static_cast<int32_t>(RAND_MAX / (int32_t)(max - min));
+    value = value + min;  // range from min to max
+    // value =
+    //     roundf(value * 100) / 100.0;  // change the precision of the float to
+    //                                   // 2 number after the decimal
+    A_flat_data[i] = value;
+  }
+}
+
+template <>
+void AssignInputValuesRandom(Tensor& A, int64_t min, int64_t max) {
+  auto A_flat = A.flat<int>();
+  auto A_flat_data = A_flat.data();
+  srand(static_cast<unsigned>(time(0)));
+  for (int i = 0; i < A_flat.size(); i++) {
+    // give a number between 0 and max
+    int64_t value =
+        static_cast<int64_t>(rand()) / static_cast<int64_t>(RAND_MAX / (int64_t)(max - min));
+    value = value + min;  // range from min to max
+    // value =
+    //     roundf(value * 100) / 100.0;  // change the precision of the float to
+    //                                   // 2 number after the decimal
+    A_flat_data[i] = value;
+  }
+}
+
 
 void PrintTensor(const Tensor& T1) {
   LOG(INFO) << "print tensor values" << T1.DebugString();
