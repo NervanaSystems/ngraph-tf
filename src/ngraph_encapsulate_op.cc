@@ -535,4 +535,5 @@ mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
                         ngraph_bridge::NGraphEncapsulateOp);
 
+
 }  // namespace tensorflow

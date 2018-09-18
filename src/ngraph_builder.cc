@@ -1919,6 +1919,74 @@ static T GetAttr(const Node* op, const string& attr_name, T default_val) {
   return var;
 }
 
+static Status TranslateQuantizedConv2DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  string mode = GetAttr<string>(op, "mode", "MIN_COMBINE");
+  // Do things with the mode variable if needed
+
+  shared_ptr<ng::Node> ng_input, ng_filter, ng_min, ng_max, ng_min_filter, ng_max_filter;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter, &ng_min, &ng_max, &ng_min_filter, &ng_max_filter));
+
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_dilations;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+    return errors::InvalidArgument(
+        "Conv2D data format is neither NHWC nor NCHW");
+  }
+
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_dilations);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(2);
+  ng::Strides ng_dilations(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
+  BatchToNGraph(is_nhwc, ng_input);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+  auto& ng_filter_shape = ng_filter->get_shape();
+  ng_kernel_shape[0] = ng_filter_shape[0];
+  ng_kernel_shape[1] = ng_filter_shape[1];
+  Reshape<3, 2, 0, 1>(ng_filter);
+
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::CoordinateDiff ng_padding_below{0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0};
+
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
+      ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
+      ng_padding_above);
+
+
+  BatchToTensorflow(is_nhwc, ng_conv);
+  SaveNgOp(ng_op_map, op->name(), ng_conv);
+  return Status::OK();
+}
+
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2806,6 +2874,7 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
+        {"QuantizedConv2D", TranslateQuantizedConv2DOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
