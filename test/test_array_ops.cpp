@@ -52,6 +52,8 @@ namespace testing {
 // https://github.com/google/googletest/blob/master/googletest/docs/primer.md
 // Use only Tensors and ops::Const() to provide input to the test op
 
+// PreventGradient op: an identity op that triggers an error if gradient is
+// requested
 TEST(ArrayOps, PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();
 
@@ -62,13 +64,13 @@ TEST(ArrayOps, PreventGradient) {
   input_sizes.push_back({1, 5});
   input_sizes.push_back({0});
 
-  vector<int> static_input_indexes = {};  // has static input
+  vector<int> static_input_indexes = {};
 
   for (auto const& input_size : input_sizes) {
     Scope root = Scope::NewRootScope();
 
     Tensor input_data(DT_FLOAT, TensorShape(input_size));
-    AssignInputValuesRandom(input_data);
+    AssignInputValuesRandom<float>(input_data, -10.0, 20.0f);
 
     auto R = ops::PreventGradient(root, input_data);
     vector<DataType> output_datatypes = {DT_FLOAT};
@@ -96,13 +98,13 @@ TEST(ArrayOps, Tile) {
     Scope root = Scope::NewRootScope();
 
     Tensor input_data(DT_FLOAT, TensorShape(input_size));
-    AssignInputValuesRandom(input_data);
+    AssignInputValuesRandom<float>(input_data, -5.0f, 10.0f);
 
     // Must be of type int32 or int64,
     // 1-D. Length must be the same as the number of dimensions in input
     int input_dim = input_size.size();
     Tensor multiples(DT_INT32, TensorShape({input_dim}));
-    AssignInputIntValues(multiples, 10);
+    AssignInputValuesRandom<int32>(multiples, 0, 20);
 
     auto R = ops::Tile(root, input_data, multiples);
     vector<DataType> output_datatypes = {DT_FLOAT};
@@ -131,7 +133,7 @@ TEST(ArrayOps, Unpack) {
     Scope root = Scope::NewRootScope();
 
     Tensor input_data(DT_FLOAT, TensorShape(input_sizes[i]));
-    AssignInputValuesRandom(input_data);
+    AssignInputValuesRandom<float>(input_data, -20, 50);
 
     ops::Unstack::Attrs attrs;
     attrs.axis_ = axes[i];
@@ -172,7 +174,7 @@ TEST(ArrayOps, Fill) {
 
     // 0-D(scalar) value to fill the returned tensor
     Tensor input_data(DT_FLOAT, TensorShape({}));
-    AssignInputValuesRandom(input_data);
+    AssignInputValuesRandom<float>(input_data, -5.0f, 10.0f);
 
     // Fill creates a tensor filled with scalar value
     // 1-D shape of the output tensor
@@ -187,6 +189,5 @@ TEST(ArrayOps, Fill) {
 }  // end of op Fill
 
 }  // namespace testing
-
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
