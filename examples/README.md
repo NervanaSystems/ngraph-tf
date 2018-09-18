@@ -47,15 +47,14 @@ Models](https://github.com/tensorflow/models/tree/master/official).
 8. `trivial`
 9. `inception3`
 10. `inception4`
-11. `official_resnet18_v2`
-12. `resnet50`
-13. `resnet50_v1.5`
-14. `resnet50_v2`
-15. `resnet101`
-16. `resnet101_v2`
-17. `resnet152`
-18. `resnet152_v2`
-19. `mobilenet`
+11. `resnet50`
+12. `resnet50_v1.5`
+13. `resnet50_v2`
+14. `resnet101`
+15. `resnet101_v2`
+16. `resnet152`
+17. `resnet152_v2`
+18. `mobilenet`
 
 
 Please feel free to run more models and let us know if you run across any issues.
