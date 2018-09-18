@@ -26,8 +26,6 @@ Models](https://github.com/tensorflow/models/tree/master/official).
 * Evaluate the model (Inference pass):
 ```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=32 --model=resnet50 --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath --eval```
 
-KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=32 --model=nasnetlarge --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath_nasnetlarge --eval
-
 
 ### Tips
 * Change the batch_size to 128 for batch inference performance and batch_size=1 for real time inference
