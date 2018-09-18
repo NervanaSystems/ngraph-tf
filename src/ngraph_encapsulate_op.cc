@@ -276,8 +276,15 @@ class NGraphEncapsulateOp : public OpKernel {
         NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
         std::string js = ngraph::serialize(ng_function, 4);
         {
-          std::ofstream f(file_name);
-          f << js;
+          try{
+              std::ofstream f(file_name);
+              f << js;
+          }
+          catch(std::ofstream::failure e)
+          {
+            std::cerr << "Exception opening/closing file\n";
+          }
+
         }
       }
 
