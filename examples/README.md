@@ -2,7 +2,7 @@
 
 Simple! Just add `import ngraph` after [building](https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md) it
 
-The simplest hello-world example can be found in ```axpy.py```. For real world examples checkout the instructions below to run tf_cnn_benchmarks and models from Tensorflow Hub
+The simplest hello-world example can be found in [```axpy.py```](https://github.com/NervanaSystems/ngraph-tf/blob/master/examples/axpy.py). For real world examples checkout the instructions below to run tf_cnn_benchmarks and models from Tensorflow Hub
 
 
 
@@ -65,3 +65,6 @@ KMP_BLOCKTIME=0 OMP_NUM_THREADS=28  KMP_AFFINITY=granularity=fine,proclist=[0-27
 
 # Tensorflow Hub:
 Tensorflow Hub models should also work. For example, you can try out network retraining by following instructions from [here](https://www.tensorflow.org/hub/tutorials/image_retraining) on, lets say, inceptionv3
+
+# Keras models:
+Keras (with Tensorflow backend) too should also work out of the box with ngraph, once one adds ```import ngraph``` to the script. [Here](https://github.com/NervanaSystems/ngraph-tf/blob/master/examples/keras_sample.py) is an example.
