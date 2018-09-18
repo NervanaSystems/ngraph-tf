@@ -1,3 +1,4 @@
+
 # tf_cnn_benchmarks: High performance benchmarks
 
 tf_cnn_benchmarks contains implementations of several popular convolutional
@@ -15,29 +16,28 @@ These models are designed for performance. For models that have clean and
 easy-to-read implementations, see the [TensorFlow Official
 Models](https://github.com/tensorflow/models/tree/master/official).
 
-## Getting Started
+## Running examples from tf_cnn_benchmarks
 
-First download benchmarks: ```git clone https://github.com/tensorflow/benchmarks.git```
-Move into the TF scripts folder: ```cd benchmarks/scripts/tf_cnn_benchmarks/```
-
-Train for a few iterations:
+* First download benchmarks: ```git clone https://github.com/tensorflow/benchmarks.git```
+* Move into the TF scripts folder: ```cd benchmarks/scripts/tf_cnn_benchmarks/```
+* Edit ```convnet_builder.py``` by adding ```import ngraph```
+* Train for a few iterations:
 ```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=128 --model=resnet50 --num_inter_threads 2 --train_dir=./modelsavepath/ --num_batches 10```
-
-Evaluate the model (Inference pass):
+* Evaluate the model (Inference pass):
 ```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=32 --model=resnet50 --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath --eval```
 
 
-Change the batch_size to 128 for batch inference performance and batch_size=1 for real time inference
-
-Change the `--model` flag to test for different topologies.
-
-The models supported from the POR list is as follows:
-
+### Tips
+* Change the batch_size to 128 for batch inference performance and batch_size=1 for real time inference
+* Change the `--model` flag to test for different topologies. The models known to run as of now are:
 1. `--model=resnet50`
 2. `--model=inception3`
 3. `--model=inception4`
-4. ` --model=mobilenet`
-
-
-run command example:
+4. `--model=mobilenet`
+Please feel free to run more models and let us know if you run across any issues.
+* A more involved example of the run command
 KMP_BLOCKTIME=0 OMP_NUM_THREADS=28  KMP_AFFINITY=granularity=fine,proclist=[0-27] python tf_cnn_benchmarks.py --model=resnet50  --eval --num_inter_threads=1 --batch_size=128  --train_dir /nfs/fm/disks/aipg_trained_dataset/ngraph_tensorflow/partially_trained/resnet50 --data_format NCHW --num_epochs=1 --data_name=imagenet --data_dir /mnt/data/TF_ImageNet_latest/ --datasets_use_prefetch=False 
+
+
+# Tensorflow Hub:
+TODO
