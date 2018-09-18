@@ -53,9 +53,46 @@ namespace testing {
 // Use only Tensors and ops::Const() to provide input to the test op
 // Please ensure the alphabetical order while adding the test functions
 
+// Test op: Abs
+TEST(MathOps, Abs1d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 1;
+  Tensor A(DT_FLOAT, TensorShape({dim1}));
+
+  AssignInputValuesRandom(A);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Abs(root, A);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Abs", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, Abs2d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 4;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValuesRandom(A);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Abs(root, A);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Abs", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+} // end of test op Abs
+
 // Test op: Add
 TEST(MathOps, Add) {
-  // Create a tf graph
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
@@ -416,31 +453,8 @@ TEST(MathOps, Rsqrt) {
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Rsqrt", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
-
   opexecuter.RunTest();
 }  // end of test op Rsqrt
-
-// Test op: Sqrt
-TEST(MathOps, Sqrt) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 2;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-
-  AssignInputValues(A, 4.0f);
-
-  vector<int> static_input_indexes = {};
-  auto R = ops::Sqrt(root, A);
-
-  vector<DataType> output_datatypes = {DT_FLOAT};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "Sqrt", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
-}  // end of test op Sqrt
 
 // Test op: Square
 TEST(MathOps, Square) {
@@ -454,22 +468,39 @@ TEST(MathOps, Square) {
 
   vector<int> static_input_indexes = {};
   auto R = ops::Square(root, A);
-
   vector<DataType> output_datatypes = {DT_FLOAT};
-
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Square", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
-
   opexecuter.RunTest();
-}  // end of test op Square
+} // end of test op Square
+
+// Test op: Sqrt
+TEST(MathOps, Sqrt) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 4.0f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Sqrt(root, A);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Sqrt", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}  // end of test op Sqrt
 
 // Test op: SquareDifference
 TEST(MathOps, SquaredDifference) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
-
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
 
@@ -480,13 +511,15 @@ TEST(MathOps, SquaredDifference) {
   auto R = ops::SquaredDifference(root, A, B);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
-
   std::vector<Output> sess_run_fetchoutputs = {R};
+
   OpExecuter opexecuter(root, "SquaredDifference", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
 }  // end of test op SquaredDifference
+
+
 
 // Test op: SquaredDifferenceBroadcasting
 TEST(MathOps, SquaredDifferenceBroadcasting) {
@@ -513,6 +546,5 @@ TEST(MathOps, SquaredDifferenceBroadcasting) {
 }  // end of test op SquaredDifferenceBroadcasting
 
 }  // namespace testing
-
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
