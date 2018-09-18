@@ -15,6 +15,8 @@
  *******************************************************************************/
 
 #include "test_utilities.h"
+#include <assert.h>
+#include <cassert>
 #include <cstdlib>
 #include <ctime>
 
@@ -34,18 +36,6 @@ void ActivateNGraph() {
 void DeactivateNGraph() {
   unsetenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS");
   setenv("NGRAPH_TF_DISABLE", "1", 1);
-}
-
-void AssertTensorEquals(Tensor& T1, Tensor& T2) {
-  ASSERT_EQ(T1.shape(), T2.shape());
-  auto T_size = T1.flat<float>().size();
-  auto T1_data = T1.flat<float>().data();
-  auto T2_data = T2.flat<float>().data();
-  for (int k = 0; k < T_size; k++) {
-    auto a = T1_data[k];
-    auto b = T2_data[k];
-    EXPECT_FLOAT_EQ(a, b);
-  }
 }
 
 void AssignInputIntValues(Tensor& A, int maxval) {
@@ -114,6 +104,15 @@ void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
       auto rel_div = std::abs(rel / a);
       EXPECT_TRUE(rel_div < tol);
     }
+  }
+}
+
+template <>
+bool eq(float arg0, float arg1) {
+  if (arg0 == 0 && arg1 == 0) {
+    return true;
+  } else {
+    return (abs(arg0 - arg1) / max(abs(arg0), abs(arg1)) <= 0.001);
   }
 }
 
