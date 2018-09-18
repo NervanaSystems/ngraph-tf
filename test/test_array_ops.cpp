@@ -84,7 +84,7 @@ TEST(ArrayOps, PreventGradient) {
 // Test op: Shape, outputs the shape of a tensor
 TEST(ArrayOps, Shape2D) {
   Scope root = Scope::NewRootScope();
-  
+
   int dim1 = 2;
   int dim2 = 2;
 
