@@ -60,6 +60,7 @@ RUN pip install scipy portpicker sklearn
 RUN pip install keras_applications
 RUN pip install matplotlib opencv-python
 RUN pip install yapf
+RUN pip install concurrent
 
 
 # We include pytest so the Docker image can be used for daily validation
