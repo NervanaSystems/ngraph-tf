@@ -17,19 +17,15 @@ Models](https://github.com/tensorflow/models/tree/master/official).
 
 ## Getting Started
 
-Benchmark scripts to run CNN based models (inference) on NGRAPH
+First download benchmarks: ```git clone https://github.com/tensorflow/benchmarks.git```
+Move into the TF scripts folder: ```cd benchmarks/scripts/tf_cnn_benchmarks/```
 
-First run training for a few iterations to store the model checkpoints:
+Train for a few iterations:
+```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=128 --model=resnet50 --num_inter_threads 2 --train_dir=./modelsavepath/ --num_batches 10```
 
-`KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=128
-    --model=resnet50 --num_inter_threads 2 --train_dir=/path/to/save --num_batches 10`
+Evaluate the model (Inference pass):
+```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=32 --model=resnet50 --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath --eval```
 
-Use this command to get the inference numbers:
-
-`KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --batch_size=1 --model=resnet50
-    --num_inter_threads 1 --train_dir=/path/to/loadd_model --eval`
-
-Note that `--log_dir` during training and `--train_dir` during  inference must be the same directory.
 
 Change the batch_size to 128 for batch inference performance and batch_size=1 for real time inference
 
