@@ -19,6 +19,6 @@ import ngraph
 
 model = ResNet50(weights='imagenet')
 
-img = np.random.rand(1,224,224,3)
+img = np.random.rand(1, 224, 224, 3)
 preds = model.predict(preprocess_input(img))
 print('Predicted:', decode_predictions(preds, top=3)[0])
