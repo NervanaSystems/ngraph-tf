@@ -321,18 +321,16 @@ void OpExecuter::ExecuteOnNGraph() {
   // Serialize to nGraph if needed
   if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
     std::string file_name = "unit_test_" + test_op_type_ + ".json";
-    NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
+    NGRAPH_VLOG(0) << "Serializing graph to: " << file_name << endl;
     std::string js = ngraph::serialize(ng_function, 4);
-    {
-      try{
-          std::ofstream f(file_name);
-          f << js;
-      }
-      catch(std::ofstream::failure e)
-      {
-        std::cerr << "Exception opening/closing file\n";
-      }
-
+    std::ofstream f;
+    f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    try {
+      f.open(file_name);
+      f << js;
+      f.close();
+    } catch (std::ofstream::failure e) {
+      std::cerr << "Exception opening/closing file " << file_name << endl;
     }
   }
 
