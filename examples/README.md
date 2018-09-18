@@ -1,3 +1,10 @@
+# How to use ngraph
+
+Simple! Just add `import ngraph` after [building](https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md) it
+
+The simplest hello-world example can be found in ```axpy.py```. For real world examples checkout the instructions below to run tf_cnn_benchmarks and models from Tensorflow Hub
+
+
 
 # tf_cnn_benchmarks: High performance benchmarks
 
@@ -57,4 +64,4 @@ KMP_BLOCKTIME=0 OMP_NUM_THREADS=28  KMP_AFFINITY=granularity=fine,proclist=[0-27
 
 
 # Tensorflow Hub:
-TODO
+Tensorflow Hub models should also work. For example, you can try out network retraining by following instructions from [here](https://www.tensorflow.org/hub/tutorials/image_retraining) on, lets say, inceptionv3
