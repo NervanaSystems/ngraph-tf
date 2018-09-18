@@ -281,8 +281,9 @@ class NGraphEncapsulateOp : public OpKernel {
           f.open(file_name);
           f << js;
           f.close();
-        } catch (std::ofstream::failure e) {
+        } catch (std::ofstream::failure& e) {
           std::cerr << "Exception opening/closing file " << file_name << endl;
+          std::cerr << e.what() << endl;
         }
       }
 
