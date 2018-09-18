@@ -2031,14 +2031,15 @@ static Status TranslateShapeOp(
   // the rank of the input tensor which will be the shape to the Constant Op
   auto rank = input_shape.size();
 
-  // the inputs to the Constant Op
-  // type
-  ng::element::Type type;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(DataType::DT_INT32, &type));
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "out_type", &dtype));
 
-  // shape
+  // the inputs to the Constant Op
+  ng::element::Type type;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &type));
+
   auto shape = ng::Shape(1, rank);
-  // values
+
   std::vector<int> values(rank);
   for (int i = 0; i < rank; i++) {
     values[i] = input_shape[i];

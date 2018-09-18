@@ -213,7 +213,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Reshape"]["T"] = NGraphDTypes();
       type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
       type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
-      type_constraint_map["Shape"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Shape"]["T"] = NGraphDTypes();
+      type_constraint_map["Shape"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();

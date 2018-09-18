@@ -84,6 +84,7 @@ TEST(ArrayOps, PreventGradient) {
 // Test op: Shape, outputs the shape of a tensor
 TEST(ArrayOps, Shape2D) {
   Scope root = Scope::NewRootScope();
+  
   int dim1 = 2;
   int dim2 = 2;
 
@@ -92,9 +93,12 @@ TEST(ArrayOps, Shape2D) {
   AssignInputValues(A, 7.5f);
 
   vector<int> static_input_indexes = {};
-  auto R = ops::Shape(root, A);
 
-  vector<DataType> output_datatypes = {DT_INT32};
+  auto attrs = ops::Shape::Attrs();
+  attrs.out_type_ = DT_INT64;
+  auto R = ops::Shape(root, A, attrs);
+
+  vector<DataType> output_datatypes = {DT_INT64};
 
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Shape", static_input_indexes, output_datatypes,
