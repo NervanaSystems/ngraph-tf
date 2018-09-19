@@ -97,20 +97,20 @@ Status EncapsulateClusters(Graph* graph) {
     auto it = device_name_map.find(cluster_idx);
 
     if (it != device_name_map.end()) {
-      if (it->second != node->requested_device()) {
+      if (it->second != node->assigned_device_name()) {
         std::stringstream ss_err;
         ss_err << "Node " << node->name() << " in cluster " << cluster_idx
-               << " has requested device " << node->requested_device()
-               << " but another node with requested device " << it->second
+               << " has assigned device " << node->assigned_device_name()
+               << " but another node with assigned device " << it->second
                << " has already been seen in the same cluster";
 
         return errors::Internal(ss_err.str());
       }
     } else {
       NGRAPH_VLOG(3) << "setting cluster " << cluster_idx
-                     << " requested device to '" << node->requested_device()
+                     << " requested device to '" << node->assigned_device_name()
                      << "'";
-      device_name_map[cluster_idx] = node->requested_device();
+      device_name_map[cluster_idx] = node->assigned_device_name();
     }
   }
 
@@ -406,9 +406,9 @@ Status EncapsulateClusters(Graph* graph) {
   }
 
   // Pass 7 (optional, only run if environment variable
-  // NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS is set): validate the graph def, and
+  // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
   // make sure we can construct a graph from it.
-  if (std::getenv("NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS")) {
+  if (std::getenv("NGRAPH_TF_DUMP_CLUSTERS")) {
     for (auto& kv : device_name_map) {
       int cluster_idx = kv.first;
       TF_RETURN_IF_ERROR(graph::ValidateGraphDef(

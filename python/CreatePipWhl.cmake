@@ -46,7 +46,7 @@ if (PYTHON)
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
     configure_file(${INIT_PY_IN} ${INIT_PY})
     if (APPLE)
-        set(NGRAPH_VERSION 0.5)
+        set(NGRAPH_VERSION 0.7)
         # Note: Currently the ngraph version number (i.e., libngraph.0.5.dylib)
         # is hardcoded as there is no way to get this from the nGraph library.
         # Once we figure that out, we will replace this.
@@ -58,7 +58,7 @@ if (PYTHON)
             install_name_tool -change 
             libngraph.${NGRAPH_VERSION}.dylib 
             @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
-            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libngraph_device.dylib
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libngraph_bridge.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
             ERROR_STRIP_TRAILING_WHITESPACE

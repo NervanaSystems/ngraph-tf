@@ -36,21 +36,6 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-const std::map<const DataType, const ngraph::element::Type>&
-Builder::TF_NGRAPH_TYPE_MAP() {
-  static const std::map<const DataType, const ngraph::element::Type> the_map = {
-      {DataType::DT_FLOAT, ng::element::f32},
-      {DataType::DT_DOUBLE, ng::element::f64},
-      {DataType::DT_INT8, ng::element::i8},
-      {DataType::DT_INT16, ng::element::i16},
-      {DataType::DT_INT32, ng::element::i32},
-      {DataType::DT_INT64, ng::element::i64},
-      {DataType::DT_UINT8, ng::element::u8},
-      {DataType::DT_UINT16, ng::element::u16},
-      {DataType::DT_BOOL, ng::element::boolean}};
-  return the_map;
-}
-
 static Status ValidateInputCount(const Node* op, size_t count) {
   if (op->num_inputs() != count) {
     return errors::InvalidArgument("\"", op->name(), "\" requires ", count,
@@ -826,10 +811,12 @@ static Status TranslateCastOp(
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "DstT", &dtype));
 
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
   try {
     SaveNgOp(ng_op_map, op->name(),
-             make_shared<ng::op::Convert>(
-                 ng_input, Builder::TF_NGRAPH_TYPE_MAP().at(dtype)));
+             make_shared<ng::op::Convert>(ng_input, ng_et));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                  DataType_Name(dtype));
@@ -1433,6 +1420,8 @@ static Status TranslateFusedBatchNormGradOp(
   TF_RETURN_IF_ERROR(ValidateInputCount(op, 5));
 
   bool tf_is_training;
+  // We only support is_training=true case. We marked rejection for the case
+  // is_training=false.
   if (GetNodeAttr(op->attrs(), "is_training", &tf_is_training) !=
       Status::OK()) {
     NGRAPH_VLOG(3) << "is_training attribute not present, setting to true";
@@ -1498,6 +1487,17 @@ static Status TranslateFusedBatchNormGradOp(
   SaveNgOp(ng_op_map, op->name(), ng_input_delta_op);
   SaveNgOp(ng_op_map, op->name(), ng_scale_delta_op);
   SaveNgOp(ng_op_map, op->name(), ng_beta_delta_op);
+  // Output reserve_space_3: Unused placeholder to match the mean input
+  // in FusedBatchNorm.
+  std::shared_ptr<ng::Node> output_mean = make_shared<ngraph::op::Constant>(
+      ng_mean->get_element_type(), ng::Shape{}, std::vector<std::string>{""});
+  SaveNgOp(ng_op_map, op->name(), output_mean);
+  // Output reserve_space_4: Unused placeholder to match the variance input
+  // in FusedBatchNorm.
+  std::shared_ptr<ng::Node> output_variance = make_shared<ngraph::op::Constant>(
+      ng_variance->get_element_type(), ng::Shape{},
+      std::vector<std::string>{""});
+  SaveNgOp(ng_op_map, op->name(), output_variance);
 
   return Status::OK();
 }
@@ -2030,6 +2030,36 @@ static Status TranslateRsqrtOp(
       });
 }
 
+static Status TranslateShapeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  // the shape of the input tensor which will be the value to the Constant Op
+  auto input_shape = ng_input->get_shape();
+
+  // the rank of the input tensor which will be the shape to the Constant Op
+  auto rank = input_shape.size();
+
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "out_type", &dtype));
+
+  // the inputs to the Constant Op
+  ng::element::Type type;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &type));
+
+  auto shape = ng::Shape(1, rank);
+
+  std::vector<int> values(rank);
+  for (int i = 0; i < rank; i++) {
+    values[i] = input_shape[i];
+  }
+  SaveNgOp(ng_op_map, op->name(),
+           make_shared<ng::op::Constant>(type, shape, values));
+  return Status::OK();
+}
+
 static Status TranslateSigmoidOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2061,11 +2091,18 @@ static Status TranslateSliceOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lower_vec));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &size_vec));
 
+  if (lower_vec.size() != size_vec.size())
+    return errors::InvalidArgument(
+        "Cannot translate sliceop: Size of lower = ", lower_vec.size(),
+        ", size of size_vec = ", size_vec.size(), ". Expected them to match.");
+
   NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
   NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
 
   std::vector<int> upper_vec(lower_vec.size());
   const auto ng_input_shape = ng_input->get_shape();
+  stringstream err_stream;
+  string err_msg;
   for (size_t i = 0; i < size_vec.size(); i++) {
     if (size_vec[i] != -1) {
       upper_vec[i] = lower_vec[i] + size_vec[i];
@@ -2073,6 +2110,23 @@ static Status TranslateSliceOp(
       // support -1 for size_vec, to the end of the tensor
       upper_vec[i] = ng_input_shape[i];
     }
+
+    // check for this condition: 0 <= begin[i] <= begin[i] + size[i] <= Di
+    if (0 > lower_vec[i])
+      err_stream << "lower < 0: " << lower_vec[i]
+                 << ". It should have been positive.\n";
+    if (lower_vec[i] > upper_vec[i])
+      err_stream << "upper < lower: upper = " << upper_vec[i]
+                 << ", lower = " << lower_vec[i] << "\n";
+    if (upper_vec[i] > ng_input_shape[i])
+      err_stream << "dim < upper: dim = " << ng_input_shape[i]
+                 << ", upper = " << upper_vec[i] << "\n";
+
+    err_msg = err_stream.str();
+    if (!err_msg.empty())
+      return errors::InvalidArgument("Cannot translate sliceop at position ", i,
+                                     " of ", size_vec.size(),
+                                     ". The reasons are:\n", err_msg);
   }
 
   std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
@@ -2730,6 +2784,7 @@ const static std::map<
         {"ReluGrad", TranslateReluGradOp},
         {"Reshape", TranslateReshapeOp},
         {"Rsqrt", TranslateRsqrtOp},
+        {"Shape", TranslateShapeOp},
         {"Sigmoid", TranslateSigmoidOp},
         {"Sign", TranslateUnaryOp<ngraph::op::Sign>},
         {"Slice", TranslateSliceOp},

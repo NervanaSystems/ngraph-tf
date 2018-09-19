@@ -13,27 +13,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-from ctypes import cdll
-import os
+import tensorflow as tf
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input, decode_predictions
+import numpy as np
+import ngraph
 
-import pytest
+# A simple script to run inference and training on resnet 50
 
-from tensorflow.python.framework import ops
+model = ResNet50(weights='imagenet')
 
-from common import LIBNGRAPH_BRIDGE
-
-
-@pytest.fixture(scope='session', autouse=True)
-def load_ngraph_bridge():
-    cdll.LoadLibrary(os.path.join('../../src', LIBNGRAPH_BRIDGE))
-
-
-@pytest.fixture(autouse=True)
-def reset_graph():
-    yield
-    ops.reset_default_graph()
-
-
-@pytest.fixture(scope='session', autouse=True)
-def cleanup():
-    yield
+batch_size = 128
+img = np.random.rand(batch_size, 224, 224, 3)
+preds = model.predict(preprocess_input(img))
+print('Predicted:', decode_predictions(preds, top=3)[0])
+model.compile(tf.keras.optimizers.SGD(), loss='categorical_crossentropy')
+preds = model.fit(
+    preprocess_input(img), np.zeros((batch_size, 1000), dtype='float32'))
+print('Ran a train round')

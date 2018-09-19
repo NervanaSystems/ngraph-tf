@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(LIB_NAME ngraph_device)
+set(LIB_NAME ngraph_bridge)
 
 include_directories(${TensorFlow_INCLUDE_DIR})
 include_directories(${TensorFlow_INCLUDE_DIR}/external/nsync/public)
@@ -42,6 +42,7 @@ set(SRC
    ngraph_tracked_variable.cc
    ngraph_utils.cc
    tf_graphcycles.cc
+   tf_deadness_analysis.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})
@@ -67,8 +68,8 @@ else()
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/../install/")
 endif()
 
-# First install the libngraph_device.so
-install(TARGETS ngraph_device DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")  
+# First install the libngraph_bridge.so
+install(TARGETS ${LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")  
 
 # Next install all the other prerequisites
 install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" )
@@ -76,4 +77,5 @@ install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX
 # Now create the Python pip package
 install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
+install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
