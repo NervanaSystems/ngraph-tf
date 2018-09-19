@@ -100,13 +100,18 @@ endif()
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 if(NGRAPH_DISTRIBUTED_ENABLE) 
     set(DISTRIBUTED 1)
+    find_package(MPI REQUIRED)
+    add_definitions(-DNGRAPH_DISTRIBUTED)
+    include_directories(SYSTEM ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
+    link_directories(${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+    link_libraries(${MPI_CXX_LIBRARIES})
 else()
     set(DISTRIBUTED 0)
 endif()
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.6.0
+    GIT_TAG langjian/mpi3.0 #v0.6.0
     CMAKE_ARGS
         -DNGRAPH_DISTRIBUTED_ENABLE=${DISTRIBUTED}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 

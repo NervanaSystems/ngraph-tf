@@ -36,6 +36,7 @@
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
+#include <mpi.h>
 
 using namespace std;
 namespace ng = ngraph;
@@ -263,6 +264,8 @@ class NGraphEncapsulateOp : public OpKernel {
     // Compile the graph using nGraph.
     //
     // TODO(amprocte): Investigate performance of the compilation cache.
+    int my_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     if (it == m_ng_functions.end()) {
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
       OP_REQUIRES_OK(
@@ -273,6 +276,7 @@ class NGraphEncapsulateOp : public OpKernel {
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
+        file_name = "tf_function_" + ctx->op_kernel().name() + "_" + to_string(my_rank)+ ".json";
         NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
         std::string js = ngraph::serialize(ng_function, 4);
         {

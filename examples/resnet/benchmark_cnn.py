@@ -623,12 +623,15 @@ def benchmark_one_step(sess,
     run_metadata = None
   summary_str = None
   start_time = time.time()
+  print("before summary_op is None:")
+  print(summary_op)
   if summary_op is None:
     results = sess.run(fetches, options=run_options, run_metadata=run_metadata)
   else:
     (results, summary_str) = sess.run(
         [fetches, summary_op], options=run_options, run_metadata=run_metadata)
 
+  print("not params.forward_only:")
   if not params.forward_only:
     lossval = results['average_loss']
   else:
@@ -1426,6 +1429,8 @@ class BenchmarkCNN(object):
       else:
         (image_producer_ops, enqueue_ops, fetches) = self._build_model()
     fetches_list = nest.flatten(list(fetches.values()))
+    print("fetches_list")
+    print(fetches_list)
     main_fetch_group = tf.group(*fetches_list)
     execution_barrier = None
     if (not self.single_session and self.job_name and
@@ -1605,12 +1610,14 @@ class BenchmarkCNN(object):
           fetch_summary = summary_op
         else:
           fetch_summary = None
+        print("before summary_str = benchmark_one_step")
         summary_str = benchmark_one_step(
             sess, fetches, local_step,
             self.batch_size * (self.num_workers
                                if self.single_session else 1), step_train_times,
             self.trace_filename, self.params.partitioned_graph_file_prefix,
             profiler, image_producer, self.params, fetch_summary)
+        print("before summary_str is not None and is_chief:")
         if summary_str is not None and is_chief:
           sv.summary_computed(sess, summary_str)
         local_step += 1
