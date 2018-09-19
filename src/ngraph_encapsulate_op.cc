@@ -353,12 +353,22 @@ class NGraphEncapsulateOp : public OpKernel {
         }
       } else {
         if (last_tv != nullptr) {
+          if (current_src_ptr == last_src_ptr) {
+             if (m_freshness_tracker->IsFresh(current_src_ptr, ng_function)) {
+                 last_tv->set_stale(false);
+             } else {
+                 last_tv->set_stale(true);
+             }
+          }
           current_tv = last_tv;
         } else {
           current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
+          current_tv->set_stale(true);
         }
-        current_tv->write(current_src_ptr, 0, current_tv->get_element_count() *
+        if(current_tv->get_stale()) {
+          current_tv->write(current_src_ptr, 0, current_tv->get_element_count() *
                                                   ng_element_type.size());
+        }
       }  // if (s_ng_backend_name == "CPU")
 
       input_caches[i] = std::make_pair(current_src_ptr, current_tv);
