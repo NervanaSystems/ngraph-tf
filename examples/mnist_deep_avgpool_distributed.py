@@ -242,11 +242,6 @@ if __name__ == '__main__':
         type=str,
         default='/tmp/tensorflow/mnist/input_data',
         help='Directory where input data is stored')
-    parser.add_argument(
-        '--use_xla_cpu',
-        type=bool,
-        default=False,
-        help='Use instead of nGraph device')
 
     parser.add_argument(
         '--train_loop_count',
