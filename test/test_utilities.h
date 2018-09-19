@@ -62,9 +62,6 @@ void AssignInputValuesRandom(Tensor& A, T min, T max) {
         // randomly generate a number between 0 and (max-min)
         static_cast<T>(rand()) / static_cast<T>(RAND_MAX / (max - min));
     value = value + min;  // transform the range to min and max
-    value =
-        roundf(value * 100) / 100.0;  // change the precision of the float to
-                                      // 2 number after the decimal
     A_flat_data[i] = value;
   }
 }
