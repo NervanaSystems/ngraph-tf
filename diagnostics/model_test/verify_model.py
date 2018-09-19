@@ -106,23 +106,16 @@ def parse_json():
 
     with open(os.path.abspath(args.json_file)) as f:
         parsed_json = json.load(f)
-        frozen_graph_location = parsed_json['frozen_graph_location']
-        input_tensor_name = parsed_json['input_tensor_name']
-        output_tensor_name = parsed_json['output_tensor_name']
-        l1_norm_threshold = parsed_json['l1_norm_threshold']
-        l2_norm_threshold = parsed_json['l2_norm_threshold']
-        inf_norm_threshold = parsed_json['inf_norm_threshold']
-        input_dimension = parsed_json['input_dimension']
-        batch_size = parsed_json['batch_size']
 
-        param_dict["frozen_graph_location"] = frozen_graph_location
-        param_dict["input_tensor_name"] = input_tensor_name
-        param_dict["output_tensor_name"] = output_tensor_name
-        param_dict["l1_norm_threshold"] = l1_norm_threshold
-        param_dict["l2_norm_threshold"] = l2_norm_threshold
-        param_dict["inf_norm_threshold"] = inf_norm_threshold
-        param_dict["input_dimension"] = input_dimension
-        param_dict["batch_size"] = batch_size
+        param_dict["frozen_graph_location"] = parsed_json[
+            'frozen_graph_location']
+        param_dict["input_tensor_name"] = parsed_json['input_tensor_name']
+        param_dict["output_tensor_name"] = parsed_json['output_tensor_name']
+        param_dict["l1_norm_threshold"] = parsed_json['l1_norm_threshold']
+        param_dict["l2_norm_threshold"] = parsed_json['l2_norm_threshold']
+        param_dict["inf_norm_threshold"] = parsed_json['inf_norm_threshold']
+        param_dict["input_dimension"] = parsed_json['input_dimension']
+        param_dict["batch_size"] = parsed_json['batch_size']
 
         return param_dict
 
@@ -130,11 +123,13 @@ def parse_json():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--json_file",
-        default="./mnist_cnn.json",
-        type=str,
-        help="Model details in json format")
+        "--json_file", type=str, help="Model details in json format")
+
     args = parser.parse_args()
+
+    if args.json_file is None:
+        raise ValueError("Supply a json file to start")
+
     parameters = parse_json()
 
     # Generate random input based on input_dimension

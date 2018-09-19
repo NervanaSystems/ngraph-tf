@@ -35,6 +35,7 @@ To get a **full** dump use the following set of flags
 * Checking whether ngraph is enabled by calling: ```ngraph.is_enabled()```
 * You need to enable ngraph every time you called ```ngraph.disable()```, so it is good to check 
 if ngraph is enabled by calling ```ngraph.is_enabled()```
+* _Caution_: The above functions are only effective at the beginning of the execution. Once the session is created and ```run``` is called, the above functions will not be able to disable ngraph. 
 * For example usage, take a look at the ```model_test/verify_model.py``` in the diagnostics folder
 
 ## Debug flags
