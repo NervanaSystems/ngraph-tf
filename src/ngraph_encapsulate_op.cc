@@ -123,6 +123,7 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     // Create the backend
+    mutex_lock l(s_ng_backend_mutex);
     if (auto ptr = s_ng_backend_wptr.lock()) {
         m_ng_backend = ptr;
         return;
