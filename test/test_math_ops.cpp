@@ -319,6 +319,48 @@ TEST(MathOps, FloorModBroadcasting) {
   opexecuter.RunTest();
 }  // end of test op FloorModBroadcasting
 
+// Test op: Log
+TEST(MathOps, Log1d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 4;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1}));
+
+  AssignInputValues(A, 1.4f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Log(root, A);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Log", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, Log2d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValues(A, 3.5f);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::Log(root, A);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Log", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+} // end of test op Log
+
 // Test op: Minimum
 TEST(MathOps, Minimum) {
   Scope root = Scope::NewRootScope();
@@ -364,6 +406,40 @@ TEST(MathOps, Negate) {
 
   opexecuter.RunTest();
 }  // end of Test op Negate
+
+// Test op: Pow
+TEST(MathOps, Pow1d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 4;
+  Tensor A(DT_FLOAT, TensorShape({dim1}));
+  Tensor B(DT_FLOAT, TensorShape({dim1}));
+  AssignInputValues(A, 1.4f);
+  AssignInputValues(B, 0.5f);
+  vector<int> static_input_indexes = {};
+  auto R = ops::Pow(root, A, B);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Pow", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, Pow2d) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  Tensor B(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValues(A, -2.5f);
+  AssignInputValues(B, 4.0f);
+  vector<int> static_input_indexes = {};
+  auto R = ops::Pow(root, A, B);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Pow", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+} // end of test op Pow
 
 // Test op: RealDiv
 TEST(MathOps, RealDiv) {
@@ -519,8 +595,6 @@ TEST(MathOps, SquaredDifference) {
   opexecuter.RunTest();
 }  // end of test op SquaredDifference
 
-
-
 // Test op: SquaredDifferenceBroadcasting
 TEST(MathOps, SquaredDifferenceBroadcasting) {
   Scope root = Scope::NewRootScope();
@@ -543,7 +617,7 @@ TEST(MathOps, SquaredDifferenceBroadcasting) {
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-}  // end of test op SquaredDifferenceBroadcasting
+} // end of test op SquaredDifferenceBroadcasting
 
 }  // namespace testing
 }  // namespace ngraph_bridge
