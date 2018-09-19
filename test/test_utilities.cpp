@@ -85,25 +85,6 @@ void AssignInputValuesRandom(Tensor& A) {
   }
 }
 
-template <>
-// specialized template for float
-// randomly generate float data to populate the Tensor
-void AssignInputValuesRandom(Tensor& A, float min, float max) {
-  auto A_flat = A.flat<float>();
-  auto A_flat_data = A_flat.data();
-  srand(static_cast<unsigned>(time(0)));
-  for (int i = 0; i < A_flat.size(); i++) {
-    float value =
-        // randomly generate a number between 0 and (max-min)
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX / (max - min));
-    value = value + min;  // transform the range to min and max
-    value =
-        roundf(value * 100) / 100.0;  // change the precision of the float to
-                                      // 2 number after the decimal
-    A_flat_data[i] = value;
-  }
-}
-
 void PrintTensor(const Tensor& T1) {
   LOG(INFO) << "print tensor values" << T1.DebugString();
 }

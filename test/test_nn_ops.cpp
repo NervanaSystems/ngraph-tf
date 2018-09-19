@@ -210,12 +210,11 @@ TEST(NNOps, FusedBatchNormGradNHWC) {
   // 1D tensor for population variance
   Tensor reserve_space_2_variance(DT_FLOAT, TensorShape({2}));
 
-  // can't use random because value restriction
-  AssignInputValuesAnchor(y_backprop, -2.1f);
-  AssignInputValuesAnchor(x, -1.1f);
-  AssignInputValuesAnchor(scale, -1.6f);
-  AssignInputValuesAnchor(reserve_space_1_mean, 1.1f);
-  AssignInputValuesAnchor(reserve_space_2_variance, 0.5f);
+  AssignInputValuesRandom<float>(y_backprop, -5.0f, 10.0f);
+  AssignInputValuesRandom<float>(x, -10.0f, 10.0f);
+  AssignInputValuesRandom<float>(scale, -1.6f, 1.6f);
+  AssignInputValuesRandom<float>(reserve_space_1_mean, 1.1f, 1.5f);
+  AssignInputValuesRandom<float>(reserve_space_2_variance, 0.5f, 1.5f);
 
   auto attrs = ops::FusedBatchNormGrad::Attrs();
   attrs.is_training_ =
@@ -286,7 +285,7 @@ TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
   Tensor B(DT_INT32, TensorShape({batch}));
 
   AssignInputValuesRandom<float>(A, -2.0f, 2.0f);
-  AssignInputValuesRandom<int>(B, 0, 2);
+  AssignInputValuesRandom<int>(B, 0, num_of_classes - 1);
 
   vector<int> static_input_indexes = {};
   auto R = ops::SparseSoftmaxCrossEntropyWithLogits(root, A, B);
