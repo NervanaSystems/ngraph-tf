@@ -89,7 +89,7 @@ TEST(MathOps, Abs2d) {
   OpExecuter opexecuter(root, "Abs", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
   opexecuter.RunTest();
-} // end of test op Abs
+}  // end of test op Abs
 
 // Test op: Add
 TEST(MathOps, Add) {
@@ -359,7 +359,7 @@ TEST(MathOps, Log2d) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-} // end of test op Log
+}  // end of test op Log
 
 // Test op: Minimum
 TEST(MathOps, Minimum) {
@@ -439,7 +439,7 @@ TEST(MathOps, Pow2d) {
   OpExecuter opexecuter(root, "Pow", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
   opexecuter.RunTest();
-} // end of test op Pow
+}  // end of test op Pow
 
 // Test op: RealDiv
 TEST(MathOps, RealDiv) {
@@ -549,7 +549,7 @@ TEST(MathOps, Square) {
   OpExecuter opexecuter(root, "Square", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
   opexecuter.RunTest();
-} // end of test op Square
+}  // end of test op Square
 
 // Test op: Sqrt
 TEST(MathOps, Sqrt) {
@@ -564,7 +564,6 @@ TEST(MathOps, Sqrt) {
   auto R = ops::Sqrt(root, A);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
-
 
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "Sqrt", static_input_indexes, output_datatypes,
@@ -617,7 +616,7 @@ TEST(MathOps, SquaredDifferenceBroadcasting) {
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-} // end of test op SquaredDifferenceBroadcasting
+}  // end of test op SquaredDifferenceBroadcasting
 
 }  // namespace testing
 }  // namespace ngraph_bridge
