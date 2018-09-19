@@ -135,105 +135,101 @@ def train_mnist_cnn(FLAGS):
     # Import data
     mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
-    xla_device = '/device:NGRAPH:0'
-    if FLAGS.use_xla_cpu:
-        xla_device = '/device:XLA_CPU:0'
 
-    with tf.device(xla_device):
-        # Create the model
-        x = tf.placeholder(tf.float32, [None, 784])
+    # Create the model
+    x = tf.placeholder(tf.float32, [None, 784])
 
-        # Define loss and optimizer
-        y_ = tf.placeholder(tf.float32, [None, 10])
+    # Define loss and optimizer
+    y_ = tf.placeholder(tf.float32, [None, 10])
 
-        # Build the graph for the deep net
-        y_conv, keep_prob = deepnn(x)
+    # Build the graph for the deep net
+    y_conv, keep_prob = deepnn(x)
 
-        with tf.name_scope('loss'):
-            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                labels=y_, logits=y_conv)
-        cross_entropy = tf.reduce_mean(cross_entropy)
+    with tf.name_scope('loss'):
+        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+            labels=y_, logits=y_conv)
+    cross_entropy = tf.reduce_mean(cross_entropy)
 
-        opt = hvd.DistributedOptimizer(tf.train.AdamOptimizer(1e-4))
-        global_step = tf.contrib.framework.get_or_create_global_step()
-        train_step = opt.minimize(cross_entropy, global_step=global_step)
+    opt = hvd.DistributedOptimizer(tf.train.AdamOptimizer(1e-4))
+    global_step = tf.contrib.framework.get_or_create_global_step()
+    train_step = opt.minimize(cross_entropy, global_step=global_step)
 
-        with tf.name_scope('accuracy'):
-            correct_prediction = tf.equal(
-                tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-            correct_prediction = tf.cast(correct_prediction, tf.float32)
-        accuracy = tf.reduce_mean(correct_prediction)
-        tf.summary.scalar('Training accuracy', accuracy)
-        tf.summary.scalar('Loss function', cross_entropy)
+    with tf.name_scope('accuracy'):
+        correct_prediction = tf.equal(
+            tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        correct_prediction = tf.cast(correct_prediction, tf.float32)
+    accuracy = tf.reduce_mean(correct_prediction)
+    tf.summary.scalar('Training accuracy', accuracy)
+    tf.summary.scalar('Loss function', cross_entropy)
 
-        graph_location = "/tmp/" + getpass.getuser() + "/tensorboard-logs/mnist-convnet"
-        print('Saving graph to: %s' % graph_location)
+    graph_location = "/tmp/" + getpass.getuser() + "/tensorboard-logs/mnist-convnet"
+    print('Saving graph to: %s' % graph_location)
 
-        merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(graph_location)
-        train_writer.add_graph(tf.get_default_graph())
+    merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(graph_location)
+    train_writer.add_graph(tf.get_default_graph())
         
-        train_loops = FLAGS.train_loop_count
-        num_test_images=FLAGS.test_image_count
-        print("train_loops = ", train_loops)
-        hooks = [ 
-            # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
-            # from rank 0 to all other processes. This is necessary to ensure consistent 
-            # initialization of all workers when training is started with random weights 
-            # or restored from a checkpoint.  
-            hvd.BroadcastGlobalVariablesHook(0), 
-            # Horovod: adjust number of steps based on number of ranks.
-            #tf.train.StopAtStepHook(train_loops // hvd.size()) 
-            tf.train.StopAtStepHook(train_loops) 
-        ]
-        # Enable soft placement and tracing as needed   
-        config = tf.ConfigProto(
-            allow_soft_placement=True,
-            log_device_placement=True if hvd.rank() == 0 else False,
-            inter_op_parallelism_threads=1) 
+    train_loops = FLAGS.train_loop_count
+    num_test_images=FLAGS.test_image_count
+    print("train_loops = ", train_loops)
+    hooks = [ 
+        # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
+        # from rank 0 to all other processes. This is necessary to ensure consistent 
+        # initialization of all workers when training is started with random weights 
+        # or restored from a checkpoint.  
+        hvd.BroadcastGlobalVariablesHook(0), 
+        # Horovod: adjust number of steps based on number of ranks.
+        #tf.train.StopAtStepHook(train_loops // hvd.size()) 
+        tf.train.StopAtStepHook(train_loops) 
+    ]
+    # Enable soft placement and tracing as needed   
+    config = tf.ConfigProto(
+        allow_soft_placement=True,
+        log_device_placement=True if hvd.rank() == 0 else False,
+        inter_op_parallelism_threads=1) 
 
-        with tf.train.MonitoredTrainingSession(hooks=hooks,
-                                               config=config) as sess:
-            step = 0
-            start = time.time() 
+    with tf.train.MonitoredTrainingSession(hooks=hooks,
+                                           config=config) as sess:
+        step = 0
+        start = time.time() 
 
-            loss_values=[]
-            test_accuracy=[]
-            while not sess.should_stop():
-              batch = mnist.train.next_batch(FLAGS.batch_size)
-              sess.run(train_step, feed_dict={x: batch[0], y_: batch[1]})
-              step +=1
-              if step % 10 == 0:
-                t = time.time()
-                if hvd.rank() == 0:
-                  print('step %d training accuracy %g %g sec to evaluate' % (step,
-                       sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
-                       time.time() - t))
+        loss_values=[]
+        test_accuracy=[]
+        while not sess.should_stop():
+          batch = mnist.train.next_batch(FLAGS.batch_size)
+          sess.run(train_step, feed_dict={x: batch[0], y_: batch[1]})
+          step +=1
+          if step % 10 == 0:
+            t = time.time()
+            if hvd.rank() == 0:
+              print('step %d training accuracy %g %g sec to evaluate' % (step,
+                   sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
+                   time.time() - t))
 
-              t = time.time()
-              _, summary, loss = sess.run(
-                  [train_step, merged, cross_entropy],
-                  feed_dict={
-                      x: batch[0],
-                      y_: batch[1],
-                      keep_prob: 0.5
-                  })
-              loss_values.append(loss)
-              if hvd.rank() == 0:
-                print('step %d loss %g %g sec for training step' % (step, loss, time.time() - t ))
-              train_writer.add_summary(summary, step)
+          t = time.time()
+          _, summary, loss = sess.run(
+              [train_step, merged, cross_entropy],
+              feed_dict={
+                  x: batch[0],
+                  y_: batch[1],
+                  keep_prob: 0.5
+              })
+          loss_values.append(loss)
+          if hvd.rank() == 0:
+            print('step %d loss %g %g sec for training step' % (step, loss, time.time() - t ))
+          train_writer.add_summary(summary, step)
 
-              if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
-                x_test=mnist.test.images[:num_test_images]
-                y_test=mnist.test.labels[:num_test_images]
-                print('test accuracy: ',  sess.run(accuracy, feed_dict={
-                                           x: x_test,
-                                           y_: y_test}
+          if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
+            x_test=mnist.test.images[:num_test_images]
+            y_test=mnist.test.labels[:num_test_images]
+            print('test accuracy: ',  sess.run(accuracy, feed_dict={
+                                       x: x_test,
+                                       y_: y_test}
                                            )) 
-                test_accuracy.append(accuracy) 
-            print( "Training finished. Running test")
+            test_accuracy.append(accuracy) 
+        print( "Training finished. Running test")
 
-            return loss_values,test_accuracy
+        return loss_values,test_accuracy
 
 def main(_):
     train_mnist_cnn(FLAGS)
