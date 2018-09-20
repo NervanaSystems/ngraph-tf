@@ -123,8 +123,7 @@ endif(APPLE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG 68977e0b27e8e076f649bd4a9f8038c79e08c7dc
-    #GIT_TAG v0.7.0
+    GIT_TAG v0.7.0
     CMAKE_ARGS 
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
