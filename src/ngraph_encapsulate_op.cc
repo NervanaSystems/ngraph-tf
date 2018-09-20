@@ -125,8 +125,8 @@ class NGraphEncapsulateOp : public OpKernel {
     // Create the backend
     mutex_lock l(s_ng_backend_mutex);
     if (auto ptr = s_ng_backend_wptr.lock()) {
-        m_ng_backend = ptr;
-        return;
+      m_ng_backend = ptr;
+      return;
     }
     const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
     if (ng_backend_env_value != nullptr) {
@@ -355,7 +355,7 @@ class NGraphEncapsulateOp : public OpKernel {
             current_tv = last_tv;
           } else {
             current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
-                                                   current_src_ptr);
+                                                     current_src_ptr);
             current_tv->set_stale(true);
           }
         } else {
@@ -364,8 +364,9 @@ class NGraphEncapsulateOp : public OpKernel {
           } else {
             current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
           }
-          current_tv->write(current_src_ptr, 0, current_tv->get_element_count() *
-                                                  ng_element_type.size());
+          current_tv->write(
+              current_src_ptr, 0,
+              current_tv->get_element_count() * ng_element_type.size());
         }  // if (s_ng_backend_name == "CPU")
       } catch (const std::exception& exp) {
         OP_REQUIRES(
