@@ -560,6 +560,32 @@ TEST(MathOps, Log2d) {
   opexecuter.RunTest();
 }
 
+TEST(MathOps, Max) {
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  // axis at which the dimension will be inserted
+  // should be -rank-1 <= axis <= rank
+  vector<int> axis_ = {0,-1};
+  
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  
+  for(auto const& axis:axis_){
+    Scope root = Scope::NewRootScope();
+    auto R = ops::Max(root, A, axis);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Max", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+
+}  
+
 }  // namespace testing
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

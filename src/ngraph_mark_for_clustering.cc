@@ -240,6 +240,8 @@ Status MarkForClustering(Graph* graph) {
       // LogicalAnd and LogicalNot have no type attributes ("T", if it existed,
       // would always be bool).
       type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
@@ -338,6 +340,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
       confirmation_functions["MatMul"] = SimpleConfirmationFunction();
+      confirmation_functions["Max"] = SimpleConfirmationFunction();
       confirmation_functions["Maximum"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();

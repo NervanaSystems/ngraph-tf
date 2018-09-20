@@ -1550,6 +1550,63 @@ static Status TranslateMatMulOp(
   return Status::OK();
 }
 
+static Status TranslateMaxOp(const Node* op,
+                             const std::vector<const Tensor*>& static_input_map,
+                             Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_axes_op;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
+
+  bool tf_keep_dims;
+  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
+    tf_keep_dims = false;
+  }
+
+  std::vector<int64> max_axes;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &max_axes));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  size_t input_rank = input_shape.size();
+
+  ng::AxisSet ng_reduction_axes;
+
+  for (auto i : max_axes) {
+    if (i < 0) {
+      ng_reduction_axes.insert(input_rank + i);
+    } else {
+      ng_reduction_axes.insert(i);
+    }
+  }
+
+  std::shared_ptr<ng::Node> ng_max =
+      make_shared<ng::op::Max>(ng_input, ng_reduction_axes);
+
+  // If keep_dims is specified we need to reshape to put back the reduced
+  // axes, with length 1.
+  if (tf_keep_dims) {
+    ng::Shape ng_result_shape_with_keep(input_rank);
+
+    for (size_t i = 0; i < input_rank; i++) {
+      if (ng_reduction_axes.count(i) == 0) {
+        ng_result_shape_with_keep[i] = input_shape[i];
+      } else {
+        ng_result_shape_with_keep[i] = 1;
+      }
+    }
+
+    ng::AxisVector ng_axis_order(ng_max->get_shape().size());
+
+    for (size_t i = 0; i < ng_max->get_shape().size(); i++) {
+      ng_axis_order[i] = i;
+    }
+
+    ng_max = make_shared<ng::op::Reshape>(ng_max, ng_axis_order,
+                                          ng_result_shape_with_keep);
+  }
+
+  SaveNgOp(ng_op_map, op->name(), ng_max);
+  return Status::OK();
+}
+
 static Status TranslateMaxPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2748,6 +2805,7 @@ const static std::map<
         {"LogicalAnd", TranslateBinaryOp<ngraph::op::And>},
         {"LogicalNot", TranslateUnaryOp<ngraph::op::Not>},
         {"MatMul", TranslateMatMulOp},
+        {"Max", TranslateMaxOp},
         {"Maximum", TranslateBinaryOp<ngraph::op::Maximum>},
         {"MaxPool", TranslateMaxPoolOp},
         {"MaxPoolGrad", TranslateMaxPoolGradOp},
