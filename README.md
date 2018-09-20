@@ -1,21 +1,23 @@
 # Bridge TensorFlow* to run on Intel® nGraph™ backends
 
 This directory contains the code needed to build a TensorFlow 
-plugin that can be used with Intel® nGraph™. nGraph is an [open-source C++ library, compiler and runtime] that provides developers with the means to 
-train and run DNN models efficiently on custom backends: GPU, CPU, and custom 
+plugin that can be used with Intel® nGraph™. nGraph is an 
+[open-source C++ library, compiler and runtime] that provides 
+developers with the means to train and run DNN models or 
+workloads efficiently on custom backends: GPU, CPU, and custom 
 silicon.
 
 ## Linux instructions
 
-There are a few ways you can run nGraph with TensorFlow. They are described in the 
-following section.
+There are a few ways you can run nGraph with TensorFlow. They 
+are described in the following section.
 
-## Option 1: Build nGraph bridge from source using existing TensorFlow installation
+## Option 1: Build nGraph bridge from source using 
 
 1. Install TensorFlow using the instructions from the TensorFlow web site
    https://www.tensorflow.org/install/install_linux
 
-2. Now clone the `ngraph-tf` repo and go to the `ngraph-tf` directory
+2. Clone the `ngraph-tf` repo and go to the `ngraph-tf` directory
 
     ```
     git clone https://github.com/NervanaSystems/ngraph-tf.git
@@ -212,13 +214,12 @@ We welcome community contributions to nGraph. If you have an idea for how to
 improve it:
 
 * Share your proposal via [GitHub issues].
-* Make sure your patch is in line with Google style by setting up your git `pre-commit` hooks.  First, ensure `clang-format` is in your path, then:
-
-   ```
-   pip install pre-commit autopep8 pylint
-   pre-commit install
-   ```
-
+* Make sure your patch is in line with Google style by setting up your git 
+  `pre-commit` hooks. First, ensure `clang-format` is in your path, then:
+   
+     pip install pre-commit autopep8 pylint
+     pre-commit install
+   
 * Ensure you can build the product and run all the examples with your patch.
 * In the case of a larger feature, create a test.
 * Submit a [pull request].
