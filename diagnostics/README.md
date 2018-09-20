@@ -19,26 +19,35 @@ NGTF uses the std error to output its logs, so it is necessary to pipe it correc
 
 ### A full dump
 To get a **full** dump use the following set of flags
-```NGRAPH_ENABLE_SERIALIZE=1 NGRAPH_CPU_TRACING=1 NGRAPH_VLOG_LEVEL=5 NGRAPH_GENERATE_GRAPHS_PBTXT=1 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS=1 NGRAPH_TF_DUMP_GRAPHS=1 python run_TF_network.py > log.txt 2>&1```
+```NGRAPH_ENABLE_SERIALIZE=1 NGRAPH_CPU_TRACING=1 NGRAPH_TF_VLOG_LEVEL=5 NGRAPH_GENERATE_GRAPHS_PBTXT=1 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_VALIDATE_CLUSTER_GRAPHS=1 NGRAPH_TF_DUMP_GRAPHS=1 python run_TF_network.py > log.txt 2>&1```
 
 ### Visualizing encapsulates using TB
-* Run your script with this flag: ```NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS=1 python run_TF_network.py```
+* Run your script with this flag: ```NGRAPH_TF_DUMP_DECLUSTERED_GRAPHS=1 python run_TF_network.py```
 * Change directory to this diagnostics folder
 * Run this script to parse the dumped graphs to know which encapsulate a node belongs to. At this step nodemap.pkl is created: ```python get_node_encapsulate_map.py ./path/to/folder/where/run_TF_network.py/exists/where/the/dumps/were/created/in/the/last/step/ nodemap.pkl```
 * Modify the graphdef and dump TB file in ```./vis``` using encapsulate information in ```nodemap.pkl```: ```python ngtf_graph_viewer.py -c nodemap.pkl ./path/to/original_network_pbtxtfile.pbtxt ./vis```. If you do not have the pbtxt of the original tensorflow graph, you can dump it from your script using [write_graph](https://www.tensorflow.org/api_docs/python/tf/train/write_graph)
 *  View the original network with encapsulate information by running tensorboard, using the files created in ```./vis```.
 
+### Disable NGRAPH in python
+* In your script, import ngraph by having: ```import ngraph```
+* Disable ngraph by calling: ```ngraph.disable()```
+* Enable ngraph by calling: ```ngraph.enable()```
+* Checking whether ngraph is enabled by calling: ```ngraph.is_enabled()```
+* You need to enable ngraph every time you called ```ngraph.disable()```, so it is good to check 
+if ngraph is enabled by calling ```ngraph.is_enabled()```
+* _Caution_: The above functions are only effective at the beginning of the execution. Once the session is created and ```run``` is called, the above functions will not be able to disable ngraph. 
+* For example usage, take a look at the ```model_test/verify_model.py``` in the diagnostics folder
 
 ## Debug flags
 * ```NGRAPH_ENABLE_SERIALIZE=1```: Generate nGraph level serialized graphs .json
 * ```NGRAPH_CPU_TRACING=1```: Generate nGraph level function timelines
-* ```NGRAPH_VLOG_LEVEL=5```: Generate ngraph-tf logging info for different passes
+* ```NGRAPH_TF_VLOG_LEVEL=5```: Generate ngraph-tf logging info for different passes
 * ```NGRAPH_GENERATE_GRAPHS_PBTXT=1```: Generate .pbtxt files for different phases in ngraph-tf bridge
 * ```NGRAPH_TF_LOG_PLACEMENT=1```: will generate op placement log to stdout
 * ```NGRAPH_TF_DUMP_CLUSTERS=1```: Dumps Encapsulated TF Graphs: ngraph_cluster_<cluster_num>
 * ```NGRAPH_TF_DUMP_GRAPHS=1```: dumps TF graphs for different passes : precapture, capture, unmarked, marked, clustered, declustered, encapsulated
 * ```TF_CPP_MIN_VLOG_LEVEL=1```: Enables TF CPP Logs 
-* ```NGRAPH_TF_DUMP_DECLSUTERED_GRAPHS=1```: To view TF computation graph with colored nodes indicating clusters
+* ```NGRAPH_TF_DUMP_DECLUSTERED_GRAPHS=1```: To view TF computation graph with colored nodes indicating clusters
 
 ## Protobuf Visualization
 The python script ngtf_graph_viewer.py can convert a protobuf (pb or pbtxt) into a dot file or a TB log, which can be viewed using TB. If the input is a pbtxt then ngtf_graph_viewer can also sanitize node names to remove underscores from the front of node names (which indicate they are internal nodes and might cause TB to complain). It can also prepend strings in front of certain node names, a feature which can be used  to append encapsulate information for clustering nodes together
