@@ -245,7 +245,7 @@ TEST(MathOps, BatchMatMul3DAdjY) {
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-} // end of test op BatchMatMul
+}  // end of test op BatchMatMul
 
 // Test op: Cast : float to int
 TEST(MathOps, Cast1D) {
