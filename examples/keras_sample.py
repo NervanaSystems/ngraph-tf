@@ -13,33 +13,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge cast operation test
-
-"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import pytest
-
 import tensorflow as tf
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input, decode_predictions
+import numpy as np
+import ngraph
 
-from common import NgraphTest
+# A simple script to run inference and training on resnet 50
 
+model = ResNet50(weights='imagenet')
 
-@pytest.mark.skip(reason="new deviceless mode WIP")
-class TestExpandDims(NgraphTest):
-
-    @pytest.mark.parametrize("axis", ([0, 2, 3]))
-    def test_expand_dims(self, axis):
-        shape = [2, 3, 5]
-        val = tf.ones(shape, tf.float32)
-
-        with self.device:
-            out = tf.expand_dims(val, axis)
-            with self.session as sess:
-                result = sess.run(out)
-
-        shape.insert(axis, 1)
-        expected = tuple(shape)
-        assert result.shape == expected
+batch_size = 128
+img = np.random.rand(batch_size, 224, 224, 3)
+preds = model.predict(preprocess_input(img))
+print('Predicted:', decode_predictions(preds, top=3)[0])
+model.compile(tf.keras.optimizers.SGD(), loss='categorical_crossentropy')
+preds = model.fit(
+    preprocess_input(img), np.zeros((batch_size, 1000), dtype='float32'))
+print('Ran a train round')
