@@ -72,9 +72,11 @@ The installation prerequisites are the same as described in the TensorFlow
         export PATH=$PATH:~/bin
         source ~/.bashrc   
 
-3. Ensure that all the TensorFlow dependencies are installed, as per the
-   TensorFlow [prepare environment] for linux. :exclamation: You do not 
-   need CUDA in order to use the ngraph-tf bridge.
+3. Ensure that all the TensorFlow dependencies are installed, and when building 
+   TensorFlow* *do not* select `Yes` when asked: 
+        Do you wish to build TensorFlow with CUDA support? [y/N]: N
+        No CUDA support will be enabled for TensorFlow.
+
 
 4. Additional dependencies.
    - Install ```apt-get install libicu-dev``` to avoid the following (potential) error:
