@@ -12,7 +12,7 @@ silicon.
 *   [OS X instructions](#os-x-instructions)
 *   [Debugging](#debugging)
 *   [Support](#support)
-*   [About nGraph](#about-ngraph)
+*   [How to Contribute](#how-to-contribute)
 
 
 
@@ -192,6 +192,9 @@ The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 ## Debugging
 
 See the instructions provided in the [diagnostics] directory.
+
+https://github.com/NervanaSystems/ngraph-tf/blob/master/diagnostics/README.md
+
 
 ## Support
 
