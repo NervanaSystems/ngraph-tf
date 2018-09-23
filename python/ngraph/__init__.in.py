@@ -121,7 +121,7 @@ def list_backends():
   len_backends = backends_len()
   result = (ctypes.c_char_p * len_backends)()
   if not ngraph.ngraph_list_backends(result, len_backends):
-    raise Exception("Backends fluctuated while listing")
+    raise Exception("Expected " + str(len_backends) + " backends, but got some  other number of backends")
   return list(result)
 
 
