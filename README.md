@@ -1,15 +1,15 @@
-# Bridge TensorFlow* to run on Intel® nGraph™ backends
+# Intel® nGraph™ Compiler and runtime for TensorFlow*
 
-This directory contains the code needed to build a TensorFlow 
-plugin to the Intel® nGraph™ Compiler. As part of a TensorFlow 
-toolchain, nGraph can speed up training workloads using CPU; or 
-the nGraph Library and runtime suite can be used to customize 
-and deploy Deep Learning inference models that will "just work" 
-with variety of nGraph-enabled backends: CPU, GPU, and custom 
-silicon.  
+This repository contains the code needed to enable Intel® nGraph™ Compiler and 
+runtime engine for TensorFlow. Use it to speed up your TensorFlow training and 
+inference workloads. The nGraph Library and runtime suite can also be used to 
+customize and deploy Deep Learning inference models that will "just work" with 
+variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the 
+[Intel® Nervana™ NNP](https://itpeernetwork.intel.com/inteldcisummit-artificial-intelligence/).
 
-*   [Linux instructions](#linux-instructions)
-*   [OS X instructions](#os-x-instructions)
+*   [Build with Linux](#linux-instructions)
+*   [Build using OS X](#using-os-x)
+*   Using the stable [upstreamed](#using-the-stable-upstreamed-version) version
 *   [Debugging](#debugging)
 *   [Support](#support)
 *   [How to Contribute](#how-to-contribute)
@@ -18,14 +18,12 @@ silicon.
 
 ## Linux instructions
 
-You can connect nGraph to an existing TensorFlow installation if 
-you're running TensorFlow v1.11.0-rc1 or greater. For versions 
-released previous to that, we recommend starting with a clean 
+For TensorFlow projects built before v1.11.0, we recommend starting with a clean 
 environment and re-building with the instructions in Option 2.
 
-### Option 1: Use an existing TensorFlow installation
+### Option 1: Use an existing TensorFlow v1.11.0 (or greater) installation
 
-1. If you already have a requisite version resultant from following 
+1. If you already have TensorFlow v1.11.0 resultant from following 
    the [linux-based install instructions on the TensorFlow website], 
    you must also instantiate a specific kind of `virtualenv`  to 
    be able to proceed with the `ngraph-tf` bridge installation. For 
@@ -49,10 +47,10 @@ environment and re-building with the instructions in Option 2.
         pip install -U python/dist/ngraph-0.5.0-py2.py3-none-linux_x86_64.whl
 
 
-### Option 2: Use the Build nGraph bridge from source using TensorFlow source
+### Option 2: Build nGraph bridge from source using TensorFlow source
 
 To run unit tests, or if you are planning to contribute, install the nGraph 
-bridge using the TensorFlow source tree. 
+bridge using the TensorFlow source tree as follows: 
 
 #### Prepare the build environment
 
@@ -164,7 +162,26 @@ with nGraph backends.
 Note: The actual filename for the pip package may be different as it's version 
 dependent. Please check the `build/python/dist` directory for the actual pip wheel.
 
-#### Running tests
+## Using the stable upstreamed version
+
+There is an alternative to building from source; it is to use the "upstreamed" 
+version of the bridge. This option integrates a slightly older (but stable) version 
+of nGraph with TensorFlow. The primary downside here is that due to the waiting 
+queue for merging PRs in TensorFlow, some of the latest [ops], direct optimizations, 
+or feature improvements might not be available if you select this option.   
+
+The good news is that both our [nGraph] and [ngraph-tf bridge] repos are open 
+source, so you can decide which option or source tree is best for your project,
+To use this option, simply select `y` when the TensorFlow installer asks whether 
+you want to build with nGraph. 
+
+For this final option, there is **no need to separately build `ngraph-tf` or to 
+use `pip` to install the ngraph module**. With this configuration, your TensorFlow 
+model scripts will work without any changes. 
+
+
+
+### Running tests
 
 To run the C++ unit tests, please do the following:
 
@@ -182,7 +199,7 @@ Next is to run a few DL models to validate the end-to-end functionality.
         --data_dir <input_data_location> 
     ```
 
-## OS X instructions
+## Using OS X 
 
 The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 
@@ -238,6 +255,7 @@ See the full documentation here:  <http://ngraph.nervanasys.com/docs/latest>
 [bazel version 0.16.0]: https://github.com/bazelbuild/bazel/releases/tag/0.16.0
 [prepare environment]: https://www.tensorflow.org/install/install_sources#prepare_environment_for_linux
 [diagnostics]:diagnostics/README.md
-
- 
+[ops]:http://ngraph.nervanasys.com/docs/latest/ops/index.html
+[nGraph]:https://github.com/NervanaSystems/ngraph 
+[ngraph-tf bridge]:https://github.com/NervanaSystems/ngraph-tf 
  
