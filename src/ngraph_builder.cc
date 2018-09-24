@@ -1553,8 +1553,8 @@ static Status TranslateMatMulOp(
 static Status TranslateMaxOp(const Node* op,
                              const std::vector<const Tensor*>& static_input_map,
                              Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
+  shared_ptr<ng::Node> ng_input, ng_max_op;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_max_op));
 
   bool tf_keep_dims;
   if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
