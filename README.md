@@ -72,6 +72,7 @@ The installation prerequisites are the same as described in the TensorFlow
 
 3. Ensure that all the TensorFlow dependencies are installed, and when building 
    TensorFlow* *do not* select `Yes` when asked: 
+
         Do you wish to build TensorFlow with CUDA support? [y/N]: N
         No CUDA support will be enabled for TensorFlow.
 
@@ -205,8 +206,12 @@ The build and installation instructions are idential for Ubuntu 16.04 and OS X.
 
 ### Running tests
 
-1. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `DYLD_LIBRARY_PATH`
-2. Follow the C++ and Python instructions from the Linux based testing described above.
+Export the appropriate paths to your build location; OS X uses the `DYLD_` prefix:
+
+    export DYLD_LIBRARY_PATH=/bazel-out/darwin-py3-opt/bin/tensorflow:$DYLD_LIBRARY_PATH
+    export DYLD_LIBRARY_PATH=/build/ngraph/ngraph_dist/lib:$DYLD_LIBRARY_PATH
+
+Then follow "Running tests" on Linux as described above. 
 
 ## Debugging
 
@@ -225,12 +230,6 @@ We welcome community contributions to nGraph. If you have an idea for how to
 improve it:
 
 * Share your proposal via [GitHub issues].
-* Make sure your patch is in line with Google style by setting up your git 
-  `pre-commit` hooks. First, ensure `clang-format` is in your path, then:
-   
-        pip install pre-commit autopep8 pylint
-        pre-commit install
-   
 * Ensure you can build the product and run all the examples with your patch.
 * In the case of a larger feature, create a test.
 * Submit a [pull request].
