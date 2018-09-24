@@ -184,21 +184,19 @@ model scripts will work without any changes.
 
 ### Running tests
 
-To run the C++ unit tests, please do the following:
+To run the C++ unit tests,
 
-1. Go to the build directory and run the following command:
-    ```
+* Go to the build directory and run the following commands:
+
     cd test
     ./gtest_ngtf
-    ```
-Next is to run a few DL models to validate the end-to-end functionality.
 
-2. Go to the ngraph-tf/examples directory and run the following models.
-    ```
-    cd examples/mnist
-    python mnist_fprop_only.py \
-        --data_dir <input_data_location> 
-    ```
+You can also try to run a few of your own DL models to validate the end-to-end 
+functionality. Also, you can use the `ngraph-tf/examples` directory and try to 
+run the following model with some MNIST data on your local machine: 
+
+        cd examples/mnist
+        python mnist_fprop_only.py --data_dir <input_data_location> 
 
 ## Using OS X 
 
