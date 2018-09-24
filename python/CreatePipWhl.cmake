@@ -39,18 +39,7 @@ if (PYTHON)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)
         set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n")
         file(COPY ${lib_file_real_path} 
-            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph")
-        
-        if (APPLE)
-            execute_process(COMMAND 
-                /usr/bin/objdump -macho -dylib-id 
-                ${lib_file_real_path} | tail -1
-                RESULT_VARIABLE result
-                ERROR_VARIABLE ERR
-                ERROR_STRIP_TRAILING_WHITESPACE                
-            )
-            message(STATUS "lib id: " ${RESULT_VARIABLE})
-        endif()
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph")        
     endforeach()            
 
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
@@ -76,6 +65,39 @@ if (PYTHON)
         if(${result})
             message(FATAL_ERROR "Cannot update @loader_path")
         endif()
+
+        execute_process(COMMAND 
+            install_name_tool -change 
+            libngraph.${NGRAPH_VERSION}.dylib 
+            @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libcpu_backend.dylib
+            RESULT_VARIABLE result
+            ERROR_VARIABLE ERR
+            ERROR_STRIP_TRAILING_WHITESPACE
+        )
+        if(${result})
+            message(FATAL_ERROR "Cannot update @loader_path")
+        endif()
+
+        set(lib_list 
+            libmkldnn.0.dylib
+            libmklml.dylib
+            libiomp5.dylib
+            libtbb.dylib
+        )
+
+        FOREACH(lib_file ${lib_list})
+            message("Library: " ${lib_file})
+            execute_process(COMMAND 
+                install_name_tool -change 
+                @rpath/${lib_file} 
+                @loader_path/${lib_file} 
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libcpu_backend.dylib
+                RESULT_VARIABLE result
+                ERROR_VARIABLE ERR
+                ERROR_STRIP_TRAILING_WHITESPACE
+            )
+        ENDFOREACH()
     endif()
 
     execute_process(
