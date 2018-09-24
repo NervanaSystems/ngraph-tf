@@ -4,7 +4,7 @@ This repository contains the code needed to enable Intel® nGraph™ Compiler an
 runtime engine for TensorFlow. Use it to speed up your TensorFlow training and 
 inference workloads. The nGraph Library and runtime suite can also be used to 
 customize and deploy Deep Learning inference models that will "just work" with 
-variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the 
+a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the 
 [Intel® Nervana™ NNP](https://itpeernetwork.intel.com/inteldcisummit-artificial-intelligence/).
 
 *   [Build with Linux](#linux-instructions)
