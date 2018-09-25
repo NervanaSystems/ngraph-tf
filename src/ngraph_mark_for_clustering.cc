@@ -247,6 +247,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["Min"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Min"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
@@ -345,6 +347,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Mean"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Min"] = SimpleConfirmationFunction({1});
       confirmation_functions["Minimum"] = SimpleConfirmationFunction();
       confirmation_functions["Mul"] = SimpleConfirmationFunction();
       confirmation_functions["Neg"] = SimpleConfirmationFunction();

@@ -1773,6 +1773,58 @@ static Status TranslateMeanOp(
   return Status::OK();
 }
 
+static Status TranslateMinOp(const Node* op,
+                             const std::vector<const Tensor*>& static_input_map,
+                             Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_min_op;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min_op));
+
+  bool tf_keep_dims;
+  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
+    tf_keep_dims = false;
+  }
+
+  std::vector<int64> min_axes;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_axes));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  size_t input_rank = input_shape.size();
+
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(min_axes, input_rank));
+
+  std::vector<size_t> ng_reduction_axes_vect(min_axes.size());
+  std::transform(
+      min_axes.begin(), min_axes.end(), ng_reduction_axes_vect.begin(),
+      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
+
+  std::shared_ptr<ng::Node> ng_min =
+      make_shared<ng::op::Min>(ng_input, ng_reduction_axes);
+
+  // If keep_dims is specified we need to reshape to put back the reduced
+  // axes, with length 1.
+  if (tf_keep_dims) {
+    ng::Shape ng_result_shape_with_keep(input_rank);
+
+    for (size_t i = 0; i < input_rank; i++) {
+      ng_result_shape_with_keep[i] =
+          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
+    }
+
+    ng::AxisVector ng_axis_order(ng_min->get_shape().size());
+
+    for (size_t i = 0; i < ng_min->get_shape().size(); i++) {
+      ng_axis_order[i] = i;
+    }
+
+    ng_min = make_shared<ng::op::Reshape>(ng_min, ng_axis_order,
+                                          ng_result_shape_with_keep);
+  }
+
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  return Status::OK();
+}
+
 static Status TranslatePackOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2790,6 +2842,7 @@ const static std::map<
         {"MaxPool", TranslateMaxPoolOp},
         {"MaxPoolGrad", TranslateMaxPoolGradOp},
         {"Mean", TranslateMeanOp},
+        {"Min", TranslateMinOp},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
         {"Mul", TranslateBinaryOp<ngraph::op::Multiply>},
         {"Neg", TranslateUnaryOp<ngraph::op::Negative>},
