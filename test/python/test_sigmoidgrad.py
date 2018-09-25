@@ -33,32 +33,40 @@ import numpy as np
 
 class TestSigmoidGradOperations(NgraphTest):
 
-    # @pytest.mark.parametrize("y", (1.4, -0.5, -1))
-    # @pytest.mark.parametrize("y_delta", (1.4, -0.5, -1))
-    def test_sigmoidgrad_1d(self):
+    def test_sigmoidgrad_2d(self):
         y = constant_op.constant(
-            self.generate_random_numbers(3, 1.0, 10.0), shape=[1,3])
+            self.generate_random_numbers(30, 1.0, 10.0), shape=[10,3])
         y_delta = constant_op.constant(
-            self.generate_random_numbers(3, 0.0, 10.0), shape=[1, 3])
+            self.generate_random_numbers(30, 0.0, 10.0), shape=[10,3])
 
-        # y = constant_op.constant(
-        #     [10.0,10.0], shape=[2])
-        # y_delta = constant_op.constant(
-        #     [20.0,20.0], shape=[2])
-
-        out = sigmoid_grad(y,y_delta)
+        out = sigmoid_grad(y, y_delta)
 
         def run_test(sess):
-            #return sess.run((out,), feed_dict={val: (test_input,)})
             return sess.run(out)
 
-        print (self.without_ngraph(run_test))
-        print ("other one")
-        print (self.with_ngraph(run_test))
-        assert (self.without_ngraph(run_test) == self.with_ngraph(run_test)).all()
-        # assert np.allclose(
-        #     self.with_ngraph(run_test), self.without_ngraph(run_test))
+        print("ngraph ", self.with_ngraph(run_test))
+        print("cpu ", self.without_ngraph(run_test))
 
+        assert np.allclose(
+            self.with_ngraph(run_test), self.without_ngraph(run_test))
+
+
+    def test_sigmoidgrad_3d(self):
+        y = constant_op.constant(
+            self.generate_random_numbers(450, 1.0, 15.0), shape=[10,3,15])
+        y_delta = constant_op.constant(
+            self.generate_random_numbers(450, -3.0, 10.0), shape=[10,3,15])
+
+        out = sigmoid_grad(y, y_delta)
+
+        def run_test(sess):
+            return sess.run(out)
+
+        print("ngraph ", self.with_ngraph(run_test))
+        print("cpu ", self.without_ngraph(run_test))
+
+        assert np.allclose(
+            self.with_ngraph(run_test), self.without_ngraph(run_test))
 
     #@pytest.mark.parametrize("padding", ("VALID", "SAME"))
     # def test_nchw(self, padding):
@@ -101,9 +109,6 @@ class TestSigmoidGradOperations(NgraphTest):
     #     assert np.allclose(
     #         self.with_ngraph(run_test_ngraph), self.without_ngraph(run_test_tf))
 
-
-
-
     # def test_sigmoidgrad_2d(self):
     #     #gradients = constant_op.constant(
     #     #    self.generate_random_numbers(6, 1.0, 10.0), shape=[2, 3])
@@ -117,34 +122,36 @@ class TestSigmoidGradOperations(NgraphTest):
     #     with self.session as sess:
     #     	result = sess.run(out)
 
-        # Run on CPU
-	#ngraph.disable()
-	#if ngraph.is_enabled():
-	#	print ("ngraph is enabled not as expected")
-        #out = sigmoid_grad(y, y_delta)
-        #with self.session as sess:
-        #        expected = sess.run(out)
+    # Run on CPU
 
-        #assert (result == expected).all()
 
-    #def test_sigmoidgrad_1d(self):
-    #    gradients = constant_op.constant(
-    #        self.generate_random_numbers(100, 123.0, 345.0), shape=[100])
-    #    features = constant_op.constant(
-    #        self.generate_random_numbers(100, 567.0, 789.0), shape=[100])
+#ngraph.disable()
+#if ngraph.is_enabled():
+#	print ("ngraph is enabled not as expected")
+#out = sigmoid_grad(y, y_delta)
+#with self.session as sess:
+#        expected = sess.run(out)
 
-    #    # Run on nGraph
-    #    ngraph.disable()
-    #    out = sigmoid_grad(gradients, features)
-    #    with self.session as sess:
-    #    	result = sess.run(out)
+#assert (result == expected).all()
 
-    #    # Run on CPU
-    #    #ngraph.disable()
-    #    #if ngraph.is_enabled():
-    #    #	print ("ngraph is enabled not as expected")
-    #    #out = sigmoid_grad(gradients, features)
-    #    #with self.session as sess:
-    #    #	expected = sess.run(out)
+#def test_sigmoidgrad_1d(self):
+#    gradients = constant_op.constant(
+#        self.generate_random_numbers(100, 123.0, 345.0), shape=[100])
+#    features = constant_op.constant(
+#        self.generate_random_numbers(100, 567.0, 789.0), shape=[100])
 
-    #    #assert (result == expected).all()
+#    # Run on nGraph
+#    ngraph.disable()
+#    out = sigmoid_grad(gradients, features)
+#    with self.session as sess:
+#    	result = sess.run(out)
+
+#    # Run on CPU
+#    #ngraph.disable()
+#    #if ngraph.is_enabled():
+#    #	print ("ngraph is enabled not as expected")
+#    #out = sigmoid_grad(gradients, features)
+#    #with self.session as sess:
+#    #	expected = sess.run(out)
+
+#    #assert (result == expected).all()
