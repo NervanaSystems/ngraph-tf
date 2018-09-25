@@ -164,6 +164,17 @@ const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   return result;
 }
 
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
+  for (auto i : axes) {
+    if (i >= -(rank) && i < rank) {
+      return errors::InvalidArgument(
+          "Axis Dimension is out of range.Should be in range [-rank(input), "
+          "rank(input))");
+    }
+  }
+  return Status::OK();
+}
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
