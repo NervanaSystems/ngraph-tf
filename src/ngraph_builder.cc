@@ -22,6 +22,7 @@
 #include "ngraph/builder/autobroadcast.hpp"
 #include "ngraph/builder/numpy_transpose.hpp"
 
+#include "ngraph/op/argmax.hpp"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb_text.h"
@@ -446,6 +447,37 @@ static Status TranslateAddNOp(
   return Status::OK();
 }
 
+static Status TranslateArgMaxOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_dim;
+
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_dim));
+
+  std::vector<int64> tf_dim;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_dim));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  size_t input_rank = ng_input->get_shape().size();
+
+  // If input dimension is negative, make it positive
+  if (tf_dim[0] < 0) {
+    tf_dim[0] = input_rank + tf_dim[0];
+  }
+  size_t input_dims = tf_dim[0];
+
+  DataType dtype = DT_INT64;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "output_type", &dtype));
+
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
+  auto ng_argmax = make_shared<ng::op::ArgMax>(ng_input, input_dims, ng_et);
+
+  SaveNgOp(ng_op_map, op->name(), ng_argmax);
+  return Status::OK();
+}
+
 static Status TranslateAvgPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -476,7 +508,6 @@ static Status TranslateAvgPoolOp(
   ng::Strides ng_strides(2);
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
-
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
@@ -2717,6 +2748,7 @@ const static std::map<
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
         {"AddN", TranslateAddNOp},
+        {"ArgMax", TranslateArgMaxOp},
         {"AvgPool", TranslateAvgPoolOp},
         {"AvgPoolGrad", TranslateAvgPoolGradOp},
         {"BatchMatMul", TranslateBatchMatMulOp},

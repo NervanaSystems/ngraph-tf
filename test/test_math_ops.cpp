@@ -560,6 +560,52 @@ TEST(MathOps, Log2d) {
   opexecuter.RunTest();
 }
 
+// ArgMax test for positive dimension
+TEST(MathOps, ArgMax_Pos) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  vector<int64> dim = {1};
+
+  vector<int> static_input_indexes = {1};
+
+  auto R = ops::ArgMax(root, A, dim[0]);
+
+  vector<DataType> output_datatypes = {DT_INT64};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
+// ArgMax test for negative dimension
+TEST(MathOps, ArgMax_Neg) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  vector<int64> dim = {-1};
+
+  vector<int> static_input_indexes = {1};
+
+  auto R = ops::ArgMax(root, A, dim[0]);
+
+  vector<DataType> output_datatypes = {DT_INT64};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
 }  // namespace testing
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
