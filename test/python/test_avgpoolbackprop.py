@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge depthwise_conv2d operation test
+"""nGraph TensorFlow bridge AvgPoolBackprop operation test
 
 """
 from __future__ import absolute_import
@@ -25,91 +25,95 @@ import pytest
 import tensorflow as tf
 from tensorflow.python.framework import constant_op
 from tensorflow.python.ops import nn_ops
+from tensorflow.python.ops.gen_nn_ops import avg_pool_grad
+import numpy as np
 
 from common import NgraphTest
 
-import numpy as np
 
+class TestAvgPoolBackpropInput(NgraphTest):
 
-class TestConv2DBackpropInput(NgraphTest):
-    INPUT_SIZES_NCHW = [1, 2, 7, 6]
-    INPUT_SIZES_NHWC = [1, 7, 6, 2]
-    FILTER_IN_SIZES = [3, 3, 2, 2]
-    OUT_BACKPROP_IN_SIZES = {"VALID": [1, 2, 3, 2], "SAME": [1, 2, 4, 3]}
-
-    def make_filter_and_backprop_args(self, out_backprop_in_sizes):
-        total_size_1 = 1
-        total_size_2 = 1
-
-        for s in out_backprop_in_sizes:
-            total_size_1 *= s
-        for s in self.FILTER_IN_SIZES:
-            total_size_2 *= s
-
-        x1 = [f * 1.0 for f in range(1, total_size_1 + 1)]
-        x2 = [f * 1.0 for f in range(1, total_size_2 + 1)]
-
-        return x1, x2
-
-    @pytest.mark.parametrize("padding", ("VALID", "SAME"))
-    def test_nchw(self, padding):
-        # The expected size of the backprop will depend on whether padding is VALID
-        # or SAME.
-        out_backprop_in_sizes = self.OUT_BACKPROP_IN_SIZES[padding]
-        x1, x2 = self.make_filter_and_backprop_args(out_backprop_in_sizes)
-
-        def run_test_ngraph(sess):
-            t1 = constant_op.constant(self.INPUT_SIZES_NCHW)
-            t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
-            t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
-            inp = nn_ops.conv2d_backprop_input(
-                t1,
-                t2,
-                t3,
-                strides=[1, 1, 2, 2],
-                padding=padding,
-                data_format='NCHW')
-            return sess.run(inp)
-
-        # To validate on the CPU side we will need to run in NHWC, because the CPU
-        # implementation of conv/conv backprop does not support NCHW. We will
-        # transpose on the way in and on the way out.
-        def run_test_tf(sess):
-            t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
-            t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
-            t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
-            t3 = tf.transpose(t3, [0, 2, 3, 1])
-            inp = nn_ops.conv2d_backprop_input(
-                t1,
-                t2,
-                t3,
-                strides=[1, 2, 2, 1],
-                padding=padding,
-                data_format='NHWC')
-            inp = tf.transpose(inp, [0, 3, 1, 2])
-            return sess.run(inp)
-
-        assert np.allclose(
-            self.with_ngraph(run_test_ngraph), self.without_ngraph(run_test_tf))
+    forward_arg_shape_NHWC = [128, 224, 224, 3]
+    forward_arg_shape_NCHW = [128, 3, 224, 224]
+    ksize = [1, 2, 3, 1]
+    strides = [1, 2, 3, 1]
+    grad_input_nhwc = {
+        "VALID": np.random.rand(128, 112, 74, 3),
+        "SAME": np.random.rand(128, 112, 75, 3)
+    }
+    grad_input_nchw = {
+        "VALID": np.random.rand(128, 3, 74, 224),
+        "SAME": np.random.rand(128, 3, 75, 224)
+    }
 
     @pytest.mark.parametrize("padding", ("VALID", "SAME"))
     def test_nhwc(self, padding):
-        out_backprop_in_sizes = self.OUT_BACKPROP_IN_SIZES[padding]
-        x1, x2 = self.make_filter_and_backprop_args(out_backprop_in_sizes)
-        t1 = constant_op.constant(self.INPUT_SIZES_NHWC)
-        t2 = constant_op.constant(x2, shape=self.FILTER_IN_SIZES)
-        t3 = constant_op.constant(x1, shape=out_backprop_in_sizes)
-        t3 = tf.transpose(t3, [0, 2, 3, 1])
-        inp = nn_ops.conv2d_backprop_input(
-            t1,
-            t2,
-            t3,
-            strides=[1, 2, 2, 1],
-            padding=padding,
-            data_format='NHWC')
+        np_nhwc = self.grad_input_nhwc[padding]
+        if padding == "VALID":
+            grad_input = tf.placeholder(tf.float32, shape=(128, 112, 74, 3))
+        elif padding == "SAME":
+            grad_input = tf.placeholder(tf.float32, shape=(128, 112, 75, 3))
 
-        def run_test(sess):
-            return sess.run(inp)
+        with self.device:
+            a = avg_pool_grad(
+                self.forward_arg_shape_NHWC,
+                grad_input,
+                self.ksize,
+                self.strides,
+                padding=padding,
+                data_format="NHWC")
+            with self.session as sess:
+                (result) = sess.run(a, feed_dict={grad_input: np_nhwc})
 
-        assert (
-            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+        with tf.device('/cpu:0'):
+            b = avg_pool_grad(
+                self.forward_arg_shape_NHWC,
+                grad_input,
+                self.ksize,
+                self.strides,
+                padding=padding,
+                data_format="NHWC")
+            with self.session as sess:
+                (expected) = sess.run(b, feed_dict={grad_input: np_nhwc})
+
+        np.testing.assert_allclose(result, expected, rtol=5e-7)
+
+    @pytest.mark.parametrize("padding", ("VALID", "SAME"))
+    def test_nchw(self, padding):
+        self.ksize = [1, 1, 3, 1]
+        np_nchw = self.grad_input_nchw[padding]
+        if padding == "VALID":
+            grad_input = tf.placeholder(tf.float32, shape=(128, 3, 74, 224))
+        elif padding == "SAME":
+            grad_input = tf.placeholder(tf.float32, shape=(128, 3, 75, 224))
+
+        with self.device:
+            a = avg_pool_grad(
+                self.forward_arg_shape_NCHW,
+                grad_input,
+                self.ksize,
+                self.strides,
+                padding=padding,
+                data_format="NCHW")
+            with self.session as sess:
+                (result) = sess.run(a, feed_dict={grad_input: np_nchw})
+        # To validate on the CPU side we will need to run in NHWC, because the CPU
+        # implementation of avgpool backprop does not support NCHW. We will
+        # transpose on the way in and on the way out
+        with tf.device('/cpu:0'):
+            grad_input = tf.transpose(grad_input, [0, 2, 3, 1])
+            np_nchw = np.transpose(np_nchw, [0, 2, 3, 1])
+            self.ksize = [1, 3, 1, 1]
+            self.strides = [1, 3, 1, 2]
+            b = avg_pool_grad(
+                self.forward_arg_shape_NHWC,
+                grad_input,
+                self.ksize,
+                self.strides,
+                padding=padding,
+                data_format="NHWC")
+            b = tf.transpose(b, [0, 3, 1, 2])
+            with self.session as sess:
+                (expected) = sess.run(b, feed_dict={grad_input: np_nchw})
+
+        np.testing.assert_allclose(result, expected, rtol=5e-7)
