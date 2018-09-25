@@ -1491,6 +1491,29 @@ static Status TranslateFusedBatchNormGradOp(
   return Status::OK();
 }
 
+static Status TranslateSigmoidGradOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+
+  shared_ptr<ng::Node> ng_input; 
+  shared_ptr<ng::Node> ng_delta;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input,&ng_delta));
+
+  // use SigmoidBackprop op
+  // auto ng_sigmoid_backprop = std::make_shared<ng::op::SigmoidBackprop>(ng_input, ng_delta);
+  auto ng_mul = std::make_shared<ng::op::Multiply>(ng_input, ng_delta);
+  ng::Shape input_shape = ng_input->get_shape();
+  std::vector<std::string> constant_values(ng::shape_size(input_shape), "1");
+  auto c = make_shared<ng::op::Constant>(
+      ng_input->get_element_type(), input_shape, constant_values);
+  auto ng_negate = std::make_shared<ng::op::Subtract>(c, ng_input);
+  auto ng_result = std::make_shared<ng::op::Multiply>(ng_mul, ng_negate);
+
+  SaveNgOp(ng_op_map, op->name(), ng_result);
+  return Status::OK();
+}
+
+
 static Status TranslateIdentityOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2052,6 +2075,7 @@ static Status TranslateShapeOp(
 static Status TranslateSigmoidOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
@@ -2774,6 +2798,8 @@ const static std::map<
         {"Rsqrt", TranslateRsqrtOp},
         {"Shape", TranslateShapeOp},
         {"Sigmoid", TranslateSigmoidOp},
+        {"SigmoidGrad", TranslateSigmoidGradOp},
+        //{"SigmoidGrad", TranslateBinaryOp<ngraph::op::SigmoidBackprop>},
         {"Sign", TranslateUnaryOp<ngraph::op::Sign>},
         {"Slice", TranslateSliceOp},
         {"Snapshot", TranslateSnapshotOp},
