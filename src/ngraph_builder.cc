@@ -2591,11 +2591,12 @@ static Status TranslateTanhGradOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_delta;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_delta));
-  
+
   auto ng_sq = std::make_shared<ng::op::Multiply>(ng_input, ng_input);
   ng::Shape input_shape = ng_input->get_shape();
   std::vector<std::string> const_values(ng::shape_size(input_shape), "1");
-  auto ng_const = make_shared<ng::op::Constant>(ng_input->get_element_type(), input_shape, const_values);
+  auto ng_const = make_shared<ng::op::Constant>(ng_input->get_element_type(),
+                                                input_shape, const_values);
   auto ng_sub = make_shared<ng::op::Subtract>(ng_const, ng_sq);
   auto ng_result = make_shared<ng::op::Multiply>(ng_delta, ng_sub);
 
