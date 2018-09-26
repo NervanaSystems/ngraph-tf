@@ -32,11 +32,12 @@ import numpy as np
 
 class TestSigmoidGradOperations(NgraphTest):
 
+    @pytest.mark.parametrize("shape_input", [[10,3],[3,10],[2,15]])
     def test_sigmoidgrad_2d(self):
         y = constant_op.constant(
-            self.generate_random_numbers(30, 1.0, 10.0), shape=[10,3])
+            self.generate_random_numbers(30, 1.0, 10.0), shape=shape_input)
         y_delta = constant_op.constant(
-            self.generate_random_numbers(30, 0.0, 10.0), shape=[10,3])
+            self.generate_random_numbers(30, 0.0, 10.0), shape=shape_input)
 
         out = sigmoid_grad(y, y_delta)
 
