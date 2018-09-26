@@ -30,14 +30,14 @@ from common import NgraphTest
 
 import numpy as np
 
+
 class TestSigmoidGradOperations(NgraphTest):
 
-    @pytest.mark.parametrize("shape_input", [[10,3],[3,10],[2,15]])
     def test_sigmoidgrad_2d(self):
         y = constant_op.constant(
-            self.generate_random_numbers(30, 1.0, 10.0), shape=shape_input)
+            self.generate_random_numbers(30, 1.0, 10.0), shape=[3, 10])
         y_delta = constant_op.constant(
-            self.generate_random_numbers(30, 0.0, 10.0), shape=shape_input)
+            self.generate_random_numbers(30, 0.0, 10.0), shape=[3, 10])
 
         out = sigmoid_grad(y, y_delta)
 
@@ -47,12 +47,11 @@ class TestSigmoidGradOperations(NgraphTest):
         assert np.allclose(
             self.with_ngraph(run_test), self.without_ngraph(run_test))
 
-
     def test_sigmoidgrad_3d(self):
         y = constant_op.constant(
-            self.generate_random_numbers(450, 1.0, 15.0), shape=[10,3,15])
+            self.generate_random_numbers(450, 1.0, 15.0), shape=[10, 3, 15])
         y_delta = constant_op.constant(
-            self.generate_random_numbers(450, -3.0, 10.0), shape=[10,3,15])
+            self.generate_random_numbers(450, -3.0, 10.0), shape=[10, 3, 15])
 
         out = sigmoid_grad(y, y_delta)
 
@@ -64,14 +63,16 @@ class TestSigmoidGradOperations(NgraphTest):
 
     def test_sigmoidgrad_5d(self):
         y = constant_op.constant(
-            self.generate_random_numbers(240240, 1.0, 15.0), shape=[10,11,12,13,14])
+            self.generate_random_numbers(240240, 1.0, 15.0),
+            shape=[10, 11, 12, 13, 14])
         y_delta = constant_op.constant(
-            self.generate_random_numbers(240240, -3.0, 10.0), shape=[10,11,12,13,14])
+            self.generate_random_numbers(240240, -3.0, 10.0),
+            shape=[10, 11, 12, 13, 14])
 
         out = sigmoid_grad(y, y_delta)
 
         def run_test(sess):
             return sess.run(out)
-            
+
         assert np.allclose(
             self.with_ngraph(run_test), self.without_ngraph(run_test))
