@@ -166,10 +166,10 @@ const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
 
 Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
   for (auto i : axes) {
-    if (i >= -(rank) && i < rank) {
+    if (i < (int)-rank || i >= (int)rank) {
       return errors::InvalidArgument("Axis Dimension is out of range. Got ", i,
-                                     " ,should be in range [ -", rank, " , ",
-                                     rank, " )");
+                                     ", should be in range [-", rank, ", ",
+                                     rank, ")");
     }
   }
   return Status::OK();
