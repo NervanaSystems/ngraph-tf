@@ -347,11 +347,8 @@ class NGraphEncapsulateOp : public OpKernel {
             //      the last time ng_function was called, and
             //   2. we are using the same tensor in this argument position as
             //      the one we used last time ng_function was called.
-            if (m_freshness_tracker->IsFresh(current_src_ptr, ng_function)) {
-              last_tv->set_stale(false);
-            } else {
-              last_tv->set_stale(true);
-            }
+            last_tv->set_stale(
+                !m_freshness_tracker->IsFresh(current_src_ptr, ng_function));
             current_tv = last_tv;
           } else {
             current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape,
@@ -361,11 +358,10 @@ class NGraphEncapsulateOp : public OpKernel {
         } else {
           if (last_tv != nullptr) {
             if (current_src_ptr == last_src_ptr) {
-              if (m_freshness_tracker->IsFresh(current_src_ptr, ng_function)) {
-                last_tv->set_stale(false);
-              } else {
-                last_tv->set_stale(true);
-              }
+              last_tv->set_stale(
+                  !m_freshness_tracker->IsFresh(current_src_ptr, ng_function));
+            } else {
+              last_tv->set_stale(true);
             }
             current_tv = last_tv;
           } else {
