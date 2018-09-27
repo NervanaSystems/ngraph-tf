@@ -2021,8 +2021,46 @@ static Status TranslateQuantizeV2Op(
     mode = "MIN_COMBINE";
   }
 
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Convert>(ng_input, ng::element::i32));
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+
+  int qmax_val, qmin_val;
+  ng::element::Type* ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, ng_et));
+  switch (dtype){
+    case DataType::DT_QINT8:
+      qmax_val = 128; qmin_val = -127;
+      break;
+    case DataType::DT_QUINT8:
+      break;
+    case DataType::DT_QINT16:
+      break;
+    case DataType::DT_QUINT16:
+      break;
+    case DataType::DT_QINT32:
+      break;
+    default:
+      return errors::InvalidArgument("Expected QuantizeV2's datatype to be of quantized type but got ", dtype);
+  }
+  shared_ptr<ng::op::Constant> qmax = std::make_shared<ng::op::Constant>(*ng_et, ng::Shape(1), std::vector<int>({qmax_val}));
+  shared_ptr<ng::op::Constant> qmin = std::make_shared<ng::op::Constant>(*ng_et, ng::Shape(1), std::vector<int>({qmin_val}));
+
+  auto scale = (ng_max - ng_min) / (qmax - qmin);
+  auto offset = (qmin - ng_min) / scale;
+
+  //Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now
+
+  // TODO: Use each mode appropriately
+  ng::op::Quantize::RoundMode round_mode = ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+
+  //SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, *ng_et));
+
+  return Status::OK();
+
+
+  // TODO: Check if all 5 TF quant types supported for now?
+  // https://github.com/NervanaSystems/ngraph/blob/d640fac3d853eebdab02b5df6fd4a5ac7e6f634a/src/ngraph/type/element_type.cpp#L28
+  // it seems onlu i8 and u8 are supported for now
 
   return Status::OK();
 }

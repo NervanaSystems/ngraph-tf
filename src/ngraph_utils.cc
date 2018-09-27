@@ -185,6 +185,11 @@ const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes() {
   return result;
 }
 
+const gtl::ArraySlice<DataType>& NGraphSupportedQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8};
+  return result;
+}
+
 Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
   for (auto i : axes) {
     if (i < (int)-rank || i >= (int)rank) {

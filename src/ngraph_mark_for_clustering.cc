@@ -222,7 +222,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["Dequantize"]["T"] = NGraphQuantizedDTypes();
+      type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["Equal"]["T"] = NGraphDTypes();
       type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
       type_constraint_map["ExpandDims"]["T"] = NGraphDTypes();
@@ -260,7 +260,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
-      type_constraint_map["QuantizeV2"]["T"] = NGraphQuantizedDTypes();
+      type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
