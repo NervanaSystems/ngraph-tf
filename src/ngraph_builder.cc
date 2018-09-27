@@ -2006,17 +2006,6 @@ static Status TranslateReciprocalOp(
       });
 }
 
-template <typename T>
-static T GetAttr(const Node* op, const string& attr_name, T default_val) {
-  T var;
-  if (GetNodeAttr(op->attrs(), attr_name, &var) != Status::OK()) {
-    NGRAPH_VLOG(3) << attr_name << " attribute not present, setting to "
-                   << default_val;
-    var = default_val;
-  }
-  return var;
-}
-
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2025,8 +2014,12 @@ static Status TranslateQuantizeV2Op(
   shared_ptr<ng::Node> ng_max;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
-  string mode = GetAttr<string>(op, "mode", "MIN_COMBINE");
   // Do things with the mode variable if needed
+  string mode;
+  if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
+    NGRAPH_VLOG(3) << "mode attribute not present, setting to MIN_COMBINE";
+    mode = "MIN_COMBINE";
+  }
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Convert>(ng_input, ng::element::i32));
