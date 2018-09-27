@@ -15,12 +15,12 @@ There are 3 ways to install nGraph enabled for tensorflow.
 
 | Option          | Build TF from Source   | Build nGraph from Source | Notes |
 |:---:|:---:|:---:|:---: |
-| [1](#option-1-Build-nGraph-using-an-existing-TensorFlow-installation) |   No        |  Yes         | |
-| [2](#Option-2:) |  Yes        |  Yes         | Builds unit tests. Recommended for contributing to nGraph-Tensorflow |
-| [3](#Option-3:) |  Yes        |  No          | nGraph enabled by default |
+| [1](#option-1:-build-ngraph-using-an-existing-tensorflow-installation) |   No        |  Yes         | |
+| [2](#option-2:-build-ngraph-using-tensorFlow-source) |  Yes        |  Yes         | Builds unit tests. Recommended for contributing to nGraph-Tensorflow |
+| [3](#option-3:-build-tensorFlow-source-with-ngraph) |  Yes        |  No          | nGraph enabled by default |
 
 
-### Option 1 Build nGraph using an existing TensorFlow installation
+### Option 1: Build nGraph using an existing TensorFlow installation
 
 1. You need to instantiate a specific kind of `virtualenv`  to 
    be able to proceed with the `ngraph-tf` installation. For 
@@ -173,7 +173,7 @@ To enable nGraph in your python scripts
 Note: The actual filename for the pip package may be different as it's version 
 dependent. Please check the `build/python/dist` directory for the actual pip wheel.
 
-### Option 3: Build nGraph within TensorFlow Source
+### Option 3: Build TensorFlow Source with nGraph
 
 nGraph is being added to the TensorFlow source tree. When built with this option, there is **no need to separately build `ngraph-tf` or use `pip` to install the ngraph module**. With this configuration, your TensorFlow model scripts will work with nGraph without any changes. 
 
