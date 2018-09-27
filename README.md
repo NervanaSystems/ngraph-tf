@@ -74,7 +74,7 @@ The installation prerequisites are the same as described in the TensorFlow [prep
         make install 
         pip install -U python/dist/ngraph-0.6.0-py2.py3-none-linux_x86_64.whl
 
-To enable nGraph in your python scripts
+To enable nGraph, in your python scripts
 
         import ngraph
     
@@ -161,7 +161,7 @@ the dependencies.
 Once the build and installation steps are complete, you can start using TensorFlow 
 with nGraph backends. 
 
-To enable nGraph in your python scripts
+To enable nGraph, in your python scripts
 
         import ngraph
 
@@ -198,7 +198,7 @@ nGraph is being added to the TensorFlow source tree. When built with this option
     nGraph support:
 
         Do you wish to build TensorFlow with nGraph support? [y/N]: y
-        No nGraph support will be enabled for TensorFlow.
+        nGraph support will be enabled for TensorFlow.
 
     Note that if you are running TensorFlow on a Skylake family processor then select
     `-march=broadwell` when prompted to specify the optimization flags:
@@ -249,10 +249,8 @@ run the following model with some MNIST data on your local machine:
 
 ## Debugging
 
-See the instructions provided in the [diagnostics] directory.
-
-https://github.com/NervanaSystems/ngraph-tf/blob/master/diagnostics/README.md
-
+See the instructions provided in the [diagnostics](https://github.com/NervanaSystems/ngraph-tf/blob/master/diagnostics/README.md
+) directory.
 
 ## Support
 
