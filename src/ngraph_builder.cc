@@ -2014,7 +2014,8 @@ static Status TranslateQuantizeV2Op(
   shared_ptr<ng::Node> ng_max;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
-  // Do things with the mode variable if needed
+  // TODO: Do things with the mode variable if needed.
+  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
   if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
     NGRAPH_VLOG(3) << "mode attribute not present, setting to MIN_COMBINE";
@@ -2027,40 +2028,40 @@ static Status TranslateQuantizeV2Op(
   int qmax_val, qmin_val;
   ng::element::Type* ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, ng_et));
-  switch (dtype){
-    case DataType::DT_QINT8:
-      qmax_val = 128; qmin_val = -127;
+  switch (dtype) {
+    case DT_QINT8:
+      // -127 128;
+      qmax_val = std::numeric_limits<EnumToDataType<DT_QINT8>::Type>::max();
+      qmin_val = std::numeric_limits<EnumToDataType<DT_QINT8>::Type>::min();
       break;
-    case DataType::DT_QUINT8:
-      break;
-    case DataType::DT_QINT16:
-      break;
-    case DataType::DT_QUINT16:
-      break;
-    case DataType::DT_QINT32:
+    case DT_QUINT8:
+      // 0 255;
+      qmax_val = std::numeric_limits<EnumToDataType<DT_QUINT8>::Type>::max();
+      qmin_val = std::numeric_limits<EnumToDataType<DT_QUINT8>::Type>::min();
       break;
     default:
-      return errors::InvalidArgument("Expected QuantizeV2's datatype to be of quantized type but got ", dtype);
+      return errors::InvalidArgument(
+          "Expected QuantizeV2's datatype to be of quantized type but got ",
+          dtype);
   }
-  shared_ptr<ng::op::Constant> qmax = std::make_shared<ng::op::Constant>(*ng_et, ng::Shape(1), std::vector<int>({qmax_val}));
-  shared_ptr<ng::op::Constant> qmin = std::make_shared<ng::op::Constant>(*ng_et, ng::Shape(1), std::vector<int>({qmin_val}));
+  shared_ptr<ng::op::Constant> qmax = std::make_shared<ng::op::Constant>(
+      *ng_et, ng::Shape(1), std::vector<int>({qmax_val}));
+  shared_ptr<ng::op::Constant> qmin = std::make_shared<ng::op::Constant>(
+      *ng_et, ng::Shape(1), std::vector<int>({qmin_val}));
 
-  auto scale = (ng_max - ng_min) / (qmax - qmin);
-  auto offset = (qmin - ng_min) / scale;
+  auto ng_scale = (ng_max - ng_min) / (qmax - qmin);
+  auto ng_offset = (qmin - ng_min) / ng_scale;
 
-  //Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now
+  ng::AxisSet quantization_axes;
 
-  // TODO: Use each mode appropriately
-  ng::op::Quantize::RoundMode round_mode = ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+  // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
+  // Support HALF_TO_EVEN later
+  ng::op::Quantize::RoundMode round_mode =
+      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
 
-  //SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, *ng_et));
-
-  return Status::OK();
-
-
-  // TODO: Check if all 5 TF quant types supported for now?
-  // https://github.com/NervanaSystems/ngraph/blob/d640fac3d853eebdab02b5df6fd4a5ac7e6f634a/src/ngraph/type/element_type.cpp#L28
-  // it seems onlu i8 and u8 are supported for now
+  SaveNgOp(ng_op_map, op->name(),
+           make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, *ng_et,
+                                         quantization_axes, round_mode));
 
   return Status::OK();
 }

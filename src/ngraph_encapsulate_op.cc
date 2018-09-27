@@ -482,7 +482,7 @@ class NGraphEncapsulateOp : public OpKernel {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::TensorView> dst_tv;
           std::tie(dst_ptr, dst_tv) = output_caches[i];
-          auto ng_element_type = dst_tv->get_tensor().get_element_type();
+          auto ng_element_type = dst_tv->get_element_type();
           dst_tv->read(dst_ptr, 0,
                        dst_tv->get_element_count() * ng_element_type.size());
         }
@@ -534,6 +534,5 @@ mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 
 REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
                         ngraph_bridge::NGraphEncapsulateOp);
-
 
 }  // namespace tensorflow
