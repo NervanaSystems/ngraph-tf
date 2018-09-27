@@ -13,16 +13,11 @@ Runtime engine, speeding up training and inference workloads on hardware support
 ## Linux instructions
 There are 3 ways to install nGraph enabled for tensorflow.
 
-| Option          | Build TF    | Build nGraph |    
-|                 | from Source | from Source  |            
-|:---:|:---:|:---:|:---: 
-| [1](#Option-1:) |   No        |  Yes         | 
-|  :---:           |  :---:       | :---:         | :---:      
-| [2](#Option-2:) |  Yes        |  Yes         | Builds unit tests. Recommended 
-|                 |             |              | if planning to contribute to 
-|                 |             |              | nGraph-Tensorflow
-|  :---:           |  :---:       | :---:         | :---:      
-| [3](#Option-3:) |  Yes        |  No          | nGraph enabled by default             
+| Option          | Build TF from Source   | Build nGraph from Source | Notes |
+|:---:|:---:|:---:|:---: |
+| [1](#Option-1:) |   No        |  Yes         | |
+| [2](#Option-2:) |  Yes        |  Yes         | Builds unit tests. Recommended for contributing to nGraph-Tensorflow |
+| [3](#Option-3:) |  Yes        |  No          | nGraph enabled by default |
 
 
 ### Option 1: Use an existing TensorFlow v1.11.0-rc2 (or greater) installation
