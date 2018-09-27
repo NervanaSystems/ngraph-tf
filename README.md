@@ -1,7 +1,7 @@
 # nGraph-Tensorflow : Intel® nGraph™ Compiler and Runtime for TensorFlow
 
-nGraph-Tensorflow Bridge enables TensorFlow to run with [Intel® nGraph™](https://github.com/NervanaSystems/ngraph), Compiler and 
-Runtime engine, speeding up training and inference workloads on hardware supported by nGraph: CPU, GPU, and custom silicon like the [Intel® Nervana™ NNP](https://itpeernetwork.intel.com/inteldcisummit-artificial-intelligence/). It integrates seamlessly with Tensorflow, allowing developers the flexibility to switch amongst different hardwares, by making minimum to no change to their code.
+nGraph-Tensorflow (ngraph-tf) enables TensorFlow to run with [Intel® nGraph™](https://github.com/NervanaSystems/ngraph), Compiler and 
+Runtime engine, speeding up training and inference workloads on supported hardware: CPU, GPU, and custom silicon like the [Intel® Nervana™ NNP](https://itpeernetwork.intel.com/inteldcisummit-artificial-intelligence/). It integrates seamlessly with Tensorflow, allowing developers the flexibility to switch amongst different hardwares, by making minimum to no change to their code.
 
 *   [Build with Linux](#linux-instructions)
 *   [Build using OS X](#using-os-x)
@@ -15,15 +15,15 @@ There are 3 ways to install nGraph enabled for tensorflow.
 
 | Option          | Build TF from Source   | Build nGraph from Source | Notes |
 |:---:|:---:|:---:|:---: |
-| [1](#Option-1:) |   No        |  Yes         | |
+| [1](#Option-1:-Build-nGraph-using an-existing-TensorFlow-installation) |   No        |  Yes         | |
 | [2](#Option-2:) |  Yes        |  Yes         | Builds unit tests. Recommended for contributing to nGraph-Tensorflow |
 | [3](#Option-3:) |  Yes        |  No          | nGraph enabled by default |
 
 
-### Option 1: Use an existing TensorFlow v1.11.0-rc2 (or greater) installation
+### Option 1: Build nGraph using an existing TensorFlow installation
 
 1. You need to instantiate a specific kind of `virtualenv`  to 
-   be able to proceed with the `ngraph-tf` bridge installation. For 
+   be able to proceed with the `ngraph-tf` installation. For 
    systems with Python 3.n or Python 2.7, these commands are
 
         virtualenv --system-site-packages -p python3 your_virtualenv 
@@ -39,8 +39,7 @@ There are 3 ways to install nGraph enabled for tensorflow.
 
         pip install -U tensorflow
 
-3. Checkout `v0.6.0` from the `ngraph-tf` repo and build the bridge
-   as follows: 
+3. Checkout `v0.6.0` from the `ngraph-tf` repo and build it: 
    
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
@@ -57,8 +56,8 @@ To enable nGraph in your python scripts
     
 ### Option 2: Build nGraph using TensorFlow source
 
-To run unit tests, or if you are planning to contribute, install the nGraph 
-bridge using the TensorFlow source tree as follows: 
+To run unit tests, or if you are planning to contribute, install nGraph-tf 
+using the TensorFlow source tree as follows: 
 
 #### Prepare the build environment
 
@@ -92,7 +91,7 @@ The installation prerequisites are the same as described in the TensorFlow
         HEAD detached at v1.11.0-rc2
    
 2. You must instantiate a specific kind of `virtualenv`  to be able to proceed 
-   with the `ngraph-tf` bridge installation. For systems with Python 3.n or 
+   with the `ngraph-tf` installation. For systems with Python 3.n or 
    Python 2.7, these commands are
 
         virtualenv --system-site-packages -p python3 your_virtualenv 
@@ -152,7 +151,7 @@ The installation prerequisites are the same as described in the TensorFlow
         git checkout v0.6.0
 
 
-7. Next, build and install nGraph bridge. 
+7. Next, build and install nGraph-tf. 
    :warning: Run the ngraph-tf build from within the `virtualenv`.
 
         mkdir build
@@ -174,7 +173,7 @@ To enable nGraph in your python scripts
 Note: The actual filename for the pip package may be different as it's version 
 dependent. Please check the `build/python/dist` directory for the actual pip wheel.
 
-### Option 3: Build nGraph with TensorFlow Source
+### Option 3: Build nGraph within TensorFlow Source
 
 nGraph is being added to the TensorFlow source tree. When built with this option, there is **no need to separately build `ngraph-tf` or use `pip` to install the ngraph module**. With this configuration, your TensorFlow model scripts will work with nGraph without any changes. 
 
@@ -209,7 +208,7 @@ The installation prerequisites are the same as described in the TensorFlow [prep
         HEAD detached at v1.11.0-rc2
    
 2. You must instantiate a specific kind of `virtualenv`  to be able to proceed 
-   with the `ngraph-tf` bridge installation. For systems with Python 3.n or 
+   with the `ngraph-tf` installation. For systems with Python 3.n or 
    Python 2.7, these commands are
 
         virtualenv --system-site-packages -p python3 your_virtualenv 
@@ -327,5 +326,5 @@ See the full documentation here:  <http://ngraph.nervanasys.com/docs/latest>
 [diagnostics]:diagnostics/README.md
 [ops]:http://ngraph.nervanasys.com/docs/latest/ops/index.html
 [nGraph]:https://github.com/NervanaSystems/ngraph 
-[ngraph-tf bridge]:https://github.com/NervanaSystems/ngraph-tf 
+[ngraph-tf]:https://github.com/NervanaSystems/ngraph-tf 
  
