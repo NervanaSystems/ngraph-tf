@@ -96,10 +96,10 @@ The installation prerequisites are the same as described in the TensorFlow
         virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
         source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
         
-   Note: Depending of specific version of the Python and components already
+   Note: Depending on specific version of the Python and components already
    installed on your system - the list of dependent Python components vary. 
    Typically the following components are needed: `numpy mock keras keras_application`.
-   Install them if your Pythn environment doesn't have them already. 
+   Install them if your Python environment doesn't have them already. 
    
 3. Now run `./configure` and choose `no` for the following when prompted to build TensorFlow.
 
