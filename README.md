@@ -28,30 +28,30 @@ You need to instantiate a specific kind of `virtualenv`  to be able to proceed w
         virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
         source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
 
-Note: Depending on specific version of the Python and components already installed on your system - the list of dependent Python components vary. Typically the following components are needed: `numpy mock keras keras_applications`.
+Typically the following python packages are also needed `numpy mock keras keras_applications`.
 
         pip install -U numpy mock keras keras_applications
 
-#### Install bazel for building TensorFlow
+Note: Depending on the version of Python and the packages already installed on your system,the above list may vary.
+
+#### Install bazel for building TensorFlow Source
 
 The installation prerequisites are the same as described in the TensorFlow [prepare environment] for linux.
 
-1. We use the standard build process which is a system called "bazel". These 
-   instructions were tested with [bazel version 0.16.0]. 
+1. We use the standard build process called "bazel". The instructions were tested with [bazel version 0.16.0]. 
 
         wget https://github.com/bazelbuild/bazel/releases/download/0.16.0/bazel-0.16.0-installer-linux-x86_64.sh      
         chmod +x bazel-0.16.0-installer-linux-x86_64.sh
         ./bazel-0.16.0-installer-linux-x86_64.sh --user
 
-2. Add and source the ``bin`` path to your ``~/.bashrc`` file in order to be 
-   able to call bazel from the user's installation we set up:
+2. Add and source the ``bin`` path to your ``~/.bashrc`` file in order to call bazel from the installation we set up:
 
         export PATH=$PATH:~/bin
         source ~/.bashrc 
 
 ### Option 1: Build nGraph using an existing TensorFlow installation
 
-1. Create a [python virtual environment](#create-a-python-virtual-environment)
+1. Create and activate a [python virtual environment](#create-a-python-virtual-environment)
     
 2. Install TensorFlow v1.11.0-rc2. Note that this is a pre-release so you need 
    to use the following steps to install this:
@@ -75,6 +75,7 @@ The installation prerequisites are the same as described in the TensorFlow [prep
         pip install -U python/dist/ngraph-0.6.0-py2.py3-none-linux_x86_64.whl
 
 To enable nGraph in your python scripts
+
         import ngraph
     
 ### Option 2: Build nGraph using TensorFlow source
@@ -84,7 +85,7 @@ using the TensorFlow source tree as follows:
 
 #### Installation
 
-1. Install [bazel](#install-bazel-for-building-tensorFlow) and other TensorFlow dependencies. Now, clone the source of the [tensorflow] repo to your machine. 
+1. Install [bazel](#install-bazel-for-building-tensorflow-source) and other TensorFlow dependencies. Now, clone the source of the [tensorflow] repo to your machine. 
 
      :warning: You need the following version of TensorFlow: `v1.11.0-rc2`
 
@@ -94,7 +95,7 @@ using the TensorFlow source tree as follows:
         git status
         HEAD detached at v1.11.0-rc2
    
-2. Create a [python virtual environment](#create-a-python-virtual-environment)
+2. Create and activate a [python virtual environment](#create-a-python-virtual-environment)
    
 3. Now run `./configure` and choose `no` for the following when prompted to build TensorFlow.
 
@@ -113,9 +114,9 @@ using the TensorFlow source tree as follows:
     nGraph - one embedded within TensorFlow and the other you build and loaded. 
     
     If you want to use the nGraph embedded within TensorFlow, see the 
-    [following section](#option-3).
+    [following section](#option-3-build-tensorflow-source-with-ngraph).
 
-    Note that if you are running TensorFlow on a Skylake family processor then select
+    Note: If you are running TensorFlow on a Skylake family processor then select
     `-march=broadwell` when prompted to specify the optimization flags:
     
         Please specify optimization flags to use during compilation 
@@ -161,6 +162,7 @@ Once the build and installation steps are complete, you can start using TensorFl
 with nGraph backends. 
 
 To enable nGraph in your python scripts
+
         import ngraph
 
 Note: The actual filename for the pip package may be different as it's version 
@@ -174,7 +176,7 @@ nGraph is being added to the TensorFlow source tree. When built with this option
 
 #### Installation
 
-1. Install [bazel](#install-bazel-for-building-tensorFlow) and other TensorFlow dependencies. Now, clone the source of the [tensorflow] repo to your machine. 
+1. Install [bazel](#install-bazel-for-building-tensorflow-source) and other TensorFlow dependencies. Now, clone the source of the [tensorflow] repo to your machine. 
 
      :warning: You need the following version of TensorFlow: `v1.11.0-rc2`
 
@@ -184,7 +186,7 @@ nGraph is being added to the TensorFlow source tree. When built with this option
         git status
         HEAD detached at v1.11.0-rc2
    
-2. Create a [python virtual environment] (#create-a-python-virtual-environment)
+2. Create and activate a [python virtual environment](#create-a-python-virtual-environment)
    
 3. Now run `./configure` and choose the following when prompted
 
