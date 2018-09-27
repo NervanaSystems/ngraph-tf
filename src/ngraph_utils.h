@@ -179,6 +179,10 @@ const gtl::ArraySlice<DataType>& NGraphIndexDTypes();
 // Returns an ArraySlice containing all data types in the quantized domain
 const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes();
 
+// Check to make sure the axis dimension for reduction are in within range.
+// Returns error if axis is out of range. Otherwise returns Status::OK().
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank);
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

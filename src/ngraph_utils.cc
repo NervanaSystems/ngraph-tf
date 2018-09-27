@@ -183,6 +183,16 @@ const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes() {
   static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8, DT_QINT16,
                                           DT_QUINT16, DT_QINT32};
   return result;
+
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
+  for (auto i : axes) {
+    if (i < (int)-rank || i >= (int)rank) {
+      return errors::InvalidArgument("Axis Dimension is out of range. Got ", i,
+                                     ", should be in range [-", rank, ", ",
+                                     rank, ")");
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace ngraph_bridge
