@@ -256,8 +256,6 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
-      type_constraint_map["QuantizedConv2D"]["Tinput"] = NGraphQuantizedDTypes();
-      type_constraint_map["QuantizedConv2D"]["Tfilter"] = NGraphQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphQuantizedDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
@@ -354,7 +352,6 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
-      confirmation_functions["QuantizedConv2D"] = SimpleConfirmationFunction();
       confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction();
       confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
       confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
