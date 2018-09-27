@@ -242,11 +242,15 @@ Status MarkForClustering(Graph* graph) {
       // LogicalAnd and LogicalNot have no type attributes ("T", if it existed,
       // would always be bool).
       type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["Min"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Min"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
@@ -289,6 +293,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sum"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Tanh"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["TanhGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
       type_constraint_map["Transpose"]["T"] = NGraphDTypes();
@@ -341,10 +346,12 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
       confirmation_functions["MatMul"] = SimpleConfirmationFunction();
+      confirmation_functions["Max"] = SimpleConfirmationFunction({1});
       confirmation_functions["Maximum"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Mean"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Min"] = SimpleConfirmationFunction({1});
       confirmation_functions["Minimum"] = SimpleConfirmationFunction();
       confirmation_functions["Mul"] = SimpleConfirmationFunction();
       confirmation_functions["Neg"] = SimpleConfirmationFunction();
@@ -389,6 +396,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Sub"] = SimpleConfirmationFunction();
       confirmation_functions["Sum"] = SimpleConfirmationFunction({1});
       confirmation_functions["Tanh"] = SimpleConfirmationFunction();
+      confirmation_functions["TanhGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
       confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
       confirmation_functions["Unpack"] = SimpleConfirmationFunction();
