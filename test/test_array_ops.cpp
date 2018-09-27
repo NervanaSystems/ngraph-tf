@@ -194,6 +194,45 @@ TEST(ArrayOps, Shape3D) {
   opexecuter.RunTest();
 }  // end of op Shape3D
 
+TEST(ArrayOps, SizeOp) {
+  
+  std::vector<std::vector<int>> input_shapes;  
+  input_shapes.push_back({0});
+  input_shapes.push_back({2});
+  input_shapes.push_back({6,10});
+  input_shapes.push_back({10, 10, 10});
+  input_shapes.push_back({1, 7, 8, 10});
+  input_shapes.push_back({2, 5, 1, 3, 1});
+
+  for(auto shape : input_shapes){
+    Scope root = Scope::NewRootScope();
+    Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+    AssignInputValuesRandom(A, -10.0f,10.0f);
+
+
+
+  }
+
+
+  // AssignInputValues(A, 7.5f);
+
+  vector<int> static_input_indexes = {};
+  auto attrs = ops::Size::Attrs();
+  attrs.out_type_ = DT_INT64;
+
+  auto R = ops::Size(root, A,attrs);
+
+
+  vector<DataType> output_datatypes = {DT_INT64};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Size", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of op Shape3D
+
+
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
   std::vector<std::vector<int64>> input_sizes;  // 1-D or higher
