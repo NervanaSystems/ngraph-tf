@@ -15,12 +15,12 @@ There are 3 ways to install nGraph enabled for tensorflow.
 
 | Option          | Build TF from Source   | Build nGraph from Source | Notes |
 |:---:|:---:|:---:|:---: |
-| [1](#option-1-Build-nGraph-using-an-existing-TensorFlow-installation) |   No        |  Yes         | |
+| [1](#option-1:-Build-nGraph-using-an-existing-TensorFlow-installation) |   No        |  Yes         | |
 | [2](#Option-2:) |  Yes        |  Yes         | Builds unit tests. Recommended for contributing to nGraph-Tensorflow |
 | [3](#Option-3:) |  Yes        |  No          | nGraph enabled by default |
 
 
-### Option 1 Build nGraph using an existing TensorFlow installation
+### Option 1: Build nGraph using an existing TensorFlow installation
 
 1. You need to instantiate a specific kind of `virtualenv`  to 
    be able to proceed with the `ngraph-tf` installation. For 
