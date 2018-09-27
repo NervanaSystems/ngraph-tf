@@ -24,7 +24,13 @@
 #
 # Script environment variable parameters:
 #
-# NG_TF_PY_VERSION   Optional: Set python major version ("2" or "3", default=2)
+# NG_TF_PY_VERSION Optional: Set python major version ("2" or "3", default=2)
+#
+# NG_TF_DOCKERFILE Optional: Dockerfile to use when building the image
+#                            OVERRIDES NG_TF_PY_VERSION settings
+#
+# NG_TF_IMAGE_NAME Optional: Which image name to use, in combination w/ IMAGE_ID
+#                            OVERRIDES NG_TF_PY_VERSION settings
 
 set -e  # Fail on any command with non-zero exit
 
@@ -60,6 +66,14 @@ case "${NG_TF_PY_VERSION}" in
         exit 1
         ;;
 esac
+
+if [ ! -z "${NG_TF_DOCKERFILE}" ] ; then
+    DOCKER_FILE="$NG_TF_DOCKERFILE"
+fi
+
+if [ ! -z "${NG_TF_IMAGE_NAME}" ] ; then
+    IMAGE_NAME="$NG_TF_IMAGE_NAME"
+fi
 
 set -u  # No unset variables after this point
 
