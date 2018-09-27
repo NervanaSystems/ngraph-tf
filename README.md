@@ -38,18 +38,18 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
 
         pip install -U tensorflow
 
-3. Checkout `v0.6.0` from the `ngraph-tf` repo and build the bridge
+3. Checkout `v0.6.1` from the `ngraph-tf` repo and build the bridge
    as follows: 
    
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.6.0
+        git checkout v0.6.1
         mkdir build
         cd build
         cmake ..
         make -j <number_of_processor_cores_on_system>
         make install 
-        pip install -U python/dist/ngraph-0.6.0-py2.py3-none-linux_x86_64.whl
+        pip install -U python/dist/ngraph-0.6.1-py2.py3-none-linux_x86_64.whl
 
 
 ### Option 2: Build nGraph bridge from source using TensorFlow source
@@ -146,7 +146,7 @@ The installation prerequisites are the same as described in the TensorFlow
         cd ..
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.6.0
+        git checkout v0.6.1
 
 
 7. Next, build and install nGraph bridge. 
@@ -157,7 +157,7 @@ The installation prerequisites are the same as described in the TensorFlow
         cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=<path to TensorFlow source directory> ..
         make -j <your_processor_cores>
         make install 
-        pip install -U python/dist/<ngraph-0.6.0-py2.py3-none-linux_x86_64.whl>
+        pip install -U python/dist/<ngraph-0.6.1-py2.py3-none-linux_x86_64.whl>
 
 This final step automatically downloads the necessary version of `ngraph` and 
 the dependencies.
