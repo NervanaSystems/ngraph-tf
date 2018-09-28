@@ -2014,7 +2014,7 @@ static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
   shared_ptr<ng::Node> adj_min_range, adj_max_range;
   if (scaled) {
     auto abs_min_range = make_shared<ng::op::Abs>(min_range);
-    auto abs_max_range = make_shared<ng::op::Abs>(min_range);
+    auto abs_max_range = make_shared<ng::op::Abs>(max_range);
     auto range_boundary =
         make_shared<ng::op::Maximum>(abs_min_range, abs_max_range);
     adj_min_range = -range_boundary;
