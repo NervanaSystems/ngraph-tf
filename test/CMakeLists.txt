@@ -50,6 +50,7 @@ set(SRC
     padding.cpp
     conversions.cpp
     graph_rewrites/assign_clusters.cc
+    graph_rewrites/deadness_test.cc
     test_utilities.cpp
     test_math_ops.cpp
     test_nn_ops.cpp
@@ -74,6 +75,11 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy_launchop.pbtxt 
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy_launchop.pbtxt
 )
+
+if (APPLE)
+    set(NGRAPH_TF_CXX11_ABI 0)
+endif()
+
 add_custom_target( 
     build_tf_cc
     COMMENT "Building TensorFlow C++ library"
