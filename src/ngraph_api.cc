@@ -51,7 +51,7 @@ vector<string> ListBackends() {
 tensorflow::Status SetBackend(const string& type) {
   try {
     ngraph::runtime::Backend::create(type);
-  } catch (const runtime_error& e) {
+  } catch (const runtime_error&) {
     return tensorflow::errors::Unavailable("Backend unavailable: ", type);
   }
   return tensorflow::Status::OK();
