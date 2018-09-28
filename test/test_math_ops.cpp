@@ -140,6 +140,109 @@ TEST(MathOps, AddN) {
   opexecuter.RunTest();
 }  // end of test op AddN
 
+// Test op: All
+TEST(MathOps, AllNegativeAxis) {
+  int dim1 = 2;
+  int dim2 = 3;
+
+  std::vector<bool> v;
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(false);
+  v.push_back(false);
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> axis_ = {-1};
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  for (auto const& axis : axis_) {
+    Scope root = Scope::NewRootScope();
+    auto R = ops::All(root, A, axis);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}
+
+TEST(MathOps, AllPositiveAxis) {
+  int dim1 = 3;
+  int dim2 = 3;
+
+  std::vector<bool> v;
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(false);
+  v.push_back(false);
+  v.push_back(true);
+  v.push_back(false);
+  v.push_back(false);
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> axis_ = {0};
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  for (auto const& axis : axis_) {
+    Scope root = Scope::NewRootScope();
+    auto R = ops::All(root, A, axis);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}
+
+// All with attribute KeepDims set to true
+TEST(MathOps, AllKeepDims) {
+  int dim1 = 2;
+  int dim2 = 2;
+
+  std::vector<bool> v;
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  v.push_back(true);
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+  auto keep_dims = ops::All::Attrs().KeepDims(true);
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> axis_ = {0};
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  for (auto const& axis : axis_) {
+    Scope root = Scope::NewRootScope();
+    auto R = ops::All(root, A, axis, keep_dims);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of test op All
+
 // Test op: BatchMatMul
 TEST(MathOps, BatchMatMul2D) {
   Scope root = Scope::NewRootScope();
