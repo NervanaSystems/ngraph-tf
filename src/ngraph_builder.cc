@@ -2001,8 +2001,12 @@ static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
                                shared_ptr<ng::Node>* scale,
                                shared_ptr<ng::Node>* offset) {
   int scaled_elide = scaled ? 1 : 0;
-  int min_type = unsigned_type ? 0 : -((2 ^ (num_bits - 1)) - scaled_elide);
-  int max_type = (2 ^ (num_bits - 1)) - 1 - scaled_elide;
+  int min_type = 0;
+  if (!unsigned_type)
+    min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+  uint raise_to = num_bits - (unsigned_type ? 0 : 1);
+  int max_type = (2 ^ raise_to) - 1 - scaled_elide;
+
   auto ng_max_type = std::make_shared<ng::op::Constant>(
       ng::element::f32, max_range->get_shape(), std::vector<float>({max_type}));
   auto ng_min_type = std::make_shared<ng::op::Constant>(
@@ -2019,6 +2023,7 @@ static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
     // TODO: what shuld be the type of 'zero'?
     auto zero = std::make_shared<ng::op::Constant>(
         ng::element::f32, ng::Shape(1), std::vector<float>({0}));
+    // TODO: Adjust range or fail?
     adj_min_range = make_shared<ng::op::Minimum>(min_range, zero);
     adj_max_range = make_shared<ng::op::Maximum>(max_range, zero);
   }
