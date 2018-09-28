@@ -88,7 +88,7 @@ Status CaptureVariables(Graph* graph) {
         std::vector<const Edge*> edges;
 
         // Add edge from the input nodes (to the variable node (VariableV2))
-        // to the replacement node, NGraphVariable node
+        // to the replacement node (NGraphVariable)
         for (auto edge : node->in_edges()) {
           NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
           graph->AddEdge(edge->src(), edge->src_output(), replacement,
