@@ -21,8 +21,8 @@
 
 #include "ngraph/builder/autobroadcast.hpp"
 #include "ngraph/builder/numpy_transpose.hpp"
-
 #include "ngraph/op/argmax.hpp"
+
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb_text.h"
@@ -458,7 +458,9 @@ static Status TranslateArgMaxOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_dim));
 
   ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = ng_input->get_shape().size();
+  size_t input_rank = input_shape.size();
+
+  tf_dim.size() == 1;
 
   // If input dimension is negative, make it positive
   if (tf_dim[0] < 0) {
@@ -466,7 +468,7 @@ static Status TranslateArgMaxOp(
   }
   size_t input_dims = tf_dim[0];
 
-  DataType dtype = DT_INT64;
+  DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "output_type", &dtype));
 
   ng::element::Type ng_et;

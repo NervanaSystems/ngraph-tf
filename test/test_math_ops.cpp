@@ -862,13 +862,16 @@ TEST(MathOps, ArgMax_Pos) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   AssignInputValuesRandom(A);
 
-  vector<int64> dim = {1};
+  int dim = {1};
 
   vector<int> static_input_indexes = {1};
 
-  auto R = ops::ArgMax(root, A, dim[0]);
+  auto attrs = ops::ArgMax::Attrs();
+  attrs.output_type_ = DT_INT32;
 
-  vector<DataType> output_datatypes = {DT_INT64};
+  auto R = ops::ArgMax(root, A, dim, attrs);
+
+  vector<DataType> output_datatypes = {DT_INT32};
 
   std::vector<Output> sess_run_fetchoutputs = {R};
   OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
@@ -885,11 +888,12 @@ TEST(MathOps, ArgMax_Neg) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   AssignInputValuesRandom(A);
 
-  vector<int64> dim = {-1};
+  int dim = {-1};
 
   vector<int> static_input_indexes = {1};
 
-  auto R = ops::ArgMax(root, A, dim[0]);
+  auto R = ops::ArgMax(root, A, dim);
+  
 
   vector<DataType> output_datatypes = {DT_INT64};
 
