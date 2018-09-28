@@ -96,6 +96,13 @@ class Builder {
   TF_NGRAPH_CONST_MAP();
 
  private:
+  static void ComputeScaleOffset(const uint& num_bits,
+                                 const bool& unsigned_type, const bool& scaled,
+                                 const ngraph::element::Type& ng_et,
+                                 const std::shared_ptr<ngraph::Node>& min_range,
+                                 const std::shared_ptr<ngraph::Node>& max_range,
+                                 std::shared_ptr<ngraph::Node>* scale,
+                                 std::shared_ptr<ngraph::Node>* offset);
 };
 
 }  // namespace ngraph_bridge

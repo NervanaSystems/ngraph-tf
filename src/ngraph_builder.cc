@@ -1253,18 +1253,6 @@ static Status TranslateDepthwiseConv2dNativeOp(
   return Status::OK();
 }
 
-static Status TranslateDequantizeOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
-
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Convert>(ng_input, ng::element::f32));
-
-  return Status::OK();
-}
-
 static Status TranslateExpandDimsOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2008,7 +1996,6 @@ static Status TranslateReciprocalOp(
 
 static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
                                const bool& scaled,
-                               const ng::element::Type& ng_et,
                                const shared_ptr<ng::Node>& min_range,
                                const shared_ptr<ng::Node>& max_range,
                                shared_ptr<ng::Node>* scale,
@@ -2017,9 +2004,9 @@ static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
   int min_type = unsigned_type ? 0 : -((2 ^ (num_bits - 1)) - scaled_elide);
   int max_type = (2 ^ (num_bits - 1)) - 1 - scaled_elide;
   auto ng_max_type = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(1), std::vector<int>({max_type}));
+      ng::element::f32, max_range->get_shape(), std::vector<float>({max_type}));
   auto ng_min_type = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(1), std::vector<int>({min_type}));
+      ng::element::f32, min_range->get_shape(), std::vector<float>({min_type}));
   shared_ptr<ng::Node> adj_min_range, adj_max_range;
   if (scaled) {
     auto abs_min_range = make_shared<ng::op::Abs>(min_range);
@@ -2064,8 +2051,6 @@ static Status TranslateQuantizeV2Op(
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
 
-  ng::element::Type* ng_et = nullptr;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, ng_et));
   int num_bits;
   bool unsigned_type;
   switch (dtype) {
@@ -2084,10 +2069,20 @@ static Status TranslateQuantizeV2Op(
   }
 
   shared_ptr<ng::Node> ng_scale, ng_offset;
-  ComputeScaleOffset(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
-                     *ng_et, ng_min, ng_max, &ng_scale, &ng_offset);
+  try {
+    ComputeScaleOffset(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
+                       ng_min, ng_max, &ng_scale, &ng_offset);
+  } catch (const std::exception& e) {
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
+  }
 
-  ng::AxisSet quantization_axes;
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
+  auto ng_offset_casted = make_shared<ng::op::Convert>(ng_offset, ng_et);
 
   // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
   // Support HALF_TO_EVEN later
@@ -2107,9 +2102,61 @@ static Status TranslateQuantizeV2Op(
   // and z = min<Q> - (min<R> / s)
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, *ng_et,
-                                         quantization_axes, ng_round_mode));
+           make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset_casted, ng_et,
+                                         ng::AxisSet(), ng_round_mode));
+  return Status::OK();
+}
 
+static Status TranslateDequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
+
+  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
+  string mode;
+  if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
+    NGRAPH_VLOG(3) << "mode attribute not present, setting to MIN_COMBINE";
+    mode = "MIN_COMBINE";
+  }
+
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+
+  int num_bits;
+  bool unsigned_type;
+  switch (dtype) {
+    case DT_QINT8:
+      num_bits = 8;
+      unsigned_type = false;
+      break;
+    case DT_QUINT8:
+      num_bits = 8;
+      unsigned_type = true;
+      break;
+    default:
+      return errors::InvalidArgument(
+          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
+          dtype);
+  }
+
+  shared_ptr<ng::Node> ng_scale, ng_offset;
+  try {
+    ComputeScaleOffset(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
+                       ng_min, ng_max, &ng_scale, &ng_offset);
+  } catch (const std::exception& e) {
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
+  }
+
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
+  auto ng_offset_casted = make_shared<ng::op::Convert>(ng_offset, ng_et);
+
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset_casted, ng::element::f32, ng::AxisSet()));
   return Status::OK();
 }
 

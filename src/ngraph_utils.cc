@@ -139,7 +139,6 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
       return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                    DataType_Name(tf_dt));
   }
-
   return Status::OK();
 }
 
