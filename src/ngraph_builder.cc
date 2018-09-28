@@ -2006,6 +2006,39 @@ static Status TranslateReciprocalOp(
       });
 }
 
+static void ComputeScaleOffset(const uint& num_bits, const bool& unsigned_type,
+                               const bool& scaled,
+                               const ng::element::Type& ng_et,
+                               const shared_ptr<ng::Node>& min_range,
+                               const shared_ptr<ng::Node>& max_range,
+                               shared_ptr<ng::Node>* scale,
+                               shared_ptr<ng::Node>* offset) {
+  int scaled_elide = scaled ? 1 : 0;
+  int min_type = unsigned_type ? 0 : -((2 ^ (num_bits - 1)) - scaled_elide);
+  int max_type = (2 ^ (num_bits - 1)) - 1 - scaled_elide;
+  auto ng_max_type = std::make_shared<ng::op::Constant>(
+      ng_et, ng::Shape(1), std::vector<int>({max_type}));
+  auto ng_min_type = std::make_shared<ng::op::Constant>(
+      ng_et, ng::Shape(1), std::vector<int>({min_type}));
+  shared_ptr<ng::Node> adj_min_range, adj_max_range;
+  if (scaled) {
+    auto abs_min_range = make_shared<ng::op::Abs>(min_range);
+    auto abs_max_range = make_shared<ng::op::Abs>(min_range);
+    auto range_boundary =
+        make_shared<ng::op::Maximum>(abs_min_range, abs_max_range);
+    adj_min_range = -range_boundary;
+    adj_max_range = range_boundary;
+  } else {
+    // TODO: what shuld be the type of 'zero'?
+    auto zero = std::make_shared<ng::op::Constant>(
+        ng::element::f32, ng::Shape(1), std::vector<float>({0}));
+    adj_min_range = make_shared<ng::op::Minimum>(min_range, zero);
+    adj_max_range = make_shared<ng::op::Maximum>(max_range, zero);
+  }
+  *scale = (adj_max_range - adj_min_range) / (ng_max_type - ng_min_type);
+  *offset = ng_min_type - (adj_min_range / *scale);
+}
+
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2014,7 +2047,6 @@ static Status TranslateQuantizeV2Op(
   shared_ptr<ng::Node> ng_max;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
-  // TODO: Do things with the mode variable if needed.
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
   if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
@@ -2022,46 +2054,61 @@ static Status TranslateQuantizeV2Op(
     mode = "MIN_COMBINE";
   }
 
+  string round_mode;
+  if (GetNodeAttr(op->attrs(), "round_mode", &round_mode) != Status::OK()) {
+    NGRAPH_VLOG(3)
+        << "round_mode attribute not present, setting to HALF_AWAY_FROM_ZERO";
+    round_mode = "HALF_AWAY_FROM_ZERO";
+  }
+
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
 
-  int qmax_val, qmin_val;
-  ng::element::Type* ng_et;
+  ng::element::Type* ng_et = nullptr;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, ng_et));
+  int num_bits;
+  bool unsigned_type;
   switch (dtype) {
     case DT_QINT8:
-      // -127 128;
-      qmax_val = std::numeric_limits<EnumToDataType<DT_QINT8>::Type>::max();
-      qmin_val = std::numeric_limits<EnumToDataType<DT_QINT8>::Type>::min();
+      num_bits = 8;
+      unsigned_type = false;
       break;
     case DT_QUINT8:
-      // 0 255;
-      qmax_val = std::numeric_limits<EnumToDataType<DT_QUINT8>::Type>::max();
-      qmin_val = std::numeric_limits<EnumToDataType<DT_QUINT8>::Type>::min();
+      num_bits = 8;
+      unsigned_type = true;
       break;
     default:
       return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of quantized type but got ",
+          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
           dtype);
   }
-  shared_ptr<ng::op::Constant> qmax = std::make_shared<ng::op::Constant>(
-      *ng_et, ng::Shape(1), std::vector<int>({qmax_val}));
-  shared_ptr<ng::op::Constant> qmin = std::make_shared<ng::op::Constant>(
-      *ng_et, ng::Shape(1), std::vector<int>({qmin_val}));
 
-  auto ng_scale = (ng_max - ng_min) / (qmax - qmin);
-  auto ng_offset = (qmin - ng_min) / ng_scale;
+  shared_ptr<ng::Node> ng_scale, ng_offset;
+  ComputeScaleOffset(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
+                     *ng_et, ng_min, ng_max, &ng_scale, &ng_offset);
 
   ng::AxisSet quantization_axes;
 
   // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
   // Support HALF_TO_EVEN later
-  ng::op::Quantize::RoundMode round_mode =
+  ng::op::Quantize::RoundMode ng_round_mode =
       ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+
+  // min<Q>, max<Q>: the min and max of the quantized data type
+  // range<Q> = qmax<Q> - qmin<Q> (eg, 255 for u8, i8)
+  // max<R>, min<R>: The max and min of the real type
+  // range<R> = max<R> - min<R>
+  // Unquantized:
+  // max<R> maps to max<Q>, min<R> maps to min<Q>, R x maps to Q y
+  // y = max<Q> - ((max<R> - x) * range<Q>) / range<R>
+  // or, y = (range<Q> * x / range<R>) - ((min<R> * range<Q>) / range<R>)
+  // In scale-zero representation: y = (x/s) + z
+  // Therefore, s = range<R> / range<Q>
+  // and z = min<Q> - (min<R> / s)
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, *ng_et,
-                                         quantization_axes, round_mode));
+                                         quantization_axes, ng_round_mode));
 
   return Status::OK();
 }
