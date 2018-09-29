@@ -28,6 +28,7 @@ FROM ubuntu:16.04
 # curl and locate are needed by Tensorflow's configure command
 # enum appears to be used in the TensorFlow build
 # clang-format-3.9 is needed for code-style checks
+# python3-pil is needed to run the inception-resnet-v2 model
 # python3-tk is used by matplotlib (pip installed below)
 RUN apt-get update &&  apt-get install -y \
     python3-pip virtualenv \
@@ -41,6 +42,7 @@ RUN apt-get update &&  apt-get install -y \
     zip golang-go \
     locate curl \
     clang-format-3.9 \
+    python3-pil \
     python3-tk
 
 # The "locate" command uses a prepopulated index.  If this index is not built,
@@ -51,15 +53,15 @@ RUN updatedb
 
 # six, enum34 and mock are required for building the tensorflow wheel
 # scipy, portpicker, and sklearn are needed by some TensorFlow tests
-# keras_applications is needed for modern TensorFlow builds
-# matplotlib are needed to run inference models
+# keras_applications and keras_preprocessing are needed for modern TensorFlow builds
+# matplotlib and librosa are needed to run inference models
 # opencv-python is used by some inference models (for import cv2)
 # yapf and futures are needed for code-format checks (ngraph-tf PR#211)
 RUN pip3 install --upgrade pip
 RUN pip3 install six enum34 mock
 RUN pip3 install scipy portpicker sklearn
-RUN pip3 install keras_applications
-RUN pip3 install matplotlib opencv-python
+RUN pip3 install keras_applications keras_preprocessing
+RUN pip3 install matplotlib librosa opencv-python
 RUN pip3 install yapf
 RUN pip3 install futures
 
