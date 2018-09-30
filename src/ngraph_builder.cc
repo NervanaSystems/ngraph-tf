@@ -2203,11 +2203,12 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
   std::vector<int> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
+  //TODO: Assert size of ng_min, ng_max is 1
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
@@ -2259,7 +2260,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng_input->get_shape(), std::vector<float>({ng_scale_val}));
+      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
 
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
@@ -2267,7 +2268,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   // TODO: Correct this: std::vector<int>({ng_offset_val}).
   // cast offset appropriately
   auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng_input->get_shape(), std::vector<int>({ng_offset_val}));
+      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
   // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
   // Support HALF_TO_EVEN later
@@ -2298,11 +2299,12 @@ static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
   std::vector<int> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
+  //TODO: Assert size of ng_min, ng_max is 1
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
@@ -2354,7 +2356,7 @@ static Status TranslateDequantizeOp(
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng_input->get_shape(), std::vector<float>({ng_scale_val}));
+      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
 
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
@@ -2362,10 +2364,10 @@ static Status TranslateDequantizeOp(
   // TODO: Correct this: std::vector<int>({ng_offset_val}).
   // cast offset appropriately
   auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng_input->get_shape(), std::vector<int>({ng_offset_val}));
+      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset, ng_et,
+           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset, ng::element::f32,
                                          ng::AxisSet()));
   return Status::OK();
 }
