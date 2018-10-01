@@ -2815,6 +2815,12 @@ static Status TranslateUnpackOp(
   return Status::OK();
 }
 
+static Status TranslateZerosLikeOp(
+  const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return Status::OK();
+}
+
 const static std::map<
     const string,
     const function<Status(const Node*, const std::vector<const Tensor*>&,
@@ -2902,7 +2908,8 @@ const static std::map<
         {"TanhGrad", TranslateTanhGradOp},
         {"Tile", TranslateTileOp},
         {"Transpose", TranslateTransposeOp},
-        {"Unpack", TranslateUnpackOp}};
+        {"Unpack", TranslateUnpackOp},
+        {"ZerosLike", TranslateZerosLikeOp}};
 
 Status Builder::TranslateGraph(
     const std::vector<TensorShape>& inputs,

@@ -298,6 +298,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Transpose"]["T"] = NGraphDTypes();
       type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
       type_constraint_map["Unpack"]["T"] = NGraphDTypes();
+      type_constraint_map["ZerosLike"]["T"] = NGraphNumericDTypes();
 
       //
       // Initialize confirmation function map.
@@ -399,6 +400,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
       confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
       confirmation_functions["Unpack"] = SimpleConfirmationFunction();
+      confirmation_functions["ZerosLike"] = SimpleConfirmationFunction();
 
       initialized = true;
     }
