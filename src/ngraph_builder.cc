@@ -2174,7 +2174,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
                                const int min_range,
                                const int max_range,
                                float* scale,
-                               float* offset) {
+                               int* offset) {
   int scaled_elide = scaled ? 1 : 0;
   int min_type = 0;
   if (!unsigned_type)
@@ -2195,7 +2195,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   }
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
-  *offset = min_type - (adj_min_range / *scale);
+  *offset = min_type - std::lround(adj_min_range / *scale);
 }
 
 
@@ -2248,7 +2248,8 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   // Form this line here, we see that min and max is a single value.
   // Hence picking only the first element from the ng_min, ng_max vectors
 
-  float ng_scale_val, ng_offset_val;
+  float ng_scale_val;
+  int ng_offset_val;
   try {
     ComputeScaleOffsetFolded(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
                        ng_min[0], ng_max[0], &ng_scale_val, &ng_offset_val);
@@ -2344,7 +2345,8 @@ static Status TranslateDequantizeOp(
   // Form this line here, we see that min and max is a single value.
   // Hence picking only the first element from the ng_min, ng_max vectors
 
-  float ng_scale_val, ng_offset_val;
+  float ng_scale_val;
+  int ng_offset_val;
   try {
     ComputeScaleOffsetFolded(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
                        ng_min[0], ng_max[0], &ng_scale_val, &ng_offset_val);
