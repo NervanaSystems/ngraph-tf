@@ -129,7 +129,7 @@ endif()
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.7.0
+    GIT_TAG v0.8.1
     CMAKE_ARGS 
         -DNGRAPH_DISTRIBUTED_ENABLE=${DISTRIBUTED}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
