@@ -209,7 +209,6 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["Any"]["T"] = NGraphDTypes();
       type_constraint_map["Any"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
