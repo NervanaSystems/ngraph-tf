@@ -1,22 +1,22 @@
-# ==============================================================================
-#  Copyright 2018 Intel Corporation
+# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 #
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # ==============================================================================
 """A simplified deep MNIST classifier using convolutional layers.
 This script has the following changes when compared to mnist_deep.py:
 1. no dropout layer (which disables the rng op)
 2. no truncated normal initialzation(which disables the while op)
+
 See extensive documentation at
 https://www.tensorflow.org/get_started/mnist/pros
 """
@@ -33,19 +33,23 @@ import sys
 import tempfile
 import getpass
 import time
-import ngraph
+
 from tensorflow.examples.tutorials.mnist import input_data
 
 import tensorflow as tf
+import ngraph
 import horovod.tensorflow as hvd
 
 FLAGS = None
 
+
 def deepnn(x):
     """deepnn builds the graph for a deep net for classifying digits.
+
   Args:
     x: an input tensor with the dimensions (N_examples, 784), where 784 is the
     number of pixels in a standard MNIST image.
+
   Returns:
     A tuple (y, a scalar placeholder). y is a tensor of shape (N_examples, 10), with values
     equal to the logits of classifying the digit into one of 10 classes (the
@@ -66,7 +70,7 @@ def deepnn(x):
 
     # Pooling layer - downsamples by 2X.
     with tf.name_scope('pool1'):
-        h_pool1 = avg_pool_2x2(h_conv1)
+        h_pool1 = max_pool_2x2(h_conv1)
 
     # Second convolutional layer -- maps 32 feature maps to 64.
     with tf.name_scope('conv2'):
@@ -76,7 +80,7 @@ def deepnn(x):
 
     # Second pooling layer.
     with tf.name_scope('pool2'):
-        h_pool2 = avg_pool_2x2(h_conv2)
+        h_pool2 = max_pool_2x2(h_conv2)
 
     # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
     # is down to 7x7x64 feature maps -- maps this to 1024 features.
@@ -89,7 +93,7 @@ def deepnn(x):
 
     # Map the 1024 features to 10 classes, one for each digit
     with tf.name_scope('fc2'):
-        W_fc2 = weight_variable([1024, 10],"W_fc2")
+        W_fc2 = weight_variable([1024, 10], "W_fc2")
         b_fc2 = bias_variable([10])
 
         # y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
@@ -102,9 +106,9 @@ def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
 
-def avg_pool_2x2(x):
-    """avg_pool_2x2 downsamples a feature map by 2X."""
-    return tf.nn.avg_pool(
+def max_pool_2x2(x):
+    """max_pool_2x2 downsamples a feature map by 2X."""
+    return tf.nn.max_pool(
         x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
@@ -119,11 +123,12 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
+
 def train_mnist_cnn(FLAGS):
     # Config
     config = tf.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=True,
+        log_device_placement=False,
         inter_op_parallelism_threads=1)
 
     # Note: Additional configuration option to boost performance is to set the
@@ -134,7 +139,6 @@ def train_mnist_cnn(FLAGS):
 
     # Import data
     mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
-
 
     # Create the model
     x = tf.placeholder(tf.float32, [None, 784])
@@ -150,86 +154,86 @@ def train_mnist_cnn(FLAGS):
             labels=y_, logits=y_conv)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
+    # add distributed wrapper to "adam_optimizer"
     opt = hvd.DistributedOptimizer(tf.train.AdamOptimizer(1e-4))
     global_step = tf.contrib.framework.get_or_create_global_step()
-    train_step = opt.minimize(cross_entropy, global_step=global_step)
+    with tf.name_scope('distributed_optimizer'):
+        train_step = opt.minimize(cross_entropy, global_step=global_step)
 
     with tf.name_scope('accuracy'):
-        correct_prediction = tf.equal(
-            tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
         correct_prediction = tf.cast(correct_prediction, tf.float32)
     accuracy = tf.reduce_mean(correct_prediction)
     tf.summary.scalar('Training accuracy', accuracy)
     tf.summary.scalar('Loss function', cross_entropy)
 
-    graph_location = "/tmp/" + getpass.getuser() + "/tensorboard-logs/mnist-convnet"
+    graph_location = "/tmp/" + getpass.getuser(
+    ) + "/tensorboard-logs/mnist-convnet"
     print('Saving graph to: %s' % graph_location)
 
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(graph_location)
     train_writer.add_graph(tf.get_default_graph())
-        
+
+    saver = tf.train.Saver()
     train_loops = FLAGS.train_loop_count
     num_test_images=FLAGS.test_image_count
-    print("train_loops = ", train_loops)
     hooks = [ 
         # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
-        # from rank 0 to all other processes. This is necessary to ensure consistent 
-        # initialization of all workers when training is started with random weights 
-        # or restored from a checkpoint.  
-        hvd.BroadcastGlobalVariablesHook(0), 
+        # from rank 0 to all other processes. This is necessary to ensure consistent
+        # initialization of all workers when training is started with random weights
+        # or restored from a checkpoint. 
+        hvd.BroadcastGlobalVariablesHook(0),
         # Horovod: adjust number of steps based on number of ranks.
         #tf.train.StopAtStepHook(train_loops // hvd.size()) 
-        tf.train.StopAtStepHook(train_loops) 
+        tf.train.StopAtStepHook(train_loops)
     ]
-    # Enable soft placement and tracing as needed   
-    config = tf.ConfigProto(
-        allow_soft_placement=True,
-        log_device_placement=True if hvd.rank() == 0 else False,
-        inter_op_parallelism_threads=1) 
-
-    with tf.train.MonitoredTrainingSession(hooks=hooks,
+    
+    with tf.train.MonitoredTrainingSession(hooks=hooks, 
                                            config=config) as sess:
-        step = 0
-        start = time.time() 
 
-        loss_values=[]
+        step = 0
+        start = time.time()
+        
+        loss_values = []
         test_accuracy=[]
         while not sess.should_stop():
-          batch = mnist.train.next_batch(FLAGS.batch_size)
-          sess.run(train_step, feed_dict={x: batch[0], y_: batch[1]})
-          step +=1
-          if step % 10 == 0:
+            batch = mnist.train.next_batch(FLAGS.batch_size)
+            sess.run(train_step, feed_dict={x: batch[0], y_: batch[1]})
+            step +=1
+            if step % 10 == 0:
+                t = time.time()
+                if hvd.rank() == 0: 
+                    print('step %d training accuracy %g %g sec to evaluate' % (step,
+                         sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
+                         time.time() - t))
             t = time.time()
+            _, summary, loss = sess.run([train_step, merged, cross_entropy],
+                                        feed_dict={
+                                            x: batch[0],
+                                            y_: batch[1],
+                                            keep_prob: 0.5
+                                        })
+            loss_values.append(loss)
             if hvd.rank() == 0:
-              print('step %d training accuracy %g %g sec to evaluate' % (step,
-                   sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
-                   time.time() - t))
+                print('step %d, loss %g, %g sec for training step' %
+                     (step, loss, time.time() - t))
+            train_writer.add_summary(summary, step)
 
-          t = time.time()
-          _, summary, loss = sess.run(
-              [train_step, merged, cross_entropy],
-              feed_dict={
-                  x: batch[0],
-                  y_: batch[1],
-                  keep_prob: 0.5
-              })
-          loss_values.append(loss)
-          if hvd.rank() == 0:
-            print('step %d loss %g %g sec for training step' % (step, loss, time.time() - t ))
-          train_writer.add_summary(summary, step)
+            if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
+                x_test=mnist.test.images[:num_test_images]
+                y_test=mnist.test.labels[:num_test_images]
+                print('test accuracy: ',  sess.run(accuracy, feed_dict={
+                                          x: x_test,
+                                          y_: y_test}
+                                              ))
+                test_accuracy.append(accuracy)
 
-          if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
-            x_test=mnist.test.images[:num_test_images]
-            y_test=mnist.test.labels[:num_test_images]
-            print('test accuracy: ',  sess.run(accuracy, feed_dict={
-                                       x: x_test,
-                                       y_: y_test}
-                                           )) 
-            test_accuracy.append(accuracy) 
-        print( "Training finished. Running test")
 
-        return loss_values,test_accuracy
+        print("Training finished. Running test")
+        saver.save(sess, FLAGS.model_dir)
+        return loss_values, test_accuracy
+
 
 def main(_):
     train_mnist_cnn(FLAGS)
@@ -249,18 +253,19 @@ if __name__ == '__main__':
         default=1000,
         help='Number of training iterations')
 
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=25,
-        help='Batch Size')
-
+    parser.add_argument('--batch_size', type=int, default=50, help='Batch Size')
 
     parser.add_argument(
         '--test_image_count',
         type=int,
         default=None,
         help="Number of test images to evaluate on")
+
+    parser.add_argument(
+        '--model_dir',
+        type=str,
+        default='./mnist_trained/',
+        help='enter model dir')
 
     FLAGS, unparsed = parser.parse_known_args()
     hvd.init()
