@@ -2086,16 +2086,14 @@ static Status TranslateReciprocalOp(
       });
 }
 
-static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_type,
-                               const bool& scaled,
-                               const int min_range,
-                               const int max_range,
-                               float* scale,
-                               int* offset) {
+static void ComputeScaleOffsetFolded(const uint& num_bits,
+                                     const bool& unsigned_type,
+                                     const bool& scaled, const int min_range,
+                                     const int max_range, float* scale,
+                                     int* offset) {
   int scaled_elide = scaled ? 1 : 0;
   int min_type = 0;
-  if (!unsigned_type)
-    min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+  if (!unsigned_type) min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
   uint raise_to = num_bits - (unsigned_type ? 0 : 1);
   int max_type = (2 ^ raise_to) - 1 - scaled_elide;
   float adj_min_range, adj_max_range;
@@ -2115,8 +2113,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   *offset = min_type - std::lround(adj_min_range / *scale);
 }
 
-
- static Status TranslateQuantizeV2Op(
+static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
@@ -2126,12 +2123,10 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Min must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar");
   }
   if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Max must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar");
   }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
@@ -2175,8 +2170,9 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   float ng_scale_val;
   int ng_offset_val;
   try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
-                       ng_min[0], ng_max[0], &ng_scale_val, &ng_offset_val);
+    ComputeScaleOffsetFolded(num_bits, unsigned_type,
+                             (mode.compare("SCALED") == 0), ng_min[0],
+                             ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
     return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
                             op->name(), " (", op->type_string(), ")\n",
@@ -2217,7 +2213,6 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   return Status::OK();
 }
 
-
 static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2228,12 +2223,10 @@ static Status TranslateDequantizeOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Min must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar");
   }
   if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Max must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar");
   }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
@@ -2273,8 +2266,9 @@ static Status TranslateDequantizeOp(
   float ng_scale_val;
   int ng_offset_val;
   try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type, (mode.compare("SCALED") == 0),
-                       ng_min[0], ng_max[0], &ng_scale_val, &ng_offset_val);
+    ComputeScaleOffsetFolded(num_bits, unsigned_type,
+                             (mode.compare("SCALED") == 0), ng_min[0],
+                             ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
     return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
                             op->name(), " (", op->type_string(), ")\n",
@@ -2293,11 +2287,10 @@ static Status TranslateDequantizeOp(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset, ng::element::f32,
-                                         ng::AxisSet()));
+           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset,
+                                           ng::element::f32, ng::AxisSet()));
   return Status::OK();
 }
-
 
 static Status TranslateReluOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
