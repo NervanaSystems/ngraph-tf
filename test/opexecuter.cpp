@@ -135,13 +135,36 @@ void OpExecuter::ExecuteOnTF() {
   DeactivateNGraph();
   ClientSession session(tf_scope_);
   ASSERT_EQ(Status::OK(), session.Run(sess_run_fetchoutputs_, &tf_outputs_));
+  for (int i = 0; i < tf_outputs_.size(); i++) {
+    NGRAPH_VLOG(5) << " TF op " << i << tf_outputs_[i].DebugString();
+  }
 }
 
 // Compares tf_outputs_ with ngraph_outputs_
 void OpExecuter::CompareNGraphAndTF() {
   ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
   for (int i = 0; i < tf_outputs_.size(); i++) {
-    AssertTensorEquals(tf_outputs_[i], ngraph_outputs_[i]);
+    switch (expected_output_datatypes_[i]) {
+      case DT_FLOAT:
+        AssertTensorEquals<float>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      case DT_INT8:
+        AssertTensorEquals<int8>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      case DT_INT16:
+        AssertTensorEquals<int16>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      case DT_INT32:
+        AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      case DT_INT64:
+        AssertTensorEquals<int64>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
+      default:
+        EXPECT_TRUE(false)
+            << "Could not find the corresponding function for the "
+               "expected output datatype.";
+    }
   }
 }
 
@@ -167,7 +190,9 @@ void OpExecuter::ExecuteOnNGraph() {
   TF_CHECK_OK(tf_scope_.ToGraph(&graph));
 
   // For debug
-  // GraphToPbTextFile(&graph, "tf_graph_" + test_op_type_ + ".pbtxt");
+  if (std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr) {
+    GraphToPbTextFile(&graph, "unit_test_tf_graph_" + test_op_type_ + ".pbtxt");
+  }
 
   ValidateGraph(graph, {"Const"});
 
@@ -235,7 +260,7 @@ void OpExecuter::ExecuteOnNGraph() {
     auto src_nodes_metadata = node_inedge_metadata[ip_node];
     for (int j = 0; j < src_nodes_metadata.size(); j++) {
       graph.AddEdge(src_nodes_metadata[j].first, src_nodes_metadata[j].second,
-                    arg_node, 0);
+                    arg_node, Graph::kControlSlot);
     }
     // Adds an edge from arg_node to test_op
     graph.AddEdge(arg_node, 0, test_op, i);
@@ -267,7 +292,7 @@ void OpExecuter::ExecuteOnNGraph() {
 
     // Add edges from _Retval to sink
     for (int j = 0; j < dest_nodes_metadata.size(); j++) {
-      graph.AddEdge(ret_node, 0, dest_nodes_metadata[j].first,
+      graph.AddEdge(ret_node, Graph::kControlSlot, dest_nodes_metadata[j].first,
                     dest_nodes_metadata[j].second);
     }
     // Add edges from test_op to _Retval
@@ -282,7 +307,10 @@ void OpExecuter::ExecuteOnNGraph() {
                    << " ,Dst: " << e->dst()->name();
   }
   // For debug
-  // GraphToPbTextFile(&graph, "rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+  if (std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr) {
+    GraphToPbTextFile(&graph,
+                      "unit_test_rewrite_ngraph_" + test_op_type_ + ".pbtxt");
+  }
 
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
@@ -293,6 +321,24 @@ void OpExecuter::ExecuteOnNGraph() {
 
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size());
+
+  // For debug
+  // Serialize to nGraph if needed
+  if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
+    std::string file_name = "unit_test_" + test_op_type_ + ".json";
+    NGRAPH_VLOG(0) << "Serializing graph to: " << file_name << endl;
+    std::string js = ngraph::serialize(ng_function, 4);
+    std::ofstream f;
+    f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    try {
+      f.open(file_name);
+      f << js;
+      f.close();
+    } catch (std::ofstream::failure& e) {
+      std::cerr << "Exception opening/closing file " << file_name << endl;
+      std::cerr << e.what() << endl;
+    }
+  }
 
   // Create nGraph backend
   // Create the nGraph backend
@@ -349,6 +395,7 @@ void OpExecuter::ExecuteOnNGraph() {
     void* dst_ptr = DMAHelper::base(&output_tensor);
     ng_op_tensors[i]->read(dst_ptr, 0, output_tensor.TotalBytes());
     ngraph_outputs_.push_back(output_tensor);
+    NGRAPH_VLOG(5) << " NGRAPH op " << i << ngraph_outputs_[i].DebugString();
   }
 
 }  // ExecuteOnNGraph

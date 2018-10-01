@@ -105,6 +105,9 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
     case DataType::DT_UINT8:
       *ng_et = ng::element::u8;
       break;
+    case DataType::DT_UINT16:
+      *ng_et = ng::element::u16;
+      break;
     case DataType::DT_INT64:
       *ng_et = ng::element::i64;
       break;
@@ -159,6 +162,17 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes() {
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   static gtl::ArraySlice<DataType> result{DT_INT32, DT_INT64};
   return result;
+}
+
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
+  for (auto i : axes) {
+    if (i < (int)-rank || i >= (int)rank) {
+      return errors::InvalidArgument("Axis Dimension is out of range. Got ", i,
+                                     ", should be in range [-", rank, ", ",
+                                     rank, ")");
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace ngraph_bridge

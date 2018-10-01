@@ -42,6 +42,7 @@ set(SRC
    ngraph_tracked_variable.cc
    ngraph_utils.cc
    tf_graphcycles.cc
+   tf_deadness_analysis.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})
@@ -76,4 +77,5 @@ install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${CMAKE_INSTALL_PREFIX
 # Now create the Python pip package
 install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}/lib\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
+install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
