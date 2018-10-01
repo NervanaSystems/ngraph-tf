@@ -468,7 +468,7 @@ static Status TranslateAllOp(const Node* op,
   std::vector<size_t> ng_reduction_axes_vect(all_axes.size());
   std::transform(
       all_axes.begin(), all_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::vector<bool> init_val = {true};
@@ -1646,7 +1646,7 @@ static Status TranslateMaxOp(const Node* op,
   std::vector<size_t> ng_reduction_axes_vect(max_axes.size());
   std::transform(
       max_axes.begin(), max_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::shared_ptr<ng::Node> ng_max =
@@ -1814,7 +1814,7 @@ static Status TranslateMeanOp(
   std::vector<size_t> ng_reduction_axes_vect(mean_axes.size());
   std::transform(
       mean_axes.begin(), mean_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::shared_ptr<ng::Node> ng_mean =
@@ -1863,7 +1863,7 @@ static Status TranslateMinOp(const Node* op,
   std::vector<size_t> ng_reduction_axes_vect(min_axes.size());
   std::transform(
       min_axes.begin(), min_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::shared_ptr<ng::Node> ng_min =
@@ -2005,7 +2005,7 @@ static Status TranslateProdOp(
   std::vector<size_t> ng_reduction_axes_vect(prod_axes.size());
   std::transform(
       prod_axes.begin(), prod_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::shared_ptr<ng::Node> ng_prod =
@@ -2697,7 +2697,7 @@ static Status TranslateSumOp(const Node* op,
   std::vector<size_t> ng_reduction_axes_vect(sum_axes.size());
   std::transform(
       sum_axes.begin(), sum_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
   std::shared_ptr<ng::Node> ng_sum =

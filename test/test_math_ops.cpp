@@ -143,6 +143,7 @@ TEST(MathOps, AddN) {
 // Test op: All
 // All with attribute KeepDims set to true
 TEST(MathOps, AllKeepDims) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 2;
 
@@ -154,23 +155,21 @@ TEST(MathOps, AllKeepDims) {
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
-  vector<int> axis_ = {0};
+  int axis = 0;
 
   vector<int> static_input_indexes = {1};
   vector<DataType> output_datatypes = {DT_BOOL};
 
-  for (auto const& axis : axis_) {
-    Scope root = Scope::NewRootScope();
-    auto R = ops::All(root, A, axis, keep_dims);
-    std::vector<Output> sess_run_fetchoutputs = {R};
-    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
-                          sess_run_fetchoutputs);
+  auto R = ops::All(root, A, axis, keep_dims);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
-    opexecuter.RunTest();
-  }
+  opexecuter.RunTest();
 }
 
 TEST(MathOps, AllNegativeAxis) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 3;
 
@@ -181,23 +180,21 @@ TEST(MathOps, AllNegativeAxis) {
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
-  vector<int> axis_ = {-1};
+  int axis = -1;
 
   vector<int> static_input_indexes = {1};
   vector<DataType> output_datatypes = {DT_BOOL};
 
-  for (auto const& axis : axis_) {
-    Scope root = Scope::NewRootScope();
-    auto R = ops::All(root, A, axis);
-    std::vector<Output> sess_run_fetchoutputs = {R};
-    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
-                          sess_run_fetchoutputs);
+  auto R = ops::All(root, A, axis);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
-    opexecuter.RunTest();
-  }
+  opexecuter.RunTest();
 }
 
 TEST(MathOps, AllPositiveAxis) {
+  Scope root = Scope::NewRootScope();
   int dim1 = 3;
   int dim2 = 3;
 
@@ -209,20 +206,17 @@ TEST(MathOps, AllPositiveAxis) {
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
-  vector<int> axis_ = {0};
+  int axis = 1;
 
   vector<int> static_input_indexes = {1};
   vector<DataType> output_datatypes = {DT_BOOL};
 
-  for (auto const& axis : axis_) {
-    Scope root = Scope::NewRootScope();
-    auto R = ops::All(root, A, axis);
-    std::vector<Output> sess_run_fetchoutputs = {R};
-    OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
-                          sess_run_fetchoutputs);
+  auto R = ops::All(root, A, axis);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
-    opexecuter.RunTest();
-  }
+  opexecuter.RunTest();
 }  // end of test op All
 
 // Test op: BatchMatMul
