@@ -460,7 +460,9 @@ static Status TranslateArgMaxOp(
   ng::Shape input_shape = ng_input->get_shape();
   size_t input_rank = input_shape.size();
 
-  tf_dim.size() == 1;
+  if (tf_dim.size() != 1) {
+    return errors::InvalidArgument("ArgMax Op:Dimension should be 1-D");
+  }
 
   // If input dimension is negative, make it positive
   if (tf_dim[0] < 0) {

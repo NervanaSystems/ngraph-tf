@@ -893,7 +893,6 @@ TEST(MathOps, ArgMax_Neg) {
   vector<int> static_input_indexes = {1};
 
   auto R = ops::ArgMax(root, A, dim);
-  
 
   vector<DataType> output_datatypes = {DT_INT64};
 
