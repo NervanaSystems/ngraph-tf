@@ -495,11 +495,10 @@ static Status TranslateAnyOp(const Node* op,
     ng_any = make_shared<ng::op::Reshape>(ng_any, ng_axis_order,
                                           ng_result_shape_with_keep);
   }
-  
+
   SaveNgOp(ng_op_map, op->name(), ng_any);
   return Status::OK();
 }
-
 
 static Status TranslateAllOp(const Node* op,
                              const std::vector<const Tensor*>& static_input_map,
