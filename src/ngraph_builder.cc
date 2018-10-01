@@ -461,12 +461,12 @@ static Status TranslateArgMaxOp(
   size_t input_rank = input_shape.size();
 
   if (tf_dim.size() != 1) {
-    return errors::InvalidArgument("ArgMax Op:Dimension should be 1-D");
+    return errors::InvalidArgument("ArgMax Op:dimension must be scalar, operates on a single axis");
   }
 
   // If input dimension is negative, make it positive
   if (tf_dim[0] < 0) {
-    tf_dim[0] = input_rank + tf_dim[0];
+    tf_dim[0] = (int64)input_rank + tf_dim[0];
   }
   size_t input_dims = tf_dim[0];
 

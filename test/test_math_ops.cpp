@@ -862,7 +862,7 @@ TEST(MathOps, ArgMax_Pos) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   AssignInputValuesRandom(A);
 
-  int dim = {1};
+  int dim = 1;
 
   vector<int> static_input_indexes = {1};
 
@@ -888,7 +888,7 @@ TEST(MathOps, ArgMax_Neg) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
   AssignInputValuesRandom(A);
 
-  int dim = {-1};
+  int dim = -1;
 
   vector<int> static_input_indexes = {1};
 
