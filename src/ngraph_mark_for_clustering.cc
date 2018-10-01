@@ -225,6 +225,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["Equal"]["T"] = NGraphDTypes();
       type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
       type_constraint_map["ExpandDims"]["T"] = NGraphDTypes();
@@ -262,6 +263,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
@@ -327,6 +329,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction({0});
       confirmation_functions["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_functions["Dequantize"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["Equal"] = SimpleConfirmationFunction();
       confirmation_functions["Exp"] = SimpleConfirmationFunction();
       confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
@@ -362,6 +365,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
+      confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
       confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
       confirmation_functions["Relu"] = SimpleConfirmationFunction();
