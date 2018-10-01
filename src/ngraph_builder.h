@@ -101,7 +101,7 @@ class Builder {
                                const int min_range,
                                const int max_range,
                                float* scale,
-                               int* offset)
+                               int* offset);
 };
 
 }  // namespace ngraph_bridge

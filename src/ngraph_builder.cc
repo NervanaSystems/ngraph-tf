@@ -518,7 +518,7 @@ static Status TranslateArgMaxOp(
 
   if (tf_dim.size() != 1) {
     return errors::InvalidArgument(
-        "ArgMax Op:dimension must be scalar, operates on a single axis");
+        "ArgMax Op: dimension must be scalar, operates on a single axis");
   }
 
   // If input dimension is negative, make it positive
@@ -2125,7 +2125,14 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   std::vector<int> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  //TODO: Assert size of ng_min, ng_max is 1
+  if (ng_min.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Min must be scalar");
+  }
+  if (ng_max.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Max must be scalar");
+  }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
@@ -2183,8 +2190,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
-  // TODO: Correct this: std::vector<int>({ng_offset_val}).
-  // cast offset appropriately
+  // Cast offset appropriately? Currently using int
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
@@ -2212,7 +2218,6 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
 }
 
 
-
 static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2222,7 +2227,14 @@ static Status TranslateDequantizeOp(
   std::vector<int> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  //TODO: Assert size of ng_min, ng_max is 1
+  if (ng_min.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Min must be scalar");
+  }
+  if (ng_max.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Max must be scalar");
+  }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string mode;
@@ -2258,10 +2270,6 @@ static Status TranslateDequantizeOp(
           dtype);
   }
 
-  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/quantize_op.cc#L107
-  // Form this line here, we see that min and max is a single value.
-  // Hence picking only the first element from the ng_min, ng_max vectors
-
   float ng_scale_val;
   int ng_offset_val;
   try {
@@ -2280,8 +2288,7 @@ static Status TranslateDequantizeOp(
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
-  // TODO: Correct this: std::vector<int>({ng_offset_val}).
-  // cast offset appropriately
+  // Cast offset appropriately? Currently using int
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
@@ -2290,9 +2297,6 @@ static Status TranslateDequantizeOp(
                                          ng::AxisSet()));
   return Status::OK();
 }
-
-
-
 
 
 static Status TranslateReluOp(
