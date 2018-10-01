@@ -463,7 +463,7 @@ static Status TranslateAnyOp(const Node* op,
   std::vector<size_t> ng_reduction_axes_vect(all_axes.size());
   std::transform(
       all_axes.begin(), all_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? input_rank : 0); });
+      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
   std::vector<bool> init_val = {false};
   auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
