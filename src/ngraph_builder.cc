@@ -456,16 +456,21 @@ static Status TranslateAnyOp(const Node* op,
   if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
     tf_keep_dims = false;
   }
-  std::vector<int64> all_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &all_axes));
+
+  std::vector<int64> axes;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &axes));
+
   ng::Shape input_shape = ng_input->get_shape();
   size_t input_rank = ng_input->get_shape().size();
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(all_axes, input_rank));
-  std::vector<size_t> ng_reduction_axes_vect(all_axes.size());
+
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(axes, input_rank));
+
+  std::vector<size_t> ng_reduction_axes_vect(axes.size());
   std::transform(
-      all_axes.begin(), all_axes.end(), ng_reduction_axes_vect.begin(),
+      axes.begin(), axes.end(), ng_reduction_axes_vect.begin(),
       [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
+
   std::vector<bool> init_val = {false};
   auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
                                                 ng::Shape(0), init_val);
@@ -473,8 +478,10 @@ static Status TranslateAnyOp(const Node* op,
   auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto ng_or = make_shared<ng::Function>(make_shared<ng::op::Or>(f_A, f_B),
                                          ng::op::ParameterVector{f_A, f_B});
+
   shared_ptr<ng::Node> ng_any =
       make_shared<ng::op::Reduce>(ng_input, arg_init, ng_or, ng_reduction_axes);
+
   // If keep_dims is specified we need to reshape to put back the reduced
   // axes, with length 1.
   if (tf_keep_dims) {
@@ -488,9 +495,11 @@ static Status TranslateAnyOp(const Node* op,
     ng_any = make_shared<ng::op::Reshape>(ng_any, ng_axis_order,
                                           ng_result_shape_with_keep);
   }
+  
   SaveNgOp(ng_op_map, op->name(), ng_any);
   return Status::OK();
 }
+
 
 static Status TranslateAllOp(const Node* op,
                              const std::vector<const Tensor*>& static_input_map,
