@@ -208,6 +208,134 @@ TEST(MathOps, AnyPositiveAxis) {
   opexecuter.RunTest();
 }  // end of test op Any
 
+// Test op: All
+// All with attribute KeepDims set to true
+TEST(MathOps, AllKeepDims) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 2;
+
+  std::vector<bool> v = {true, true, true, false};
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+  auto keep_dims = ops::All::Attrs().KeepDims(true);
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  int axis = 0;
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  auto R = ops::All(root, A, axis, keep_dims);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, AllNegativeAxis) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  std::vector<bool> v = {true, true, true, true, false, false};
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  int axis = -1;
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  auto R = ops::All(root, A, axis);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(MathOps, AllPositiveAxis) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 3;
+  int dim2 = 3;
+
+  std::vector<bool> v = {true,  true, true,  true, false,
+                         false, true, false, false};
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+
+  AssignInputValuesFromVector<bool>(A, v);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  int axis = 1;
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  auto R = ops::All(root, A, axis);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "All", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op All
+
+// ArgMax test for negative dimension
+TEST(MathOps, ArgMax_Neg) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  int dim = -1;
+
+  vector<int> static_input_indexes = {1};
+
+  auto R = ops::ArgMax(root, A, dim);
+
+  vector<DataType> output_datatypes = {DT_INT64};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
+// ArgMax test for positive dimension
+TEST(MathOps, ArgMax_Pos) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValuesRandom(A);
+
+  int dim = 1;
+
+  vector<int> static_input_indexes = {1};
+
+  auto attrs = ops::ArgMax::Attrs();
+  attrs.output_type_ = DT_INT32;
+
+  auto R = ops::ArgMax(root, A, dim, attrs);
+
+  vector<DataType> output_datatypes = {DT_INT32};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}  // end of test op ArgMax
+
 // Test op: BatchMatMul
 TEST(MathOps, BatchMatMul2D) {
   Scope root = Scope::NewRootScope();
