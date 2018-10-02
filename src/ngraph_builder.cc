@@ -2324,14 +2324,14 @@ static Status TranslateSizeOp(
 
   auto ng_input_shape = ng_input->get_shape();
 
-  int32 result = 1;
+  int64 result = 1;
   for (auto dim : ng_input_shape) {
     result *= dim;
   }
 
   // make a scalar with value equals to result
   auto ng_result = make_shared<ng::op::Constant>(type, ng::Shape(0),
-                                                 std::vector<int>({result}));
+                                                 std::vector<int64>({result}));
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
