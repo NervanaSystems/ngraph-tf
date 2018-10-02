@@ -2272,6 +2272,24 @@ static Status TranslateShapeOp(
   return Status::OK();
 }
 
+static Status TranslateSigmoidGradOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  shared_ptr<ng::Node> ng_delta;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_delta));
+
+  auto ng_mul = ng_input * ng_delta;
+  auto ng_subtract = make_shared<ng::op::Constant>(ng_input->get_element_type(),
+                                                   ng_input->get_shape(),
+                                                   std::vector<int>({1})) -
+                     ng_input;
+  auto ng_result = ng_mul * ng_subtract;
+
+  SaveNgOp(ng_op_map, op->name(), ng_result);
+  return Status::OK();
+}
+
 static Status TranslateSigmoidOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2291,24 +2309,6 @@ static Status TranslateSigmoidOp(
   return Status::OK();
 }
 
-static Status TranslateSigmoidGradOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  shared_ptr<ng::Node> ng_delta;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_delta));
-
-  auto ng_mul = ng_input * ng_delta;
-  auto ng_subtract = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                   ng_input->get_shape(),
-                                                   std::vector<int>({1})) -
-                     ng_input;
-  auto ng_result = ng_mul * ng_subtract;
-
-  SaveNgOp(ng_op_map, op->name(), ng_result);
-  return Status::OK();
-}
-
 static Status TranslateSizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2323,6 +2323,7 @@ static Status TranslateSizeOp(
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &type));
 
   auto ng_input_shape = ng_input->get_shape();
+
   int32 result = 1;
   for (auto dim : ng_input_shape) {
     result *= dim;
