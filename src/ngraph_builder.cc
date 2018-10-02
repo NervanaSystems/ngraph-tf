@@ -2309,7 +2309,6 @@ static Status TranslateSigmoidGradOp(
   return Status::OK();
 }
 
-
 static Status TranslateSizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2325,19 +2324,17 @@ static Status TranslateSizeOp(
 
   auto ng_input_shape = ng_input->get_shape();
   int32 result = 1;
-  for(auto dim : ng_input_shape){
+  for (auto dim : ng_input_shape) {
     result *= dim;
   }
 
   // make a scalar with value equals to result
-  auto ng_result = make_shared<ng::op::Constant>(type,
-                                                   ng::Shape(0),
-                                                   std::vector<int>({result}));
+  auto ng_result = make_shared<ng::op::Constant>(type, ng::Shape(0),
+                                                 std::vector<int>({result}));
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
 }
-
 
 static Status TranslateSliceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,

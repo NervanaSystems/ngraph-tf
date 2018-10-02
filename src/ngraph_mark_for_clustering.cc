@@ -276,7 +276,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["SigmoidGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["Size"]["T"] =  NGraphDTypes();
+      type_constraint_map["Size"]["T"] = NGraphDTypes();
       type_constraint_map["Size"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
