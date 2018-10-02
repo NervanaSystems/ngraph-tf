@@ -2968,9 +2968,8 @@ static Status TranslateZerosLikeOp(
 
   ng::Shape input_shape = ng_input->get_shape();
   std::vector<std::string> const_values(ng::shape_size(input_shape), "0");
-  auto ng_const = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                input_shape, const_values);
-  auto ng_result = std::make_shared<ng::op::Multiply>(ng_input, ng_const);
+  auto ng_result = make_shared<ng::op::Constant>(ng_input->get_element_type(),
+                                                 input_shape, const_values);
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
