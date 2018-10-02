@@ -209,6 +209,10 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Any"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["All"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMax"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
@@ -307,6 +311,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Abs"] = SimpleConfirmationFunction();
       confirmation_functions["Add"] = SimpleConfirmationFunction();
       confirmation_functions["AddN"] = SimpleConfirmationFunction();
+      confirmation_functions["Any"] = SimpleConfirmationFunction({1});
+      confirmation_functions["All"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMax"] = SimpleConfirmationFunction({1});
       confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
       confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
       confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
