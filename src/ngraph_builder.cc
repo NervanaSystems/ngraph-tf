@@ -2091,9 +2091,38 @@ static void ComputeScaleOffsetFolded(const uint& num_bits,
                                      const bool& scaled, const int min_range,
                                      const int max_range, float* scale,
                                      int* offset) {
+  // ======= 1. Definitions =======
+  // min<Q>, max<Q>: the min and max of the quantized data type
+  // range<Q> = qmax<Q> - qmin<Q> (eg, 255 for u8, i8)
+  // max<R>, min<R>: The max and min of the real type
+  // range<R> = max<R> - min<R>
+  // ======= 2. Unquantized maths =======
+  // In what follows, we discuss the computations assuming
+  // Q and R are unquantized to simplify the discussion
+  // 2.1 In min-max representation:
+  // max<R> maps to max<Q>, min<R> maps to min<Q>, R x maps to Q y
+  // y = max<Q> - ((max<R> - x) * range<Q>) / range<R>
+  // or, y = (range<Q> * x / range<R>) - ((min<R> * range<Q>) / range<R>)
+  // 2.2 In scale-zero representation: y = (x/s) + z
+  // Therefore, s = range<R> / range<Q>
+  // and z = min<Q> - (min<R> / s)
+  // ======= 3. Quantized maths =======
+  // 3.1 Quantize: y = cast<Q>(clamp(round(x / s) + z, min<Q>, max<Q>)))
+  // 3.2 Dequantize: x = cast<R>(y - z) * s
+  // ======= 4. Notes  =======
+  // 4.1 Scale s is of type R, zero/offset z is of type Q
+  // 4.2 Type matching dictates, (min<R> / s) must evaluate to type Q
+  // Hence, it needs to be rounded to integral type
+  // 4.3 Scaled mode. Consider Q = int8, which represents [-128, 127]
+  // But scaled mode is symmetric. Hence it represents [-127, 127]
+  // 4.4 By definition, scaled mode includes 0. For others, we force the
+  // inclusion of 0 in the range
+
   int scaled_elide = scaled ? 1 : 0;
   int min_type = 0;
-  if (!unsigned_type) min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+  if (!unsigned_type) {
+    min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+  }
   uint raise_to = num_bits - (unsigned_type ? 0 : 1);
   int max_type = (2 ^ raise_to) - 1 - scaled_elide;
   float adj_min_range, adj_max_range;
@@ -2194,18 +2223,6 @@ static Status TranslateQuantizeV2Op(
   // Support HALF_TO_EVEN later
   ng::op::Quantize::RoundMode ng_round_mode =
       ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
-
-  // min<Q>, max<Q>: the min and max of the quantized data type
-  // range<Q> = qmax<Q> - qmin<Q> (eg, 255 for u8, i8)
-  // max<R>, min<R>: The max and min of the real type
-  // range<R> = max<R> - min<R>
-  // Unquantized:
-  // max<R> maps to max<Q>, min<R> maps to min<Q>, R x maps to Q y
-  // y = max<Q> - ((max<R> - x) * range<Q>) / range<R>
-  // or, y = (range<Q> * x / range<R>) - ((min<R> * range<Q>) / range<R>)
-  // In scale-zero representation: y = (x/s) + z
-  // Therefore, s = range<R> / range<Q>
-  // and z = min<Q> - (min<R> / s)
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
