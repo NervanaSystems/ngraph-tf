@@ -70,6 +70,10 @@ class OpExecuter {
 
   ~OpExecuter();
 
+  void ExecuteOnNGraph(vector<Tensor>& outputs);
+  void ExecuteOnTF(vector<Tensor>& outputs);
+
+
   void ExecuteOnNGraph();
   void ExecuteOnTF();
   // To Do : Overload CompareNGraphAndTF() to take in tolerance

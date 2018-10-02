@@ -195,6 +195,7 @@ void OpExecuter::ExecuteOnNGraph() {
   }
 
   ValidateGraph(graph, {"Const"});
+  NGRAPH_VLOG(5) << "--Returned to execution";
 
   NodeMetaData node_inedge_metadata;
   NodeMetaData node_outedge_metadata;
