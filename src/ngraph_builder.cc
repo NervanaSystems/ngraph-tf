@@ -2816,8 +2816,18 @@ static Status TranslateUnpackOp(
 }
 
 static Status TranslateZerosLikeOp(
-  const Node* op, const std::vector<const Tensor*>& static_input_map,
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  std::vector<std::string> const_values(ng::shape_size(input_shape), "0");
+  auto ng_const = make_shared<ng::op::Constant>(ng_input->get_element_type(),
+                                                input_shape, const_values);
+  auto ng_result = std::make_shared<ng::op::Multiply>(ng_input, ng_const);
+
+  SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
 }
 
