@@ -664,6 +664,32 @@ TEST(MathOps, Log2D) {
   opexecuter.RunTest();
 }  // end of test op Log
 
+// Test Op:LogicalOr
+TEST(MathOps, LogicalOr) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  std::vector<bool> v1 = {true, true, true, true, false, false};
+  std::vector<bool> v2 = {false, true, false, true, false, false};
+
+  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
+  AssignInputValuesFromVector(A, v1);
+
+  Tensor B(DT_BOOL, TensorShape({dim1, dim2}));
+  AssignInputValuesFromVector(B, v2);
+
+  vector<int> static_input_indexes = {};
+
+  auto R = ops::LogicalOr(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_BOOL};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "LogicalOr", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}  // end of LogicalOr
+
 // Test op: Max
 TEST(MathOps, MaxNegativeAxis) {
   int dim1 = 2;
@@ -1049,83 +1075,6 @@ TEST(MathOps, SquaredDifferenceBroadcasting) {
   opexecuter.RunTest();
 }  // end of test op SquaredDifferenceBroadcasting
 
-<<<<<<< HEAD
-// ArgMax test for positive dimension
-TEST(MathOps, ArgMax_Pos) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 3;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-  AssignInputValuesRandom(A);
-
-  int dim = 1;
-
-  vector<int> static_input_indexes = {1};
-
-  auto attrs = ops::ArgMax::Attrs();
-  attrs.output_type_ = DT_INT32;
-
-  auto R = ops::ArgMax(root, A, dim, attrs);
-
-  vector<DataType> output_datatypes = {DT_INT32};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-  opexecuter.RunTest();
-}
-
-// ArgMax test for negative dimension
-TEST(MathOps, ArgMax_Neg) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 3;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-  AssignInputValuesRandom(A);
-
-  int dim = -1;
-
-  vector<int> static_input_indexes = {1};
-
-  auto R = ops::ArgMax(root, A, dim);
-
-  vector<DataType> output_datatypes = {DT_INT64};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "ArgMax", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-  opexecuter.RunTest();
-}
-
-TEST(MathOps, LogicalOr) {
-  Scope root = Scope::NewRootScope();
-  int dim1 = 2;
-  int dim2 = 3;
-  std::vector<bool> v1 = {true, true, true, true, false, false};
-  std::vector<bool> v2 = {false, true, false, true, false, false};
-
-  Tensor A(DT_BOOL, TensorShape({dim1, dim2}));
-  AssignInputValuesFromVector(A, v1);
-
-  Tensor B(DT_BOOL, TensorShape({dim1, dim2}));
-  AssignInputValuesFromVector(B, v2);
-
-  vector<int> static_input_indexes = {};
-
-  auto R = ops::LogicalOr(root, A, B);
-
-  vector<DataType> output_datatypes = {DT_BOOL};
-
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "LogicalOr", static_input_indexes,
-                        output_datatypes, sess_run_fetchoutputs);
-  opexecuter.RunTest();
-}
-
-=======
->>>>>>> origin/master
 }  // namespace testing
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
