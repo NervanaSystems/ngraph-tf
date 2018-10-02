@@ -2270,9 +2270,11 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   int scaled_elide = scaled ? 1 : 0;
   int min_type = 0;
   if (!unsigned_type)
-    min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+    min_type = -((1 << (num_bits - 1)) - scaled_elide);
   uint raise_to = num_bits - (unsigned_type ? 0 : 1);
-  int max_type = (2 ^ raise_to) - 1 - scaled_elide;
+  int max_type = (1 << raise_to) - 1;
+  if (unsigned_type && scaled)
+    max_type = max_type - 1;
   float adj_min_range, adj_max_range;
   if (scaled) {
     auto abs_min_range = std::abs(min_range);
@@ -2288,6 +2290,11 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
   *offset = min_type - std::lround(adj_min_range / *scale);
+
+  cout << "XXXX " << *offset << " " << *scale << "\n";
+  cout << "num_bits: " << num_bits << " unsigned_type: " << unsigned_type << " scaled: " << scaled << " min_range:" << min_range << " max_range: " << max_range << "\n" ;
+  cout << "scaled_elide: " << scaled_elide << " min_type: " << min_type << " raise_to: " << raise_to <<" max_type: " << max_type << "\n";
+  cout << "adj_min_range: " << adj_min_range << " adj_max_range: " << adj_max_range << "\n";
 }
 
 
