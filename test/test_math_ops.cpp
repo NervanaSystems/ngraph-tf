@@ -288,7 +288,7 @@ TEST(MathOps, AllPositiveAxis) {
 }  // end of test op All
 
 // ArgMax test for negative dimension
-TEST(MathOps, ArgMax_Neg) {
+TEST(MathOps, ArgMaxNeg) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 3;
@@ -311,7 +311,7 @@ TEST(MathOps, ArgMax_Neg) {
 }
 
 // ArgMax test for positive dimension
-TEST(MathOps, ArgMax_Pos) {
+TEST(MathOps, ArgMaxPos) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 3;
@@ -337,7 +337,7 @@ TEST(MathOps, ArgMax_Pos) {
 }  // end of test op ArgMax
 
 // ArgMin test for negative dimension
-TEST(MathOps, ArgMin_Neg) {
+TEST(MathOps, ArgMinNeg) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 3;
@@ -360,7 +360,7 @@ TEST(MathOps, ArgMin_Neg) {
 }
 
 // ArgMin test for positive dimension
-TEST(MathOps, ArgMin_Pos) {
+TEST(MathOps, ArgMinPos) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
   int dim2 = 3;
