@@ -209,6 +209,10 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Any"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["All"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMax"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
@@ -272,6 +276,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["SigmoidGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Size"]["T"] = NGraphDTypes();
+      type_constraint_map["Size"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
@@ -307,6 +313,9 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Abs"] = SimpleConfirmationFunction();
       confirmation_functions["Add"] = SimpleConfirmationFunction();
       confirmation_functions["AddN"] = SimpleConfirmationFunction();
+      confirmation_functions["Any"] = SimpleConfirmationFunction({1});
+      confirmation_functions["All"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMax"] = SimpleConfirmationFunction({1});
       confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
       confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
       confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
@@ -368,6 +377,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
       confirmation_functions["SigmoidGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Sign"] = SimpleConfirmationFunction();
+      confirmation_functions["Size"] = SimpleConfirmationFunction();
       confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
