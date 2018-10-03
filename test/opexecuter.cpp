@@ -127,7 +127,12 @@ OpExecuter::~OpExecuter() {}
 void OpExecuter::RunTest() {
   ExecuteOnNGraph();
   ExecuteOnTF();
-  CompareNGraphAndTF();
+  CompareNGraphAndTF(tf_outputs_, ngraph_outputs_);
+}
+
+void OpExecuter::ExecuteOnTF(vector<Tensor>& outputs) {
+  ExecuteOnTF();
+  outputs = tf_outputs_;
 }
 
 // Uses tf_scope to execute on TF
@@ -141,31 +146,39 @@ void OpExecuter::ExecuteOnTF() {
 }
 
 // Compares tf_outputs_ with ngraph_outputs_
-void OpExecuter::CompareNGraphAndTF() {
-  ASSERT_EQ(tf_outputs_.size(), ngraph_outputs_.size());
-  for (int i = 0; i < tf_outputs_.size(); i++) {
-    switch (expected_output_datatypes_[i]) {
+void OpExecuter::CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
+                                    const vector<Tensor>& ngraph_outputs) {
+  ASSERT_EQ(tf_outputs.size(), ngraph_outputs.size());
+  for (int i = 0; i < tf_outputs.size(); i++) {
+    auto expected_dtype = tf_outputs[i].dtype();
+    switch (expected_dtype) {
       case DT_FLOAT:
-        AssertTensorEquals<float>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<float>(tf_outputs[i], ngraph_outputs[i]);
         break;
       case DT_INT8:
-        AssertTensorEquals<int8>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<int8>(tf_outputs[i], ngraph_outputs[i]);
         break;
       case DT_INT16:
-        AssertTensorEquals<int16>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<int16>(tf_outputs[i], ngraph_outputs[i]);
         break;
       case DT_INT32:
-        AssertTensorEquals<int>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<int>(tf_outputs[i], ngraph_outputs[i]);
         break;
       case DT_INT64:
-        AssertTensorEquals<int64>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<int64>(tf_outputs[i], ngraph_outputs[i]);
         break;
       default:
         EXPECT_TRUE(false)
             << "Could not find the corresponding function for the "
-               "expected output datatype.";
+               "expected output datatype."
+            << expected_dtype;
     }
   }
+}
+
+void OpExecuter::ExecuteOnNGraph(vector<Tensor>& outputs) {
+  ExecuteOnNGraph();
+  outputs = ngraph_outputs_;
 }
 
 // This function does the following:

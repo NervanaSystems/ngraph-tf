@@ -54,7 +54,6 @@ set(SRC
     test_utilities.cpp
     test_math_ops.cpp
     test_nn_ops.cpp
-    test_unittest.cpp
     test_array_ops.cpp
     opexecuter.cpp
 )

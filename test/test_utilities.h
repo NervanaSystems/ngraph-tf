@@ -51,9 +51,9 @@ void AssignInputValuesFromVector(Tensor& A, vector<T> x) {
   }
 }
 
-template <typename T>
 // Randomly generate data with specified type to populate the Tensor
 // Random data is generated within range (min, max)
+template <typename T>
 void AssignInputValuesRandom(Tensor& A, T min, T max) {
   auto A_flat = A.flat<T>();
   auto A_flat_data = A_flat.data();
@@ -73,8 +73,9 @@ bool eq(T arg0, T arg1) {
 }
 
 template <typename T>
-static void AssertTensorEquals(Tensor& T1, Tensor& T2) {
+void AssertTensorEquals(const Tensor& T1, const Tensor& T2) {
   ASSERT_EQ(T1.shape(), T2.shape());
+  ASSERT_EQ(T1.dtype(), T2.dtype());
   auto T_size = T1.flat<T>().size();
   auto T1_data = T1.flat<T>().data();
   auto T2_data = T2.flat<T>().data();

@@ -77,10 +77,9 @@ void AssignInputValuesRandom(Tensor& A) {
     // give a number between 0 and 20
     float value =
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX / 20.0f);
-    value = (value - 10.0f);  // range from -10 to 10
-    value =
-        roundf(value * 100) / 100.0;  // change the precision of the float to
-                                      // 2 number after the decimal
+    value = (value - 10.0f);              // range from -10 to 10
+    value = roundf(value * 100) / 100.0;  // change the precision of the float
+                                          // to 2 number after the decimal
     A_flat_data[i] = value;
   }
 }
@@ -90,6 +89,7 @@ void PrintTensor(const Tensor& T1) {
 }
 
 void ValidateTensorData(Tensor& T1, Tensor& T2, float tol) {
+  ASSERT_EQ(T1.dtype(), T2.dtype());
   ASSERT_EQ(T1.shape(), T2.shape());
   auto T_size = T1.flat<float>().size();
   auto T1_data = T1.flat<float>().data();

@@ -70,17 +70,28 @@ class OpExecuter {
 
   ~OpExecuter();
 
+  // Creates the tf graph from tf Scope
+  // Translates the tf graph to nGraph
+  // Executes the nGraph on nGraph CPU Backend
+  // Returns outputs as tf Tensors
   void ExecuteOnNGraph(vector<Tensor>& outputs);
+
+  // Creates tf Session from tf Scope
+  // Executes on TF
+  // Returns outputs
   void ExecuteOnTF(vector<Tensor>& outputs);
 
-
-  void ExecuteOnNGraph();
-  void ExecuteOnTF();
-  // To Do : Overload CompareNGraphAndTF() to take in tolerance
-  void CompareNGraphAndTF();
-  void CompareNGraphAndTF(float tolerance);
-  // Executes on NGraph, executes on TF, compares the results
+  // Executes on NGraph, then executes on TF, and compares the results
   void RunTest();
+
+  // Compares NGraph and TF outputs
+  static void CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
+                                 const vector<Tensor>& ngraph_outputs);
+
+  // TODO(malikshr) : Overload CompareNGraphAndTF() to take in tolerance
+  static void CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
+                                 const vector<Tensor>& ngraph_outputs,
+                                 float tolerance);
 
  private:
   Scope tf_scope_;
@@ -101,6 +112,9 @@ class OpExecuter {
 
   void CreateNodeDef(const string op_type, const string op_name_prefix,
                      int index, const DataType dt, NodeDef& node_def);
+
+  void ExecuteOnNGraph();
+  void ExecuteOnTF();
 };
 
 }  // namespace testing
