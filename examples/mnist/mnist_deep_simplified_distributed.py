@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # This file is derived from
 # https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/mnist/mnist_deep.py
 # with changed by Intel using Horovod.
 #
 # Copyright 2017-2018 Intel Corporation
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -195,36 +195,39 @@ def train_mnist_cnn(FLAGS):
 
     saver = tf.train.Saver()
     train_loops = FLAGS.train_loop_count
-    num_test_images=FLAGS.test_image_count
-    hooks = [ 
+    num_test_images = FLAGS.test_image_count
+    hooks = [
         # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
         # from rank 0 to all other processes. This is necessary to ensure consistent
         # initialization of all workers when training is started with random weights
-        # or restored from a checkpoint. 
+        # or restored from a checkpoint.
         hvd.BroadcastGlobalVariablesHook(0),
         # Horovod: adjust number of steps based on number of ranks.
-        #tf.train.StopAtStepHook(train_loops // hvd.size()) 
+        #tf.train.StopAtStepHook(train_loops // hvd.size())
         tf.train.StopAtStepHook(train_loops)
     ]
-    
-    with tf.train.MonitoredTrainingSession(hooks=hooks, 
-                                           config=config) as sess:
+
+    with tf.train.MonitoredTrainingSession(hooks=hooks, config=config) as sess:
 
         step = 0
         start = time.time()
-        
+
         loss_values = []
-        test_accuracy=[]
+        test_accuracy = []
         while not sess.should_stop():
             batch = mnist.train.next_batch(FLAGS.batch_size)
             sess.run(train_step, feed_dict={x: batch[0], y_: batch[1]})
-            step +=1
+            step += 1
             if step % 10 == 0:
                 t = time.time()
-                if hvd.rank() == 0: 
-                    print('step %d training accuracy %g %g sec to evaluate' % (step,
-                         sess.run(accuracy, feed_dict={x: batch[0],y_: batch[1]}), 
-                         time.time() - t))
+                if hvd.rank() == 0:
+                    print('step %d training accuracy %g %g sec to evaluate' %
+                          (step,
+                           sess.run(
+                               accuracy, feed_dict={
+                                   x: batch[0],
+                                   y_: batch[1]
+                               }), time.time() - t))
             t = time.time()
             _, summary, loss = sess.run([train_step, merged, cross_entropy],
                                         feed_dict={
@@ -235,18 +238,18 @@ def train_mnist_cnn(FLAGS):
             loss_values.append(loss)
             if hvd.rank() == 0:
                 print('step %d, loss %g, %g sec for training step' %
-                     (step, loss, time.time() - t))
+                      (step, loss, time.time() - t))
             train_writer.add_summary(summary, step)
 
-            if step==(train_loops//hvd.size()-1) and hvd.rank()==0:
-                x_test=mnist.test.images[:num_test_images]
-                y_test=mnist.test.labels[:num_test_images]
-                print('test accuracy: ',  sess.run(accuracy, feed_dict={
-                                          x: x_test,
-                                          y_: y_test}
-                                              ))
+            if step == (train_loops // hvd.size() - 1) and hvd.rank() == 0:
+                x_test = mnist.test.images[:num_test_images]
+                y_test = mnist.test.labels[:num_test_images]
+                print('test accuracy: ',
+                      sess.run(accuracy, feed_dict={
+                          x: x_test,
+                          y_: y_test
+                      }))
                 test_accuracy.append(accuracy)
-
 
         print("Training finished. Running test")
         saver.save(sess, FLAGS.model_dir)
