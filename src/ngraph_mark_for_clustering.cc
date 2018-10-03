@@ -221,7 +221,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Cast"]["DstT"] = NGraphDTypes();
       type_constraint_map["ConcatV2"]["T"] = NGraphDTypes();
       type_constraint_map["ConcatV2"]["Tidx"] = NGraphIndexDTypes();
-      type_constraint_map["Const"]["dtype"] = NGraphDTypes();
+      type_constraint_map["Const"]["dtype"] = NGraphDTypes_temp();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();

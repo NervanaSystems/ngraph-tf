@@ -305,6 +305,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
            make_pair(MakeConstOp<double>, ng::element::f64)},
           {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
           {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+          {DataType::DT_QINT8, make_pair(MakeConstOp<qint8>, ng::element::i8)},
+          {DataType::DT_QUINT16, make_pair(MakeConstOp<quint8>, ng::element::u8)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -2276,6 +2278,23 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   if (unsigned_type && scaled)
     max_type = max_type - 1;
   float adj_min_range, adj_max_range;
+  /*
+  if (scaled) {
+    if (unsigned_type){
+      adj_min_range = min_range; // What happens when min_range!=0?
+      adj_max_range = max_range;
+    } else{
+      auto abs_min_range = std::abs(min_range);
+      auto abs_max_range = std::abs(max_range);
+      auto range_boundary = std::max(abs_min_range, abs_max_range);
+      adj_min_range = -range_boundary;
+      adj_max_range = range_boundary;
+    }
+  } else {
+    // TODO: Adjust range or fail?
+    adj_min_range = std::min(min_range, 0);
+    adj_max_range = std::max(max_range, 0);
+  }*/
   if (scaled) {
     auto abs_min_range = std::abs(min_range);
     auto abs_max_range = std::abs(max_range);
@@ -2287,6 +2306,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
     adj_min_range = std::min(min_range, 0);
     adj_max_range = std::max(max_range, 0);
   }
+
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
   *offset = min_type - std::lround(adj_min_range / *scale);
@@ -2325,6 +2345,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+  //dtype = DT_QUINT8; //TODO: fix me
 
   int num_bits;
   bool unsigned_type;
@@ -2422,6 +2443,7 @@ static Status TranslateDequantizeOp(
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+  //dtype = DT_QUINT8; //TODO: fix me
 
   int num_bits;
   bool unsigned_type;
@@ -2436,7 +2458,7 @@ static Status TranslateDequantizeOp(
       break;
     default:
       return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
+          "Expected Dequantize's datatype to be of int8 or uint8 but got ",
           dtype);
   }
 

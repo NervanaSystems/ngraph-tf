@@ -48,7 +48,6 @@ Status ValuesFromConstNode(const NodeDef& node,
   if (node.op() != "Const") {
     return errors::InvalidArgument("Node not a Const");
   }
-
   if (node.attr().at("dtype").type() != DataTypeToEnum<T>::value) {
     std::stringstream ss;
     ss << "Invalid data type defined for Const. Defined: "
@@ -167,6 +166,8 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
 // Returns an ArraySlice containing all TensorFlow dtypes supported by the
 // nGraph bridge.
 const gtl::ArraySlice<DataType>& NGraphDTypes();
+
+const gtl::ArraySlice<DataType>& NGraphDTypes_temp();
 
 // Returns an ArraySlice containing all *numeric* TensorFlow dtypes supported
 // by the nGraph bridge.

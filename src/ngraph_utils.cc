@@ -159,6 +159,13 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
   return Status::OK();
 }
 
+const gtl::ArraySlice<DataType>& NGraphDTypes_temp() {
+  static gtl::ArraySlice<DataType> result{
+      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
+      DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_BOOL, DT_QINT8, DT_QUINT8};
+  return result;
+}
+
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
   static gtl::ArraySlice<DataType> result{
       DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
