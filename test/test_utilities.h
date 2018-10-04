@@ -29,20 +29,34 @@ namespace ng = ngraph;
 namespace tensorflow {
 
 namespace ngraph_bridge {
-// some utility functions copied from tf_exec.cpp
+
+namespace testing {
+
+// Activate and Deactivate NGraph
 void ActivateNGraph();
 void DeactivateNGraph();
-void AssertTensorEqualsFloat(Tensor& T1, Tensor& T2);
-void AssertTensorEqualsInt32(Tensor& T1, Tensor& T2);
-void AssignInputIntValues(Tensor& A, int maxval);
-void AssignInputValues(Tensor& A, float x);
+
+// Print Functions
+void PrintTensor(const Tensor& T1);
+
+// Assignment Functions
+// TODO : Retire AssignInputValuesAnchor and AssignInputValuesRandom
 void AssignInputValuesAnchor(Tensor& A, float x);  // value assigned = x * index
 void AssignInputValuesRandom(Tensor& A);
-void PrintTensor(const Tensor& T1);
-void ValidateTensorData(Tensor& T1, Tensor& T2, float tol);
 
+// Assigns value x to all the elements of the tensor
 template <typename T>
-void AssignInputValuesFromVector(Tensor& A, vector<T> x) {
+void AssignInputValues(Tensor& A, T x) {
+  auto A_flat = A.flat<T>();
+  auto A_flat_data = A_flat.data();
+  for (int i = 0; i < A_flat.size(); i++) {
+    A_flat_data[i] = x;
+  }
+}
+
+// Assigns values from the vector x to the Tensor
+template <typename T>
+void AssignInputValues(Tensor& A, vector<T> x) {
   auto A_flat = A.flat<T>();
   auto A_flat_data = A_flat.data();
   assert(A_flat.size() == x.size());
@@ -67,13 +81,23 @@ void AssignInputValuesRandom(Tensor& A, T min, T max) {
   }
 }
 
+// Comparison Functions
+// Compares two Tensor vectors
+void Compare(const vector<Tensor>& v1, const vector<Tensor>& v2);
+
+// TODO: Compares two Tensor vectors considering tolerance
+void Compare(const vector<Tensor>& v1, const vector<Tensor>& v2,
+             float tolerance);
+
+// Compares two arguments
 template <class T>
-bool eq(T arg0, T arg1) {
+bool Compare(T arg0, T arg1) {
   return arg0 == arg1;
 }
 
+// Compares two Tensors
 template <typename T>
-void AssertTensorEquals(const Tensor& T1, const Tensor& T2) {
+void Compare(const Tensor& T1, const Tensor& T2) {
   ASSERT_EQ(T1.shape(), T2.shape());
   ASSERT_EQ(T1.dtype(), T2.dtype());
   auto T_size = T1.flat<T>().size();
@@ -82,10 +106,15 @@ void AssertTensorEquals(const Tensor& T1, const Tensor& T2) {
   for (int k = 0; k < T_size; k++) {
     auto a = T1_data[k];
     auto b = T2_data[k];
-    bool rt = eq<T>(a, b);
+    bool rt = Compare<T>(a, b);
     EXPECT_TRUE(rt) << " TF output " << a << endl << " NG output " << b;
   }
 }
+
+// Compares Tensors considering tolerance
+void Compare(Tensor& T1, Tensor& T2, float tol);
+
+}  // namespace testing
 
 }  // namespace ngraph_bridge
 

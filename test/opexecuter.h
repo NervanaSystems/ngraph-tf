@@ -84,25 +84,14 @@ class OpExecuter {
   // Executes on NGraph, then executes on TF, and compares the results
   void RunTest();
 
-  // Compares NGraph and TF outputs
-  static void CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
-                                 const vector<Tensor>& ngraph_outputs);
-
-  // TODO(malikshr) : Overload CompareNGraphAndTF() to take in tolerance
-  static void CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
-                                 const vector<Tensor>& ngraph_outputs,
-                                 float tolerance);
+  // TODO(malikshr) : Overload RunTest() to take in tolerance
+  static void RunTest(float tolerance);
 
  private:
   Scope tf_scope_;
   const string test_op_type_;
   set<int> static_input_indexes_;
-  // TODO : tf_inputs_ only needed for execution on NGraph, remove from here
-  vector<Tensor> tf_inputs_;
-  vector<Tensor> tf_outputs_;
-  vector<Tensor> ngraph_outputs_;
   const vector<DataType> expected_output_datatypes_;
-
   const std::vector<Output> sess_run_fetchoutputs_;
 
   void GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
@@ -112,9 +101,6 @@ class OpExecuter {
 
   void CreateNodeDef(const string op_type, const string op_name_prefix,
                      int index, const DataType dt, NodeDef& node_def);
-
-  void ExecuteOnNGraph();
-  void ExecuteOnTF();
 };
 
 }  // namespace testing

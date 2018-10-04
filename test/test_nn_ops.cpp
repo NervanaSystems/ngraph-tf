@@ -123,11 +123,11 @@ TEST(tf_exec, Conv2DBackpropFilterNCHWSame) {
   Scope ngraph_scope = Scope::NewRootScope();
   vector<int64> input_size_NCHW = {1, 2, 7, 6};
   Tensor input_data_NCHW(DT_FLOAT, TensorShape(input_size_NCHW));
-  AssignInputValuesAnchor(input_data_NCHW, -1.1f);
+  AssignInputValuesRandom<float>(input_data_NCHW, -15.0f, 15.0f);
 
   vector<int64> output_del_size_NCHW = {1, 2, 4, 3};
   Tensor output_delta_NCHW(DT_FLOAT, TensorShape(output_del_size_NCHW));
-  AssignInputValuesAnchor(output_delta_NCHW, -1.1f);
+  AssignInputValuesRandom<float>(output_delta_NCHW, -20.0f, 20.0f);
 
   auto filter_sizes = ops::Const(ngraph_scope, filter_size_HWIO);
   vector<int> stride_NCHW = {1, 1, 2, 2};
@@ -169,7 +169,7 @@ TEST(tf_exec, Conv2DBackpropFilterNCHWSame) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  OpExecuter::CompareNGraphAndTF(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs);
 }
 
 TEST(tf_exec, Conv2DBackpropFilterNCHWValid) {
@@ -184,11 +184,11 @@ TEST(tf_exec, Conv2DBackpropFilterNCHWValid) {
   Scope ngraph_scope = Scope::NewRootScope();
   vector<int64> input_size_NCHW = {1, 2, 7, 6};
   Tensor input_data_NCHW(DT_FLOAT, TensorShape(input_size_NCHW));
-  AssignInputValuesAnchor(input_data_NCHW, -1.1f);
+  AssignInputValuesRandom<float>(input_data_NCHW, -15.0f, 15.0f);
 
   vector<int64> output_del_size_NCHW = {1, 2, 3, 2};
   Tensor output_delta_NCHW(DT_FLOAT, TensorShape(output_del_size_NCHW));
-  AssignInputValuesAnchor(output_delta_NCHW, -1.1f);
+  AssignInputValuesRandom<float>(output_delta_NCHW, -20.0f, 20.0f);
 
   auto filter_sizes = ops::Const(ngraph_scope, filter_size_HWIO);
   vector<int> stride_NCHW = {1, 1, 2, 2};
@@ -230,7 +230,7 @@ TEST(tf_exec, Conv2DBackpropFilterNCHWValid) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  OpExecuter::CompareNGraphAndTF(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs);
 }
 
 TEST(NNOps, Conv2DBackpropFilterNHWCSame) {
