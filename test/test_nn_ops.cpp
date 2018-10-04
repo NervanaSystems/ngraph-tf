@@ -194,6 +194,100 @@ TEST(NNOps, DISABLED_Conv2DBackpropFilterNCHW) {
   }
 }
 
+// Conv2DBackpropInput op : compute the graidents of conv with respects to input
+// input is in the NCHW format
+TEST(NNOps, DISABLED_Conv2DBackpropInputNCHW) {
+  // TF Default formats
+  // Input NHWC :[batch, in_height, in_width, in_channels]
+  vector<int64> input_size_NHWC = {1, 2, 7, 6};  // it is an integer vector
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+  // Out_delta :[batch, out_height, out_width, out_channels]
+  vector<int64> output_del_size_valid = {1, 3, 2, 2};
+  vector<int64> output_del_size_same = {1, 4, 3, 2};
+
+  std::vector<int> stride = {1, 2, 2, 1};
+
+  std::map<std::string, vector<int64>> out_delta_size_map = {
+      {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+
+  // Conv2DBackpropInput has static input of index 0
+  vector<int> static_input_indexes = {0};
+  auto attrs = ops::Conv2DBackpropInput::Attrs();
+  attrs.data_format_ = "NCHW";
+
+  // TEST NHWC : default data format
+  for (auto map_iterator : out_delta_size_map) {
+    Scope root = Scope::NewRootScope();
+    auto padding_type = map_iterator.first;
+    auto output_delta_size = out_delta_size_map[padding_type];
+
+    auto input_sizes = ops::Const(root, {1, 7, 6, 2});
+
+    Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
+    AssignInputValuesRandom<float>(output_delta, -10.0f, 15.0f);
+
+    Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
+    AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+
+    auto R = ops::Conv2DBackpropInput(root, input_sizes, filter, output_delta,
+                                      stride, padding_type, attrs);
+
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Conv2DBackpropInput", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op Conv2DBackpropInput
+
+// Conv2DBackpropInput op : compute the graidents of conv with respects to input
+TEST(NNOps, Conv2DBackpropInputNHWC) {
+  // TF Default formats
+  // Input NHWC :[batch, in_height, in_width, in_channels]
+  //vector<int64> input_size_NHWC = {1, 7, 6, 2};  // it is an integer vector
+  std::initializer_list<int> input_size_NHWC = {1, 7, 6, 2};  // it is an integer vector
+
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+  // Out_delta :[batch, out_height, out_width, out_channels]
+  vector<int64> output_del_size_valid = {1, 3, 2, 2};
+  vector<int64> output_del_size_same = {1, 4, 3, 2};
+
+  std::vector<int> stride = {1, 2, 2, 1};
+
+  std::map<std::string, vector<int64>> out_delta_size_map = {
+      {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+
+  // Conv2DBackpropInput has static input of index 0
+  vector<int> static_input_indexes = {0};
+  // TEST NHWC : default data format
+  for (auto map_iterator : out_delta_size_map) {
+    Scope root = Scope::NewRootScope();
+    auto padding_type = map_iterator.first;
+    auto output_delta_size = out_delta_size_map[padding_type];
+
+    auto input_sizes = ops::Const(root, input_size_NHWC);
+
+    Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
+    AssignInputValuesRandom<float>(output_delta, -10.0f, 15.0f);
+
+    Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
+    AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+
+    auto R = ops::Conv2DBackpropInput(root, input_sizes, filter, output_delta,
+                                      stride, padding_type);
+
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Conv2DBackpropInput", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op Conv2DBackpropInput
+
 // FusedBatchNormGrad : Gradient for batch normalization
 // On TF CPU: only supports NHWC
 TEST(NNOps, FusedBatchNormGradNHWC) {
