@@ -94,15 +94,18 @@ void OpExecuter::ValidateGraph(const Graph& graph,
       continue;
     } else if (node->type_string() == test_op_type_) {
       // only one node of type test_op
-      ASSERT_FALSE(found_test_op);
+      ASSERT_FALSE(found_test_op)
+          << "Only one op of type " << test_op_type_
+          << " should exist in the graph. Found more than one";
       found_test_op = true;
     } else {
       ASSERT_TRUE(node->type_string() == allowed_nodes[0])
-          << "Found Not allowed Op: " << node->type_string();
+          << "Op of type " << node->type_string()
+          << " not allowed in the graph";
     }
   }
 
-  ASSERT_TRUE(found_test_op) << " Not found test_op : " << test_op_type_;
+  ASSERT_TRUE(found_test_op) << "Not found test_op : " << test_op_type_;
 
   NGRAPH_VLOG(5) << "Validate graph done";
 }  // namespace testing
@@ -168,10 +171,10 @@ void OpExecuter::CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
         AssertTensorEquals<int64>(tf_outputs[i], ngraph_outputs[i]);
         break;
       case DT_BOOL:
-        AssertTensorEquals<bool>(tf_outputs_[i], ngraph_outputs_[i]);
+        AssertTensorEquals<bool>(tf_outputs[i], ngraph_outputs[i]);
         break;
       default:
-        EXPECT_TRUE(false)
+        ASSERT_TRUE(false)
             << "Could not find the corresponding function for the "
                "expected output datatype."
             << expected_dtype;
@@ -211,7 +214,6 @@ void OpExecuter::ExecuteOnNGraph() {
   }
 
   ValidateGraph(graph, {"Const"});
-  NGRAPH_VLOG(5) << "--Returned to execution";
 
   NodeMetaData node_inedge_metadata;
   NodeMetaData node_outedge_metadata;
