@@ -167,6 +167,9 @@ void OpExecuter::CompareNGraphAndTF(const vector<Tensor>& tf_outputs,
       case DT_INT64:
         AssertTensorEquals<int64>(tf_outputs[i], ngraph_outputs[i]);
         break;
+      case DT_BOOL:
+        AssertTensorEquals<bool>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
       default:
         EXPECT_TRUE(false)
             << "Could not find the corresponding function for the "
