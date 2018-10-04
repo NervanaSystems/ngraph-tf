@@ -141,7 +141,7 @@ Status ValuesFromConstNode(const NodeDef& node,
 
 // Get a scalar value from a tensor, optionally at an element offset
 template <typename T>
-T GetScalarFromTensorView(const std::shared_ptr<ngraph::runtime::TensorView>& t,
+T GetScalarFromTensor(const std::shared_ptr<ngraph::runtime::Tensor>& t,
                           size_t element_offset = 0) {
   T result;
   t->read(&result, element_offset * sizeof(T), sizeof(T));
@@ -151,7 +151,7 @@ T GetScalarFromTensorView(const std::shared_ptr<ngraph::runtime::TensorView>& t,
 // Prints the tensor to the given output stream
 std::ostream& DumpNGTensor(
     std::ostream& s, const std::string& name,
-    const std::shared_ptr<ngraph::runtime::TensorView>& t);
+    const std::shared_ptr<ngraph::runtime::Tensor>& t);
 
 // Converts a TensorFlow DataType to an nGraph element::Type. Returns
 // errors::Unimplemented if the element type is not supported by nGraph

@@ -123,7 +123,7 @@ endif(APPLE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.8.1
+    GIT_TAG 941c2f56de08d83bd22c3b973aee6a01cca4d9b2
     CMAKE_ARGS 
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
@@ -132,6 +132,7 @@ ExternalProject_Add(
         -DNGRAPH_DEX_ONLY=TRUE         
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
     TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
     STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
