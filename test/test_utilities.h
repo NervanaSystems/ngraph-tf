@@ -65,6 +65,7 @@ void AssignInputValues(Tensor& A, vector<T> x) {
   }
 }
 
+// Assigns random values in range [min, max] to the Tensor
 // Randomly generate data with specified type to populate the Tensor
 // Random data is generated within range (min, max)
 template <typename T>
