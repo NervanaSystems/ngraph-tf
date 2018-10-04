@@ -120,11 +120,13 @@ else()
 endif(APPLE)
 
 # Find and build ngraph
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
     GIT_TAG 941c2f56de08d83bd22c3b973aee6a01cca4d9b2
     CMAKE_ARGS 
+        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
         -DNGRAPH_UNIT_TEST_ENABLE=FALSE
