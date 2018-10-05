@@ -46,9 +46,8 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
   out << "\n";
 }
 
-std::ostream& DumpNGTensor(
-    std::ostream& s, const string& name,
-    const std::shared_ptr<ngraph::runtime::Tensor>& t) {
+std::ostream& DumpNGTensor(std::ostream& s, const string& name,
+                           const std::shared_ptr<ngraph::runtime::Tensor>& t) {
   // std::shared_ptr<ngraph::runtime::Tensor> t{get_tensor()};
   const ngraph::Shape& shape = t->get_shape();
   s << "Tensor<" << name << ": ";

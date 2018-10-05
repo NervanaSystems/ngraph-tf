@@ -425,8 +425,7 @@ class NGraphEncapsulateOp : public OpKernel {
                            "the element type expected by TensorFlow"));
 
       void* last_dst_ptr = output_caches[i].first;
-      std::shared_ptr<ng::runtime::Tensor> last_tv =
-          output_caches[i].second;
+      std::shared_ptr<ng::runtime::Tensor> last_tv = output_caches[i].second;
 
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv;
