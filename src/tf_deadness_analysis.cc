@@ -29,6 +29,8 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.cc
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tf_deadness_analysis.h"
 
+#include "absl/container/flat_hash_set.h"
+
 // ALGORITHM OVERVIEW
 //
 // We map every output produced by each node in the TensorFlow graph (including
