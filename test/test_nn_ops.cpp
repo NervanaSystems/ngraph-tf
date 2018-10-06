@@ -111,7 +111,7 @@ TEST(NNOps, BiasAddGrad) {
 // Create graph with inputs in NCHW format and execute on NGraph
 // Reshape the NCHW inputs to NHWC and run on TF
 // Compare the results
-TEST(tf_exec, Conv2DBackpropFilterNCHWSame) {
+TEST(NNOps, Conv2DBackpropFilterNCHWSame) {
   string padding_type = "SAME";
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   initializer_list<int> filter_size_HWIO = {3, 3, 2, 2};
@@ -172,7 +172,7 @@ TEST(tf_exec, Conv2DBackpropFilterNCHWSame) {
   Compare(tf_outputs, ngraph_outputs);
 }
 
-TEST(tf_exec, Conv2DBackpropFilterNCHWValid) {
+TEST(NNOps, Conv2DBackpropFilterNCHWValid) {
   string padding_type = "VALID";
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   initializer_list<int> filter_size_HWIO = {3, 3, 2, 2};
