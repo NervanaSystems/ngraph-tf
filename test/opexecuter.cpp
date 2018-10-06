@@ -324,8 +324,8 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs) {
   auto backend = ng::runtime::Backend::create("CPU");
 
   // Allocate tensors for inputs
-  vector<std::shared_ptr<ngraph::runtime::TensorView>> ng_ip_tensors;
-  vector<std::shared_ptr<ngraph::runtime::TensorView>> ng_op_tensors;
+  vector<std::shared_ptr<ngraph::runtime::Tensor>> ng_ip_tensors;
+  vector<std::shared_ptr<ngraph::runtime::Tensor>> ng_op_tensors;
 
   NGRAPH_VLOG(5) << " Creating ng inputs ";
   NGRAPH_VLOG(5) << "No of inputs " << tf_inputs.size();
