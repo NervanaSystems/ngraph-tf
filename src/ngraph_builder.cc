@@ -306,6 +306,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
            make_pair(MakeConstOp<double>, ng::element::f64)},
           {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
           {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+          {DataType::DT_QINT8, make_pair(MakeConstOp<qint8>, ng::element::i8)},
+          {DataType::DT_QUINT16, make_pair(MakeConstOp<quint8>, ng::element::u8)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -2170,8 +2172,8 @@ static Status TranslateReciprocalOp(
 
 static void ComputeScaleOffsetFolded(const uint& num_bits,
                                      const bool& unsigned_type,
-                                     const bool& scaled, const int min_range,
-                                     const int max_range, float* scale,
+                                     const bool& scaled, const float min_range,
+                                     const float max_range, float* scale,
                                      int* offset) {
   // ======= 1. Definitions =======
   // min<Q>, max<Q>: the min and max of the quantized data type
@@ -2203,10 +2205,12 @@ static void ComputeScaleOffsetFolded(const uint& num_bits,
   int scaled_elide = scaled ? 1 : 0;
   int min_type = 0;
   if (!unsigned_type) {
-    min_type = -((2 ^ (num_bits - 1)) - scaled_elide);
+    min_type = -((1 << (num_bits - 1)) - scaled_elide);
   }
   uint raise_to = num_bits - (unsigned_type ? 0 : 1);
-  int max_type = (2 ^ raise_to) - 1 - scaled_elide;
+  int max_type = (1 << raise_to) - 1;
+  if (unsigned_type && scaled)
+      max_type = max_type - 1;
   float adj_min_range, adj_max_range;
   if (scaled) {
     auto abs_min_range = std::abs(min_range);
@@ -2216,8 +2220,8 @@ static void ComputeScaleOffsetFolded(const uint& num_bits,
     adj_max_range = range_boundary;
   } else {
     // TODO: Adjust range or fail?
-    adj_min_range = std::min(min_range, 0);
-    adj_max_range = std::max(max_range, 0);
+    adj_min_range = std::min(min_range, 0.0f);
+    adj_max_range = std::max(max_range, 0.0f);
   }
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
@@ -2230,14 +2234,14 @@ static Status TranslateQuantizeV2Op(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
-  std::vector<int> ng_min, ng_max;
+  std::vector<float> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   if (ng_min.size() != 1) {
-    return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar. Got a vector of size, ", ng_min.size());
   }
   if (ng_max.size() != 1) {
-    return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar");
+    return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar. Got a vector of size, ", ng_max.size());
   }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
@@ -2270,7 +2274,7 @@ static Status TranslateQuantizeV2Op(
       break;
     default:
       return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
+          "Expected Dequantize's datatype to be of int8 or uint8 but got ",
           dtype);
   }
 
@@ -2318,14 +2322,14 @@ static Status TranslateDequantizeOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
-  std::vector<int> ng_min, ng_max;
+  std::vector<float> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   if (ng_min.size() != 1) {
-    return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar");
+    return errors::InvalidArgument("Dequantize Op: Min must be scalar. Got a vector of size, ", ng_min.size());
   }
   if (ng_max.size() != 1) {
-    return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar");
+    return errors::InvalidArgument("Dequantize Op: Max must be scalar. Got a vector of size, ", ng_max.size());
   }
 
   // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
