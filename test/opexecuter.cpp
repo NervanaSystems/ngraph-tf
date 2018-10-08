@@ -323,8 +323,6 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   // Create nGraph backend
   // If NGRAPH_TF_BACKEND is set create that backend
   // Else create backend of type ng_backend_name
-  NGRAPH_VLOG(5) << " ng backend name" << ng_backend_name;
-
   const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
   if (ng_backend_env_value != nullptr) {
     string backend_env = std::string(ng_backend_env_value);
