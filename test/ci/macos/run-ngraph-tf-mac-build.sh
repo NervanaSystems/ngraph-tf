@@ -163,12 +163,10 @@ echo  ' '
 
 eval "$(pyenv init -)"  # Initialize pyenv shim for this build process
 
-if [ "${PYTHON_VERSION_NUMBER}" = '3' ] ; then
-    pyenv shell 3.5.6
+if [ "${PYTHON_VERSION_NUMBER}" = '2' ] ; then
+    pyenv shell 2.7.1
 else
-    ( >&2 echo '***** Error: *****' )
-    ( >&2 echo "Only Python 3 is supported for Mac builds right now." )
-    exit 1
+    pyenv shell 3.5.6
 fi
 
 # We have to run "set -u" here because the "pyenv" command uses unbound variables
