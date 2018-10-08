@@ -349,7 +349,7 @@ ls -l
 
 # We use the directory name only here because tar (understandably) does not
 # like an absolute path (to avoid making non-portable tarballs)
-tar czf "${libngraph_tarball}" libngraph_dist
+tar czf "${libngraph_tarball}" libngraph_mac_dist
 
 set +x
 
