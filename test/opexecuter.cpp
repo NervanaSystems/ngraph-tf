@@ -163,6 +163,9 @@ void OpExecuter::CompareNGraphAndTF() {
       case DT_BOOL:
         AssertTensorEquals<bool>(tf_outputs_[i], ngraph_outputs_[i]);
         break;
+      case DT_QINT8:
+        AssertTensorEquals<qint8>(tf_outputs_[i], ngraph_outputs_[i]);
+        break;
       default:
         EXPECT_TRUE(false)
             << "Could not find the corresponding function for the "

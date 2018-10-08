@@ -146,6 +146,32 @@ TEST(ArrayOps, PreventGradient) {
   }
 }  // end of op PreventGradient
 
+// Test op: QuantizeV2
+// Quantizes a tensor from float to i8
+TEST(ArrayOps, QuantizeV2i8) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+
+  AssignInputValuesRandom(A);
+  auto quant_type = DT_QINT8;
+
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type);
+
+  vector<DataType> output_datatypes = {quant_type};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2i8
+
+
 // Test op: Shape, outputs the shape of a tensor
 TEST(ArrayOps, Shape2D) {
   Scope root = Scope::NewRootScope();
