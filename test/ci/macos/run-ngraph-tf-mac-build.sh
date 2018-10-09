@@ -27,18 +27,22 @@
 #
 # NOTES ABOUT THE MAC BUILD:
 #
-# - This script is designed to use with the "pyenv" command, which controls
-#   which python versions are installed.  "pyenv" is the recommended Python version
-#   manager to use with "homebrew", as "homebrew" cannot easily support installing
-#   earlier minor versions of Python like 3.5.6 (when 3.7 is the "latest").
-#   As of this writing, TensorFlow does not build with Python 3.7, so we need to
-#   be able to install (and manage) older Python versions like 3.5.6, which
-#   MacOS does not provide.
+# - This script was developed for and has been tested with MacOS High
+#   Sierra (10.13.6).  It has not been tested with earlier versions of
+#   MacOS.
 #
-# - This script assumes that "homebrew" has been installed and enough packages
-#   have been brew-installed (as per the TensorFlow MacOS build instructions).
-#   Homebrew was installed because the TensorFlow project recommends using it
-#   for MacOS builds.
+# - This script is designed to use with the "pyenv" command, which controls
+#   which python versions are installed.  "pyenv" is the recommended Python
+#   version manager to use with "homebrew", as "homebrew" cannot easily
+#   support installing earlier minor versions of Python like 3.5.6 (when
+#   3.7 is the "latest").  As of this writing, TensorFlow does not build
+#   with Python 3.7, so we need to be able to install (and manage) older
+#   Python versions like 3.5.6, which MacOS does not provide.
+#
+# - This script assumes that "homebrew" has been installed and enough
+#   packages have been brew-installed (as per the TensorFlow MacOS build
+#   instructions).  Homebrew was used because the TensorFlow project
+#   recommends it for MacOS builds.
 
 set -e  # Make sure we exit on any command that returns non-zero
 set -o pipefail # Make sure cmds in pipe that are non-zero also fail immediately
