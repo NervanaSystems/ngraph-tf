@@ -1,0 +1,16 @@
+https://github.com/tensorflow/tensorflow/pull/21483
+git fetch origin pull/21465/head:q_part3
+do this for all 4 parts  21483, 21456, 21465, 21466
+u have 4 branches now. q_part1 to 4
+
+
+git checkout -b sarkars/quantize_cpu_tf
+
+
+
+merge all:
+git merge --strategy-option theirs q_part1
+git merge --strategy-option theirs q_part2
+git merge --strategy-option theirs q_part3
+git merge --strategy-option theirs q_part4
+

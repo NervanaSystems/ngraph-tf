@@ -115,8 +115,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${NGRAPH_TF_CXX
 
 if(APPLE)
     set(LIBNGRAPH_SO "libngraph.dylib")
+    set(LIBNGRAPH_CPU_SO "libcpu_backend.dylib")
 else()
     set(LIBNGRAPH_SO "libngraph.so")
+    set(LIBNGRAPH_CPU_SO "libcpu_backend.so")
 endif(APPLE)
 
 # Find and build ngraph
@@ -155,6 +157,14 @@ set_target_properties(
     ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
 )
 add_dependencies(ngraph_lib ext_ngraph)
+
+add_library(ngraph_lib_cpu SHARED IMPORTED)
+set_target_properties( 
+    ngraph_lib_cpu 
+    PROPERTIES IMPORTED_LOCATION 
+    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_CPU_SO}
+)
+add_dependencies(ngraph_lib_cpu ext_ngraph)
 
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 

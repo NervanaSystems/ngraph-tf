@@ -119,6 +119,12 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
     case DataType::DT_BOOL:
       *ng_et = ng::element::boolean;
       break;
+    case DataType::DT_QINT8:
+      *ng_et = ng::element::i8;
+      break;
+    case DataType::DT_QUINT8:
+      *ng_et = ng::element::u8;
+      break;
     default:
       return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                    DataType_Name(tf_dt));
@@ -160,6 +166,11 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes() {
 
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   static gtl::ArraySlice<DataType> result{DT_INT32, DT_INT64};
+  return result;
+}
+
+const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8};
   return result;
 }
 

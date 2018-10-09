@@ -31,6 +31,16 @@
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+#include "ngraph/op/constant.hpp"
+#include "ngraph/op/get_output_element.hpp"
+#include "ngraph/runtime/cpu/op/dequantize.hpp"
+#include "ngraph/runtime/cpu/op/quantize.hpp"
+#include "ngraph/runtime/cpu/op/quantized_avg_pool.hpp"
+#include "ngraph/runtime/cpu/op/quantized_conv.hpp"
+#include "ngraph/runtime/cpu/op/quantized_conv_bias.hpp"
+#include "ngraph/runtime/cpu/op/quantized_conv_relu.hpp"
+#include "ngraph/runtime/cpu/op/quantized_max_pool.hpp"
+
 using namespace std;
 namespace ng = ngraph;
 
@@ -306,6 +316,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
            make_pair(MakeConstOp<double>, ng::element::f64)},
           {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
           {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
+          {DataType::DT_QINT8, make_pair(MakeConstOp<qint8>, ng::element::i8)},
+          {DataType::DT_QUINT16, make_pair(MakeConstOp<quint8>, ng::element::u8)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -2150,6 +2162,48 @@ static Status TranslateProdOp(
   return Status::OK();
 }
 
+static Status TranslateQuantizedMaxPoolOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+    return Status::OK();
+}
+
+static Status TranslateQuantizeV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+    shared_ptr<ng::Node> ng_input;
+    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+
+    std::vector<float> min_val, max_val;
+    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
+    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
+
+    if (min_val.size() != 1) {
+      return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar. Got a vector of size, ", min_val.size());
+    }
+    if (max_val.size() != 1) {
+      return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar. Got a vector of size, ", max_val.size());
+    }
+
+    auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), min_val);
+    auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), max_val);
+
+    cout << "XXX inp: " << ng_input->get_output_size() << "\n";
+    cout << "XXX min: " << ng_min->get_output_size() << "\n";
+    cout << "XXX max: " << ng_max->get_output_size() << "\n";
+
+
+    DataType dtype;
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+    ng::element::Type ng_et;
+    TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
+    auto ng_quant = make_shared<ng::op::QuantizeCPU>(ng_input, ng_min, ng_max, ng_et);
+    SaveNgOp(ng_op_map, op->name(), ng_quant);
+    return Status::OK();
+}
+
+
 static Status TranslateReciprocalOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -3114,6 +3168,8 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
+        {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
+        {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
         {"Relu", TranslateReluOp},
