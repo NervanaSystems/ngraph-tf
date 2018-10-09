@@ -57,7 +57,6 @@ get_whole_dataset(mnist_dir)  # create mnist_dir and download data in here
 mndata = MNIST(mnist_dir)
 images, labels = mndata.load_testing()
 
-
 with tf.Session() as sess:
   graph = tf.import_graph_def(graphdef)
   #placeholders = [ op for op in tf.get_default_graph().get_operations() if op.type == "Placeholder"]
@@ -68,7 +67,7 @@ with tf.Session() as sess:
   #pool1/MaxPool_eightbit_quantize_conv1/Relu  Qv2
   #import/accuracy
   #conv1/Relu
-  outtensor = tf.get_default_graph().get_tensor_by_name('import/pool1/MaxPool_eightbit_quantize_conv1/Relu:0')
+  outtensor = tf.get_default_graph().get_tensor_by_name('import/pool1/MaxPool_eightbit_quantized:0')
   #print [ op for op in tf.get_default_graph().get_operations() if op.type == "QuantizeV2"]
 
   outvals = sess.run([outtensor], feed_dict = {intensor1 : np.array([images[0]]), intensor2 : np.array([labels[0]])})
@@ -79,9 +78,10 @@ with tf.Session() as sess:
   graph = tf.import_graph_def(graphdef)
   intensor1 = tf.get_default_graph().get_tensor_by_name('import/Placeholder:0')
   intensor2 = tf.get_default_graph().get_tensor_by_name('import/Placeholder_1:0')
-  outtensor = tf.get_default_graph().get_tensor_by_name('import/pool1/MaxPool_eightbit_quantize_conv1/Relu:0')
+  outtensor = tf.get_default_graph().get_tensor_by_name('import/pool1/MaxPool_eightbit_quantized:0')
   outvals_tf = sess.run([outtensor], feed_dict = {intensor1 : np.array([images[0]]), intensor2 : np.array([labels[0]])})
 
 for t1, t2 in zip(outvals, outvals_tf):
   print(np.linalg.norm(t1 - t2))
+  print(t1.shape)
 print('hello')
