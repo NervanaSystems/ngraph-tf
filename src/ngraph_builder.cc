@@ -2185,23 +2185,35 @@ static Status TranslateQuantizedMaxPoolOp(
   ng::Shape ng_kernel_shape(2);
 
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  cout << "tf_strides:: " << tf_strides.size() << "\n";
+  for (auto i : tf_strides)
+    cout << i << "\n";
+  cout << "ng_strides:: " << ng_strides << "\n";
   BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0), ng_image_shape);
+  cout << "ng_input->get_output_shape(0):: " << ng_input->get_output_shape(0).size() << "\n";
+  for (auto i : ng_input->get_output_shape(0))
+    cout << i << "\n";
   cout << "ng_image_shape:: " << ng_image_shape << "\n";
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  cout << "tf_ksize:: " << tf_ksize.size() << "\n";
+  for (auto i : tf_ksize)
+    cout << i << "\n";
+  cout << "ng_kernel_shape:: " << ng_kernel_shape << "\n";
+
+  cout << "tf_padding_type:: " << tf_padding_type << "\n";
   BatchToNGraph(is_nhwc, ng_input);
   ng::Shape ng_padding_below{0, 0};
   ng::Shape ng_padding_above{0, 0};
 
-  cout << "TranslateQuantizedMaxPoolOp 2.5 \n";
 
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
-  cout << "TranslateQuantizedMaxPoolOp 2.6 \n";
+  cout << "ng_padding_below:: " << ng_padding_below << "\n";
+  cout << "ng_padding_above:: " << ng_padding_above << "\n";
 
   std::vector<float> min_val, max_val;
     TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
     TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
-    cout << "TranslateQuantizedMaxPoolOp 2.7 \n";
 
     if (min_val.size() != 1) {
       return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar. Got a vector of size, ", min_val.size());
@@ -2210,17 +2222,17 @@ static Status TranslateQuantizedMaxPoolOp(
       return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar. Got a vector of size, ", max_val.size());
     }
 
-     cout << "TranslateQuantizedMaxPoolOp 3 \n";
-
+    cout << "min_val: " << min_val.size() << " " << min_val[0] << "\n";
+    cout << "max_val: " << max_val.size() << " " << max_val[0] << "\n";
     auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), min_val);
     auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), max_val);
+    cout << "ng_min: " << *ng_min << "\n";
+    cout << "ng_max: " << *ng_max << "\n";
 
-    cout << "TranslateQuantizedMaxPoolOp 3.5 \n";
 
   std::shared_ptr<ng::Node> ng_quant_maxpool = make_shared<ng::op::QuantizedMaxPool>(
     ng_input, ng_kernel_shape, ng_strides, ng_padding_below, ng_padding_above, ng_min, ng_max
   );
-  cout << "TranslateQuantizedMaxPoolOp 3.6 \n";
   std::shared_ptr<ng::Node> ng_quant_maxpool_out0 = make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 0);
   BatchToTensorflow(is_nhwc, ng_quant_maxpool_out0);
   std::shared_ptr<ng::Node> ng_quant_maxpool_out1 = make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 1);
@@ -2228,7 +2240,6 @@ static Status TranslateQuantizedMaxPoolOp(
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out0);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out1);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out2);
-     cout << "TranslateQuantizedMaxPoolOp 4 \n";
     return Status::OK();
 }
 
