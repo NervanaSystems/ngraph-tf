@@ -2188,18 +2188,16 @@ static Status TranslateQuantizeV2Op(
     auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), min_val);
     auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), max_val);
 
-    cout << "XXX inp: " << ng_input->get_output_size() << "\n";
-    cout << "XXX min: " << ng_min->get_output_size() << "\n";
-    cout << "XXX max: " << ng_max->get_output_size() << "\n";
-
-
     DataType dtype;
     TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
     ng::element::Type ng_et;
     TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
     auto ng_quant = make_shared<ng::op::QuantizeCPU>(ng_input, ng_min, ng_max, ng_et);
-    SaveNgOp(ng_op_map, op->name(), ng_quant);
+
+    for (int i = 0 ; i < 3 ; i++){
+      SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::GetOutputElement>(ng_quant, i));
+    }
     return Status::OK();
 }
 
