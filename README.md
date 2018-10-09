@@ -53,7 +53,7 @@ The installation prerequisites are the same as described in the TensorFlow [prep
 
 1. Create and activate a [python virtual environment](#create-a-python-virtual-environment)
     
-2. Install TensorFlow v1.11.0-rc2. Note that this is a pre-release so you need 
+2. Install TensorFlow v1.11.0. Note that this is a pre-release so you need 
    to use the following steps to install this:
 
         pip install tensorflow==1.11.0rc2
@@ -87,13 +87,13 @@ using the TensorFlow source tree as follows:
 
 1. Install [bazel](#install-bazel-for-building-tensorflow-source) and other TensorFlow dependencies. Now, clone the source of the [tensorflow] repo to your machine. 
 
-     :warning: You need the following version of TensorFlow: `v1.11.0-rc2`
+     :warning: You need the following version of TensorFlow: `v1.11.0`
 
         git clone https://github.com/tensorflow/tensorflow.git
         cd tensorflow
-        git checkout v1.11.0-rc2
+        git checkout v1.11.0
         git status
-        HEAD detached at v1.11.0-rc2
+        HEAD detached at v1.11.0
    
 2. Create and activate a [python virtual environment](#create-a-python-virtual-environment)
    
