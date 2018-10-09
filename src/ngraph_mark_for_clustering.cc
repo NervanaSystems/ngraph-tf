@@ -374,7 +374,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
-      confirmation_functions["QuantizedMaxPool"] = SimpleConfirmationFunction();
+      confirmation_functions["QuantizedMaxPool"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction({1,2});
       confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
       confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
