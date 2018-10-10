@@ -317,7 +317,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
           {DataType::DT_INT8, make_pair(MakeConstOp<int8>, ng::element::i8)},
           {DataType::DT_INT16, make_pair(MakeConstOp<int16>, ng::element::i16)},
           {DataType::DT_QINT8, make_pair(MakeConstOp<qint8>, ng::element::i8)},
-          {DataType::DT_QUINT16, make_pair(MakeConstOp<quint8>, ng::element::u8)},
+          {DataType::DT_QUINT16,
+           make_pair(MakeConstOp<quint8>, ng::element::u8)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -1457,6 +1458,43 @@ static Status TranslateDepthwiseConv2dNativeOp(
   return Status::OK();
 }
 
+static Status TranslateDequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+
+  std::vector<float> min_val, max_val;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
+  if (min_val.size() != 1) {
+    return errors::InvalidArgument(
+        "Dequantize Op: Min must be scalar. Got a vector of size, ",
+        min_val.size());
+  }
+  if (max_val.size() != 1) {
+    return errors::InvalidArgument(
+        "Dequantize Op: Max must be scalar. Got a vector of size, ",
+        max_val.size());
+  }
+  auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape(), min_val);
+  auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape(), max_val);
+
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
+  auto ng_dequant =
+      make_shared<ng::op::DequantizeCPU>(ng_input, ng_min, ng_max, ng_et);
+
+  SaveNgOp(ng_op_map, op->name(), ng_dequant);
+
+  return Status::OK();
+}
+
 static Status TranslateExpandDimsOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2165,9 +2203,8 @@ static Status TranslateProdOp(
 static Status TranslateQuantizedMaxPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-
-    shared_ptr<ng::Node> ng_input;
-    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
   std::vector<int32> tf_strides;
   std::vector<int32> tf_ksize;
@@ -2176,83 +2213,100 @@ static Status TranslateQuantizedMaxPoolOp(
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
 
-   bool is_nhwc = true;  //TODO, is this correct?
+  bool is_nhwc = true;  // TODO, is this correct?
 
   ng::Strides ng_strides(2);
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
 
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
+                         ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
   BatchToNGraph(is_nhwc, ng_input);
   ng::Shape ng_padding_below{0, 0};
   ng::Shape ng_padding_above{0, 0};
 
-
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
   std::vector<float> min_val, max_val;
-    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
-    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
 
-    if (min_val.size() != 1) {
-      return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar. Got a vector of size, ", min_val.size());
-    }
-    if (max_val.size() != 1) {
-      return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar. Got a vector of size, ", max_val.size());
-    }
+  if (min_val.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
+        min_val.size());
+  }
+  if (max_val.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
+        max_val.size());
+  }
 
-    auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({1}), min_val);
-    auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({1}), max_val);
+  auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape({1}), min_val);
+  auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape({1}), max_val);
 
-  std::shared_ptr<ng::Node> ng_quant_maxpool = make_shared<ng::op::QuantizedMaxPool>(
-    ng_input, ng_kernel_shape, ng_strides, ng_padding_below, ng_padding_above, ng_min, ng_max
-  );
-  std::shared_ptr<ng::Node> ng_quant_maxpool_out0 = make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 0);
+  std::shared_ptr<ng::Node> ng_quant_maxpool =
+      make_shared<ng::op::QuantizedMaxPool>(ng_input, ng_kernel_shape,
+                                            ng_strides, ng_padding_below,
+                                            ng_padding_above, ng_min, ng_max);
+  std::shared_ptr<ng::Node> ng_quant_maxpool_out0 =
+      make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 0);
   BatchToTensorflow(is_nhwc, ng_quant_maxpool_out0);
-  std::shared_ptr<ng::Node> ng_quant_maxpool_out1 = make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 1);
-  std::shared_ptr<ng::Node> ng_quant_maxpool_out2 = make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 2);
+  std::shared_ptr<ng::Node> ng_quant_maxpool_out1 =
+      make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 1);
+  std::shared_ptr<ng::Node> ng_quant_maxpool_out2 =
+      make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 2);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out0);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out1);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out2);
-    return Status::OK();
+  return Status::OK();
 }
 
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-    shared_ptr<ng::Node> ng_input;
-    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
-    std::vector<float> min_val, max_val;
-    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
-    TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
+  std::vector<float> min_val, max_val;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
 
-    if (min_val.size() != 1) {
-      return errors::InvalidArgument("QuantizeV2 Op: Min must be scalar. Got a vector of size, ", min_val.size());
-    }
-    if (max_val.size() != 1) {
-      return errors::InvalidArgument("QuantizeV2 Op: Max must be scalar. Got a vector of size, ", max_val.size());
-    }
+  if (min_val.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
+        min_val.size());
+  }
+  if (max_val.size() != 1) {
+    return errors::InvalidArgument(
+        "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
+        max_val.size());
+  }
 
-    auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), min_val);
-    auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), max_val);
+  auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape(), min_val);
+  auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32,
+                                                   ng::Shape(), max_val);
 
-    DataType dtype;
-    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
-    ng::element::Type ng_et;
-    TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
-    auto ng_quant = make_shared<ng::op::QuantizeCPU>(ng_input, ng_min, ng_max, ng_et);
+  auto ng_quant =
+      make_shared<ng::op::QuantizeCPU>(ng_input, ng_min, ng_max, ng_et);
 
-    for (int i = 0 ; i < 3 ; i++){
-      SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::GetOutputElement>(ng_quant, i));
-    }
-    return Status::OK();
+  for (int i = 0; i < 3; i++) {
+    SaveNgOp(ng_op_map, op->name(),
+             make_shared<ng::op::GetOutputElement>(ng_quant, i));
+  }
+  return Status::OK();
 }
-
 
 static Status TranslateReciprocalOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
@@ -3178,6 +3232,7 @@ const static std::map<
         {"Conv2DBackpropFilter", TranslateConv2DBackpropFilterOp},
         {"Conv2DBackpropInput", TranslateConv2DBackpropInputOp},
         {"DepthwiseConv2dNative", TranslateDepthwiseConv2dNativeOp},
+        {"Dequantize", TranslateDequantizeOp},
         {"Equal", TranslateBinaryOp<ngraph::op::Equal>},
         {"Exp", TranslateUnaryOp<ngraph::op::Exp>},
         {"ExpandDims", TranslateExpandDimsOp},
