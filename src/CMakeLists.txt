@@ -98,7 +98,7 @@ endif()
 
 
 # Now create the Python pip package
-install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_DIR}\")")
+install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_LIB_DIR}\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
 install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
