@@ -266,6 +266,9 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Pow"]["T"] = NGraphNumericDTypes();
       type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]["Tinput"] = NGraphQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]["Tfilter"] = NGraphQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]["Tbias"] = NGraphBiasDTypes();
       type_constraint_map["QuantizedMaxPool"]["T"] = NGraphQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphQuantizedDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
@@ -376,6 +379,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
+      confirmation_functions["QuantizedConv2DWithBiasAndReluAndRequantize"] = SimpleConfirmationFunction({3,4,5,6,7,8});
       confirmation_functions["QuantizedMaxPool"] =
           SimpleConfirmationFunction({1, 2});
       confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction({1, 2});

@@ -2200,6 +2200,13 @@ static Status TranslateProdOp(
   return Status::OK();
 }
 
+static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+
+    return Status::OK();
+}
+
 static Status TranslateQuantizedMaxPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -3273,6 +3280,7 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
+        {"QuantizedConv2DWithBiasAndReluAndRequantize", TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},

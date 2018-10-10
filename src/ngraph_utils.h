@@ -176,6 +176,7 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes();
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes();
 
 const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes();
+const gtl::ArraySlice<DataType>& NGraphBiasDTypes();
 
 // Check to make sure the axis dimension for reduction are in within range.
 // Returns error if axis is out of range. Otherwise returns Status::OK().
