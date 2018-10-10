@@ -345,28 +345,28 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   vector<Tensor> ngraph_outputs;
   opexecuter_ngraph.ExecuteOnNGraph(ngraph_outputs);
 
-  //   // Define scope for tf (without nGraph)
-  //   // Data Format: NHWC
+  // Define scope for tf (without nGraph)
+  // Data Format: NHWC
   Scope tf_scope = Scope::NewRootScope();
   auto input_data_NHWC = ops::Const(tf_scope, input_size_NHWC);
   auto output_delta_NHWC = ops::Transpose(tf_scope, output_delta, {0, 2, 3, 1});
 
-  //   ops::Conv2DBackpropInput::Attrs op_attr_nhwc;
-  //   op_attr_nchw = op_attr_nchw.DataFormat("NHWC");
-  //   op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
   auto r_tf =
       ops::Conv2DBackpropInput(tf_scope, input_data_NHWC, filter,
                                output_delta_NHWC, stride_NHWC, padding_type);
-  vector<Output> sess_run_fetchoutputs_tf = {r_tf};
+  
+  // Need to transpose the TF output to NCHW 
+  auto tf_output_transposed = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
+  vector<Output> sess_run_fetchoutputs_tf = {tf_output_transposed};
   OpExecuter opexecuter_tf(tf_scope, "Conv2DBackpropInput",
                            static_input_indexes, output_datatypes,
                            sess_run_fetchoutputs_tf);
 
   vector<Tensor> tf_outputs;
   opexecuter_tf.ExecuteOnTF(tf_outputs);
-
+ 
   // Compare NGraph and TF Outputs
-  // Compare(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs);
 }  // end of op Conv2DBackpropInputNCHWSame
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
@@ -426,7 +426,10 @@ TEST(NNOps, Conv2DBackpropInputNCHWValid) {
   auto r_tf =
       ops::Conv2DBackpropInput(tf_scope, input_data_NHWC, filter,
                                output_delta_NHWC, stride_NHWC, padding_type);
-  vector<Output> sess_run_fetchoutputs_tf = {r_tf};
+
+// Need to transpose the TF output to NCHW 
+  auto tf_output_transposed = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
+  vector<Output> sess_run_fetchoutputs_tf = {tf_output_transposed};
   OpExecuter opexecuter_tf(tf_scope, "Conv2DBackpropInput",
                            static_input_indexes, output_datatypes,
                            sess_run_fetchoutputs_tf);
@@ -435,7 +438,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWValid) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  // Compare(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs);
 }  // end of op Conv2DBackpropInputNCHWValid
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
@@ -458,6 +461,7 @@ TEST(NNOps, Conv2DBackpropInputNHWC) {
 
   // Conv2DBackpropInput has static input of index 0
   vector<int> static_input_indexes = {0};
+
   // TEST NHWC : default data format
   for (auto map_iterator : out_delta_size_map) {
     Scope root = Scope::NewRootScope();
@@ -483,6 +487,56 @@ TEST(NNOps, Conv2DBackpropInputNHWC) {
     opexecuter.RunTest();
   }
 }  // end of op Conv2DBackpropInput
+
+// Test case for TF default data format: NHWC
+TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
+  // Input NHWC :[batch, in_height, in_width, in_channels]
+  std::initializer_list<int> input_size_NHWC = {1, 7, 6,
+                                                2};  // it is an integer vector
+
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+  // Out_delta :[batch, out_height, out_width, out_channels]
+  vector<int64> output_del_size_valid = {1, 3, 2, 2};
+  vector<int64> output_del_size_same = {1, 4, 3, 2};
+
+  std::vector<int> stride = {1, 2, 2, 1};
+
+  std::map<std::string, vector<int64>> out_delta_size_map = {
+      {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+
+  // Conv2DBackpropInput has static input of index 0
+  vector<int> static_input_indexes = {0};
+
+  // changet the dilation attribute
+  ops::Conv2DBackpropInput::Attrs op_attr;
+  op_attr = op_attr.Dilations({1, 1, 1, 1});
+
+  // TEST NHWC : default data format
+  for (auto map_iterator : out_delta_size_map) {
+    Scope root = Scope::NewRootScope();
+    auto padding_type = map_iterator.first;
+    auto output_delta_size = out_delta_size_map[padding_type];
+
+    auto input_sizes = ops::Const(root, input_size_NHWC);
+
+    Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
+    AssignInputValuesRandom<float>(output_delta, -10.0f, 15.0f);
+
+    Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
+    AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+
+    auto R = ops::Conv2DBackpropInput(root, input_sizes, filter, output_delta,
+                                      stride, padding_type, op_attr);
+
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Conv2DBackpropInput", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op Conv2DBackpropInputWithDilation
 
 // FusedBatchNormGrad : Gradient for batch normalization
 // On TF CPU: only supports NHWC
