@@ -379,7 +379,11 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Pow"] = SimpleConfirmationFunction();
       confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
       confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
+      #if STATIC
+      confirmation_functions["QuantizedConv2DWithBiasAndReluAndRequantize"] = SimpleConfirmationFunction({0,1,2,3,4,5,6,7,8});
+      #else
       confirmation_functions["QuantizedConv2DWithBiasAndReluAndRequantize"] = SimpleConfirmationFunction({3,4,5,6,7,8});
+      #endif
       confirmation_functions["QuantizedMaxPool"] =
           SimpleConfirmationFunction({1, 2});
       confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction({1, 2});

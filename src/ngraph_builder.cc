@@ -2200,13 +2200,37 @@ static Status TranslateProdOp(
   return Status::OK();
 }
 
+
 static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+#if STATIC
+
+  std::vector<quint8> ng_input_static;
+  std::vector<qint8> ng_filter_static;
+  std::vector<float> ng_bias_static;
+
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 0, static_input_map, &ng_input_static));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_filter_static));
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_bias_static));
+
+  auto ng_input = std::static_pointer_cast<ngraph::Node>(std::make_shared<ng::op::Constant>(ng::element::u8, ng::Shape({1,14,14,32}), ng_input_static));
+  auto ng_filter = std::static_pointer_cast<ngraph::Node>(std::make_shared<ng::op::Constant>(ng::element::i8, ng::Shape({5,5,32,64}), ng_filter_static));  //5 5 32 64
+  auto ng_bias = std::static_pointer_cast<ngraph::Node>(std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({64}), ng_bias_static));  //64
+
+#else
   shared_ptr<ng::Node> ng_input, ng_filter, ng_bias;
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_bias));
+
+  cout << "XXXXXXX ng_filter.get_output_shape(0): " << ng_filter->get_output_shape(0);  //Shape{5, 5, 32, 64}
+
+#endif
+
+
+
+
   std::vector<std::shared_ptr<ng::op::Constant>> static_inps(6);
   for (int i = 0; i < static_inps.size(); i++){
     std::vector<float> tmp_vect;
@@ -2218,7 +2242,6 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
     }
     static_inps[i] = std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({1}), tmp_vect);
   }
-
 
 
   std::vector<int32> tf_strides;
@@ -2253,6 +2276,35 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_dilations, ng_padding_below,
                        ng_padding_above);
+
+  #if STATIC
+  //Cant constant cast ng_input, ng_filter since it is a reshape node actually
+  auto ng_bias_debug = std::static_pointer_cast<ng::op::Constant>(ng_bias)->get_vector<float>();
+
+  cout << "\n";
+  cout << "ng_bias_debug, " ;
+  for (auto i : ng_bias_debug)
+  {
+    cout << i << ",";
+  }
+
+
+  cout << "ng_strides: " << ng_strides << "\n";
+  cout << "ng_dilations: " << ng_dilations << "\n";
+  cout << "ng_padding_below: " << ng_padding_below << "\n";
+  cout << "ng_padding_above: " << ng_padding_above << "\n";
+  cout << "ng_data_dilations: " << ng_data_dilations << "\n";
+
+  cout << "static_inps[0]: " << static_inps[0]->get_vector<float>()[0] << "\n";
+  cout << "static_inps[1]: " << static_inps[1]->get_vector<float>()[0] << "\n";
+  cout << "static_inps[2]: " << static_inps[2]->get_vector<float>()[0] << "\n";
+  cout << "static_inps[3]: " << static_inps[3]->get_vector<float>()[0] << "\n";
+  cout << "static_inps[4]: " << static_inps[4]->get_vector<float>()[0] << "\n";
+  cout << "static_inps[5]: " << static_inps[5]->get_vector<float>()[0] << "\n";
+
+  cout << "relu: true";
+  #endif
+
 
  std::shared_ptr<ng::Node> ng_quant_conv_bias =
       make_shared<ng::op::QuantizedConvolutionBias>(ng_input, ng_filter, ng_bias,

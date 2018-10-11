@@ -16,6 +16,8 @@
 #ifndef NGRAPH_TF_BRIDGE_UTILS_H_
 #define NGRAPH_TF_BRIDGE_UTILS_H_
 
+#define STATIC 0
+
 #include <ostream>
 #include <sstream>
 
