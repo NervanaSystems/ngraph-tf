@@ -285,6 +285,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
       type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["SpaceToDepth"]["T"] = NGraphDTypes();
       type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["T"] =
           NGraphNumericDTypes();
       type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["Tlabels"] =
@@ -387,6 +388,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
+      confirmation_functions["SpaceToDepth"] = SimpleConfirmationFunction();
       confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] =
           SimpleConfirmationFunction();
       confirmation_functions["Split"] = SimpleConfirmationFunction({0});
