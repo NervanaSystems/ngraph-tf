@@ -2479,54 +2479,59 @@ static Status TranslateSoftmaxOp(
 static Status TranslateSpaceToDepthOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_block_size;
+  shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_block_size));
+      GetInputNodes(ng_op_map, op, &ng_input));
+  
+  // Get the attributes
+  int64 block_size;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "block_size", &block_size));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
 
   // The input tensor's height and width must be divisible by block_size
   ng::Shape input_shape = ng_input->get_shape();
-  std::string tf_data_format;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
   std::map<std::string, int> format_to_int_map =
   {
       { "NHWC", 0 },
       { "NCHW", 1 },
-      { "NCHW_VECT_C", 2}
+      { "NCHW_VECT_C", 1}
   };
 
-  // need to convert this node object to an int value
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-      if (input_shape[1] % ng_block_size != 0){
+      if (input_shape[1] % block_size != 0){
         return errors::InvalidArgument(
           "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
-          , ng_block_size);
+          , block_size);
       }
       
-      if(input_shape[2] % ng_block_size != 0){
+      if(input_shape[2] % block_size != 0){
         return errors::InvalidArgument(
           "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
-          , ng_block_size);
+          , block_size);
       }
       break;
-      // NCHW
+      // NCHW or NCHW_VEC_C
       case 1:
-        if (input_shape[2] % ng_block_size != 0){
+        if (input_shape[2] % block_size != 0){
         return errors::InvalidArgument(
           "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
-          , ng_block_size);
+          , block_size);
       }
       
-      if(input_shape[3] % ng_block_size != 0){
+      if(input_shape[3] % block_size != 0){
         return errors::InvalidArgument(
           "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
-          , ng_block_size);
+          , block_size);
       }
       break;
-
-      
+      default:
+        return errors::InvalidArgument(
+          "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VEC_C");
   }
+
 
   // if (lower_vec.size() != size_vec.size())
   //   return errors::InvalidArgument(
