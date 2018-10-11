@@ -52,6 +52,7 @@ its inputs are dead.
 #include "../test_utilities.h"
 #include "gtest/gtest.h"
 #include "ngraph_utils.h"
+#include "tf_deadness_analysis.h"
 #include "tf_graph_writer.h"
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
@@ -78,6 +79,41 @@ namespace ngraph_bridge {
 namespace testing {
 
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
+
+TEST(DeadnessCheck, DeadnessBug) {
+  Scope root = Scope::NewRootScope();
+
+  // root = root.WithDevice("/device:NGRAPH:0");
+  // Matrix A = [3 2; -1 0]
+  auto A = ops::Const(root, {{3.f, 2.f}, {-1.f, 0.f}});
+  // Vector b = [3 5]
+  auto b = ops::Const(root, {{3.f, 5.f}});
+  // v = Ab^T
+  auto v =
+      ops::MatMul(root.WithOpName("v"), A, b, ops::MatMul::TransposeB(true));
+
+  // Create Graph
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+
+  // Run Deadness
+  std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
+  ASSERT_OK(DeadnessAnalysis::Run(graph, &deadness_analyzer));
+
+  for (int i = 0; i < 100; i++) {
+    NGRAPH_VLOG(2) << "**** ITERATION *** " << i;
+    for (auto node : graph.op_nodes()) {
+      bool deadness_ok =
+          !(node->IsMerge() ||
+            (deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
+      NGRAPH_VLOG(2) << "Node " << node->name() << " ,deadness "
+                     << (deadness_ok ? " Yes " : " No ");
+      // node->AddAttr("_ngraph_marked_for_clustering", true);
+    }
+  }
+
+  ASSERT_EQ("yes", "yes");
+}
 
 TEST(DeadnessCheck, livedead1NGRAPH) {
   Scope root = Scope::NewRootScope();

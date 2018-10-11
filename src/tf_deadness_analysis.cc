@@ -424,9 +424,19 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   if (vlog_) {
     VLOG(2) << "HasInputsWithMismatchingDeadness(" << node.name() << ")";
   }
+  VLOG(2) << "Print pred_map BEFORE";
+  for (const auto& kv_pair : predicate_map_) {
+    VLOG(2) << " Tensor id " << kv_pair.first.ToString();
+    VLOG(2) << "Pred " << kv_pair.second->ToString();
+  }
+
   Predicate* pred = nullptr;
   for (const Edge* edge : node.in_edges()) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
+    VLOG(2) << "Edge Source: " << edge->src()->name()
+            << " , Dest: " << edge->dst()->name();
+    VLOG(2) << " Tensor id " << InputEdgeToTensorId(edge).ToString();
+    VLOG(2) << "Pred " << it->second->ToString();
     CHECK(it != predicate_map_.end());
     if (vlog_) {
       VLOG(2) << "  " << InputEdgeToTensorId(edge).ToString() << ": "
@@ -440,6 +450,11 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
         VLOG(2) << "HasInputsWithMismatchingDeadness(" << node.name()
                 << ") -> true";
       }
+      VLOG(2) << "Print pred_map AFTER : return true";
+      for (const auto& kv_pair : predicate_map_) {
+        VLOG(2) << " Tensor id " << kv_pair.first.ToString();
+        VLOG(2) << "Pred " << kv_pair.second->ToString();
+      }
       return true;
     }
     pred = it->second;
@@ -447,6 +462,11 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   if (vlog_) {
     VLOG(2) << "HasInputsWithMismatchingDeadness(" << node.name()
             << ") -> false";
+  }
+  VLOG(2) << "Print pred_map AFTER : return false";
+  for (const auto& kv_pair : predicate_map_) {
+    VLOG(2) << " Tensor id " << kv_pair.first.ToString();
+    VLOG(2) << "Pred " << kv_pair.second->ToString();
   }
   return false;
 }
