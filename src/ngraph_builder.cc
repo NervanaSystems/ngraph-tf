@@ -2483,53 +2483,93 @@ static Status TranslateSpaceToDepthOp(
   TF_RETURN_IF_ERROR(
       GetInputNodes(ng_op_map, op, &ng_input, &ng_block_size));
 
-  std::vector<int64> lower_vec;
-  std::vector<int64> size_vec;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lower_vec));
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &size_vec));
+  // The input tensor's height and width must be divisible by block_size
+  ng::Shape input_shape = ng_input->get_shape();
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  std::map<std::string, int> format_to_int_map =
+  {
+      { "NHWC", 0 },
+      { "NCHW", 1 },
+      { "NCHW_VECT_C", 2}
+  };
 
-  if (lower_vec.size() != size_vec.size())
-    return errors::InvalidArgument(
-        "Cannot translate sliceop: Size of lower = ", lower_vec.size(),
-        ", size of size_vec = ", size_vec.size(), ". Expected them to match.");
+  // need to convert this node object to an int value
+  switch (format_to_int_map[tf_data_format]) {
+    // NHWC
+    case 0:
+      if (input_shape[1] % ng_block_size != 0){
+        return errors::InvalidArgument(
+          "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
+          , ng_block_size);
+      }
+      
+      if(input_shape[2] % ng_block_size != 0){
+        return errors::InvalidArgument(
+          "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
+          , ng_block_size);
+      }
+      break;
+      // NCHW
+      case 1:
+        if (input_shape[2] % ng_block_size != 0){
+        return errors::InvalidArgument(
+          "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
+          , ng_block_size);
+      }
+      
+      if(input_shape[3] % ng_block_size != 0){
+        return errors::InvalidArgument(
+          "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
+          , ng_block_size);
+      }
+      break;
 
-  NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
-  NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
-
-  std::vector<int> upper_vec(lower_vec.size());
-  const auto ng_input_shape = ng_input->get_shape();
-  stringstream err_stream;
-  string err_msg;
-  for (size_t i = 0; i < size_vec.size(); i++) {
-    if (size_vec[i] != -1) {
-      upper_vec[i] = lower_vec[i] + size_vec[i];
-    } else {
-      // support -1 for size_vec, to the end of the tensor
-      upper_vec[i] = ng_input_shape[i];
-    }
-
-    // check for this condition: 0 <= begin[i] <= begin[i] + size[i] <= Di
-    if (0 > lower_vec[i])
-      err_stream << "lower < 0: " << lower_vec[i]
-                 << ". It should have been positive.\n";
-    if (lower_vec[i] > upper_vec[i])
-      err_stream << "upper < lower: upper = " << upper_vec[i]
-                 << ", lower = " << lower_vec[i] << "\n";
-    if (upper_vec[i] > ng_input_shape[i])
-      err_stream << "dim < upper: dim = " << ng_input_shape[i]
-                 << ", upper = " << upper_vec[i] << "\n";
-
-    err_msg = err_stream.str();
-    if (!err_msg.empty())
-      return errors::InvalidArgument("Cannot translate sliceop at position ", i,
-                                     " of ", size_vec.size(),
-                                     ". The reasons are:\n", err_msg);
+      
   }
 
-  std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
-  std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
-  auto ng_slice = make_shared<ng::op::Slice>(ng_input, l, u);
-  SaveNgOp(ng_op_map, op->name(), ng_slice);
+  // if (lower_vec.size() != size_vec.size())
+  //   return errors::InvalidArgument(
+  //       "Cannot translate sliceop: Size of lower = ", lower_vec.size(),
+  //       ", size of size_vec = ", size_vec.size(), ". Expected them to match.");
+
+  // NGRAPH_VLOG(3) << "Begin input for Slice: " << ng::join(lower_vec);
+  // NGRAPH_VLOG(3) << "Size input for Slice: " << ng::join(size_vec);
+
+  // std::vector<int> upper_vec(lower_vec.size());
+  // const auto ng_input_shape = ng_input->get_shape();
+  // stringstream err_stream;
+  // string err_msg;
+  // for (size_t i = 0; i < size_vec.size(); i++) {
+  //   if (size_vec[i] != -1) {
+  //     upper_vec[i] = lower_vec[i] + size_vec[i];
+  //   } else {
+  //     // support -1 for size_vec, to the end of the tensor
+  //     upper_vec[i] = ng_input_shape[i];
+  //   }
+
+  //   // check for this condition: 0 <= begin[i] <= begin[i] + size[i] <= Di
+  //   if (0 > lower_vec[i])
+  //     err_stream << "lower < 0: " << lower_vec[i]
+  //                << ". It should have been positive.\n";
+  //   if (lower_vec[i] > upper_vec[i])
+  //     err_stream << "upper < lower: upper = " << upper_vec[i]
+  //                << ", lower = " << lower_vec[i] << "\n";
+  //   if (upper_vec[i] > ng_input_shape[i])
+  //     err_stream << "dim < upper: dim = " << ng_input_shape[i]
+  //                << ", upper = " << upper_vec[i] << "\n";
+
+  //   err_msg = err_stream.str();
+  //   if (!err_msg.empty())
+  //     return errors::InvalidArgument("Cannot translate sliceop at position ", i,
+  //                                    " of ", size_vec.size(),
+  //                                    ". The reasons are:\n", err_msg);
+  // }
+
+  // std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
+  // std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
+  // auto ng_slice = make_shared<ng::op::Slice>(ng_input, l, u);
+  // SaveNgOp(ng_op_map, op->name(), ng_slice);
   return Status::OK();
 }
 
