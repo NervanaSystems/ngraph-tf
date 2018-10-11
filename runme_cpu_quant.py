@@ -61,16 +61,7 @@ def test1():
     images, labels = mndata.load_testing()
     #ngraph.disable()
 
-    tensornames = ['import/pool1/MaxPool_eightbit_quantized:0',
-        'import/conv2/Variable_qint8_const:0',
-        'import/conv2/Variable_1:0',
-        'import/pool1/MaxPool_eightbit_quantized:1',
-        'import/pool1/MaxPool_eightbit_quantized:2',
-        'import/conv2/Variable_min:0',
-        'import/conv2/Variable_max:0',
-        'import/conv2/Conv2D_eightbit_requant_range/frozen_min:0',
-        'import/conv2/Conv2D_eightbit_requant_range/frozen_max:0',
-        'import/conv2/Conv2D_eightbit_requant_range/frozen_min:0',
+    tensornames = [
         'import/conv2/Conv2D_eightbit_requantize:0'
     ]
 
@@ -91,7 +82,7 @@ def test1():
         outvals = sess.run(outtensors, feed_dict = {intensor1 : np.array([images[0]]), intensor2 : np.array([labels[0]])})
 
     print ('===============')
-    #ngraph.disable()
+    ngraph.disable()
     with tf.Session() as sess:
         graph = tf.import_graph_def(graphdef)
         intensor1 = tf.get_default_graph().get_tensor_by_name('import/Placeholder:0')
@@ -102,6 +93,7 @@ def test1():
     for t1, t2 in zip(outvals, outvals_tf):
         print(np.linalg.norm(t1 - t2))
         print(t1.shape)
+        pdb.set_trace()
     print('hello')
 
 
@@ -143,4 +135,4 @@ def test2():  #dequant
         print(t1.shape)
     print('hello')
 
-test2()
+test1()
