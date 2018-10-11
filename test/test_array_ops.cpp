@@ -257,6 +257,40 @@ TEST(ArrayOps, SizeOpDefault) {
   }
 }  // end of op SizeDefault
 
+
+// SpaceToDepth op
+TEST(ArrayOps, SpaceToDepthOp) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 2, 1});
+  input_shapes.push_back({1, 2, 2, 3});
+  std::vector<int64> shape = {1,2,4,3};
+  int64 block_size = 2;
+
+  vector<int> static_input_indexes = {};
+  // Size Op default output tyep is DT_INT32
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  Scope root = Scope::NewRootScope();
+  Tensor input_data(DT_FLOAT, TensorShape(shape));
+  AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+  auto R = ops::SpaceToDepth(root, input_data, block_size);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+  vector<Tensor> tf_outputs;
+  opexecuter.ExecuteOnTF(tf_outputs);
+  for(auto t: tf_outputs){
+    PrintTensor(t);
+  }
+
+  vector<Tensor> ngraph_outputs;
+  opexecuter.ExecuteOnNGraph(ngraph_outputs);
+  for(auto t: ngraph_outputs){
+    PrintTensor(t);
+  }
+
+  opexecuter.RunTest();
+}  // end of op SpaceToDepthOp
+
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
   std::vector<std::vector<int64>> input_sizes;  // 1-D or higher
