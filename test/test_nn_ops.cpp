@@ -301,14 +301,14 @@ TEST(NNOps, Conv2DBackpropFilterNHWCValid) {
 }
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
-// input is in the NCHW format
+// Input is in NCHW format
 TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   // Input NHWC :[batch, in_channels, in_height, in_width]
   string padding_type = "SAME";
   initializer_list<int32> input_size_NCHW = {1, 2, 7,
-                                             6};  // it is an integer vector
+                                             6};  // an integer vector
   initializer_list<int32> input_size_NHWC = {1, 7, 6,
-                                             2};  // it is an integer vector
+                                             2}; 
 
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   vector<int64> filter_size_HWIO = {3, 3, 2, 2};
@@ -319,10 +319,10 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   // Conv2DBackpropInput has static input of index 0
   vector<int> static_input_indexes = {0};
 
-  // Dialtion rates > 1 not supported by TF
   Scope ngraph_scope = Scope::NewRootScope();
   ops::Conv2DBackpropInput::Attrs op_attr_nchw;
   op_attr_nchw = op_attr_nchw.DataFormat("NCHW");
+  // Dialtion rates > 1 not supported by TF
   op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
 
   auto input_data_NCHW = ops::Const(ngraph_scope, input_size_NCHW);
