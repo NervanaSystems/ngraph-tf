@@ -1,239 +1,229 @@
-# Bridge TensorFlow* to run on Intel® nGraph™ backends
+# Intel® nGraph™ Compiler and runtime for TensorFlow*
 
-This directory contains the code needed to build a TensorFlow 
-plugin that can be used with Intel® nGraph™. nGraph is an [open-source C++ library, compiler and runtime] that provides developers with the means to 
-train and run DNN models efficiently on custom backends: GPU, CPU, and custom 
-silicon.
+This repository contains the code needed to enable Intel® nGraph™ Compiler and 
+runtime engine for TensorFlow. Use it to speed up your TensorFlow training and 
+inference workloads. The nGraph Library and runtime suite can also be used to 
+customize and deploy Deep Learning inference models that will "just work" with 
+a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the 
+[Intel® Nervana™ NNP](https://itpeernetwork.intel.com/inteldcisummit-artificial-intelligence/).
+
+*   [Build with Linux](#linux-instructions)
+*   [Build using OS X](#using-os-x)
+*   Using the stable [upstreamed](#using-the-stable-upstreamed-version) version
+*   [Debugging](#debugging)
+*   [Support](#support)
+*   [How to Contribute](#how-to-contribute)
+
 
 
 ## Linux instructions
 
-### Prepare the build environment
 
-The installation prerequisites are the same as TensorFlow as described in the 
-TensorFlow [prepare environment] for linux.
+### Option 1: Use an existing TensorFlow v1.11.0 (or greater) installation
+
+1. You need to instantiate a specific kind of `virtualenv`  to 
+   be able to proceed with the `ngraph-tf` bridge installation. For 
+   systems with Python 3.n or Python 2.7, these commands are
+
+        virtualenv --system-site-packages -p python3 your_virtualenv 
+        virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
+        source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
+    
+2. Install TensorFlow v1.11.0. Note that this is a pre-release so you need 
+   to use the following steps to install this:
+
+        pip install tensorflow==1.11.0rc2
+   Note: When TensorFlow release version `v1.11.0` is available, 
+   update your version of TensorFlow using the following command:
+
+        pip install -U tensorflow
+
+3. Checkout `v0.6.1` from the `ngraph-tf` repo and build the bridge
+   as follows: 
+   
+        git clone https://github.com/NervanaSystems/ngraph-tf.git
+        cd ngraph-tf
+        git checkout v0.6.1
+        mkdir build
+        cd build
+        cmake ..
+        make -j <number_of_processor_cores_on_system>
+        make install 
+        pip install -U python/dist/ngraph-0.6.1-py2.py3-none-linux_x86_64.whl
+
+
+### Option 2: Build nGraph bridge from source using TensorFlow source
+
+To run unit tests, or if you are planning to contribute, install the nGraph 
+bridge using the TensorFlow source tree as follows: 
+
+#### Prepare the build environment
+
+The installation prerequisites are the same as described in the TensorFlow 
+[prepare environment] for linux.
 
 1. We use the standard build process which is a system called "bazel". These 
-   instructions were tested with [bazel version 0.11.0]. 
+   instructions were tested with [bazel version 0.16.0]. 
 
-   ```
-   $ wget https://github.com/bazelbuild/bazel/releases/download/0.11.0/bazel-0.11.0-installer-linux-x86_64.sh      
-   $ chmod +x bazel-0.11.0-installer-linux-x86_64.sh
-   $ ./bazel-0.11.0-installer-linux-x86_64.sh --user
-   ```
+        wget https://github.com/bazelbuild/bazel/releases/download/0.16.0/bazel-0.16.0-installer-linux-x86_64.sh      
+        chmod +x bazel-0.16.0-installer-linux-x86_64.sh
+        ./bazel-0.16.0-installer-linux-x86_64.sh --user
 
 2. Add and source the ``bin`` path to your ``~/.bashrc`` file in order to be 
    able to call bazel from the user's installation we set up:
 
-   ```  
-   export PATH=$PATH:~/bin
-   $ source ~/.bashrc   
-   ```
+        export PATH=$PATH:~/bin
+        source ~/.bashrc   
 
-3. Ensure that all the TensorFlow dependencies are installed, as per the
-   TensorFlow [prepare environment] for linux.
-
-   **Note:** You do not need CUDA in order to use the ngraph-tensorflow bridge.
-
-4. Additional dependencies.
-   - Install ```apt-get install libicu-dev``` to avoid the following (potential) error:
-     ```unicode/ucnv.h: No such file or directory```.
-
-
-### Installation
+#### Installation
 
 1. Once TensorFlow's dependencies are installed, clone the source of the 
    [tensorflow] repo to your machine. 
 
-   :warning: You need the following version of TensorFlow: `v1.9.0`
+     :warning: You need the following version of TensorFlow: `v1.11.0`
 
-   ```
-   $ git clone https://github.com/tensorflow/tensorflow.git
-   $ cd tensorflow
-   $ git checkout v1.9.0
-   $ git status
-   HEAD detached at v1.9.0
-   ```
-2. When setting up and activating the virtual environment with TensorFlow 
-   frameworks, you must use a specific kind of venv designed for 
-   ``system-site-packages``.  A regular venv tends to not detect nGraph installs:
+        git clone https://github.com/tensorflow/tensorflow.git
+        cd tensorflow
+        git checkout v1.11.0
+        git status
+        HEAD detached at v1.11.0
+   
+2. You must instantiate a specific kind of `virtualenv`  to be able to proceed 
+   with the `ngraph-tf` bridge installation. For systems with Python 3.n or 
+   Python 2.7, these commands are
 
-   ```
-   virtualenv --system-site-packages -p /usr/bin/python2 <your_virtual_env_dir> # for Python 2.7
-   ```
-   For Python 3.n version:
-   ```
-   virtualenv --system-site-packages -p python3 <your_virtual_env_dir> # for Python 3.n
-   ```
-   Activate virtual environment:
-   ```
-   source <your_virtual_env_dir>/bin/activate # bash, sh, ksh, or zsh
-   ```
+        virtualenv --system-site-packages -p python3 your_virtualenv 
+        virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
+        source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
+        
+   Note: Depending on specific version of the Python and components already
+   installed on your system - the list of dependent Python components vary. 
+   Typically the following components are needed: `numpy mock keras keras_application`.
+   Install them if your Python environment doesn't have them already. 
+   
+3. Now run `./configure` and choose `no` for the following when prompted to build TensorFlow.
 
-3. Now run `./configure` and choose all the defaults when prompted to build TensorFlow.
+    CUDA support:
+    
+        Do you wish to build TensorFlow with CUDA support? [y/N]: N
+        No CUDA support will be enabled for TensorFlow.
+    
+    nGraph support:
+
+        Do you wish to build TensorFlow with nGraph support? [y/N]: n
+        No nGraph support will be enabled for TensorFlow.
+
+    Since you are building nGraph using an existing TensorFlow build, you cannot respond with `y`
+    for the above step. This will result in conflicts as there will be two versions of
+    nGraph - one embedded within TensorFlow and the other you build and loaded. 
+    
+    If you want to use the nGraph embedded within TensorFlow, see the 
+    following section on how to use the upstream version.
+
+    Note that if you are running TensorFlow on a Skylake family processor then select
+    `-march=broadwell` when prompted to specify the optimization flags:
+    
+        Please specify optimization flags to use during compilation 
+        when bazel option "--config=opt" is specified 
+        [Default is -march=native]: -march=broadwell
+    
+    This is due to an issue in TensorFlow which is being actively worked on: 
+    https://github.com/tensorflow/tensorflow/issues/17273
 
 4. Prepare the pip package and the TensorFlow C++ library:
 
-    ```
-    bazel build --config=opt //tensorflow/tools/pip_package:build_pip_package
-    bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
-    ```
-
-   **Note:** You may run into the following error:
-    ```
-    AttributeError: 'int' object attribute '__doc__' is read-only
-    Target //tensorflow/tools/pip_package:build_pip_package failed to build
-    Use --verbose_failures to see the command lines of failed build steps.
-    ```
-    in which case you need to install enum34:
-    ```
-    pip install enum34
-    ```
-
-    You may also need to install a Python package named ```mock``` to prevent an import 
-    error during the build process.
+        bazel build --config=opt //tensorflow/tools/pip_package:build_pip_package
+        bazel-bin/tensorflow/tools/pip_package/build_pip_package ./
 
 5. Install the pip package, replacing the `tensorflow-1.*` with your 
    version of TensorFlow:
 
-    ```
-    pip install -U /tmp/tensorflow_pkg/tensorflow-1.*whl
-    ```  
-
+        pip install -U ./tensorflow-1.*whl
+   
 6. Now clone the `ngraph-tf` repo one level above -- in the 
   *parent* directory of the `tensorflow` repo cloned in step 1:
 
-    ```
-    cd ..
-    git clone https://github.com/NervanaSystems/ngraph-tf.git
-    cd ngraph-tf
-    git checkout r0.4
-    ```
+        cd ..
+        git clone https://github.com/NervanaSystems/ngraph-tf.git
+        cd ngraph-tf
+        git checkout v0.6.1
+
 
 7. Next, build and install nGraph bridge. 
-   :warning: You must be inside the `virtualenv` during the ngraph-tf build.
+   :warning: Run the ngraph-tf build from within the `virtualenv`.
 
-    ```
-    mkdir build
-    cd build
-    cmake ..
-    make -j <your_processor_cores>
-    make install 
-    pip install python/dist/<ngraph-0.0.0-py2.py3-none-linux_x86_64.whl>
-    ```
+        mkdir build
+        cd build
+        cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=<path to TensorFlow source directory> ..
+        make -j <your_processor_cores>
+        make install 
+        pip install -U python/dist/<ngraph-0.6.1-py2.py3-none-linux_x86_64.whl>
 
 This final step automatically downloads the necessary version of `ngraph` and 
-the dependencies. The resulting plugin [DSO] is named `libngraph_device.so`.
+the dependencies.
 
-Once the build and installation steps are complete, you can start experimenting 
+Once the build and installation steps are complete, you can start using TensorFlow 
 with nGraph backends. 
+
+Please add the following line to enable nGraph: `import ngraph`
 
 Note: The actual filename for the pip package may be different as it's version 
 dependent. Please check the `build/python/dist` directory for the actual pip wheel.
 
+## Using the stable upstreamed version
+
+nGraph is being added to the TensorFlow source tree the using pull requests from 
+time to time. 
+
+In order to build that version of nGraph, download the source tree as mentioned
+above and select `Y` when prompted to build with nGraph.   
+
+For this final option, there is **no need to separately build `ngraph-tf` or to 
+use `pip` to install the ngraph module**. With this configuration, your TensorFlow 
+model scripts will work without any changes. 
+
+Note: The version that is available in the upstreamed version of TensorFlow usually
+lags the features and bug fixes available in the `master` branch of this repository.
+
 ### Running tests
 
-In order to run the unit tests, you need `pytest` installed:
-```
-pip install -U pytest
-```
-Now run the tests using the following instructions:
-1. Go to the ngraph-tf/build/test directory
-    ```
-    cd build/test
+To run the C++ unit tests,
+
+* Go to the build directory and run the following commands:
+
+    cd test
     ./gtest_ngtf
-    cd python
-    python -m pytest
-    ```
 
-Next is to run a few DL models to validate the end-to-end functionality.
+You can run a few of your own DL models to validate the end-to-end 
+functionality. Also, you can use the `ngraph-tf/examples` directory and try to 
+run the following model with some MNIST data on your local machine: 
 
-2. Go to the ngraph-tf/examples directory and run the following models.
-    ```
-    cd examples/resnet
-    python mnist_fprop_only.py \
-        --data_dir <input_data_location> --select_device NGRAPH
-    python tf_cnn_benchmarks.py --model=resnet50 --eval \
-        --num_inter_threads=1 --batch_size=1 \
-        --train_dir <rep-trained-model-location>/resnet50 \
-        --data_format NCHW --select_device NGRAPH \
-        --num_batches=10
-    ```
+        cd examples/mnist
+        python mnist_fprop_only.py --data_dir <input_data_location> 
 
-<!--
-### Run MNIST Softmax with the activated bridge 
-TODO
--->
+## Using OS X 
 
-
-## OS X Instructions (Experimental)
-
-### Prepare the build environment
-
-1. Install [bazel], as per step 1 in the "Prepare build environment" section 
-above. Note that bazel version [0.11.1 also works]; if you're feeling adventurous, 
-you could try a later version.
-2. Run `$ port install coreutils`, then add `/opt/local/libexec/gnubin` **in front** 
-of your `$PATH`.  Both `tensorflow` and `ngraph` assume GNU userland tools, and 
-you'll run into errors without them.
-3. Make and activate a virtualenv for our custom-built TensorFlow.
-
-
-### Installation
-
-1. Build TensorFlow and its framework for unit tests. This step is identical to 
-how you would build TensorFlow for Linux mentioned above.
-:warning: You must be inside the `virtualenv` created in step 3 above.
-
-2. Prepare `ngraph-tf` for the build:
-
-	```
-	git clone git@github.com:NervanaSystems/ngraph-tf.git
-	git checkout r0.4
-	pushd ngraph-tf.git
-	ln -s ../tensorflow
-	mkdir build && cd build
-	cmake -DNGRAPH_USE_PREBUILT_LLVM=False ..
-	```
-
-Note: If you want to build a version with no optimization for debugging
-then you can use the `-DCMAKE_BUILD_TYPE=Debug` flag during the cmake step
-mentioned above.
-
-3. `make -j <your-core-count>`
-
-4. `make install`
-
-This step will prepare the pip package for nGraph. Install the `ngraph` package 
-by using the following commands:
-
-5. pip install -U python/dist/ngraph-0.0.0-py2.py3-none-macosx_10_12_x86_64.whl
-
-:warning: The actual file name for the Python whl will vary depending on specific 
-version of macOS.
-
-Verify the installation:
-
-6. python -c "import ngraph"
-
-This step should succeed i.e., you will not see any error message.
+The build and installation instructions are idential for Ubuntu 16.04 and OS X. 
 
 ### Running tests
 
-1. Add `<path-to-tensorflow-repo>/bazel-out/darwin-py3-opt/bin/tensorflow` and `<path-to-ngraph-tf-repo>/build/ngraph/ngraph_dist/lib` to your `LD_LIBRARY_PATH` and `DYLD_LIBRARY_PATH`
-2. Follow the C++ and Python instructions from the Linux based testing described above.
+Export the appropriate paths to your build location; OS X uses the `DYLD_` prefix:
 
-### Debugging
+    export DYLD_LIBRARY_PATH=/bazel-out/darwin-py3-opt/bin/tensorflow:$DYLD_LIBRARY_PATH
+    export DYLD_LIBRARY_PATH=/build/ngraph/ngraph_dist/lib:$DYLD_LIBRARY_PATH
 
-Don't just use `lldb` -- it likely refers to `/usr/bin/lldb` and OS X security 
-preferences will prevent it from inheriting your `LD_LIBRARY_PATH`.  Instead, 
-a better approach is to alias it to `/Applications/Xcode.app/Contents/Developer/usr/bin/lldb`.
+Then follow "Running tests" on Linux as described above. 
+
+## Debugging
+
+See the instructions provided in the [diagnostics] directory.
+
+https://github.com/NervanaSystems/ngraph-tf/blob/master/diagnostics/README.md
 
 
 ## Support
 
 Please submit your questions, feature requests and bug reports via [GitHub issues].
-
 
 ## How to Contribute
 
@@ -241,13 +231,6 @@ We welcome community contributions to nGraph. If you have an idea for how to
 improve it:
 
 * Share your proposal via [GitHub issues].
-* Make sure your patch is in line with Google style by setting up your git `pre-commit` hooks.  First, ensure `clang-format` is in your path, then:
-
-   ```
-   pip install pre-commit autopep8 pylint
-   pre-commit install
-   ```
-
 * Ensure you can build the product and run all the examples with your patch.
 * In the case of a larger feature, create a test.
 * Submit a [pull request].
@@ -263,18 +246,16 @@ See the full documentation here:  <http://ngraph.nervanasys.com/docs/latest>
 
 ## Future plans
 
+[linux-based install instructions on the TensorFlow website]:https://www.tensorflow.org/install/install_linux
 [tensorflow]:https://github.com/tensorflow/tensorflow.git
-[building a modified version of TensorFlow]:http://ngraph.nervanasys.com/docs/latest/framework-integration-guides.html#tensorflow 
-[official distribution of TensorFlow]:https://github.com/tensorflow/tensorflow.git
-[upstreaming discussions here]: https://groups.google.com/d/topic/xla-dev/LZdKcq7goko/discussion
 [open-source C++ library, compiler and runtime]: http://ngraph.nervanasys.com/docs/latest/
 [DSO]:http://csweb.cs.wfu.edu/~torgerse/Kokua/More_SGI/007-2360-010/sgi_html/ch03.html
-[Github issues]: https://github.com/NervanaSystems/ngraph/issues
-[pull request]: https://github.com/NervanaSystems/ngraph/pulls
-[how to import]: http://ngraph.nervanasys.com/docs/latest/howto/import.html
-[ngraph-ecosystem]: doc/sphinx/source/graphics/ngraph-ecosystem.png "nGraph Ecosystem"
-[bazel version 0.11.0]: https://github.com/bazelbuild/bazel/releases/tag/0.11.0
-[installation guide]: https://www.tensorflow.org/install/install_linux
+[Github issues]: https://github.com/NervanaSystems/ngraph-tf/issues
+[pull request]: https://github.com/NervanaSystems/ngraph-tf/pulls
+[bazel version 0.16.0]: https://github.com/bazelbuild/bazel/releases/tag/0.16.0
 [prepare environment]: https://www.tensorflow.org/install/install_sources#prepare_environment_for_linux
-[installing with Virtualenv]: https://www.tensorflow.org/install/install_linux#installing_with_virtualenv
-[0.11.1 also works]:https://github.com/bazelbuild/bazel/releases/tag/0.11.1
+[diagnostics]:diagnostics/README.md
+[ops]:http://ngraph.nervanasys.com/docs/latest/ops/index.html
+[nGraph]:https://github.com/NervanaSystems/ngraph 
+[ngraph-tf bridge]:https://github.com/NervanaSystems/ngraph-tf 
+ 

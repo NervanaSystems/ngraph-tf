@@ -79,7 +79,7 @@ endif()
 # installed is located in the same level as the tensorflow directory
 # site-packages/
 #     /ngraph
-#       libngraph_device.so
+#       libngraph_bridge.so
 #       ...
 #     /tensorflow
 #       libtensorflow_framework.so
@@ -96,29 +96,42 @@ else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()
 
-# Find and build ngraph 
-option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
-if(NGRAPH_DISTRIBUTED_ENABLE) 
-    set(DISTRIBUTED 1)
-    find_package(MPI REQUIRED)
-    add_definitions(-DNGRAPH_DISTRIBUTED)
-    include_directories(SYSTEM ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
-    link_directories(${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
-    link_libraries(${MPI_CXX_LIBRARIES})
-else()
-    set(DISTRIBUTED 0)
+# Find TensorFlow
+find_package(TensorFlow REQUIRED)
+
+add_library(tensorflow_framework_lib SHARED IMPORTED)
+set_target_properties( 
+    tensorflow_framework_lib 
+    PROPERTIES IMPORTED_LOCATION 
+    ${TensorFlow_DIR}/libtensorflow_framework.so
+)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(NGRAPH_TF_CXX11_ABI "${TensorFlow_CXX_ABI}")
+    message( STATUS "nGraph-TensorFlow using CXX11 ABI:  ${NGRAPH_TF_CXX11_ABI}" )
 endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${NGRAPH_TF_CXX11_ABI}")
+
+if(APPLE)
+    set(LIBNGRAPH_SO "libngraph.dylib")
+else()
+    set(LIBNGRAPH_SO "libngraph.so")
+endif(APPLE)
+
+# Find and build ngraph
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG langjian/mpi3.0 #v0.6.0
-    CMAKE_ARGS
-        -DNGRAPH_DISTRIBUTED_ENABLE=${DISTRIBUTED}
-        -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
-        -DNGRAPH_UNIT_TEST_ENABLE=FALSE
+    GIT_TAG fe06f3250a9e0327d663f89ed7b653eb2ae51ad4
+    CMAKE_ARGS 
+        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_TOOLS_ENABLE=FALSE 
         -DNGRAPH_DEX_ONLY=TRUE 
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
     TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
     STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
@@ -131,21 +144,6 @@ ExternalProject_Add(
 
 set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 
-# Find TensorFlow
-find_package(TensorFlow REQUIRED)
-
-add_library(tensorflow_framework_lib SHARED IMPORTED)
-set_target_properties( 
-    tensorflow_framework_lib 
-    PROPERTIES IMPORTED_LOCATION 
-    ${TensorFlow_DIR}/libtensorflow_framework.so
-)
-
-if(APPLE)
-    set(LIBNGRAPH_SO "libngraph.dylib")
-else()
-    set(LIBNGRAPH_SO "libngraph.so")
-endif(APPLE)
 
 add_library(ngraph_lib SHARED IMPORTED)
 set_target_properties( 
@@ -155,9 +153,16 @@ set_target_properties(
 )
 add_dependencies(ngraph_lib ext_ngraph)
 
+option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
+
 # Add the directories to be built
+add_subdirectory(third-party)
 add_subdirectory(logging)
 add_subdirectory(src)
-add_subdirectory(third-party)
-add_subdirectory(test)
-add_subdirectory(tools)
+if (UNIT_TEST_ENABLE)
+    if (NOT DEFINED TF_SRC_DIR)
+        message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")
+    endif()
+    add_subdirectory(test)
+    message(STATUS "unit tests enabled")
+endif()

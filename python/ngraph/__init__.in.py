@@ -31,29 +31,64 @@ from tensorflow.python.framework import errors_impl
 
 from tensorflow.core.framework import attr_value_pb2
 from tensorflow.python.framework import ops
- 
+
 import ctypes
 
 
 __all__ = ['enable', 'disable', 'is_enabled', 'backends_len', 'list_backends',
     'set_backend', 'start_logging_placement', 'stop_logging_placement',
-    'is_logging_placement']
+    'is_logging_placement', '__version__']
 
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
 ngraph = None
+
+TF_VERSION = tf.VERSION
+TF_GIT_VERSION = tf.GIT_VERSION
+TF_VERSION_NEEDED = "${TensorFlow_VERSION}"
+TF_GIT_VERSION_BUILT_WITH = "${TensorFlow_GIT_VERSION}"
+
+# converting version representations to strings if not already
+try:
+  TF_VERSION = str(TF_VERSION, 'ascii')
+except TypeError:  # will happen for python 2 or if already string
+  pass
+
+try:
+  TF_VERSION_NEEDED = str(TF_VERSION_NEEDED, 'ascii')
+except TypeError:
+  pass
+
+try:
+  if TF_GIT_VERSION.startswith("b'"):  # TF version can be a bytes __repr__()
+    TF_GIT_VERSION = eval(TF_GIT_VERSION)
+  TF_GIT_VERSION = str(TF_GIT_VERSION, 'ascii')
+except TypeError:
+  pass
  
+try:
+  if TF_GIT_VERSION_BUILT_WITH.startswith("b'"):
+    TF_GIT_VERSION_BUILT_WITH = eval(TF_GIT_VERSION_BUILT_WITH)
+  TF_GIT_VERSION_BUILT_WITH = str(TF_GIT_VERSION_BUILT_WITH, 'ascii')
+except TypeError:
+  pass
+
+print("TensorFlow version installed: {0} ({1})".format(TF_VERSION,
+  TF_GIT_VERSION))
+print("Version built with: {0} ({1})".format(TF_VERSION_NEEDED,
+  TF_GIT_VERSION_BUILT_WITH))
+
 
 # We need to revisit this later. We can automate that using cmake configure
 # command.
-if tf.GIT_VERSION == "${TensorFlow_GIT_VERSION}":
+if TF_VERSION == TF_VERSION_NEEDED:
     libpath = os.path.dirname(__file__)
-    ngraph = ctypes.cdll.LoadLibrary(os.path.join(libpath,
-                                                  'libngraph_device.' + ext))
+    ngraph = ctypes.cdll.LoadLibrary(os.path.join(
+      libpath, 'libngraph_bridge.' + ext))
 else:
-    raise ValueError(
-        "Error: Wrong TensorFlow version " + tf.GIT_VERSION +
-        "\nNeeded: ${TensorFlow_GIT_VERSION}")
+    raise ValueError("Error: Wrong TensorFlow version {0}\nNeeded: {1}".format(
+      TF_VERSION, TF_VERSION_NEEDED))
+
 
 def requested():
     return ops.get_default_graph()._attr_scope(
@@ -84,10 +119,10 @@ def backends_len():
 
 def list_backends():
   len_backends = backends_len()
-  result = (ctypes.c_string * len_backends)(*(None * len_backends))
-  if not ngraph.ngraph_build_backends(result, len_backends):
-    raise Exception("Backends fluctuated while listing")
-  return result
+  result = (ctypes.c_char_p * len_backends)()
+  if not ngraph.ngraph_list_backends(result, len_backends):
+    raise Exception("Expected " + str(len_backends) + " backends, but got some  other number of backends")
+  return list(result)
 
 
 def set_backend(backend):
@@ -105,3 +140,5 @@ def stop_logging_placement():
 
 def is_logging_placement():
   return ngraph.ngraph_is_logging_placement()
+
+__version__ = '0.6.1'

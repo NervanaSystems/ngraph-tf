@@ -46,10 +46,9 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
   out << "\n";
 }
 
-std::ostream& DumpNGTensor(
-    std::ostream& s, const string& name,
-    const std::shared_ptr<ngraph::runtime::TensorView>& t) {
-  // std::shared_ptr<ngraph::runtime::TensorView> t{get_tensor()};
+std::ostream& DumpNGTensor(std::ostream& s, const string& name,
+                           const std::shared_ptr<ngraph::runtime::Tensor>& t) {
+  // std::shared_ptr<ngraph::runtime::Tensor> t{get_tensor()};
   const ngraph::Shape& shape = t->get_shape();
   s << "Tensor<" << name << ": ";
 
@@ -63,16 +62,16 @@ std::ostream& DumpNGTensor(
   s << ">{";
   size_t rank = shape.size();
   if (rank == 0) {
-    s << GetScalarFromTensorView<float>(t, pos++);
+    s << GetScalarFromTensor<float>(t, pos++);
   } else if (rank <= 2) {
     s << "[";
     for (size_t i = 0; i < shape.at(0); ++i) {
       if (rank == 1) {
-        s << GetScalarFromTensorView<float>(t, pos++);
+        s << GetScalarFromTensor<float>(t, pos++);
       } else if (rank == 2) {
         s << "[";
         for (size_t j = 0; j < shape.at(1); ++j) {
-          s << GetScalarFromTensorView<float>(t, pos++);
+          s << GetScalarFromTensor<float>(t, pos++);
 
           if (j + 1 < shape.at(1)) {
             s << ", ";
@@ -104,6 +103,9 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
       break;
     case DataType::DT_UINT8:
       *ng_et = ng::element::u8;
+      break;
+    case DataType::DT_UINT16:
+      *ng_et = ng::element::u16;
       break;
     case DataType::DT_INT64:
       *ng_et = ng::element::i64;
@@ -159,6 +161,17 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes() {
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   static gtl::ArraySlice<DataType> result{DT_INT32, DT_INT64};
   return result;
+}
+
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
+  for (auto i : axes) {
+    if (i < (int)-rank || i >= (int)rank) {
+      return errors::InvalidArgument("Axis Dimension is out of range. Got ", i,
+                                     ", should be in range [-", rank, ", ",
+                                     rank, ")");
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace ngraph_bridge

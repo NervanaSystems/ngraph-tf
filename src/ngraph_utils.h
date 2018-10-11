@@ -141,17 +141,16 @@ Status ValuesFromConstNode(const NodeDef& node,
 
 // Get a scalar value from a tensor, optionally at an element offset
 template <typename T>
-T GetScalarFromTensorView(const std::shared_ptr<ngraph::runtime::TensorView>& t,
-                          size_t element_offset = 0) {
+T GetScalarFromTensor(const std::shared_ptr<ngraph::runtime::Tensor>& t,
+                      size_t element_offset = 0) {
   T result;
   t->read(&result, element_offset * sizeof(T), sizeof(T));
   return result;
 }
 
 // Prints the tensor to the given output stream
-std::ostream& DumpNGTensor(
-    std::ostream& s, const std::string& name,
-    const std::shared_ptr<ngraph::runtime::TensorView>& t);
+std::ostream& DumpNGTensor(std::ostream& s, const std::string& name,
+                           const std::shared_ptr<ngraph::runtime::Tensor>& t);
 
 // Converts a TensorFlow DataType to an nGraph element::Type. Returns
 // errors::Unimplemented if the element type is not supported by nGraph
@@ -175,6 +174,10 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes();
 // Returns an ArraySlice containing all data types that can be used for
 // axis/tensor indices.
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes();
+
+// Check to make sure the axis dimension for reduction are in within range.
+// Returns error if axis is out of range. Otherwise returns Status::OK().
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank);
 
 }  // namespace ngraph_bridge
 

@@ -25,6 +25,7 @@ import ctypes
 
 import numpy as np
 import tensorflow as tf
+import ngraph
 
 print("TensorFlow version: ", tf.GIT_VERSION, tf.VERSION)
 
@@ -33,20 +34,12 @@ graph_location = "/tmp/" + getpass.getuser() + "/tensorboard-logs/test"
 print('Saving graph to: %s' % graph_location)
 train_writer = tf.summary.FileWriter(graph_location)
 
-# Define LD_LIBRARY_PATH indicating where nGraph library is located for now.
-# Eventually this won't be needed as the library will be available in either
-# the Python site-packages or some other means
-lib = ctypes.cdll.LoadLibrary('libngraph_device.so')
-
 # Define the data
 a = tf.constant(np.full((2, 3), 5.0, dtype=np.float32), name='alpha')
 x = tf.placeholder(tf.float32, [None, 3], name='x')
 y = tf.placeholder(tf.float32, shape=(2, 3), name='y')
 
-# PLace this computation to NGRAPH
-with tf.device("/device:NGRAPH:0"):
-    c = a * x
-
+c = a * x
 axpy = c + y
 
 # Configure the session
@@ -59,15 +52,13 @@ config = tf.ConfigProto(
 with tf.Session(config=config) as sess:
     print("Python: Running with Session")
     for i in range(10):
-        (result_axpy, result_c) = sess.run(
-            (axpy, c),
-            feed_dict={
-                x: np.ones((2, 3)),
-                y: np.ones((2, 3)),
-            })
+        (result_axpy, result_c) = sess.run((axpy, c),
+                                           feed_dict={
+                                               x: np.ones((2, 3)),
+                                               y: np.ones((2, 3)),
+                                           })
         print("[", i, "] ", i)
         print("Result: \n", result_axpy, " C: \n", result_c)
 
 train_writer.add_graph(tf.get_default_graph())
-tf.train.write_graph(
-    tf.get_default_graph(), '.', 'axpy.pbtxt', as_text=True)
+tf.train.write_graph(tf.get_default_graph(), '.', 'axpy.pbtxt', as_text=True)

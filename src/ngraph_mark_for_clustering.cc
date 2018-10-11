@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-
-#include "tensorflow/core/graph/graph.h"
-
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_api.h"
 #include "ngraph_utils.h"
+#include "ngraph_version_utils.h"
+#include "tensorflow/core/graph/graph.h"
+#include "tf_deadness_analysis.h"
 
 using namespace std;
 
@@ -46,14 +47,66 @@ namespace ngraph_bridge {
 //
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
+using TypeConstraintMap =
+    std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>;
 
+// Different Checks before we mark for clustering
 //
 // Utility function to check if placement on the NGRAPH device has been
 // requested.
 //
 // FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
 //
-static bool NGraphPlacementRequested(const Node* node) { return true; }
+static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
+  placement_ok = true;
+  return Status::OK();
+}
+
+#if (TF_VERSION_GEQ_1_11)
+// Checks if the node's inputs have mismatching deadness
+static Status DeadnessOk(Node* node,
+                         std::unique_ptr<DeadnessAnalysis>* deadness_analyzer,
+                         bool& deadness_ok) {
+  deadness_ok =
+      !(node->IsMerge() ||
+        (*deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
+  return Status::OK();
+}
+#endif
+
+// Checks if the node's inputs meet all the type constraints
+static Status TypeConstraintOk(Node* node,
+                               TypeConstraintMap& type_constraint_map,
+                               bool& type_constraints_ok) {
+  type_constraints_ok = true;
+  for (auto& name_and_set : type_constraint_map[node->type_string()]) {
+    auto& type_attr_name = name_and_set.first;
+    auto& allowed_types = name_and_set.second;
+
+    DataType dt;
+
+    if (GetNodeAttr(node->attrs(), type_attr_name, &dt) != Status::OK() ||
+        std::find(allowed_types.begin(), allowed_types.end(), dt) ==
+            allowed_types.end()) {
+      type_constraints_ok = false;
+      break;
+    }
+  }
+  return Status::OK();
+}
+
+// Checks if the node meets the confirmation constraints
+static Status ConfirmationOk(
+    Node* node,
+    std::map<std::string, ConfirmationFunction>& confirmation_functions,
+    bool& confirmation_ok) {
+  auto it = confirmation_functions.find(node->type_string());
+
+  if (it != confirmation_functions.end()) {
+    TF_RETURN_IF_ERROR(it->second(node, &confirmation_ok));
+  }
+  return Status::OK();
+}
 
 //
 // Marks the input indices in "inputs" as static, i.e., inputs that must be
@@ -74,9 +127,7 @@ static ConfirmationFunction SimpleConfirmationFunction(
     auto indices = static_input_indices;
     std::transform(indices.begin(), indices.end(), indices.begin(),
                    [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
-
     SetStaticInputs(n, indices);
-
     *result = true;
     return Status::OK();
   };
@@ -110,8 +161,7 @@ Status MarkForClustering(Graph* graph) {
   // DT_FLOAT or DT_BOOL, and the "DstT" type variable can be DT_DOUBLE or
   // DT_INT16.
   //
-  static std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>
-      type_constraint_map;
+  static TypeConstraintMap type_constraint_map;
 
   //
   // A map of op types (e.g. "Add") to confirmation functions. These can be
@@ -159,6 +209,12 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Any"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["All"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMax"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMin"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMin"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
@@ -191,11 +247,15 @@ Status MarkForClustering(Graph* graph) {
       // LogicalAnd and LogicalNot have no type attributes ("T", if it existed,
       // would always be bool).
       type_constraint_map["MatMul"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["Min"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Min"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
@@ -214,8 +274,13 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Reshape"]["T"] = NGraphDTypes();
       type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
       type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
+      type_constraint_map["Shape"]["T"] = NGraphDTypes();
+      type_constraint_map["Shape"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["SigmoidGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Size"]["T"] = NGraphDTypes();
+      type_constraint_map["Size"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
@@ -236,6 +301,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sum"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Tanh"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["TanhGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
       type_constraint_map["Transpose"]["T"] = NGraphDTypes();
@@ -250,6 +316,10 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Abs"] = SimpleConfirmationFunction();
       confirmation_functions["Add"] = SimpleConfirmationFunction();
       confirmation_functions["AddN"] = SimpleConfirmationFunction();
+      confirmation_functions["Any"] = SimpleConfirmationFunction({1});
+      confirmation_functions["All"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMax"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMin"] = SimpleConfirmationFunction({1});
       confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
       confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
       confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
@@ -273,8 +343,10 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["FloorDiv"] = SimpleConfirmationFunction();
       confirmation_functions["FloorMod"] = SimpleConfirmationFunction();
       confirmation_functions["FusedBatchNorm"] = SimpleConfirmationFunction();
-      confirmation_functions["FusedBatchNormGrad"] =
-          SimpleConfirmationFunction();
+      confirmation_functions["FusedBatchNormGrad"] = [](Node* n, bool* result) {
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
+        return Status::OK();
+      };
       confirmation_functions["Greater"] = SimpleConfirmationFunction();
       confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
       confirmation_functions["HorovodAllreduce"] = SimpleConfirmationFunction();
@@ -285,11 +357,14 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Log"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
+      confirmation_functions["LogicalOr"] = SimpleConfirmationFunction();
       confirmation_functions["MatMul"] = SimpleConfirmationFunction();
+      confirmation_functions["Max"] = SimpleConfirmationFunction({1});
       confirmation_functions["Maximum"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
       confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Mean"] = SimpleConfirmationFunction({1});
+      confirmation_functions["Min"] = SimpleConfirmationFunction({1});
       confirmation_functions["Minimum"] = SimpleConfirmationFunction();
       confirmation_functions["Mul"] = SimpleConfirmationFunction();
       confirmation_functions["Neg"] = SimpleConfirmationFunction();
@@ -304,8 +379,11 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["ReluGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Reshape"] = SimpleConfirmationFunction({1});
       confirmation_functions["Rsqrt"] = SimpleConfirmationFunction();
+      confirmation_functions["Shape"] = SimpleConfirmationFunction();
       confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
+      confirmation_functions["SigmoidGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Sign"] = SimpleConfirmationFunction();
+      confirmation_functions["Size"] = SimpleConfirmationFunction();
       confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
@@ -333,56 +411,80 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Sub"] = SimpleConfirmationFunction();
       confirmation_functions["Sum"] = SimpleConfirmationFunction({1});
       confirmation_functions["Tanh"] = SimpleConfirmationFunction();
+      confirmation_functions["TanhGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
       confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
       confirmation_functions["Unpack"] = SimpleConfirmationFunction();
+      confirmation_functions["ZerosLike"] = SimpleConfirmationFunction();
 
       initialized = true;
     }
   }
 
+// If TF Version >= 1.11 do deadness analysis on the node
+#if (TF_VERSION_GEQ_1_11)
+  std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
+  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
+#endif
+
   for (auto node : graph->op_nodes()) {
-    if (NGraphPlacementRequested(node)) {
-      bool type_constraints_ok = true;
+    bool mark_for_clustering = false;
 
-      // First check type constraints.
-      for (auto& name_and_set : type_constraint_map[node->type_string()]) {
-        auto& type_attr_name = name_and_set.first;
-        auto& allowed_types = name_and_set.second;
-
-        DataType dt;
-
-        if (GetNodeAttr(node->attrs(), type_attr_name, &dt) != Status::OK() ||
-            std::find(allowed_types.begin(), allowed_types.end(), dt) ==
-                allowed_types.end()) {
-          type_constraints_ok = false;
-          break;
-        }
+    do {
+      // check placement
+      bool placement_ok = false;
+      TF_RETURN_IF_ERROR(NGraphPlacementRequested(node, placement_ok));
+      if (!placement_ok) {
+        NGRAPH_VLOG(5) << "Placement not requested: " << node->name();
+        break;
       }
 
-      // If type constraints are satisfied, check for a confirmation
-      // function.
-      bool confirmed = false;
-      if (type_constraints_ok) {
-        auto it = confirmation_functions.find(node->type_string());
+#if (TF_VERSION_GEQ_1_11)
+      // check deadness
+      bool deadness_ok = false;
+      TF_RETURN_IF_ERROR(DeadnessOk(node, &deadness_analyzer, deadness_ok));
+      if (!deadness_ok) {
+        NGRAPH_VLOG(5) << "Node Inputs have mismatching deadness or Node is of "
+                          "type Merge: "
+                       << node->name();
+        break;
+      }
+#endif
 
-        if (it != confirmation_functions.end()) {
-          TF_RETURN_IF_ERROR(it->second(node, &confirmed));
-        }
+      // check input type constraints
+      bool type_constraint_ok = false;
+      TF_RETURN_IF_ERROR(
+          TypeConstraintOk(node, type_constraint_map, type_constraint_ok));
+      if (!type_constraint_ok) {
+        NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
+                       << node->name();
+        break;
       }
 
-      // Set the _ngraph_marked_for_clustering attribute if type constraints
-      // are satisfied and the confirmation function (if any) has returned
-      // true.
-      if (confirmed) {
-        NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
-                       << node->type_string() << "]";
-        // TODO(amprocte): move attr name to a constant
-        node->AddAttr("_ngraph_marked_for_clustering", true);
-      } else {
-        NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
-                       << node->type_string() << "]";
+      // check node's confirmation constraints
+      bool confirmation_constraint_ok = false;
+      TF_RETURN_IF_ERROR(ConfirmationOk(node, confirmation_functions,
+                                        confirmation_constraint_ok));
+      if (!confirmation_constraint_ok) {
+        NGRAPH_VLOG(5) << "Node does not meet confirmation constraints: "
+                       << node->name();
+        break;
       }
+
+      // if all constraints are met, mark for clustering
+      mark_for_clustering = true;
+    } while (false);
+
+    // Set the _ngraph_marked_for_clustering attribute if all constraints
+    // are satisfied
+    if (mark_for_clustering) {
+      NGRAPH_VLOG(4) << "Accepting: " << node->name() << "["
+                     << node->type_string() << "]";
+      // TODO(amprocte): move attr name to a constant
+      node->AddAttr("_ngraph_marked_for_clustering", true);
+    } else {
+      NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
+                     << node->type_string() << "]";
     }
   }
 
