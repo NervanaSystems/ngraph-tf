@@ -299,37 +299,45 @@ TEST(ArrayOps, SpaceToDepthToOneElement) {
 }  // end of op SpaceToDepthToOneElementOp
 
 // SpaceToDepth op
-TEST(ArrayOps, DISABLED_SpaceToDepthOp) {
-  std::vector<std::vector<int64>> input_shapes;
-  input_shapes.push_back({1, 2, 2, 1});
-  input_shapes.push_back({1, 2, 2, 3});
-  std::vector<int64> shape = {1,2,2,3};
-  int64 block_size = 2;
-
+TEST(ArrayOps, SpaceToDepthToMultipleElementsOp) {
+  std::map<std::vector<int64>, int> input_map;
+  input_map.insert(pair<std::vector<int64>, int>({1,2,4,1}, 2));
+  // input_map.insert(pair<std::vector<int64>, int>({1,2,2,3}, 2));
+  // input_map.insert(pair<std::vector<int64>, int>({1,3,3,3}, 3));
+  // input_map.insert(pair<std::vector<int64>, int>({1,10,10,5}, 10));
+  
   vector<int> static_input_indexes = {};
-  // Size Op default output tyep is DT_INT32
   vector<DataType> output_datatypes = {DT_FLOAT};
-  Scope root = Scope::NewRootScope();
-  Tensor input_data(DT_FLOAT, TensorShape(shape));
-  AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
-  auto R = ops::SpaceToDepth(root, input_data, block_size);
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes, output_datatypes,
-                        sess_run_fetchoutputs);
-  vector<Tensor> tf_outputs;
-  opexecuter.ExecuteOnTF(tf_outputs);
-  for(auto t: tf_outputs){
-    PrintTensor(t);
-  }
 
-  vector<Tensor> ngraph_outputs;
-  opexecuter.ExecuteOnNGraph(ngraph_outputs);
-  for(auto t: ngraph_outputs){
-    PrintTensor(t);
-  }
+  map<std::vector<int64>, int> :: iterator iter;
+  for(iter = input_map.begin(); iter != input_map.end(); iter++){
+    std::vector<int64> shape = iter->first;
+    int block_size = iter->second;
 
-  opexecuter.RunTest();
-}  // end of op SpaceToDepthOp
+    Scope root = Scope::NewRootScope();
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    //AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    AssignInputValues<float>(input_data, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0});
+    PrintTensor(input_data);
+
+    auto R = ops::SpaceToDepth(root, input_data, block_size);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+    vector<Tensor> tf_outputs;
+    opexecuter.ExecuteOnTF(tf_outputs);
+    for(auto t: tf_outputs){
+      PrintTensor(t);
+    }
+
+    vector<Tensor> ngraph_outputs;
+    opexecuter.ExecuteOnNGraph(ngraph_outputs);
+    for(auto t: ngraph_outputs){
+      PrintTensor(t);
+    }
+    opexecuter.RunTest();
+  }  
+}  // end of op SpaceToDepthToMultipleElementsOp
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
