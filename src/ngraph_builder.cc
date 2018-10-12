@@ -2551,6 +2551,7 @@ static Status TranslateSpaceToDepthOp(
     // NHWC
     case 0:
       // slice height
+      counter = 0;
       while (counter < block_size){
         std::vector<size_t> begin = {0, counter * height_size, 0,0};
         std::vector<size_t> upper = {input_shape[0], counter * height_size + height_size, input_shape[2], input_shape[3]};
@@ -2573,6 +2574,7 @@ static Status TranslateSpaceToDepthOp(
     // NCHW
     case 1:
       // slice height
+      counter = 0;
       while (counter < block_size){
         std::vector<size_t> begin = {0,0,counter * height_size,0};
         std::vector<size_t> upper = {input_shape[0], input_shape[1], counter * height_size + height_size, input_shape[3]};
@@ -2595,23 +2597,53 @@ static Status TranslateSpaceToDepthOp(
   }
   // else slice width first, then height
   else{
+    cout << "Slice width first, then slice height case" << endl;
     switch (format_to_int_map[tf_data_format]){
     // NHWC
     case 0:
+      cout << "NHWC case" << endl;
+      cout << "slicing width " << endl;
+
       // slice width
+      counter = 0;
       while (counter < block_size){
         std::vector<size_t> begin = {0, 0, counter * width_size, 0};
         std::vector<size_t> upper = {input_shape[0], input_shape[1], counter * width_size + width_size, input_shape[3]};
+        cout << "counter is " << counter << endl;
+        cout << " begin is ";
+   
+        for(auto b : begin){
+          cout << b << ", ";
+        }
+        cout << endl;
+        cout << " upper is ";
+        for(auto u : upper){
+          cout << u << ", ";
+        }
+        cout << endl;
         height_result.push_back(make_shared<ng::op::Slice>(ng_input,begin,upper));
         counter = counter + 1;
       }
       // slice height
+      cout << "slicing height " << endl;
       for(auto result : height_result){
         counter = 0;
         // for each height_result, continue slice in the width dimension
         while(counter < block_size){
           std::vector<size_t> begin = {0, counter * height_size ,0,0};
           std::vector<size_t> upper = {input_shape[0], counter * height_size + height_size, width_size, input_shape[3]};
+          cout << "counter is " << counter << endl;
+          cout << " begin is ";
+  
+          for(auto b : begin){
+            cout << b << ", ";
+          }
+          cout << endl;
+          cout << " upper is ";
+          for(auto u : upper){
+            cout << u << ", ";
+          }
+          cout << endl;
           slice_results.push_back(make_shared<ng::op::Slice>(result,begin,upper));
           counter = counter + 1;
         }
@@ -2621,6 +2653,7 @@ static Status TranslateSpaceToDepthOp(
     // NCHW
     case 1:
       // slice width
+      counter = 0;
       while (counter < block_size){
         std::vector<size_t> begin = {0,0,0,counter * width_size};
         std::vector<size_t> upper = {input_shape[0], input_shape[1], input_shape[2], counter * width_size + width_size};
@@ -2641,71 +2674,6 @@ static Status TranslateSpaceToDepthOp(
       break;
     }// end of switch statement
   }// end of if-else statement
-
-  // // Slice height
-  // switch (format_to_int_map[tf_data_format]){
-  //   // NHWC
-  //   case 0:
-  //     while (counter < block_size){
-  //       std::vector<size_t> begin = {0, counter * height_size, 0,0};
-  //       std::vector<size_t> upper = {input_shape[0], counter * height_size + height_size, input_shape[2], input_shape[3]};
-  //       height_result.push_back(make_shared<ng::op::Slice>(ng_input,begin,upper));
-  //       counter = counter + 1;
-  //     }
-  //     break;
-  //   // NCHW
-  //   case 1:
-  //     while (counter < block_size){
-  //       std::vector<size_t> begin = {0,0,counter * height_size,0};
-  //       std::vector<size_t> upper = {input_shape[0], input_shape[1], counter * height_size + height_size, input_shape[3]};
-  //       height_result.push_back(make_shared<ng::op::Slice>(ng_input,begin,upper));
-  //       counter = counter + 1;
-  //     }
-  //     break;
-  // }// end of switch height
-
-  // // Slice width
-  // std::vector<shared_ptr<ng::Node>> slice_results;
-  // switch (format_to_int_map[tf_data_format]){
-  //   // NHWC
-  //   case 0:
-  //     for(auto result : height_result){
-  //       counter = 0;
-  //       // for each height_result, continue slice in the width dimension
-  //       while(counter < block_size){
-  //         std::vector<size_t> begin = {0, 0, counter * width_size,0};
-  //         std::vector<size_t> upper = {input_shape[0], height_size, counter * width_size + width_size, input_shape[3]};
-  //         slice_results.push_back(make_shared<ng::op::Slice>(result,begin,upper));
-  //         counter = counter + 1;
-  //       }
-  //     }
-  //   break;
-  //   // NCHW
-  //   case 1:
-  //     for(auto result : height_result){
-  //       counter = 0;
-  //       while(counter < block_size){
-  //         std::vector<size_t> begin = {0, 0, 0, counter * width_size};
-  //         std::vector<size_t> upper = {input_shape[0], input_shape[1], height_size, counter * width_size + width_size};
-  //         slice_results.push_back(make_shared<ng::op::Slice>(result,begin,upper));
-  //         counter = counter + 1;
-  //       }
-  //     }
-  //     break;
-  // }// end of switch width
-
-  // cout << "slice result size " << slice_results.size() << endl;
-  // // concat together the slice result
-  // switch (format_to_int_map[tf_data_format]){
-  //   // NHWC
-  //   case 0:
-  //     SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(slice_results,3));
-  //   break;
-  //   // NCHW
-  //   case 1:
-  //     SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(slice_results,1));
-  //   break;
-  // }// end of switch concat
 
   return Status::OK();
 }
