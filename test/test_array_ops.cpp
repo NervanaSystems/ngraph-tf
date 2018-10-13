@@ -284,20 +284,6 @@ TEST(ArrayOps, Slice) {
     OpExecuter opexecuter(root, "Slice", static_input_indexes, output_datatypes,
                           sess_run_fetchoutputs);
 
-
-    // vector<Tensor> tf_outputs;
-    // opexecuter.ExecuteOnTF(tf_outputs);
-    // for(auto t: tf_outputs){
-    //   PrintTensor(t);
-    //   input_data = t;
-    // }
-
-    // vector<Tensor> ngraph_outputs;
-    // opexecuter.ExecuteOnNGraph(ngraph_outputs);
-    // for(auto t: ngraph_outputs){
-    //   PrintTensor(t);
-    // }
-
     opexecuter.RunTest();
   }
 }  // end of op Slice
@@ -343,9 +329,9 @@ TEST(ArrayOps, SpaceToDepthToOneElement) {
 }  // end of op SpaceToDepthToOneElementOp
 
 // SpaceToDepth op
-TEST(ArrayOps, DISABLED_SpaceToDepthToMultipleElementsOp) {
+TEST(ArrayOps, SpaceToDepthToMultipleElementsOp) {
   std::map<std::vector<int64>, int> input_map;
-  input_map.insert(pair<std::vector<int64>, int>({1,2,4,1}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1,6,4,1}, 2));
   // input_map.insert(pair<std::vector<int64>, int>({1,2,2,3}, 2));
   // input_map.insert(pair<std::vector<int64>, int>({1,3,3,3}, 3));
   // input_map.insert(pair<std::vector<int64>, int>({1,10,10,5}, 10));
@@ -361,7 +347,11 @@ TEST(ArrayOps, DISABLED_SpaceToDepthToMultipleElementsOp) {
     Scope root = Scope::NewRootScope();
     Tensor input_data(DT_FLOAT, TensorShape(shape));
     //AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
-    AssignInputValues<float>(input_data, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0});
+    std::vector<float> l(24);
+    std::iota(l.begin(), l.end(), 1.0);
+    AssignInputValues<float>(input_data, l);
+    cout << input_data.SummarizeValue(100) << endl;
+
     PrintTensor(input_data);
 
     auto R = ops::SpaceToDepth(root, input_data, block_size);
@@ -372,16 +362,18 @@ TEST(ArrayOps, DISABLED_SpaceToDepthToMultipleElementsOp) {
     opexecuter.ExecuteOnTF(tf_outputs);
     cout << "TF result " << endl;
     for(auto t: tf_outputs){
-      PrintTensor(t);
+      //PrintTensor(t);
+      cout << t.SummarizeValue(100) << endl;
     }
 
     vector<Tensor> ngraph_outputs;
     opexecuter.ExecuteOnNGraph(ngraph_outputs);
-    cout << "Ngraph results " << endl;
+    cout << " Ngraph results " << endl;
     for(auto t: ngraph_outputs){
-      PrintTensor(t);
+      cout << t.SummarizeValue(100) << endl;
+      //PrintTensor(t);
     }
-    opexecuter.RunTest();
+    //opexecuter.RunTest();
   }  
 }  // end of op SpaceToDepthToMultipleElementsOp
 

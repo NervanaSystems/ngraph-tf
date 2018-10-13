@@ -2539,6 +2539,7 @@ static Status TranslateSpaceToDepthOp(
         return errors::InvalidArgument(
           "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VEC_C");
   }
+
   size_t height_size = height / block_size;
   size_t width_size = width / block_size;
   int counter = 0;
@@ -2600,7 +2601,7 @@ static Status TranslateSpaceToDepthOp(
     cout << "Slice width first, then slice height case" << endl;
     switch (format_to_int_map[tf_data_format]){
     // NHWC
-    case 0:
+    case 0:{
       cout << "NHWC case" << endl;
       cout << "slicing width " << endl;
 
@@ -2649,6 +2650,21 @@ static Status TranslateSpaceToDepthOp(
         }
       }
       SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(slice_results,3));
+      // cout << "slice result size " << slice_results.size() << endl;
+      // for(int i = 3; i < slice_results.size();i++){
+      //   SaveNgOp(ng_op_map, op->name(), slice_results[i]);
+      // }
+      // ng::AxisVector ng_axis_order;
+      // ng_axis_order.reserve(4);
+      // ng_axis_order.push_back(0);
+      // ng_axis_order.push_back(3);
+      // ng_axis_order.push_back(2);
+      // ng_axis_order.push_back(1);
+
+      // auto concated_result = make_shared<ngraph::op::Concat>(slice_results,1);
+      // SaveNgOp(ng_op_map, op->name(),
+      //      ng::builder::numpy_transpose(concated_result, ng_axis_order));
+    } // end of case 0
       break;
     // NCHW
     case 1:
