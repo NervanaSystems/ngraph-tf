@@ -2433,8 +2433,10 @@ Status QuantizeAndDequantizeV2Helper(const Node* op, const std::vector<const Ten
       //which means, unless we support pattern matching that accepts the ng min and max nodes, we have to declare inp_data tensor to be static
     }
 
+
     const int64 min_quantized = signed_input ? -(1ULL << (num_bits - 1)) : 0;
     const int64 max_quantized = min_quantized + ((1ULL << num_bits) - 1);
+
 
     const T scale_from_min_side = (min_quantized * min_range > 0)
                                       ? min_quantized / min_range
@@ -2443,20 +2445,20 @@ Status QuantizeAndDequantizeV2Helper(const Node* op, const std::vector<const Ten
                                       ? max_quantized / max_range
                                       : std::numeric_limits<T>::max();
 
-    /*
+
     T scale, inverse_scale;
     if (scale_from_min_side < scale_from_max_side) {
       scale = scale_from_min_side;
       inverse_scale = min_range / min_quantized;
-      max_range = max_quantized * inverse_scale;
+      //max_range = max_quantized * inverse_scale;
     } else {
       scale = scale_from_max_side;
       inverse_scale = max_range / max_quantized;
-      min_range = min_quantized * inverse_scale;
-    }*/
+      //min_range = min_quantized * inverse_scale;
+    }
 
-    *scale_out = scale_from_min_side < scale_from_max_side ? scale_from_min_side : scale_from_max_side;
-
+    *scale_out = inverse_scale;
+    // TODO: what of clamping?
     if (range_given){
 
     } else {
