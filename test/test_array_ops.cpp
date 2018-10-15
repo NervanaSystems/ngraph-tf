@@ -373,7 +373,7 @@ TEST(ArrayOps, SpaceToDepthToMultipleElementsOp) {
       cout << t.SummarizeValue(100) << endl;
       //PrintTensor(t);
     }
-    //opexecuter.RunTest();
+    opexecuter.RunTest();
   }  
 }  // end of op SpaceToDepthToMultipleElementsOp
 
