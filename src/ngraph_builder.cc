@@ -2401,6 +2401,145 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   */
 }
 
+// TODO: scale_out is float now, should be T
+template<typename T>
+Status QuantizeAndDequantizeV2Helper(const Node* op, const std::vector<const Tensor*>& static_input_map, const bool& range_given, const bool& signed_input, const int& num_bits, float* scale_out){
+
+  // TODO: currently handling only float, generalize later?
+    T min_range, max_range;
+    if (range_given){
+      std::vector<T> input_min, input_max;
+      TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &input_min));
+      TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &input_max));
+      if (input_min.size() != 1) {
+        return errors::InvalidArgument("QuantizeAndDequantizeV2 Op: input_min must be scalar. Got a vector of size, ", input_min.size());
+      }
+      if (input_max.size() != 1) {
+        return errors::InvalidArgument("QuantizeAndDequantizeV2 Op: input_max must be scalar. Got a vector of size, ", input_max.size());
+      }
+      min_range = input_min[0];
+      max_range = input_max[0];
+      if (min_range > max_range){
+        //return errors::InvalidArgument(
+        //    "Expected QuantizeAndDequantizeV2's input_min <= input_max but got, input_min = ", input_min, " and input_max = ", input_max);
+        return errors::InvalidArgument("Expected QuantizeAndDequantizeV2's input_min <= input_max");
+      }
+      //m = max(abs(input_min), abs(input_max));
+    } else{
+      //m = max(abs(min_elem(input)), abs(max_elem(input)));
+      //TODO implement this.
+      //Note to implement this we need:
+      //min = ng_min(inp_tensor); max = mg_max(inp_tensor).
+      //which means, unless we support pattern matching that accepts the ng min and max nodes, we have to declare inp_data tensor to be static
+    }
+
+    const int64 min_quantized = signed_input ? -(1ULL << (num_bits - 1)) : 0;
+    const int64 max_quantized = min_quantized + ((1ULL << num_bits) - 1);
+
+    const T scale_from_min_side = (min_quantized * min_range > 0)
+                                      ? min_quantized / min_range
+                                      : std::numeric_limits<T>::max();
+    const T scale_from_max_side = (max_quantized * max_range > 0)
+                                      ? max_quantized / max_range
+                                      : std::numeric_limits<T>::max();
+
+    /*
+    T scale, inverse_scale;
+    if (scale_from_min_side < scale_from_max_side) {
+      scale = scale_from_min_side;
+      inverse_scale = min_range / min_quantized;
+      max_range = max_quantized * inverse_scale;
+    } else {
+      scale = scale_from_max_side;
+      inverse_scale = max_range / max_quantized;
+      min_range = min_quantized * inverse_scale;
+    }*/
+
+    *scale_out = scale_from_min_side < scale_from_max_side ? scale_from_min_side : scale_from_max_side;
+
+    if (range_given){
+
+    } else {
+      //TODO implemenmt this
+    }
+
+    //TODO, finish the function
+    return Status::OK();
+}
+
+  static Status TranslateQuantizeAndDequantizeV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+    shared_ptr<ng::Node> ng_input;
+    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+
+    bool range_given;
+    if (GetNodeAttr(op->attrs(), "range_given", &range_given) != Status::OK()) {
+      NGRAPH_VLOG(3) << "range_given attribute not present, setting to false";
+      range_given = false;
+    }
+
+    bool signed_input;
+    if (GetNodeAttr(op->attrs(), "signed_input", &signed_input) != Status::OK()) {
+      NGRAPH_VLOG(3) << "signed_input attribute not present, setting to true";
+      signed_input = false;
+    }
+
+    int num_bits;
+    if (GetNodeAttr(op->attrs(), "num_bits", &num_bits) != Status::OK()) {
+      NGRAPH_VLOG(3) << "num_bits attribute not present, setting to 8";
+      num_bits = 8;
+    }
+
+    DataType dtype;
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
+    //T: float, double....not supported: bfloat16, half,
+
+    float scale;
+    ng::element::Type ng_r_et;
+    switch (dtype) {
+    case DT_FLOAT:
+      TF_RETURN_IF_ERROR(QuantizeAndDequantizeV2Helper<float>(op, static_input_map, range_given, signed_input, num_bits, &scale));
+      ng_r_et = ng::element::f32;
+      break;
+    case DT_DOUBLE:
+      TF_RETURN_IF_ERROR(QuantizeAndDequantizeV2Helper<double>(op, static_input_map, range_given, signed_input, num_bits, &scale));
+      ng_r_et = ng::element::f64;
+      break;
+    default:
+      return errors::InvalidArgument(
+          "Expected QuantizeAndDequantizeV2's datatype to be of DT_FLOAT or DT_DOUBLE but got ",
+          dtype);
+    }
+
+    // The quantized data type
+    ng::element::Type ng_q_et;
+    switch (num_bits) {
+      case 8:
+        ng_q_et = signed_input ? ng::element::i8 : ng::element::u8;
+        break;
+      default:
+        return errors::InvalidArgument(
+          "Expected QuantizeAndDequantizeV2's num_bits to be 8, but got ", num_bits);
+    }
+
+    auto ng_scale = std::make_shared<ng::op::Constant>(
+      ng_r_et, ng::Shape(), std::vector<float>({scale}));
+    auto ng_offset = std::make_shared<ng::op::Constant>(
+      ng_q_et, ng::Shape(), std::vector<int>({0}));
+
+    ng::op::Quantize::RoundMode ng_round_mode =
+      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+
+
+    auto ng_quant = make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(), ng_round_mode);
+    SaveNgOp(ng_op_map, op->name(), ng_quant);
+
+    SaveNgOp(ng_op_map, op->name(),
+          make_shared<ng::op::Dequantize>(make_shared<ng::op::GetOutputElement>(ng_quant, 0), ng_scale, ng_offset, ng_r_et, ng::AxisSet()));
+
+    return Status::OK();
+  }
 
  static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
@@ -3530,6 +3669,7 @@ const static std::map<
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
+        {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},

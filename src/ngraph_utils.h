@@ -182,6 +182,8 @@ const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes();
 // Returns an ArraySlice containing supported data types in the quantized domain
 const gtl::ArraySlice<DataType>& NGraphSupportedQuantizedDTypes();
 
+const gtl::ArraySlice<DataType>& NGraphRealDTypes();
+
 // Check to make sure the axis dimension for reduction are in within range.
 // Returns error if axis is out of range. Otherwise returns Status::OK().
 Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank);
