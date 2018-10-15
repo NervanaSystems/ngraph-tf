@@ -38,7 +38,7 @@ namespace ngraph_bridge {
 // associated with it. When the confirmation pass encounters a node of op "Op",
 // the confirmation function for "Op" first checks if this particular instance
 // of the op can be placed on nGraph, and returns "true" if placement is
-// allowed. This is followed by checks for deadness and input datatyoe of the
+// allowed. This is followed by checks for deadness and input datatype of the
 // op.
 
 // Each op that passes all the checks, has the attribute
@@ -111,6 +111,10 @@ static Status ConfirmationOk(
 //
 // Marks the input indices in "inputs" as static (meaning
 // that its value must be known at translation-to-nGraph time)
+//
+// Otherwise, it marks the zeroth input to the node as static (meaning
+// that its value must be known at translation-to-nGraph time, and accepts
+// placement.
 //
 static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
@@ -189,6 +193,22 @@ Status MarkForClustering(Graph* graph) {
   // does.
 
   static std::map<std::string, ConfirmationFunction> confirmation_function_map;
+
+  //
+  // A map of op types (e.g. "Add") to set_attribute functions. These can be
+  // used to set any additional attributes. For example:
+  //
+  //    confirmation_function_map["MyOp"] = [](Node* n) {
+  //     if(n->condition()){
+  //        T dummy=5;
+  //        n->AddAttr("_ngraph_dummy_attr", T);
+  //      }
+  //
+  //      vector<int32> static_input_index =5;
+  //      n->AddAttr("_ngraph_static_inputs", static_input_index);
+  //      return Status::OK();
+  //    };
+  //
 
   static std::map<std::string, SetAttributesFunction> set_attributes_map;
 
