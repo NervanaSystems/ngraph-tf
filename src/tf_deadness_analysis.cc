@@ -21,7 +21,7 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.cc
 
 *******************************************************************************/
 #include "ngraph_version_utils.h"
-#if (TF_VERSION_GEQ_1_11)
+#if (TF_ENABLE_DEADNESS_CHECK)
 
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/tensor_id.h"

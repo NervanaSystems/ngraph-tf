@@ -23,7 +23,7 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.h
 
 #include "ngraph_version_utils.h"
 
-#if (TF_VERSION_GEQ_1_11)
+#if (TF_ENABLE_DEADNESS_CHECK)
 #ifndef NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #define NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
 #include "tensorflow/core/graph/graph.h"
