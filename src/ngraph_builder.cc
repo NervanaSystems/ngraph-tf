@@ -2562,7 +2562,7 @@ static Status TranslateSpaceToDepthOp(
     while(counter_height < block_size){
       counter_width = 0;
       while(counter_width < block_size){
-        std::vector<size_t> begin = {0, 0, counter_height, counter_width, 0};
+        std::vector<size_t> begin = {0, 0, counter_height, counter_width};
         std::vector<size_t> strides = {1, 1, (size_t)block_size, (size_t)block_size};
         strided_slice_result.push_back(make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
         counter_width = counter_width + 1;

@@ -381,11 +381,11 @@ TEST(ArrayOps, SpaceToDepthToMultipleElementsOp) {
 TEST(ArrayOps, SpaceToDepthNCHW) {
   std::map<std::vector<int64>, int> input_map;
   input_map.insert(pair<std::vector<int64>, int>({1,1,2,2}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({1,10,5,5}, 5));
-  // input_map.insert(pair<std::vector<int64>, int>({1,20,3,3}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({2,3,6,3}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({10,10,10,10}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({2,1,15,3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({1,10,5,5}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({1,20,3,3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({2,3,6,3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10,10,10,10}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({2,1,15,3}, 3));
 
   vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -400,27 +400,38 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
     Scope root = Scope::NewRootScope();
     Tensor input_data(DT_FLOAT, TensorShape(shape));
     AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
-    //PrintTensor(input_data);
 
     auto R = ops::SpaceToDepth(root, input_data, block_size,attrs);
     std::vector<Output> sess_run_fetchoutputs = {R};
     OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes, output_datatypes,
                           sess_run_fetchoutputs);
-    vector<Tensor> tf_outputs;
-    opexecuter.ExecuteOnTF(tf_outputs);
-    cout << "TF result " << endl;
-    for(auto t: tf_outputs){
-      //PrintTensor(t);
-      cout << t.SummarizeValue(100) << endl;
-    }
 
-    
-    // opexecuter.RunTest();
+    vector<Tensor> ngraph_outputs;
+    opexecuter.ExecuteOnNGraph(ngraph_outputs);
+    // cout << "TF result " << endl;
+    // for(auto t: tf_outputs){
+    //   //PrintTensor(t);
+    //   cout << t.SummarizeValue(100) << endl;
+    // }
+
+    Scope tf_scope = Scope::NewRootScope();
+    auto input_data_NHWC =
+      ops::Transpose(tf_scope, input_data, {0, 2, 3, 1});
+    auto r_tf =
+      ops::SpaceToDepth(tf_scope, input_data_NHWC, block_size);
+    auto r_tf_NCHW = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});  
+    vector<Output> sess_run_fetchoutputs_tf = {r_tf_NCHW};
+    OpExecuter opexecuter_tf(tf_scope, "SpaceToDepth",
+                            static_input_indexes, output_datatypes,
+                            sess_run_fetchoutputs_tf);
+
+    vector<Tensor> tf_outputs;
+    opexecuter_tf.ExecuteOnTF(tf_outputs);
+
+    // Compare NGraph and TF Outputs
+    Compare(tf_outputs, ngraph_outputs);
   }  
 }  // end of op SpaceToDepthToOneElementOp
-
-
-
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
