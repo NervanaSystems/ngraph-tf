@@ -2531,9 +2531,8 @@ Status QuantizeAndDequantizeV2Helper(const Node* op, const std::vector<const Ten
     ng::op::Quantize::RoundMode ng_round_mode =
       ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
 
-
     auto ng_quant = make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(), ng_round_mode);
-    SaveNgOp(ng_op_map, op->name(), ng_quant);
+    //SaveNgOp(ng_op_map, op->name(), ng_quant);
 
     SaveNgOp(ng_op_map, op->name(),
           make_shared<ng::op::Dequantize>(make_shared<ng::op::GetOutputElement>(ng_quant, 0), ng_scale, ng_offset, ng_r_et, ng::AxisSet()));
