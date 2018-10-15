@@ -2347,8 +2347,8 @@ static Status TranslateDequantizeOp(
 
 static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_type,
                                const bool& scaled,
-                               const int min_range,
-                               const int max_range,
+                               const float min_range,
+                               const float max_range,
                                float* scale,
                                int* offset) {
   int scaled_elide = scaled ? 1 : 0;
@@ -2385,18 +2385,20 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
     adj_max_range = range_boundary;
   } else {
     // TODO: Adjust range or fail?
-    adj_min_range = std::min(min_range, 0);
-    adj_max_range = std::max(max_range, 0);
+    adj_min_range = std::min(min_range, 0.0f);
+    adj_max_range = std::max(max_range, 0.0f);
   }
 
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
   *offset = min_type - std::lround(adj_min_range / *scale);
 
+  /*
   cout << "XXXX " << *offset << " " << *scale << "\n";
   cout << "num_bits: " << num_bits << " unsigned_type: " << unsigned_type << " scaled: " << scaled << " min_range:" << min_range << " max_range: " << max_range << "\n" ;
   cout << "scaled_elide: " << scaled_elide << " min_type: " << min_type << " raise_to: " << raise_to <<" max_type: " << max_type << "\n";
   cout << "adj_min_range: " << adj_min_range << " adj_max_range: " << adj_max_range << "\n";
+  */
 }
 
 
@@ -2406,7 +2408,7 @@ static void ComputeScaleOffsetFolded(const uint& num_bits, const bool& unsigned_
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
-  std::vector<int> ng_min, ng_max;
+  std::vector<float> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   //TODO: Assert size of ng_min, ng_max is 1
@@ -2504,7 +2506,7 @@ static Status TranslateDequantizeOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
 
-  std::vector<int> ng_min, ng_max;
+  std::vector<float> ng_min, ng_max;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
   //TODO: Assert size of ng_min, ng_max is 1
