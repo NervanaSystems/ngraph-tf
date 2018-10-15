@@ -112,6 +112,10 @@ static Status ConfirmationOk(
 // Marks the input indices in "inputs" as static (meaning
 // that its value must be known at translation-to-nGraph time)
 //
+// Otherwise, it marks the zeroth input to the node as static (meaning
+// that its value must be known at translation-to-nGraph time, and accepts
+// placement.
+//
 static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
 }
