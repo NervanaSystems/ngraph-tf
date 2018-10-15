@@ -109,20 +109,16 @@ static Status ConfirmationOk(
 }
 
 //
-// Marks the input indices in "inputs" as static (meaning
-// that its value must be known at translation-to-nGraph time)
-//
-// Otherwise, it marks the zeroth input to the node as static (meaning
-// that its value must be known at translation-to-nGraph time, and accepts
-// placement.
-//
+// Marks the input indices in "inputs" as static
 static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
 }
 
-// Tags the input indices given in static_input_indices as static. A negative
-// value in static_input_indices indicates that the input index is counted from
-// the right.
+// Marks the input indices given in static_input_indices as static, i.e., inputs
+// that must be driven either by an _Arg or by a Const in the encapsulated
+// graph (meaning that its value must be known at translation-to-nGraph time). A
+// negative value in static_input_indices indicates that the input index is
+// counted from the right.
 static SetAttributesFunction SetStaticInputs(
     const std::vector<int32>& static_input_indices = {}) {
   auto cf = [static_input_indices](Node* n) {
@@ -200,8 +196,8 @@ Status MarkForClustering(Graph* graph) {
   //
   //    confirmation_function_map["MyOp"] = [](Node* n) {
   //     if(n->condition()){
-  //        T dummy=5;
-  //        n->AddAttr("_ngraph_dummy_attr", T);
+  //        int dummy=5;
+  //        n->AddAttr("_ngraph_dummy_attr", dummy);
   //      }
   //
   //      vector<int32> static_input_index =5;
