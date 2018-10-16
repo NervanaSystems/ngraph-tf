@@ -24,6 +24,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
+#include "ngraph_skip_assert.h"
 
 #include "tf_graph_writer.h"
 
@@ -201,6 +202,15 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     // If requested, dump unmarked graphs.
     if (DumpUnmarkedGraphs()) {
       DumpGraphs(options, idx, "unmarked", "Unmarked Graph");
+    }
+
+    // Skip "Assert" if specifically asked by the user
+    if (std::getenv("NGRAPH_TF_SKIP_ASSERT") != nullptr) {
+      TF_RETURN_IF_ERROR(SkipAssert(options.graph->get()));
+      // If requested, dump unmarked graphs without asserts
+      if (DumpUnmarkedGraphs()) {
+        DumpGraphs(options, idx, "assert_skipped", "Unmarked Graph without Assert");
+      }
     }
 
     // 1. Mark for clustering then, if requested, dump the graphs.
