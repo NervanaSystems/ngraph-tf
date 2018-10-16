@@ -305,10 +305,8 @@ TEST(NNOps, Conv2DBackpropFilterNHWCValid) {
 TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   // Input NHWC :[batch, in_channels, in_height, in_width]
   string padding_type = "SAME";
-  initializer_list<int32> input_size_NCHW = {1, 2, 7,
-                                             6};  // an integer vector
-  initializer_list<int32> input_size_NHWC = {1, 7, 6,
-                                             2}; 
+  initializer_list<int32> input_size_NCHW = {1, 2, 7, 6};  // an integer vector
+  initializer_list<int32> input_size_NHWC = {1, 7, 6, 2};
 
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   vector<int64> filter_size_HWIO = {3, 3, 2, 2};
@@ -354,8 +352,8 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   auto r_tf =
       ops::Conv2DBackpropInput(tf_scope, input_data_NHWC, filter,
                                output_delta_NHWC, stride_NHWC, padding_type);
-  
-  // Need to transpose the TF output to NCHW 
+
+  // Need to transpose the TF output to NCHW
   auto tf_output_transposed = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
   vector<Output> sess_run_fetchoutputs_tf = {tf_output_transposed};
   OpExecuter opexecuter_tf(tf_scope, "Conv2DBackpropInput",
@@ -364,7 +362,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
 
   vector<Tensor> tf_outputs;
   opexecuter_tf.ExecuteOnTF(tf_outputs);
- 
+
   // Compare NGraph and TF Outputs
   Compare(tf_outputs, ngraph_outputs);
 }  // end of op Conv2DBackpropInputNCHWSame
@@ -420,14 +418,11 @@ TEST(NNOps, Conv2DBackpropInputNCHWValid) {
   auto input_data_NHWC = ops::Const(tf_scope, input_size_NHWC);
   auto output_delta_NHWC = ops::Transpose(tf_scope, output_delta, {0, 2, 3, 1});
 
-  //   ops::Conv2DBackpropInput::Attrs op_attr_nhwc;
-  //   op_attr_nchw = op_attr_nchw.DataFormat("NHWC");
-  //   op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
   auto r_tf =
       ops::Conv2DBackpropInput(tf_scope, input_data_NHWC, filter,
                                output_delta_NHWC, stride_NHWC, padding_type);
 
-// Need to transpose the TF output to NCHW 
+  // Need to transpose the TF output to NCHW
   auto tf_output_transposed = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
   vector<Output> sess_run_fetchoutputs_tf = {tf_output_transposed};
   OpExecuter opexecuter_tf(tf_scope, "Conv2DBackpropInput",
@@ -486,9 +481,9 @@ TEST(NNOps, Conv2DBackpropInputNHWC) {
 
     opexecuter.RunTest();
   }
-}  // end of op Conv2DBackpropInput
+}  // end of op Conv2DBackpropInputNHWC
 
-// Test case for TF default data format: NHWC
+// Test for Conv2DBackpropInput with dilation parameter with NHWC
 TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
   // Input NHWC :[batch, in_height, in_width, in_channels]
   std::initializer_list<int> input_size_NHWC = {1, 7, 6,
@@ -536,7 +531,7 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
 
     opexecuter.RunTest();
   }
-}  // end of op Conv2DBackpropInputWithDilation
+}  // end of op Conv2DBackpropInputNHWCWithDilation
 
 // FusedBatchNormGrad : Gradient for batch normalization
 // On TF CPU: only supports NHWC
