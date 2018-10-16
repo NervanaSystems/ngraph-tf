@@ -71,7 +71,7 @@ void PrintTensor(const Tensor& T1) {
 }
 
 // Only displays values in tensor without shape information etc.
-void PrintTensorAllValues(const Tensor& T1, int64 max_entries){
+void PrintTensorAllValues(const Tensor& T1, int64 max_entries) {
   LOG(INFO) << "all tensor values" << T1.SummarizeValue(max_entries) << endl;
 }
 

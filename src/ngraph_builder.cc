@@ -2480,9 +2480,8 @@ static Status TranslateSpaceToDepthOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input));
-  
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
   // Get the attributes
   int64 block_size;
   std::string tf_data_format;
@@ -2491,86 +2490,92 @@ static Status TranslateSpaceToDepthOp(
 
   // The input tensor's height and width must be divisible by block_size
   ng::Shape input_shape = ng_input->get_shape();
-  std::map<std::string, int> format_to_int_map =
-  {
-      { "NHWC", 0 },
-      { "NCHW", 1 },
-      { "NCHW_VECT_C", 1}
-  };
+  std::map<std::string, int> format_to_int_map = {
+      {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
+
+  // Error checking
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-      if (input_shape[1] % block_size != 0){
+      if (input_shape[1] % block_size != 0) {
         return errors::InvalidArgument(
-          "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
-          , block_size);
+            "Input tensor's height ,", input_shape[1],
+            " is not divisible by block_size ", block_size);
       }
-      
-      if(input_shape[2] % block_size != 0){
-        return errors::InvalidArgument(
-          "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
-          , block_size);
-      }
-      break;
-      // NCHW or NCHW_VEC_C
-      case 1:
-        if (input_shape[2] % block_size != 0){
-        return errors::InvalidArgument(
-          "Input tensor's height ," , input_shape[1], " is not divisible by block_size "
-          , block_size);
-      }
-      
-      if(input_shape[3] % block_size != 0){
-        return errors::InvalidArgument(
-          "Input tensor's width ," , input_shape[2], " is not divisible by block_size "
-          , block_size);
+
+      if (input_shape[2] % block_size != 0) {
+        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
+                                       " is not divisible by block_size ",
+                                       block_size);
       }
       break;
-      
-      default:
+    // NCHW or NCHW_VEC_C
+    case 1:
+      if (input_shape[2] % block_size != 0) {
         return errors::InvalidArgument(
+            "Input tensor's height ,", input_shape[1],
+            " is not divisible by block_size ", block_size);
+      }
+
+      if (input_shape[3] % block_size != 0) {
+        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
+                                       " is not divisible by block_size ",
+                                       block_size);
+      }
+      break;
+
+    default:
+      return errors::InvalidArgument(
           "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VEC_C");
   }
 
-  std::vector<size_t> upper = {input_shape[0],input_shape[1],input_shape[2],input_shape[3]};
-  std::vector<std::shared_ptr<ng::Node>> strided_slice_result; 
+  // Upper indexes will be the same for all strided slices
+  std::vector<size_t> upper = {input_shape[0], input_shape[1], input_shape[2],
+                               input_shape[3]};
+  std::vector<std::shared_ptr<ng::Node>> strided_slice_result;
   size_t counter_width = 0;
   size_t counter_height = 0;
 
-  switch(format_to_int_map[tf_data_format]){
+  switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-    counter_width = 0;
-    counter_height = 0;
-    while(counter_height < block_size){
       counter_width = 0;
-      while(counter_width < block_size){
-        std::vector<size_t> begin = {0, counter_height, counter_width, 0};
-        std::vector<size_t> strides = {1, (size_t)block_size, (size_t)block_size, 1};
-        strided_slice_result.push_back(make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
-        counter_width = counter_width + 1;
+      counter_height = 0;
+      while (counter_height < block_size) {
+        counter_width = 0;
+        while (counter_width < block_size) {
+          std::vector<size_t> begin = {0, counter_height, counter_width, 0};
+          std::vector<size_t> strides = {1, (size_t)block_size,
+                                         (size_t)block_size, 1};
+          strided_slice_result.push_back(
+              make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
+          counter_width = counter_width + 1;
+        }
+        counter_height = counter_height + 1;
       }
-      counter_height = counter_height + 1;
-    }
-    SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(strided_slice_result,3));
-    break;
+      SaveNgOp(ng_op_map, op->name(),
+               make_shared<ngraph::op::Concat>(strided_slice_result, 3));
+      break;
 
     // NCHW
     case 1:
-    counter_width = 0;
-    counter_height = 0;
-    while(counter_height < block_size){
       counter_width = 0;
-      while(counter_width < block_size){
-        std::vector<size_t> begin = {0, 0, counter_height, counter_width};
-        std::vector<size_t> strides = {1, 1, (size_t)block_size, (size_t)block_size};
-        strided_slice_result.push_back(make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
-        counter_width = counter_width + 1;
+      counter_height = 0;
+      while (counter_height < block_size) {
+        counter_width = 0;
+        while (counter_width < block_size) {
+          std::vector<size_t> begin = {0, 0, counter_height, counter_width};
+          std::vector<size_t> strides = {1, 1, (size_t)block_size,
+                                         (size_t)block_size};
+          strided_slice_result.push_back(
+              make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
+          counter_width = counter_width + 1;
+        }
+        counter_height = counter_height + 1;
       }
-      counter_height = counter_height + 1;
-    }
-    SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(strided_slice_result,1));
-    break;
+      SaveNgOp(ng_op_map, op->name(),
+               make_shared<ngraph::op::Concat>(strided_slice_result, 1));
+      break;
   }
   return Status::OK();
 }
