@@ -1368,9 +1368,9 @@ static Status TranslateDepthToSpaceOp(
   ng::Shape input_shape = ng_input->get_shape();
   std::map<std::string, int> format_to_int_map = {
       {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
-  
+
   int channel_dimension;
-  int num_spatial_dimensions = 2; // H, W are spatial dimensions
+  int num_spatial_dimensions = 2;  // H, W are spatial dimensions
 
   // Error checking : depth must be divisible by square of the block_size
   switch (format_to_int_map[tf_data_format]) {
@@ -1382,7 +1382,7 @@ static Status TranslateDepthToSpaceOp(
             " is not divisible by square of the block_size ", block_size);
       }
       channel_dimension = 3;
-    break;
+      break;
     // NCHW or NCHW_VEC_C
     case 1:
       if (input_shape[1] % (block_size * block_size) != 0) {
@@ -1391,7 +1391,7 @@ static Status TranslateDepthToSpaceOp(
             " is not divisible by square of the block_size ", block_size);
       }
       channel_dimension = 1;
-    break;
+      break;
     default:
       return errors::InvalidArgument(
           "DepthToSpace supported data format is NCHW, NHWC, or NCHW_VECT_C");
@@ -1405,80 +1405,81 @@ static Status TranslateDepthToSpaceOp(
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0: {
-      reshape_shape.push_back(input_shape[0]); // N dimension
-      for(int i = 0; i < num_spatial_dimensions; i++){
-        reshape_shape.push_back(input_shape[i+1]);
+      reshape_shape.push_back(input_shape[0]);  // N dimension
+      for (int i = 0; i < num_spatial_dimensions; i++) {
+        reshape_shape.push_back(input_shape[i + 1]);
       }
       int64 num_blocks = 1;
-      for(int i = 0; i < num_spatial_dimensions; i++){
+      for (int i = 0; i < num_spatial_dimensions; i++) {
         reshape_shape.push_back(block_size);
         num_blocks *= block_size;
       }
       reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
 
       ng_transpose_shape.push_back(0);
-      for(int i = 0; i < num_spatial_dimensions; i++){
+      for (int i = 0; i < num_spatial_dimensions; i++) {
         ng_transpose_shape.push_back(i + 1);
         ng_transpose_shape.push_back(i + 1 + num_spatial_dimensions);
       }
       ng_transpose_shape.push_back(channel_dimension + num_spatial_dimensions);
-      
+
       output_shape.push_back(input_shape[0]);
-      for(int i = 0; i < num_spatial_dimensions; i++){
+      for (int i = 0; i < num_spatial_dimensions; i++) {
         output_shape.push_back(input_shape[i + 1] * block_size);
       }
       output_shape.push_back(input_shape[channel_dimension] / num_blocks);
       break;
-    } // end of case NHWC
+    }  // end of case NHWC
     // NCHW
-    case 1:{
-     int64 num_blocks = 1;
-     reshape_shape.push_back(input_shape[0]); // N dimension
-     for(int i = 0; i < num_spatial_dimensions; i++){
+    case 1: {
+      int64 num_blocks = 1;
+      reshape_shape.push_back(input_shape[0]);  // N dimension
+      for (int i = 0; i < num_spatial_dimensions; i++) {
         reshape_shape.push_back(block_size);
         num_blocks *= block_size;
-     }
-    reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
+      }
+      reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
 
-    for(int i = 0; i < num_spatial_dimensions; i++){
-      reshape_shape.push_back(input_shape[i+2]);
-    }
+      for (int i = 0; i < num_spatial_dimensions; i++) {
+        reshape_shape.push_back(input_shape[i + 2]);
+      }
 
-    ng_transpose_shape.push_back(0);
-    ng_transpose_shape.push_back(1 + num_spatial_dimensions);
-    for(int i = 0; i < num_spatial_dimensions; i++){
-      ng_transpose_shape.push_back(i + 2 + num_spatial_dimensions);
-      ng_transpose_shape.push_back(i + 1);
-    }
-    
-    output_shape.push_back(input_shape[0]);
-    output_shape.push_back(input_shape[channel_dimension] / num_blocks);
-    for(int i = 0; i < num_spatial_dimensions; i++){
-      output_shape.push_back(input_shape[i + 2] * block_size);
-    }
-    break;
-    } // end of case NCHW
+      ng_transpose_shape.push_back(0);
+      ng_transpose_shape.push_back(1 + num_spatial_dimensions);
+      for (int i = 0; i < num_spatial_dimensions; i++) {
+        ng_transpose_shape.push_back(i + 2 + num_spatial_dimensions);
+        ng_transpose_shape.push_back(i + 1);
+      }
+
+      output_shape.push_back(input_shape[0]);
+      output_shape.push_back(input_shape[channel_dimension] / num_blocks);
+      for (int i = 0; i < num_spatial_dimensions; i++) {
+        output_shape.push_back(input_shape[i + 2] * block_size);
+      }
+      break;
+    }  // end of case NCHW
   }
-  
+
   ng::Shape ng_reshape_shape(reshape_shape.size());
-  for(int i = 0; i < reshape_shape.size(); i++){
+  for (int i = 0; i < reshape_shape.size(); i++) {
     ng_reshape_shape[i] = reshape_shape[i];
   }
   ng::AxisVector ng_axis_order(input_shape.size());
   std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-  auto reshaped = make_shared<ng::op::Reshape>(ng_input, ng_axis_order,
-                                           ng_reshape_shape);
+  auto reshaped =
+      make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_reshape_shape);
 
   auto transposed = ng::builder::numpy_transpose(reshaped, ng_transpose_shape);
 
   ng::Shape ng_output_shape(output_shape.size());
-  for(int i = 0; i < output_shape.size(); i++){
+  for (int i = 0; i < output_shape.size(); i++) {
     ng_output_shape[i] = output_shape[i];
   }
   ng::AxisVector ng_axis_order_second_reshape(transposed->get_shape().size());
-  std::iota(ng_axis_order_second_reshape.begin(), ng_axis_order_second_reshape.end(), 0);
-  auto final_reshape = make_shared<ng::op::Reshape>(transposed, ng_axis_order_second_reshape,
-                                           ng_output_shape);
+  std::iota(ng_axis_order_second_reshape.begin(),
+            ng_axis_order_second_reshape.end(), 0);
+  auto final_reshape = make_shared<ng::op::Reshape>(
+      transposed, ng_axis_order_second_reshape, ng_output_shape);
   SaveNgOp(ng_op_map, op->name(), final_reshape);
 
   return Status::OK();
