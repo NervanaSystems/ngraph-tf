@@ -62,7 +62,7 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
   return Status::OK();
 }
 
-#if (TF_ENABLE_DEADNESS_CHECK)
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
 // Checks if the node's inputs have mismatching deadness
 static Status DeadnessOk(Node* node,
                          std::unique_ptr<DeadnessAnalysis>* deadness_analyzer,
@@ -474,7 +474,7 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
-#if (TF_ENABLE_DEADNESS_CHECK)
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
   std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
   TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
 #endif
@@ -492,7 +492,7 @@ Status MarkForClustering(Graph* graph) {
         break;
       }
 
-#if (TF_ENABLE_DEADNESS_CHECK)
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
       // check deadness
       bool deadness_ok = false;
       TF_RETURN_IF_ERROR(DeadnessOk(node, &deadness_analyzer, deadness_ok));
