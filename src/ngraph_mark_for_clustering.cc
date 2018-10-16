@@ -227,6 +227,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["DepthToSpace"]["T"] = NGraphDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Equal"]["T"] = NGraphDTypes();
       type_constraint_map["Exp"]["T"] = NGraphNumericDTypes();
@@ -334,6 +335,8 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction({1});
       confirmation_functions["Conv2DBackpropInput"] =
           SimpleConfirmationFunction({0});
+      confirmation_functions["DepthToSpace"] =
+          SimpleConfirmationFunction();
       confirmation_functions["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
       confirmation_functions["Equal"] = SimpleConfirmationFunction();
