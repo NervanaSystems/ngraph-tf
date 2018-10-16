@@ -447,118 +447,6 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
       type_constraint_map["Unpack"]["T"] = NGraphDTypes();
 
-<<<<<<< HEAD
-      //
-      // Initialize confirmation function map.
-      //
-      // Please keep these in alphabetical order by op name.
-      //
-      confirmation_functions["Abs"] = SimpleConfirmationFunction();
-      confirmation_functions["Add"] = SimpleConfirmationFunction();
-      confirmation_functions["AddN"] = SimpleConfirmationFunction();
-      confirmation_functions["Any"] = SimpleConfirmationFunction({1});
-      confirmation_functions["All"] = SimpleConfirmationFunction({1});
-      confirmation_functions["ArgMax"] = SimpleConfirmationFunction({1});
-      confirmation_functions["ArgMin"] = SimpleConfirmationFunction({1});
-      confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
-      confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
-      confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
-      confirmation_functions["BiasAdd"] = SimpleConfirmationFunction();
-      confirmation_functions["BiasAddGrad"] = SimpleConfirmationFunction();
-      confirmation_functions["Cast"] = SimpleConfirmationFunction();
-      confirmation_functions["ConcatV2"] = SimpleConfirmationFunction({-1});
-      confirmation_functions["Const"] = SimpleConfirmationFunction();
-      confirmation_functions["Conv2D"] = SimpleConfirmationFunction();
-      confirmation_functions["Conv2DBackpropFilter"] =
-          SimpleConfirmationFunction({1});
-      confirmation_functions["Conv2DBackpropInput"] =
-          SimpleConfirmationFunction({0});
-      confirmation_functions["DepthwiseConv2dNative"] =
-          SimpleConfirmationFunction();
-      confirmation_functions["Dequantize"] = SimpleConfirmationFunction({1, 2});
-      confirmation_functions["Equal"] = SimpleConfirmationFunction();
-      confirmation_functions["Exp"] = SimpleConfirmationFunction();
-      confirmation_functions["ExpandDims"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Fill"] = SimpleConfirmationFunction({0});
-      confirmation_functions["Floor"] = SimpleConfirmationFunction();
-      confirmation_functions["FloorDiv"] = SimpleConfirmationFunction();
-      confirmation_functions["FloorMod"] = SimpleConfirmationFunction();
-      confirmation_functions["FusedBatchNorm"] = SimpleConfirmationFunction();
-      confirmation_functions["FusedBatchNormGrad"] = [](Node* n, bool* result) {
-        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
-        return Status::OK();
-      };
-      confirmation_functions["Greater"] = SimpleConfirmationFunction();
-      confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
-      confirmation_functions["HorovodAllreduce"] = SimpleConfirmationFunction();
-      confirmation_functions["Identity"] = SimpleConfirmationFunction();
-      confirmation_functions["L2Loss"] = SimpleConfirmationFunction();
-      confirmation_functions["Less"] = SimpleConfirmationFunction();
-      confirmation_functions["LessEqual"] = SimpleConfirmationFunction();
-      confirmation_functions["Log"] = SimpleConfirmationFunction();
-      confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
-      confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
-      confirmation_functions["LogicalOr"] = SimpleConfirmationFunction();
-      confirmation_functions["MatMul"] = SimpleConfirmationFunction();
-      confirmation_functions["Max"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Maximum"] = SimpleConfirmationFunction();
-      confirmation_functions["MaxPool"] = SimpleConfirmationFunction();
-      confirmation_functions["MaxPoolGrad"] = SimpleConfirmationFunction();
-      confirmation_functions["Mean"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Min"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Minimum"] = SimpleConfirmationFunction();
-      confirmation_functions["Mul"] = SimpleConfirmationFunction();
-      confirmation_functions["Neg"] = SimpleConfirmationFunction();
-      confirmation_functions["Pad"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Pow"] = SimpleConfirmationFunction();
-      confirmation_functions["PreventGradient"] = SimpleConfirmationFunction();
-      confirmation_functions["Prod"] = SimpleConfirmationFunction({1});
-      confirmation_functions["QuantizeV2"] = SimpleConfirmationFunction({1, 2});
-      confirmation_functions["RealDiv"] = SimpleConfirmationFunction();
-      confirmation_functions["Reciprocal"] = SimpleConfirmationFunction();
-      confirmation_functions["Relu"] = SimpleConfirmationFunction();
-      confirmation_functions["Relu6"] = SimpleConfirmationFunction();
-      confirmation_functions["ReluGrad"] = SimpleConfirmationFunction();
-      confirmation_functions["Reshape"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Rsqrt"] = SimpleConfirmationFunction();
-      confirmation_functions["Shape"] = SimpleConfirmationFunction();
-      confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
-      confirmation_functions["SigmoidGrad"] = SimpleConfirmationFunction();
-      confirmation_functions["Sign"] = SimpleConfirmationFunction();
-      confirmation_functions["Size"] = SimpleConfirmationFunction();
-      confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
-      confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
-      confirmation_functions["Softmax"] = SimpleConfirmationFunction();
-      confirmation_functions["SparseSoftmaxCrossEntropyWithLogits"] =
-          SimpleConfirmationFunction();
-      confirmation_functions["Split"] = SimpleConfirmationFunction({0});
-      confirmation_functions["SplitV"] = SimpleConfirmationFunction({1, 2});
-      confirmation_functions["Square"] = SimpleConfirmationFunction();
-      confirmation_functions["SquaredDifference"] =
-          SimpleConfirmationFunction();
-      confirmation_functions["Squeeze"] = SimpleConfirmationFunction();
-      confirmation_functions["StridedSlice"] = [](Node* n, bool* result) {
-        // Reject if "new_axis_mask" is set.
-        int tf_new_axis_mask;
-        TF_RETURN_IF_ERROR(
-            GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
-        if (tf_new_axis_mask != 0) {
-          *result = false;
-          return Status::OK();
-        }
-
-        return SimpleConfirmationFunction({1, 2, 3})(n, result);
-      };
-      confirmation_functions["Pack"] = SimpleConfirmationFunction();
-      confirmation_functions["Sub"] = SimpleConfirmationFunction();
-      confirmation_functions["Sum"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Tanh"] = SimpleConfirmationFunction();
-      confirmation_functions["TanhGrad"] = SimpleConfirmationFunction();
-      confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
-      confirmation_functions["Unpack"] = SimpleConfirmationFunction();
-      confirmation_functions["ZerosLike"] = SimpleConfirmationFunction();
-=======
       // Set Additional Attributes (if any)
       set_attributes_map["Any"] = SetStaticInputs({1});
       set_attributes_map["All"] = SetStaticInputs({1});
@@ -583,7 +471,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Sum"] = SetStaticInputs({1});
       set_attributes_map["Tile"] = SetStaticInputs({1});
       set_attributes_map["Transpose"] = SetStaticInputs({1});
->>>>>>> master
 
       initialized = true;
     }
