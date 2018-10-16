@@ -1368,91 +1368,119 @@ static Status TranslateDepthToSpaceOp(
   ng::Shape input_shape = ng_input->get_shape();
   std::map<std::string, int> format_to_int_map = {
       {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
+  
+  int channel_dimension;
+  int num_spatial_dimensions = 2; // H, W are spatial dimensions
 
-  // Error checking
+  // Error checking : depth must be divisible by square of the block_size
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-      if (input_shape[1] % block_size != 0) {
+      if (input_shape[3] % (block_size * block_size) != 0) {
         return errors::InvalidArgument(
-            "Input tensor's height ,", input_shape[1],
-            " is not divisible by block_size ", block_size);
+            "Input tensor's depth dimension ,", input_shape[3],
+            " is not divisible by square of the block_size ", block_size);
       }
-
-      if (input_shape[2] % block_size != 0) {
-        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
-                                       " is not divisible by block_size ",
-                                       block_size);
-      }
-      break;
+      channel_dimension = 3;
+    break;
     // NCHW or NCHW_VEC_C
     case 1:
-      if (input_shape[2] % block_size != 0) {
+      if (input_shape[1] % (block_size * block_size) != 0) {
         return errors::InvalidArgument(
-            "Input tensor's height ,", input_shape[1],
-            " is not divisible by block_size ", block_size);
+            "Input tensor's depth dimension ,", input_shape[3],
+            " is not divisible by square of the block_size ", block_size);
       }
-
-      if (input_shape[3] % block_size != 0) {
-        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
-                                       " is not divisible by block_size ",
-                                       block_size);
-      }
-      break;
-
+      channel_dimension = 1;
+    break;
     default:
       return errors::InvalidArgument(
-          "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VEC_C");
+          "DepthToSpace supported data format is NCHW, NHWC, or NCHW_VECT_C");
   }
 
   // Upper indexes will be the same for all strided slices
-  std::vector<size_t> upper = {input_shape[0], input_shape[1], input_shape[2],
-                               input_shape[3]};
-  std::vector<std::shared_ptr<ng::Node>> strided_slice_result;
-  size_t counter_width = 0;
-  size_t counter_height = 0;
+  std::vector<int64> reshape_shape;
+  ng::AxisVector ng_transpose_shape;
+  std::vector<int64> output_shape;
 
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
-    case 0:
-      counter_width = 0;
-      counter_height = 0;
-      while (counter_height < block_size) {
-        counter_width = 0;
-        while (counter_width < block_size) {
-          std::vector<size_t> begin = {0, counter_height, counter_width, 0};
-          std::vector<size_t> strides = {1, (size_t)block_size,
-                                         (size_t)block_size, 1};
-          strided_slice_result.push_back(
-              make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
-          counter_width = counter_width + 1;
-        }
-        counter_height = counter_height + 1;
+    case 0: {
+      reshape_shape.push_back(input_shape[0]); // N dimension
+      for(int i = 0; i < num_spatial_dimensions; i++){
+        reshape_shape.push_back(input_shape[i+1]);
       }
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ngraph::op::Concat>(strided_slice_result, 3));
-      break;
+      int64 num_blocks = 1;
+      for(int i = 0; i < num_spatial_dimensions; i++){
+        reshape_shape.push_back(block_size);
+        num_blocks *= block_size;
+      }
+      reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
 
-    // NCHW
-    case 1:
-      counter_width = 0;
-      counter_height = 0;
-      while (counter_height < block_size) {
-        counter_width = 0;
-        while (counter_width < block_size) {
-          std::vector<size_t> begin = {0, 0, counter_height, counter_width};
-          std::vector<size_t> strides = {1, 1, (size_t)block_size,
-                                         (size_t)block_size};
-          strided_slice_result.push_back(
-              make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
-          counter_width = counter_width + 1;
-        }
-        counter_height = counter_height + 1;
+      ng_transpose_shape.push_back(0);
+      for(int i = 0; i < num_spatial_dimensions; i++){
+        ng_transpose_shape.push_back(i + 1);
+        ng_transpose_shape.push_back(i + 1 + num_spatial_dimensions);
       }
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ngraph::op::Concat>(strided_slice_result, 1));
+      ng_transpose_shape.push_back(channel_dimension + num_spatial_dimensions);
+      
+      output_shape.push_back(input_shape[0]);
+      for(int i = 0; i < num_spatial_dimensions; i++){
+        output_shape.push_back(input_shape[i + 1] * block_size);
+      }
+      output_shape.push_back(input_shape[channel_dimension] / num_blocks);
       break;
+    } // end of case NHWC
+    // NCHW
+    case 1:{
+     int64 num_blocks = 1;
+     reshape_shape.push_back(input_shape[0]); // N dimension
+     for(int i = 0; i < num_spatial_dimensions; i++){
+        reshape_shape.push_back(block_size);
+        num_blocks *= block_size;
+     }
+    reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
+
+    for(int i = 0; i < num_spatial_dimensions; i++){
+      reshape_shape.push_back(input_shape[i+2]);
+    }
+
+    ng_transpose_shape.push_back(0);
+    ng_transpose_shape.push_back(1 + num_spatial_dimensions);
+    for(int i = 0; i < num_spatial_dimensions; i++){
+      ng_transpose_shape.push_back(i + 2 + num_spatial_dimensions);
+      ng_transpose_shape.push_back(i + 1);
+    }
+    
+    output_shape.push_back(input_shape[0]);
+    output_shape.push_back(input_shape[channel_dimension] / num_blocks);
+    for(int i = 0; i < num_spatial_dimensions; i++){
+      output_shape.push_back(input_shape[i + 2] * block_size);
+    }
+    break;
+    } // end of case NCHW
   }
+  
+  ng::Shape ng_reshape_shape(reshape_shape.size());
+  for(int i = 0; i < reshape_shape.size(); i++){
+    ng_reshape_shape[i] = reshape_shape[i];
+  }
+  ng::AxisVector ng_axis_order(input_shape.size());
+  std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
+  auto reshaped = make_shared<ng::op::Reshape>(ng_input, ng_axis_order,
+                                           ng_reshape_shape);
+
+  auto transposed = ng::builder::numpy_transpose(reshaped, ng_transpose_shape);
+
+  ng::Shape ng_output_shape(output_shape.size());
+  for(int i = 0; i < output_shape.size(); i++){
+    ng_output_shape[i] = output_shape[i];
+  }
+  ng::AxisVector ng_axis_order_second_reshape(transposed->get_shape().size());
+  std::iota(ng_axis_order_second_reshape.begin(), ng_axis_order_second_reshape.end(), 0);
+  auto final_reshape = make_shared<ng::op::Reshape>(transposed, ng_axis_order_second_reshape,
+                                           ng_output_shape);
+  SaveNgOp(ng_op_map, op->name(), final_reshape);
+
   return Status::OK();
 }
 
@@ -2598,7 +2626,7 @@ static Status TranslateSpaceToDepthOp(
   std::map<std::string, int> format_to_int_map = {
       {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
 
-  // Error checking
+  // Error checking: width and height must be divisible by block_size
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
@@ -2631,7 +2659,7 @@ static Status TranslateSpaceToDepthOp(
 
     default:
       return errors::InvalidArgument(
-          "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VEC_C");
+          "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VECT_C");
   }
 
   // Upper indexes will be the same for all strided slices
