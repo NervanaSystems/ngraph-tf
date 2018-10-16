@@ -158,8 +158,11 @@ TEST(ArrayOps, QuantizeV2i8) {
   AssignInputValuesRandom(A);
   auto quant_type = DT_QINT8;
 
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
   vector<int> static_input_indexes = {1, 2};
-  ops::QuantizeV2 R = ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type);
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type, attrs);
 
   vector<DataType> output_datatypes = {quant_type};
 
@@ -169,6 +172,35 @@ TEST(ArrayOps, QuantizeV2i8) {
 
   opexecuter.RunTest();
 }  // end of test op QuantizeV2i8
+
+// Test op: QuantizeV2
+// Quantizes a tensor from float to u8
+TEST(ArrayOps, QuantizeV2u8) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  //vector<float> x
+  AssignInputValues<float>(A, {0.9, 1.3, 2.6, 3.5, 4.2, 5.0});
+  auto quant_type = DT_QUINT8;
+
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0, 10.99f, quant_type, attrs);
+
+  vector<DataType> output_datatypes = {quant_type};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2u8
+
+// TODO add tests for other modes (MIN_COMBINED, MIN_FIRST)
 
 // Test op: Shape, outputs the shape of a tensor
 TEST(ArrayOps, Shape2D) {
