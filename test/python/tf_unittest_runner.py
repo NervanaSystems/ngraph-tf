@@ -9,36 +9,34 @@ try:
 except:
     pass
 
-loader = unittest.TestLoader()
-parser = argparse.ArgumentParser()
-optional = parser._action_groups.pop() 
-required = parser.add_argument_group('required arguments')
-required.add_argument('--tensorflow_path', help="Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n", required=True)
-optional.add_argument('--list_tests', help="Prints the list of test cases in this package. Eg:math_ops_test \n")
-optional.add_argument('--run_test', help="Runs the testcase and returns the output. Eg:math_ops_test.math_ops_test.DivNoNanTest.testBasic")
-parser._action_groups.append(optional)
-arguments = parser.parse_args()
-
 def main():
-    all_dirs(arguments.tensorflow_path)
+    parser = argparse.ArgumentParser()
+    optional = parser._action_groups.pop() 
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('--tensorflow_path', help="Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n", required=True)
+    optional.add_argument('--list_tests', help="Prints the list of test cases in this package. Eg:math_ops_test \n")
+    optional.add_argument('--run_test', help="Runs the testcase and returns the output. Eg:math_ops_test.math_ops_test.DivNoNanTest.testBasic")
+    parser._action_groups.append(optional)
+    arguments = parser.parse_args()
+    
+    all_dirs_to_path(arguments.tensorflow_path)
 
     if(arguments.list_tests):
-        list_tests()
+        list_tests(arguments.list_tests)
 
     if(arguments.run_test):
-        run_test()
+        run_test(arguments.run_test)
 
 from fnmatch import fnmatch
-def all_dirs(dirname):
-    dirname = arguments.tensorflow_path
+def all_dirs_to_path(dirname):
     pattern = "*_test.py"
     for path, subdirs, files in os.walk(dirname):
         for name in files:
             if fnmatch(name, pattern):
                 sys.path.append(path)
 
-def list_tests():
-    test_module = arguments.list_tests
+def list_tests(test_module):
+    loader = unittest.TestLoader()
     module = __import__(test_module)
     test_modules = loader.loadTestsFromModule(module)
     alltests = []
@@ -46,11 +44,10 @@ def list_tests():
         alltests.append( ([i.id() for i in test_class._tests]))
     print ('\n'.join((sorted(sum(alltests, [])))))
 
-
-def run_test():
-    test_name = arguments.run_test
+def run_test(test_name, verbosity=2):
+    loader = unittest.TestLoader()
     tests = loader.loadTestsFromName(test_name)
-    test_result = unittest.TextTestRunner(verbosity=2).run(tests)
+    test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
     testsRun = 0
     tests_run = []
     failures = []
