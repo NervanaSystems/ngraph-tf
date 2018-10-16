@@ -1,10 +1,9 @@
 import unittest
-import pdb
 import sys
 import argparse
 import os
 
-#todo:explain try catch
+#Import ngraph in builds without ngraph embedded
 try:
     import ngraph
 except:
@@ -12,13 +11,16 @@ except:
 
 loader = unittest.TestLoader()
 parser = argparse.ArgumentParser()
-parser.add_argument('--list_tests', help="List of test cases in this module")
-parser.add_argument('--run_test', help="Runs the testcase and returns the output")
-parser.add_argument('--tensorflow_path', help="Specify the path where Tensorflow is installed")
+optional = parser._action_groups.pop() 
+required = parser.add_argument_group('required arguments')
+required.add_argument('--tensorflow_path', help="Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n", required=True)
+optional.add_argument('--list_tests', help="Prints the list of test cases in this package. Eg:math_ops_test \n")
+optional.add_argument('--run_test', help="Runs the testcase and returns the output. Eg:math_ops_test.math_ops_test.DivNoNanTest.testBasic")
+parser._action_groups.append(optional)
 arguments = parser.parse_args()
 
 def main():
-    set_path()
+    all_dirs(arguments.tensorflow_path)
 
     if(arguments.list_tests):
         list_tests()
@@ -26,10 +28,14 @@ def main():
     if(arguments.run_test):
         run_test()
 
-def set_path():
-    tf_path = arguments.tensorflow_path
-    sys.path.append(tf_path + "/tensorflow/python/kernel_tests")
-    print(sys.path)
+from fnmatch import fnmatch
+def all_dirs(dirname):
+    dirname = arguments.tensorflow_path
+    pattern = "*_test.py"
+    for path, subdirs, files in os.walk(dirname):
+        for name in files:
+            if fnmatch(name, pattern):
+                sys.path.append(path)
 
 def list_tests():
     test_module = arguments.list_tests
@@ -59,7 +65,6 @@ def run_test():
         failures.append([test_name, test_result.failures])
         tests_run.append([testsRun, -1])
 
-    
 if __name__ == '__main__':
     main()
 
