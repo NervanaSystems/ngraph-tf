@@ -189,7 +189,7 @@ TEST(ArrayOps, QuantizeV2u8) {
   attrs.mode_ = "SCALED";
 
   vector<int> static_input_indexes = {1, 2};
-  ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0, 10.99f, quant_type, attrs);
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0.0f, 10.99f, quant_type, attrs);
 
   vector<DataType> output_datatypes = {quant_type};
 
