@@ -158,7 +158,6 @@ TEST(ArrayOps, QuantizeV2i8) {
   AssignInputValuesRandom(A);
   auto quant_type = DT_QINT8;
 
-
   vector<int> static_input_indexes = {1, 2};
   ops::QuantizeV2 R = ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type);
 
@@ -170,7 +169,6 @@ TEST(ArrayOps, QuantizeV2i8) {
 
   opexecuter.RunTest();
 }  // end of test op QuantizeV2i8
-
 
 // Test op: Shape, outputs the shape of a tensor
 TEST(ArrayOps, Shape2D) {
