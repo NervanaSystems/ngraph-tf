@@ -2537,7 +2537,7 @@ Status QuantizeAndDequantizeV2Helper(const Node* op, const std::vector<const Ten
     //SaveNgOp(ng_op_map, op->name(), ng_quant);
 
     SaveNgOp(ng_op_map, op->name(),
-          make_shared<ng::op::Dequantize>(make_shared<ng::op::GetOutputElement>(ng_quant, 0), ng_scale, ng_offset, ng_r_et, ng::AxisSet()));
+          make_shared<ng::op::Dequantize>(ng_quant, ng_scale, ng_offset, ng_r_et, ng::AxisSet()));
 
     return Status::OK();
   }
