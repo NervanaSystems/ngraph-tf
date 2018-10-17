@@ -151,3 +151,7 @@ if [[ "2" == "${PYTHON_VERSION}" ]]; then
         exit 1
     fi
 fi
+
+pushd ${THIS_SCRIPT_DIR}/..
+  python ${THIS_SCRIPT_DIR}/check_copyright.py .
+popd
