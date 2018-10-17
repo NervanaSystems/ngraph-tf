@@ -17,8 +17,9 @@ import unittest
 import sys
 import argparse
 import os
+import xmlrunner
 """
-tf_unittest_runner is primarily used to test tensorflow python unit tests uisng ngraph
+tf_unittest_runner is primarily used to run tensorflow python unit tests using ngraph
 
 To get the list of tensorflow python test packages or labels, query using bazel.
  bazel query 'kind(".*_test rule", //tensorflow/python/...)'
