@@ -39,6 +39,8 @@ Status RewriteForTracking(Graph* graph) {
 
       bool just_looking = true;
 
+      // If any of the nodes reading from this Variable node read the data as
+      // reference then we dont track it, else we do
       for (auto edge : node->out_edges()) {
         if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
             IsRefType(edge->dst()->input_type(edge->dst_input()))) {
