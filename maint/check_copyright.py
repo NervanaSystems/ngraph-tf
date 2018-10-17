@@ -43,7 +43,7 @@ def iterate_over_subdirs_and_check_copyright(start_folder, children_to_explore =
     for subdir in subdirs:
         no_copyrights, bad_year = check_copyright(start_folder + '/' + subdir, year, pred = lambda x : any([i == x.split('.')[-1] for i in file_exts]))
         for flname in no_copyrights:
-            print ('No copyright line found: ' + flname)
+            print ('Possibly no copyright line found: ' + flname)
         for flname, line in bad_year:
             print ('Has copyright line, but possibly bad year. Copyright line is: ' + line + ' in ' + flname)
     
