@@ -12,10 +12,11 @@ _ext = 'dylib' if platform.system() == 'Darwin' else 'so'
 
 LIBNGRAPH_BRIDGE = 'libngraph_bridge.' + _ext
 
+
 class NgraphTest(object):
 
     def default_config(self):
-        config = tf.ConfigProto() #config_pb2.ConfigProto()
+        config = tf.ConfigProto()  #config_pb2.ConfigProto()
         config.allow_soft_placement = True
         config.graph_options.optimizer_options.opt_level = -1
         config.graph_options.rewrite_options.constant_folding = (

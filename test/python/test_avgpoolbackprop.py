@@ -54,17 +54,18 @@ class TestAvgPoolBackpropInput(NgraphTest):
         elif padding == "SAME":
             grad_input = tf.placeholder(tf.float32, shape=(128, 112, 75, 3))
         out = avg_pool_grad(
-                self.forward_arg_shape_NHWC,
-                grad_input,
-                self.ksize,
-                self.strides,
-                padding=padding,
-                data_format="NHWC")
+            self.forward_arg_shape_NHWC,
+            grad_input,
+            self.ksize,
+            self.strides,
+            padding=padding,
+            data_format="NHWC")
 
         def run_test(sess):
             return sess.run(out, feed_dict={grad_input: np_nhwc})
-        assert np.isclose(self.with_ngraph(run_test), self.without_ngraph(run_test)).all()
 
+        assert np.isclose(
+            self.with_ngraph(run_test), self.without_ngraph(run_test)).all()
 
     @pytest.mark.parametrize("padding", ("VALID", "SAME"))
     def test_nchw(self, padding):
