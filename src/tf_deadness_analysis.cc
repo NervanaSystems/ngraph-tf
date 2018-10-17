@@ -330,6 +330,15 @@ std::vector<Predicate*> DeadnessAnalysisImpl::GetIncomingPreds(
         (!in_edge->IsControlEdge() && edge_kind == EdgeKind::kDataOnly);
     if (should_process) {
       auto it = predicate_map_.find(InputEdgeToTensorId(in_edge));
+      if (it != predicate_map_.end()) {
+        NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
+        NGRAPH_VLOG(5) << "Src " << in_edge->src()->name() << "["
+                       << in_edge->src()->type_string() << "]"
+                       << " ,Src Idx " << in_edge->src_output() << " DST "
+                       << in_edge->dst()->name() << "["
+                       << in_edge->dst()->type_string() << "]"
+                       << " ,Dst Idx " << in_edge->dst_input();
+      }
       CHECK(it != predicate_map_.end());
       incoming_preds.push_back(it->second);
     }
@@ -427,6 +436,15 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   Predicate* pred = nullptr;
   for (const Edge* edge : node.in_edges()) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
+    if (it != predicate_map_.end()) {
+      NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
+      NGRAPH_VLOG(5) << "Src " << in_edge->src()->name() << "["
+                     << in_edge->src()->type_string() << "]"
+                     << " ,Src Idx " << in_edge->src_output() << " DST "
+                     << in_edge->dst()->name() << "["
+                     << in_edge->dst()->type_string() << "]"
+                     << " ,Dst Idx " << in_edge->dst_input();
+    }
     CHECK(it != predicate_map_.end());
     if (vlog_) {
       VLOG(2) << "  " << InputEdgeToTensorId(edge).ToString() << ": "
@@ -458,6 +476,15 @@ void DeadnessAnalysisImpl::Print() const {
   std::sort(tensor_ids.begin(), tensor_ids.end());
   for (TensorId tensor_id : tensor_ids) {
     auto it = predicate_map_.find(tensor_id);
+    if (it != predicate_map_.end()) {
+      NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
+      NGRAPH_VLOG(5) << "Src " << in_edge->src()->name() << "["
+                     << in_edge->src()->type_string() << "]"
+                     << " ,Src Idx " << in_edge->src_output() << " DST "
+                     << in_edge->dst()->name() << "["
+                     << in_edge->dst()->type_string() << "]"
+                     << " ,Dst Idx " << in_edge->dst_input();
+    }
     CHECK(it != predicate_map_.end()) << tensor_id.ToString();
     VLOG(2) << tensor_id.ToString() << " -> " << it->second->ToString();
   }
@@ -468,6 +495,7 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
     const Graph& graph, std::unique_ptr<DeadnessAnalysis>* result) {
   std::unique_ptr<DeadnessAnalysisImpl> analysis(
       new DeadnessAnalysisImpl(&graph));
+
   TF_RETURN_IF_ERROR(analysis->Populate());
   if (VLOG_IS_ON(2)) {
     analysis->Print();
