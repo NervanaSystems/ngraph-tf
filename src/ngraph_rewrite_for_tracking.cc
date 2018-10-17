@@ -83,8 +83,8 @@ Status RewriteForTracking(Graph* graph) {
 
         replacement->set_assigned_device_name(node->assigned_device_name());
 
-        // Add edge from the input nodes (to the variable node (VariableV2))
-        // to the replacement node (NGraphVariable)
+        // Add edge from the input nodes (to the variable node (NGraphVariable))
+        // to the new replacement node (also of type NGraphVariable)
         for (auto edge : node->in_edges()) {
           NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
           graph->AddEdge(edge->src(), edge->src_output(), replacement,
