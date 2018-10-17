@@ -311,7 +311,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   vector<int64> filter_size_HWIO = {3, 3, 2, 2};
   // Out_delta :[batch, out_channels, out_height, out_width]
-  vector<int64> output_del_size_valid_NCHW = {1, 2, 4, 3};
+  vector<int64> output_del_size_same_NCHW = {1, 2, 4, 3};
   std::vector<int> stride_NCHW = {1, 1, 2, 2};
   std::vector<int> stride_NHWC = {1, 2, 2, 1};
   // Conv2DBackpropInput has static input of index 0
@@ -325,7 +325,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
 
   auto input_data_NCHW = ops::Const(ngraph_scope, input_size_NCHW);
 
-  Tensor output_delta(DT_FLOAT, TensorShape(output_del_size_valid_NCHW));
+  Tensor output_delta(DT_FLOAT, TensorShape(output_del_size_same_NCHW));
   AssignInputValuesRandom<float>(output_delta, -10.0f, 15.0f);
 
   Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
