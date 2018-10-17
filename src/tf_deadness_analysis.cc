@@ -454,12 +454,12 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
     if (it != predicate_map_.end()) {
       NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
-      NGRAPH_VLOG(5) << "Src " << in_edge->src()->name() << "["
-                     << in_edge->src()->type_string() << "]"
-                     << " ,Src Idx " << in_edge->src_output() << " DST "
-                     << in_edge->dst()->name() << "["
-                     << in_edge->dst()->type_string() << "]"
-                     << " ,Dst Idx " << in_edge->dst_input();
+      NGRAPH_VLOG(5) << "Src " << edge->src()->name() << "["
+                     << edge->src()->type_string() << "]"
+                     << " ,Src Idx " << edge->src_output() << " DST "
+                     << edge->dst()->name() << "[" << edge->dst()->type_string()
+                     << "]"
+                     << " ,Dst Idx " << edge->dst_input();
     }
     CHECK(it != predicate_map_.end());
     if (vlog_) {
@@ -492,15 +492,6 @@ void DeadnessAnalysisImpl::Print() const {
   std::sort(tensor_ids.begin(), tensor_ids.end());
   for (TensorId tensor_id : tensor_ids) {
     auto it = predicate_map_.find(tensor_id);
-    if (it != predicate_map_.end()) {
-      NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
-      NGRAPH_VLOG(5) << "Src " << in_edge->src()->name() << "["
-                     << in_edge->src()->type_string() << "]"
-                     << " ,Src Idx " << in_edge->src_output() << " DST "
-                     << in_edge->dst()->name() << "["
-                     << in_edge->dst()->type_string() << "]"
-                     << " ,Dst Idx " << in_edge->dst_input();
-    }
     CHECK(it != predicate_map_.end()) << tensor_id.ToString();
     VLOG(2) << tensor_id.ToString() << " -> " << it->second->ToString();
   }
