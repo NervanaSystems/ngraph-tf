@@ -1376,25 +1376,21 @@ static Status TranslateDepthToSpaceOp(
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-      if (input_shape[3] % (block_size * block_size) != 0) {
-        return errors::InvalidArgument(
-            "Input tensor's depth dimension ,", input_shape[3],
-            " is not divisible by square of the block_size ", block_size);
-      }
       channel_dimension = 3;
       break;
     // NCHW or NCHW_VEC_C
     case 1:
-      if (input_shape[1] % (block_size * block_size) != 0) {
-        return errors::InvalidArgument(
-            "Input tensor's depth dimension ,", input_shape[3],
-            " is not divisible by square of the block_size ", block_size);
-      }
       channel_dimension = 1;
       break;
     default:
       return errors::InvalidArgument(
           "DepthToSpace supported data format is NCHW, NHWC, or NCHW_VECT_C");
+  }
+
+  if (input_shape[channel_dimension] % (block_size * block_size) != 0) {
+    return errors::InvalidArgument(
+        "Input tensor's depth dimension ,", input_shape[channel_dimension],
+        " is not divisible by square of the block_size ", block_size);
   }
 
   // Upper indexes will be the same for all strided slices
@@ -2627,40 +2623,39 @@ static Status TranslateSpaceToDepthOp(
   std::map<std::string, int> format_to_int_map = {
       {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
 
+  int height_index;
+  int width_index;
+  int channel_index;
+
   // Error checking: width and height must be divisible by block_size
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0:
-      if (input_shape[1] % block_size != 0) {
-        return errors::InvalidArgument(
-            "Input tensor's height ,", input_shape[1],
-            " is not divisible by block_size ", block_size);
-      }
-
-      if (input_shape[2] % block_size != 0) {
-        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
-                                       " is not divisible by block_size ",
-                                       block_size);
-      }
+      height_index = 1;
+      width_index = 2;
+      channel_index = 3;
       break;
     // NCHW or NCHW_VEC_C
     case 1:
-      if (input_shape[2] % block_size != 0) {
-        return errors::InvalidArgument(
-            "Input tensor's height ,", input_shape[1],
-            " is not divisible by block_size ", block_size);
-      }
-
-      if (input_shape[3] % block_size != 0) {
-        return errors::InvalidArgument("Input tensor's width ,", input_shape[2],
-                                       " is not divisible by block_size ",
-                                       block_size);
-      }
+      height_index = 2;
+      width_index = 3;
+      channel_index = 1;
       break;
-
     default:
       return errors::InvalidArgument(
           "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VECT_C");
+  }
+
+  if (input_shape[height_index] % block_size != 0) {
+    return errors::InvalidArgument(
+        "Input tensor's height ,", input_shape[height_index],
+        " is not divisible by block_size ", block_size);
+  }
+
+  if (input_shape[width_index] % block_size != 0) {
+    return errors::InvalidArgument(
+        "Input tensor's width ,", input_shape[width_index],
+        " is not divisible by block_size ", block_size);
   }
 
   // Upper indexes will be the same for all strided slices
@@ -2687,8 +2682,6 @@ static Status TranslateSpaceToDepthOp(
         }
         counter_height = counter_height + 1;
       }
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ngraph::op::Concat>(strided_slice_result, 3));
       break;
 
     // NCHW
@@ -2707,10 +2700,11 @@ static Status TranslateSpaceToDepthOp(
         }
         counter_height = counter_height + 1;
       }
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ngraph::op::Concat>(strided_slice_result, 1));
       break;
   }
+
+  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(
+                                      strided_slice_result, channel_index));
   return Status::OK();
 }
 
