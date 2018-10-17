@@ -161,7 +161,8 @@ TEST(ArrayOps, QuantizeV2i8) {
   attrs.mode_ = "SCALED";
 
   vector<int> static_input_indexes = {1, 2};
-  ops::QuantizeV2 R = ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type, attrs);
+  ops::QuantizeV2 R =
+      ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type, attrs);
 
   vector<DataType> output_datatypes = {quant_type};
 
@@ -196,7 +197,6 @@ TEST(ArrayOps, Dequantizei8) {
 
   opexecuter.RunTest();
 }  // end of test op Dequantizei8
-
 
 // TODO: add tests for u8
 // TODO: add tests for other modes (MIN_COMBINED, MIN_FIRST)
