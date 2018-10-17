@@ -17,32 +17,56 @@ import unittest
 import sys
 import argparse
 import os
+"""
+tf_unittest_runner is primarily used to test tensorflow python unit tests uisng ngraph
 
-#Import ngraph in builds without ngraph embedded
-try:
-    import ngraph
-except:
-    pass
+To get the list of tensorflow python test packages or labels, query using bazel.
+ bazel query 'kind(".*_test rule", //tensorflow/python/...)'
+ bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
+ bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
+
+Args:
+tensroflow_path = The path where tensorflow is installed in your workspace. 
+Adds all the directories under this path to the system path to be able to import the modules.
+list_tests = Generates a list of test suites and test cases from a TF test target. Example argument:math_ops_test
+run_test = Runs a specific test suite or test case given 
+with the fully qualified test name and prints stdout. Example:math_ops_test.RoundTest.test_session
+"""
+
 
 def main():
     parser = argparse.ArgumentParser()
-    optional = parser._action_groups.pop() 
+    optional = parser._action_groups.pop()
     required = parser.add_argument_group('required arguments')
-    required.add_argument('--tensorflow_path', help="Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n", required=True)
-    optional.add_argument('--list_tests', help="Prints the list of test cases in this package. Eg:math_ops_test \n")
-    optional.add_argument('--run_test', help="Runs the testcase and returns the output. Eg:math_ops_test.math_ops_test.DivNoNanTest.testBasic")
+    required.add_argument(
+        '--tensorflow_path',
+        help=
+        "Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n",
+        required=True)
+    optional.add_argument(
+        '--list_tests',
+        help="Prints the list of test cases in this package. Eg:math_ops_test \n"
+    )
+    optional.add_argument(
+        '--run_test',
+        help=
+        "Runs the testcase and returns the output. Eg:math_ops_test.math_ops_test.DivNoNanTest.testBasic"
+    )
     parser._action_groups.append(optional)
     arguments = parser.parse_args()
-    
+
     all_dirs_to_path(arguments.tensorflow_path)
 
-    if(arguments.list_tests):
+    if (arguments.list_tests):
         list_tests(arguments.list_tests)
 
-    if(arguments.run_test):
+    if (arguments.run_test):
         run_test(arguments.run_test)
 
+
 from fnmatch import fnmatch
+
+
 def all_dirs_to_path(dirname):
     pattern = "*_test.py"
     for path, subdirs, files in os.walk(dirname):
@@ -50,14 +74,16 @@ def all_dirs_to_path(dirname):
             if fnmatch(name, pattern):
                 sys.path.append(path)
 
+
 def list_tests(test_module):
     loader = unittest.TestLoader()
     module = __import__(test_module)
     test_modules = loader.loadTestsFromModule(module)
     alltests = []
     for test_class in test_modules:
-        alltests.append( ([i.id() for i in test_class._tests]))
-    print ('\n'.join((sorted(sum(alltests, [])))))
+        alltests.append(([i.id() for i in test_class._tests]))
+    print('\n'.join((sorted(sum(alltests, [])))))
+
 
 def run_test(test_name, verbosity=2):
     loader = unittest.TestLoader()
@@ -77,7 +103,6 @@ def run_test(test_name, verbosity=2):
         failures.append([test_name, test_result.failures])
         tests_run.append([testsRun, -1])
 
+
 if __name__ == '__main__':
     main()
-
-
