@@ -2310,7 +2310,7 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   bool signed_input;
   if (GetNodeAttr(op->attrs(), "signed_input", &signed_input) != Status::OK()) {
     NGRAPH_VLOG(3) << "signed_input attribute not present, setting to true";
-    signed_input = false;
+    signed_input = true;
   }
   int num_bits;
   if (GetNodeAttr(op->attrs(), "num_bits", &num_bits) != Status::OK()) {
