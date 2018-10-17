@@ -33,14 +33,14 @@ namespace ngraph_bridge {
 Status SkipAssert(Graph* graph) {
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "Assert") {
-        NGRAPH_VLOG(4) << "Checking: " << node->name();
-        for (auto edge : node->out_edges()) {
-            if (edge->IsControlEdge()) {
-                NGRAPH_VLOG(4) << "Control edge: " << node->name();
-                graph->RemoveControlEdge(edge);
-                NGRAPH_VLOG(4) << "Control edge removed. ";
-            }
+      NGRAPH_VLOG(4) << "Checking: " << node->name();
+      for (auto edge : node->out_edges()) {
+        if (edge->IsControlEdge()) {
+          NGRAPH_VLOG(4) << "Control edge: " << node->name();
+          graph->RemoveControlEdge(edge);
+          NGRAPH_VLOG(4) << "Control edge removed. ";
         }
+      }
     }
   }
   return Status::OK();

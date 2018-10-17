@@ -156,7 +156,8 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
       TF_RETURN_IF_ERROR(SkipAssert(options.graph->get()));
       // If requested, dump unmarked graphs without asserts
       if (DumpCapturedGraphs()) {
-        DumpGraphs(options, idx, "assert_skipped", "Captured Graph without Assert");
+        DumpGraphs(options, idx, "assert_skipped",
+                   "Captured Graph without Assert");
       }
     }
 
