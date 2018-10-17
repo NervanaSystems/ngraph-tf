@@ -17,21 +17,8 @@ import unittest
 import sys
 import argparse
 import os
-import xmlrunner
 """
 tf_unittest_runner is primarily used to run tensorflow python unit tests using ngraph
-
-To get the list of tensorflow python test packages or labels, query using bazel.
- bazel query 'kind(".*_test rule", //tensorflow/python/...)'
- bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
- bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
-
-Args:
-tensroflow_path = The path where tensorflow is installed in your workspace. 
-Adds all the directories under this path to the system path to be able to import the modules.
-list_tests = Generates a list of test suites and test cases from a TF test target. Example argument:math_ops_test
-run_test = Runs a specific test suite or test case given 
-with the fully qualified test name and prints stdout. Example:math_ops_test.RoundTest.test_session
 """
 
 
@@ -69,6 +56,12 @@ from fnmatch import fnmatch
 
 
 def all_dirs_to_path(dirname):
+    """
+    Adds all the directories under the specified dirname to the system path to be able to import the modules.
+    
+    Args:
+    dir_name: This is the tensorflow_path passed as an argument where tensorflow is installed.
+    """
     pattern = "*_test.py"
     for path, subdirs, files in os.walk(dirname):
         for name in files:
@@ -77,6 +70,16 @@ def all_dirs_to_path(dirname):
 
 
 def list_tests(test_module):
+    """
+    Generates a list of test suites and test cases from a TF test target specified. 
+
+    Args:
+    test_module: This is tensorflow test target name passed as an argument.Example --list_tests=math_ops_test
+                 To get the list of tensorflow python test modules/packages or labels, query using bazel.
+                    bazel query 'kind(".*_test rule", //tensorflow/python/...)'
+                    bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
+                    bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
+    """
     loader = unittest.TestLoader()
     module = __import__(test_module)
     test_modules = loader.loadTestsFromModule(module)
@@ -87,6 +90,13 @@ def list_tests(test_module):
 
 
 def run_test(test_name, verbosity=2):
+    """
+    Runs a specific test suite or test case given with the fully qualified test name and prints stdout.
+
+    Args:
+    test_name: This is the test suite or the test case passed as an argument. Example: --run_test=math_ops_test.AccumulateNTest        
+    verbosity: Python verbose logging is set to 2. You get the help string of every test and the result.
+    """
     loader = unittest.TestLoader()
     tests = loader.loadTestsFromName(test_name)
     test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
