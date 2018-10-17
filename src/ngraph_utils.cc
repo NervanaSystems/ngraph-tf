@@ -168,14 +168,13 @@ const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   return result;
 }
 
-const gtl::ArraySlice<DataType>& NGraphQuantizedDTypes() {
-  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8, DT_QINT16,
-                                          DT_QUINT16, DT_QINT32};
+const gtl::ArraySlice<DataType>& NGraphSupportedQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8};
   return result;
 }
 
-const gtl::ArraySlice<DataType>& NGraphSupportedQuantizedDTypes() {
-  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8};
+const gtl::ArraySlice<DataType>& NGraphRealDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_FLOAT, DT_DOUBLE};
   return result;
 }
 

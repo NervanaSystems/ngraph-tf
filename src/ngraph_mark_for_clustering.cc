@@ -254,6 +254,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["Dequantize"] = SimpleConfirmationFunction();
       confirmation_function_map["Equal"] = SimpleConfirmationFunction();
       confirmation_function_map["Exp"] = SimpleConfirmationFunction();
       confirmation_function_map["ExpandDims"] = SimpleConfirmationFunction();
@@ -295,6 +296,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["PreventGradient"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Prod"] = SimpleConfirmationFunction();
+      confirmation_function_map["QuantizeAndDequantizeV2"] = SimpleConfirmationFunction();
+      confirmation_function_map["QuantizeV2"] = SimpleConfirmationFunction();
       confirmation_function_map["RealDiv"] = SimpleConfirmationFunction();
       confirmation_function_map["Reciprocal"] = SimpleConfirmationFunction();
       confirmation_function_map["Relu"] = SimpleConfirmationFunction();
@@ -404,6 +407,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["PreventGradient"]["T"] = NGraphDTypes();
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
