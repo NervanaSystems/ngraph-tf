@@ -53,7 +53,6 @@ namespace testing {
 // Use only Tensors and ops::Const() to provide input to the test op
 // Please ensure the alphabetical order while adding the test functions
 
-
 // Test op: Dequantize
 // Dequantizes a tensor from i8 to float
 TEST(ArrayOps, Dequantizei8) {

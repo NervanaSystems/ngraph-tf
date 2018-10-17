@@ -165,8 +165,8 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes() {
 
 const gtl::ArraySlice<DataType>& NGraphNumericAndQuantizedDTypes() {
   static gtl::ArraySlice<DataType> result{
-      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32,
-      DT_INT64, DT_UINT8,  DT_UINT16, DT_UINT32, DT_UINT64, DT_QINT8, DT_QUINT8};
+      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
+      DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_QINT8, DT_QUINT8};
   return result;
 }
 

@@ -296,7 +296,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["PreventGradient"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Prod"] = SimpleConfirmationFunction();
-      confirmation_function_map["QuantizeAndDequantizeV2"] = SimpleConfirmationFunction();
+      confirmation_function_map["QuantizeAndDequantizeV2"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = SimpleConfirmationFunction();
       confirmation_function_map["RealDiv"] = SimpleConfirmationFunction();
       confirmation_function_map["Reciprocal"] = SimpleConfirmationFunction();
