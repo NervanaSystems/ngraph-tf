@@ -30,19 +30,19 @@ from common import NgraphTest
 
 class TestAssertOperations(NgraphTest):
 
-    def test_assert(self):
-        x = tf.constant([1,2])
-        y = tf.constant([1,2])
-        z = tf.constant([1,1])
-        assert_op = tf.Assert(tf.less_equal(tf.reduce_max(z), 1), [z])
+    def test_skip_assert(self):
+        test_input = ((1,1))
+        x = tf.placeholder(tf.int32, shape=(2,))
+        y = tf.placeholder(tf.int32, shape=(2,))
+        z = tf.placeholder(tf.int32, shape=(2,))
+        assert_op = tf.Assert(tf.less_equal(tf.reduce_max(z), 1), [x])
 
         with tf.control_dependencies([assert_op]):
-            a2 = tf.add(z, y)
-            #a1 = tf.add(x, y)
-
-        #a3 = tf.add(y,y)   
+            a2 = tf.add(x, y)
+  
         def run_test(sess):
-            return sess.run(a2)
+            return sess.run(a2, feed_dict={x:test_input, y:test_input, z:test_input})
 
         self.with_ngraph(run_test)
+
 
