@@ -2226,6 +2226,10 @@ static void ComputeScaleOffsetFolded(const uint& num_bits,
   *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
   // TODO: should it be: round(adj_min_range / *scale) (or floor)?
   *offset = min_type - std::lround(adj_min_range / *scale);
+
+  // TODO: currently both TranslateQuantizeV2Op and TranslateDequantizeOp assume
+  // static input and we compute the scale-offset into ng_consts. Later we need
+  // to support converting min-max to scale-offset using a ngraph subgraph
 }
 
 template <typename T>
