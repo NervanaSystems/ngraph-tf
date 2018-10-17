@@ -171,6 +171,10 @@ const gtl::ArraySlice<DataType>& NGraphDTypes();
 // by the nGraph bridge.
 const gtl::ArraySlice<DataType>& NGraphNumericDTypes();
 
+// Returns an ArraySlice containing all numeric and quantized TensorFlow dtypes
+// supported by the nGraph bridge.
+const gtl::ArraySlice<DataType>& NGraphNumericAndQuantizedDTypes();
+
 // Returns an ArraySlice containing all data types that can be used for
 // axis/tensor indices.
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes();
