@@ -22,7 +22,7 @@ set(NGRAPH_DEVICE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 # For some reason the following is needed for ABI compatibility with TF.
 # (There must be some dependency on it in the struct/class definitions.)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG -D NGRAPH_TF_DISABLE_DEADNESS_CHECK")
 
 #-----------------------------------------------------------------------------------------------
 # Compiler-specific logic...
