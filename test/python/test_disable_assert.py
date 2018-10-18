@@ -30,7 +30,7 @@ from common import NgraphTest
 
 class TestAssertOperations(NgraphTest):
 
-    def test_skip_assert(self):
+    def test_disable_assert(self):
         test_input = ((1, 1))
         x = tf.placeholder(tf.int32, shape=(2,))
         y = tf.placeholder(tf.int32, shape=(2,))
@@ -48,4 +48,5 @@ class TestAssertOperations(NgraphTest):
                     z: test_input
                 })
 
-        self.with_ngraph(run_test)
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()

@@ -22,7 +22,7 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status SkipAssert(Graph* graph);
+Status DisableAssert(Graph* graph);
 
 }  // namespace ngraph_bridge
 

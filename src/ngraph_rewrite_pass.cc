@@ -20,11 +20,11 @@
 #include "ngraph_assign_clusters.h"
 #include "ngraph_capture_variables.h"
 #include "ngraph_deassign_clusters.h"
+#include "ngraph_disable_assert.h"
 #include "ngraph_encapsulate_clusters.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
-#include "ngraph_skip_assert.h"
 
 #include "tf_graph_writer.h"
 
@@ -152,12 +152,13 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
     }
 
     // Skip "Assert" if specifically asked by the user
-    if (std::getenv("NGRAPH_TF_SKIP_ASSERT") != nullptr) {
-      TF_RETURN_IF_ERROR(SkipAssert(options.graph->get()));
+    if (std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr) {
+      TF_RETURN_IF_ERROR(DisableAssert(options.graph->get()));
+      NGRAPH_VLOG(0) << "Model running with Asserts disabled.";
       // If requested, dump unmarked graphs without asserts
       if (DumpCapturedGraphs()) {
-        DumpGraphs(options, idx, "assert_skipped",
-                   "Captured Graph without Assert");
+        DumpGraphs(options, idx, "assert_disabled",
+                   "Captured Graph without Asserts");
       }
     }
 

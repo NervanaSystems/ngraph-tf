@@ -44,7 +44,7 @@ set(SRC
    ngraph_utils.cc
    tf_graphcycles.cc
    tf_deadness_analysis.cc
-   ngraph_skip_assert.cc
+   ngraph_disable_assert.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})

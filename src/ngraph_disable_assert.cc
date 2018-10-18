@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include "ngraph_skip_assert.h"
+#include "ngraph_disable_assert.h"
 
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/node_builder.h"
@@ -28,17 +28,16 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 //
-// Main entry point for skip assert.
+// Main entry point for disbale assert.
 //
-Status SkipAssert(Graph* graph) {
+Status DisableAssert(Graph* graph) {
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "Assert") {
       NGRAPH_VLOG(4) << "Checking: " << node->name();
       for (auto edge : node->out_edges()) {
         if (edge->IsControlEdge()) {
-          NGRAPH_VLOG(4) << "Control edge: " << node->name();
+          NGRAPH_VLOG(4) << "Removing control edge: " << edge->DebugString();
           graph->RemoveControlEdge(edge);
-          NGRAPH_VLOG(4) << "Control edge removed. ";
         }
       }
     }
