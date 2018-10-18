@@ -32,7 +32,7 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
 2. Install TensorFlow v1.12.0-rc1. Note that this is a pre-release so you need 
    to use the following steps to install this:
 
-        pip install tensorflow==1.12.0rc2
+        pip install tensorflow==1.12.0rc1
    Note: When TensorFlow release version `v1.12.0` is available, 
    update your version of TensorFlow using the following command:
 
@@ -98,8 +98,7 @@ The installation prerequisites are the same as described in the TensorFlow
         
    Note: Depending on specific version of the Python and components already
    installed on your system - the list of dependent Python components vary. 
-   Typically the following components are needed: `numpy mock keras keras_application`.
-   Install them if your Python environment doesn't have them already. 
+   You may need to install one or more of the following Python packages: `numpy mock keras keras_applications protobuf keras_preprocessing`.
    
 3. Now run `./configure` and choose `no` for the following when prompted to build TensorFlow.
 
