@@ -70,24 +70,30 @@ class OpExecuter {
 
   ~OpExecuter();
 
-  void ExecuteOnNGraph();
-  void ExecuteOnTF();
-  // To Do : Overload CompareNGraphAndTF() to take in tolerance
-  void CompareNGraphAndTF();
-  void CompareNGraphAndTF(float tolerance);
-  // Executes on NGraph, executes on TF, compares the results
-  void RunTest();
+  // Creates the tf graph from tf Scope
+  // Translates the tf graph to nGraph
+  // Executes the nGraph on nGraph Backend specified by backend_name
+  // Returns outputs as tf Tensors
+  // NOTE: Env Variable NGRAPH_TF_BACKEND if set, overrides ng_backend_name
+  void ExecuteOnNGraph(vector<Tensor>& outputs,
+                       const string& ng_backend_name = "CPU");
+
+  // Creates tf Session from tf Scope
+  // Executes on TF
+  // Returns outputs
+  void ExecuteOnTF(vector<Tensor>& outputs);
+
+  // Executes on NGraph backend, then executes on TF, and compares the results
+  // NOTE: Env Variable NGRAPH_TF_BACKEND if set, overrides ng_backend_name
+  void RunTest(const string& ng_backend_name = "CPU");
+
+  // TODO(malikshr) : Overload RunTest() to take in tolerance
 
  private:
   Scope tf_scope_;
   const string test_op_type_;
   set<int> static_input_indexes_;
-  // TODO : tf_inputs_ only needed for execution on NGraph, remove from here
-  vector<Tensor> tf_inputs_;
-  vector<Tensor> tf_outputs_;
-  vector<Tensor> ngraph_outputs_;
   const vector<DataType> expected_output_datatypes_;
-
   const std::vector<Output> sess_run_fetchoutputs_;
 
   void GetNodeData(Graph& graph, NodeMetaData& node_inedge_md,
