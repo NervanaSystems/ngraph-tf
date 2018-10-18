@@ -120,17 +120,21 @@ else()
 endif(APPLE)
 
 # Find and build ngraph
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.8.1
+    GIT_TAG fe06f3250a9e0327d663f89ed7b653eb2ae51ad4
     CMAKE_ARGS 
+        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
         -DNGRAPH_UNIT_TEST_ENABLE=FALSE
-        -DNGRAPH_TOOLS_ENABLE=FALSE 
+        -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
         -DNGRAPH_DEX_ONLY=TRUE         
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
     TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
     STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
@@ -155,9 +159,9 @@ add_dependencies(ngraph_lib ext_ngraph)
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 
 # Add the directories to be built
+add_subdirectory(third-party)
 add_subdirectory(logging)
 add_subdirectory(src)
-add_subdirectory(third-party)
 if (UNIT_TEST_ENABLE)
     if (NOT DEFINED TF_SRC_DIR)
         message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")

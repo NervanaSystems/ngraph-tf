@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_api.h"
 #include "ngraph_utils.h"
 #include "ngraph_version_utils.h"
@@ -209,6 +209,12 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Abs"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Add"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AddN"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Any"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["All"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMax"]["Tidx"] = NGraphIndexDTypes();
+      type_constraint_map["ArgMin"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["ArgMin"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["AvgPool"]["T"] = NGraphNumericDTypes();
       type_constraint_map["AvgPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["BatchMatMul"]["T"] = NGraphNumericDTypes();
@@ -232,6 +238,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+      type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Identity"]["T"] = NGraphDTypes();
       type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Less"]["T"] = NGraphDTypes();
@@ -272,6 +279,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();
       type_constraint_map["SigmoidGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Sign"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Size"]["T"] = NGraphDTypes();
+      type_constraint_map["Size"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Slice"]["T"] = NGraphDTypes();
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
@@ -307,6 +316,10 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Abs"] = SimpleConfirmationFunction();
       confirmation_functions["Add"] = SimpleConfirmationFunction();
       confirmation_functions["AddN"] = SimpleConfirmationFunction();
+      confirmation_functions["Any"] = SimpleConfirmationFunction({1});
+      confirmation_functions["All"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMax"] = SimpleConfirmationFunction({1});
+      confirmation_functions["ArgMin"] = SimpleConfirmationFunction({1});
       confirmation_functions["AvgPool"] = SimpleConfirmationFunction();
       confirmation_functions["AvgPoolGrad"] = SimpleConfirmationFunction({0});
       confirmation_functions["BatchMatMul"] = SimpleConfirmationFunction();
@@ -336,6 +349,7 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_functions["Greater"] = SimpleConfirmationFunction();
       confirmation_functions["GreaterEqual"] = SimpleConfirmationFunction();
+      confirmation_functions["HorovodAllreduce"] = SimpleConfirmationFunction();
       confirmation_functions["Identity"] = SimpleConfirmationFunction();
       confirmation_functions["L2Loss"] = SimpleConfirmationFunction();
       confirmation_functions["Less"] = SimpleConfirmationFunction();
@@ -343,6 +357,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Log"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalAnd"] = SimpleConfirmationFunction();
       confirmation_functions["LogicalNot"] = SimpleConfirmationFunction();
+      confirmation_functions["LogicalOr"] = SimpleConfirmationFunction();
       confirmation_functions["MatMul"] = SimpleConfirmationFunction();
       confirmation_functions["Max"] = SimpleConfirmationFunction({1});
       confirmation_functions["Maximum"] = SimpleConfirmationFunction();
@@ -368,6 +383,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Sigmoid"] = SimpleConfirmationFunction();
       confirmation_functions["SigmoidGrad"] = SimpleConfirmationFunction();
       confirmation_functions["Sign"] = SimpleConfirmationFunction();
+      confirmation_functions["Size"] = SimpleConfirmationFunction();
       confirmation_functions["Slice"] = SimpleConfirmationFunction({1, 2});
       confirmation_functions["Snapshot"] = SimpleConfirmationFunction();
       confirmation_functions["Softmax"] = SimpleConfirmationFunction();
@@ -399,6 +415,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_functions["Tile"] = SimpleConfirmationFunction({1});
       confirmation_functions["Transpose"] = SimpleConfirmationFunction({1});
       confirmation_functions["Unpack"] = SimpleConfirmationFunction();
+      confirmation_functions["ZerosLike"] = SimpleConfirmationFunction();
 
       initialized = true;
     }
