@@ -2390,7 +2390,8 @@ static Status TranslateQuantizeV2Op(
   string mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
 
-  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
+  // TODO: Since, currently only ng::HALF_AWAY_FROM_ZERO is supported,
+  // just reading this value here, but not using it for now.
   string round_mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
 
