@@ -2303,23 +2303,17 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
   bool range_given;
-  if (GetNodeAttr(op->attrs(), "range_given", &range_given) != Status::OK()) {
-    NGRAPH_VLOG(3) << "range_given attribute not present, setting to false";
-    range_given = false;
-  }
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "range_given", &range_given));
+
   bool signed_input;
-  if (GetNodeAttr(op->attrs(), "signed_input", &signed_input) != Status::OK()) {
-    NGRAPH_VLOG(3) << "signed_input attribute not present, setting to true";
-    signed_input = true;
-  }
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "signed_input", &signed_input));
+
   int num_bits;
-  if (GetNodeAttr(op->attrs(), "num_bits", &num_bits) != Status::OK()) {
-    NGRAPH_VLOG(3) << "num_bits attribute not present, setting to 8";
-    num_bits = 8;
-  }
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_bits", &num_bits));
+
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
-  // T: float, double....not supported: bfloat16, half,
+  // T: float, double....not supported: bfloat16, half
   float scale;
   ng::element::Type ng_r_et;
   switch (dtype) {
@@ -2337,7 +2331,7 @@ static Status TranslateQuantizeAndDequantizeV2Op(
       return errors::InvalidArgument(
           "Expected QuantizeAndDequantizeV2's datatype to be of DT_FLOAT or "
           "DT_DOUBLE but got ",
-          dtype);
+          DataTypeString(dtype));
   }
   // The quantized data type
   ng::element::Type ng_q_et;
@@ -2386,19 +2380,19 @@ static Status TranslateQuantizeV2Op(
         ng_max.size());
   }
 
-  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
-  string mode;
-  if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
-    NGRAPH_VLOG(3) << "mode attribute not present, setting to MIN_COMBINE";
-    mode = "MIN_COMBINE";
+  if (ng_min[0] > ng_max[0]) {
+    return errors::InvalidArgument(
+        "Expected QuantizeV2's min <= max but got, "
+        "min = ",
+        ng_min[0], " and max = ", ng_max[0]);
   }
 
+  string mode;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
+
+  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
   string round_mode;
-  if (GetNodeAttr(op->attrs(), "round_mode", &round_mode) != Status::OK()) {
-    NGRAPH_VLOG(3)
-        << "round_mode attribute not present, setting to HALF_AWAY_FROM_ZERO";
-    round_mode = "HALF_AWAY_FROM_ZERO";
-  }
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
@@ -2417,7 +2411,7 @@ static Status TranslateQuantizeV2Op(
     default:
       return errors::InvalidArgument(
           "Expected Dequantize's datatype to be of int8 or uint8 but got ",
-          dtype);
+          DataTypeString(dtype));
   }
 
   // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/quantize_op.cc#L107
@@ -2478,19 +2472,15 @@ static Status TranslateDequantizeOp(
         ng_max.size());
   }
 
-  // Currently only ng::HALF_AWAY_FROM_ZERO is supported.
-  string mode;
-  if (GetNodeAttr(op->attrs(), "mode", &mode) != Status::OK()) {
-    NGRAPH_VLOG(3) << "mode attribute not present, setting to MIN_COMBINE";
-    mode = "MIN_COMBINE";
+  if (ng_min[0] > ng_max[0]) {
+    return errors::InvalidArgument(
+        "Expected Dequantize's min <= max but got, "
+        "min = ",
+        ng_min[0], " and max = ", ng_max[0]);
   }
 
-  string round_mode;
-  if (GetNodeAttr(op->attrs(), "round_mode", &round_mode) != Status::OK()) {
-    NGRAPH_VLOG(3)
-        << "round_mode attribute not present, setting to HALF_AWAY_FROM_ZERO";
-    round_mode = "HALF_AWAY_FROM_ZERO";
-  }
+  string mode;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));

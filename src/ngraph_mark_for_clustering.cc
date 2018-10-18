@@ -299,16 +299,17 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["QuantizeAndDequantizeV2"] = [](Node* n,
                                                                 bool* result) {
         // accept only when num_bits == 8 and range is given
-        bool range_given = false;
-        GetNodeAttr(n->attrs(), "range_given", &range_given);
-        int num_bits = 8;
-        GetNodeAttr(n->attrs(), "num_bits", &num_bits);
+        bool range_given;
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(n->attrs(), "range_given", &range_given));
+        int num_bits;
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "num_bits", &num_bits));
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
-        string mode = "MIN_COMBINE";
-        GetNodeAttr(n->attrs(), "mode", &mode);
+        string mode;
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "mode", &mode));
         *result = (mode.compare("SCALED") == 0);
         return Status::OK();
       };
