@@ -28,9 +28,9 @@ You need to instantiate a specific kind of `virtualenv`  to be able to proceed w
         virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
         source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
 
-Typically the following python packages are also needed `numpy mock keras keras_applications`.
+Typically the following python packages are also needed `numpy mock keras keras_applications keras_preprocessing`.
 
-        pip install -U numpy mock keras keras_applications
+        pip install -U numpy mock keras keras_applications keras_preprocessing
 
 Note: Depending on the version of Python and the packages already installed on your system,the above list may vary.
 
