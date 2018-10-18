@@ -97,3 +97,16 @@ ${JUNIT} OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
         --train_dir=$(pwd)/modelsavepath --eval --model=resnet50 --batch_size=128
 popd
 
+echo "--------------------------------------------------------------------------"
+echo "Running model tests"
+echo "--------------------------------------------------------------------------"
+
+pushd ${BUILD_DIR}
+rm -rf ngraph-models
+git clone git@github.com:NervanaSystems/ngraph-models.git
+pushd ngraph-models/tensorflow_scripts
+git checkout master
+./run-all-models.sh
+popd
+
+
