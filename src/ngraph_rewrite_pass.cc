@@ -151,7 +151,7 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
       DumpGraphs(options, idx, "captured", "Graph With Variables Captured");
     }
 
-    // Skip "Assert" if specifically asked by the user
+    // Disable "Assert" if specifically asked by the user
     if (std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr) {
       TF_RETURN_IF_ERROR(DisableAssert(options.graph->get()));
       NGRAPH_VLOG(0) << "Model running with Asserts disabled.";

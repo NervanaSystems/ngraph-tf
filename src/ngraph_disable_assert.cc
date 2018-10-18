@@ -28,7 +28,7 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 //
-// Main entry point for disbale assert.
+// Main entry point for disable assert.
 //
 Status DisableAssert(Graph* graph) {
   for (auto node : graph->op_nodes()) {
