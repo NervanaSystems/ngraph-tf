@@ -1,34 +1,35 @@
 from __future__ import print_function
-import os, sys, datetime
+import os, sys, datetime, pdb
 
 def check_copyright(dirname, year = None, pred = lambda x : True):
     no_copyrights = []; bad_year = []
-    files = os.walk(dirname).next()[2]
-    for file_under_test in [dirname + "/" + file for file in files if pred(file)]:
-        with open(file_under_test) as f:
-            copyright_found = False
-            for line in f.readlines():
-                if 'Copyright' in line and 'Intel' in line:
-                    copyright_found = True
-                    break
-            if not copyright_found:
-                no_copyrights.append(file_under_test)
-            elif year is not None:  #check year
-                year_found = False
-                for item in line.split(' '):
-                    str_under_test = item.split('-')[-1]
-                    if str_under_test.isdigit():
-                        if int(str_under_test) == year:
-                            year_found = True
-                            break
-                if not year_found:
-                    bad_year.append((file_under_test, line))
+    for root, dirnames, filenames in os.walk(dirname):
+        tag = root + '/'
+        for file_under_test in [tag + file for file in filenames if pred(file)]:
+            with open(file_under_test) as f:
+                copyright_found = False
+                for line in f.readlines():
+                    if 'Copyright' in line and 'Intel' in line:
+                        copyright_found = True
+                        break
+                if not copyright_found:
+                    no_copyrights.append(file_under_test)
+                elif year is not None:  #check year
+                    year_found = False
+                    for item in line.split(' '):
+                        str_under_test = item.split('-')[-1]
+                        if str_under_test.isdigit():
+                            if int(str_under_test) == year:
+                                year_found = True
+                                break
+                    if not year_found:
+                        bad_year.append((file_under_test, line))
 
     return no_copyrights, bad_year
 
 
 def iterate_over_subdirs_and_check_copyright(start_folder, children_to_explore = None):
-    year = datetime.datetime.now().year
+    year = datetime.datetime.now().year #get current year
     start_folder = start_folder.rstrip('/')
     if children_to_explore is None:
         subdirs = [x[0] for x in os.walk(start_folder)]
