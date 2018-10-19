@@ -87,6 +87,8 @@ Status RewriteForTracking(Graph* graph) {
 
         // Add edge from the input nodes (to the variable node (NGraphVariable))
         // to the new replacement node (also of type NGraphVariable)
+        NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
+                       << replacement->DebugString();
         for (auto edge : node->in_edges()) {
           NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
           graph->AddEdge(edge->src(), edge->src_output(), replacement,
@@ -98,11 +100,9 @@ Status RewriteForTracking(Graph* graph) {
           edges.push_back(edge);
         }
         for (auto edge : edges) {
-          if (edge->dst()->IsOp()) {
-            NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-            graph->UpdateEdge(replacement, edge->src_output(), edge->dst(),
-                              edge->dst_input());
-          }
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          graph->AddEdge(replacement, edge->src_output(), edge->dst(),
+                         edge->dst_input());
         }
 
         replaced_nodes.push_back(node);
