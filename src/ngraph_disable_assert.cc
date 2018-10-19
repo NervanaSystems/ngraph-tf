@@ -31,16 +31,23 @@ namespace ngraph_bridge {
 // Main entry point for disable assert.
 //
 Status DisableAssert(Graph* graph) {
+  std::vector<const Edge*> edges;
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "Assert") {
       NGRAPH_VLOG(4) << "Checking: " << node->name();
       for (auto edge : node->out_edges()) {
         if (edge->IsControlEdge()) {
-          NGRAPH_VLOG(4) << "Removing control edge: " << edge->DebugString();
-          graph->RemoveControlEdge(edge);
+          if(edge != NULL) {
+            NGRAPH_VLOG(4) << "Collecting all the control edges";
+            edges.push_back(edge);
+          }
         }
       }
     }
+  }
+  for (auto edge : edges) {
+    NGRAPH_VLOG(4) << "Removing control edge: " << edge->DebugString();
+    graph->RemoveControlEdge(edge);
   }
   return Status::OK();
 }
