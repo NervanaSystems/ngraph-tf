@@ -27,6 +27,7 @@ import numpy as np
 
 from common import NgraphTest
 
+
 class TestSigmoid(NgraphTest):
 
     def test_sigmoid(self):
@@ -47,4 +48,3 @@ class TestSigmoid(NgraphTest):
 
         sess_fn = lambda sess: sess.run((a, b), feed_dict={x: x_np, y: y_np, z: z_np})
         np.allclose(self.with_ngraph(sess_fn), self.without_ngraph(sess_fn))
-

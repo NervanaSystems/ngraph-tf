@@ -27,6 +27,7 @@ import tensorflow as tf
 
 from common import NgraphTest
 
+
 class TestRelu6(NgraphTest):
 
     def test_relu6(self):

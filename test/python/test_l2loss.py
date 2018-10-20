@@ -34,15 +34,14 @@ class TestL2Loss(NgraphTest):
         x = tf.placeholder(tf.float32, shape=xshape)
         out = tf.nn.l2_loss(x)
         values = np.random.rand(*xshape)
-        sess_fn = lambda sess : sess.run((out), feed_dict={x: values})
-        assert np.allclose(self.with_ngraph(sess_fn), self.without_ngraph(sess_fn))
-    
+        sess_fn = lambda sess: sess.run((out), feed_dict={x: values})
+        assert np.allclose(
+            self.with_ngraph(sess_fn), self.without_ngraph(sess_fn))
+
     def test_l2loss_empty(self):
         x = tf.placeholder(tf.float32, shape=())
         out = tf.nn.l2_loss(x)
-        sess_fn = lambda sess : sess.run((out), feed_dict={x: None})
+        sess_fn = lambda sess: sess.run((out), feed_dict={x: None})
 
         # expect to be nan
         assert (self.with_ngraph(sess_fn) != self.without_ngraph(sess_fn))
-    
-

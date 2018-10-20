@@ -17,6 +17,7 @@ import os
 import pytest
 from tensorflow.python.framework import ops
 
+
 @pytest.fixture(autouse=True)
 def reset_graph():
     yield
