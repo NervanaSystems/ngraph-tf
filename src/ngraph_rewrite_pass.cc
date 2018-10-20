@@ -128,6 +128,13 @@ mutex NGraphRewritePass::s_serial_counter_mutex;
 class NGraphVariableCapturePass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
+    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
+    // passes become a no-op.
+    //
+    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+      return Status::OK();
+    }
+
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphVariableCapturePass: options.graph == nullptr";
@@ -187,6 +194,12 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
 class NGraphEncapsulationPass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
+    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
+    // passes become a no-op.
+    //
+    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+      return Status::OK();
+    }
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphEncapsulationPass: options.graph == nullptr";
