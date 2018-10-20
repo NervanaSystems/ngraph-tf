@@ -2498,7 +2498,7 @@ static Status TranslateDequantizeOp(
       break;
     default:
       return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
+          "Expected Dequantize's datatype to be of int8 or uint8 but got ",
           dtype);
   }
 
