@@ -50,3 +50,28 @@ class TestAssertOperations(NgraphTest):
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    def test_disable_assert_tf_fails_ng_pass(self):
+        test_input = ((2, 2))
+        x = tf.placeholder(tf.int32, shape=(2,))
+        y = tf.placeholder(tf.int32, shape=(2,))
+        z = tf.placeholder(tf.int32, shape=(2,))
+        assert_op = tf.Assert(tf.less_equal(tf.reduce_max(z), 1), [x])
+
+        with tf.control_dependencies([assert_op]):
+            a2 = tf.add(x, y)
+
+        def run_test(sess):
+            return sess.run(
+                a2, feed_dict={
+                    x: test_input,
+                    y: test_input,
+                    z: test_input
+                })
+
+        try:
+            self.without_ngraph(run_test)
+            assert False
+        except tf.errors.InvalidArgumentError as e:
+            print("hfhrhgthgutrihy")
+            self.with_ngraph(run_test)
