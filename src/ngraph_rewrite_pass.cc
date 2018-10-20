@@ -155,8 +155,8 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
     if (std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr) {
       TF_RETURN_IF_ERROR(DisableAssert(options.graph->get()));
       NGRAPH_VLOG(0) << "Model running with Asserts disabled.";
-      // If requested, dump unmarked graphs without asserts
-      if (DumpCapturedGraphs()) {
+      // If requested, dump captured graphs without asserts
+      if (DumpDisabledAssertsGraphs()) {
         DumpGraphs(options, idx, "assert_disabled",
                    "Captured Graph without Asserts");
       }
@@ -173,6 +173,10 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
   static bool DumpCapturedGraphs() {
     return DumpAllGraphs() ||
            std::getenv("NGRAPH_TF_DUMP_CAPTURED_GRAPHS") != nullptr;
+  }
+  static bool DumpDisabledAssertsGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr;
   }
 };
 

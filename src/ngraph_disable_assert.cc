@@ -37,7 +37,7 @@ Status DisableAssert(Graph* graph) {
       NGRAPH_VLOG(4) << "Checking: " << node->name();
       for (auto edge : node->out_edges()) {
         if (edge->IsControlEdge()) {
-          if(edge != NULL) {
+          if (edge != NULL) {
             NGRAPH_VLOG(4) << "Collecting all the control edges";
             edges.push_back(edge);
           }
