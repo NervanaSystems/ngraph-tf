@@ -78,6 +78,31 @@ TEST(ArrayOps, Dequantizei8) {
   opexecuter.RunTest();
 }  // end of test op Dequantizei8
 
+// Test op: Dequantize
+// Dequantizes a tensor from u8 to float
+TEST(ArrayOps, Dequantizeu8) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(A, {0, 1, 5, 17, 82, 100});
+
+  auto attrs = ops::Dequantize::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::Dequantize R = ops::Dequantize(root, A, 0.0f, 128.0f, attrs);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "Dequantize", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Dequantizeu8
+
 // Test op: Fill
 TEST(ArrayOps, Fill) {
   std::vector<std::vector<int>> input_sizes;  // 1-D or higher
