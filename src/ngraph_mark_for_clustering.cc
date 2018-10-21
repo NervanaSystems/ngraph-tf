@@ -254,6 +254,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
       confirmation_function_map["Equal"] = SimpleConfirmationFunction();
       confirmation_function_map["Exp"] = SimpleConfirmationFunction();
       confirmation_function_map["ExpandDims"] = SimpleConfirmationFunction();
@@ -310,6 +311,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Slice"] = SimpleConfirmationFunction();
       confirmation_function_map["Snapshot"] = SimpleConfirmationFunction();
       confirmation_function_map["Softmax"] = SimpleConfirmationFunction();
+      confirmation_function_map["SpaceToDepth"] = SimpleConfirmationFunction();
       confirmation_function_map["SparseSoftmaxCrossEntropyWithLogits"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Split"] = SimpleConfirmationFunction();

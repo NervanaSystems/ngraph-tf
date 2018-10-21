@@ -1396,6 +1396,25 @@ static Status TranslateDepthToSpaceOp(
   ng::AxisVector ng_transpose_shape;
   ng::AxisVector ng_output_shape;
 
+  if (tf_data_format.compare("NCHW") == 0) {
+    ng::AxisVector input_transpose_shape;
+    input_transpose_shape.push_back(0);
+    input_transpose_shape.push_back(2);
+    input_transpose_shape.push_back(3);
+    input_transpose_shape.push_back(1);
+
+    ng_input = ng::builder::numpy_transpose(ng_input, input_transpose_shape);
+  } else if (tf_data_format.compare("NCHW_VECT_C") == 0) {
+    ng::AxisVector input_transpose_shape;
+    input_transpose_shape.push_back(0);
+    input_transpose_shape.push_back(2);
+    input_transpose_shape.push_back(3);
+    input_transpose_shape.push_back(1);
+    input_transpose_shape.push_back(4);
+
+    ng_input = ng::builder::numpy_transpose(ng_input, input_transpose_shape);
+  }
+
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0: {
@@ -1426,6 +1445,7 @@ static Status TranslateDepthToSpaceOp(
     }  // end of case NHWC
     // NCHW
     case 1: {
+      cout << "shouldn't enter" << endl;
       int64 num_blocks = 1;
       ng_reshape_shape.push_back(input_shape[0]);  // N dimension
       for (int i = 0; i < num_spatial_dimensions; i++) {
@@ -1466,7 +1486,38 @@ static Status TranslateDepthToSpaceOp(
             ng_axis_order_second_reshape.end(), 0);
   auto final_reshape = make_shared<ng::op::Reshape>(
       transposed, ng_axis_order_second_reshape, ng_output_shape);
-  SaveNgOp(ng_op_map, op->name(), final_reshape);
+
+  ng::AxisVector final_reshape_axis;
+  final_reshape_axis.push_back(0);
+  final_reshape_axis.push_back(3);
+  final_reshape_axis.push_back(1);
+  final_reshape_axis.push_back(2);
+
+  auto final_final_reshape =
+      ng::builder::numpy_transpose(final_reshape, final_reshape_axis);
+
+  // if(tf_data_format.compare("NCHW") == 0){
+  //   final_reshape_axis.push_back(0);
+  //   final_reshape_axis.push_back(3);
+  //   final_reshape_axis.push_back(1);
+  //   final_reshape_axis.push_back(2);
+
+  //   final_reshape = ng::builder::numpy_transpose(final_reshape,
+  //   final_reshape_axis);
+  // }
+
+  // }else if(tf_data_format.compare("NCHW_VECT_C") == 0){
+  //   final_reshape_axis.push_back(0);
+  //   final_reshape_axis.push_back(3);
+  //   final_reshape_axis.push_back(1);
+  //   final_reshape_axis.push_back(2);
+  //   final_reshape_axis.push_back(4);
+
+  //   final_reshape = ng::builder::numpy_transpose(final_reshape,
+  //   final_reshape_axis);
+  // }
+
+  SaveNgOp(ng_op_map, op->name(), final_final_reshape);
 
   return Status::OK();
 }

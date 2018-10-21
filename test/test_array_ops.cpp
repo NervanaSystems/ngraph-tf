@@ -88,12 +88,12 @@ TEST(ArrayOps, DepthToSpaceNHWC) {
 TEST(ArrayOps, DepthToSpaceNCHW) {
   std::map<std::vector<int64>, int> input_map;
   input_map.insert(pair<std::vector<int64>, int>({1, 4, 1, 1}, 2));
-  input_map.insert(pair<std::vector<int64>, int>({1, 250, 1, 1}, 5));
-  input_map.insert(pair<std::vector<int64>, int>({1, 180, 1, 1}, 3));
-  input_map.insert(pair<std::vector<int64>, int>({2, 27, 2, 1}, 3));
-  input_map.insert(pair<std::vector<int64>, int>({10, 40, 5, 5}, 2));
-  input_map.insert(pair<std::vector<int64>, int>({2, 9, 5, 1}, 3));
-  input_map.insert(pair<std::vector<int64>, int>({30, 3000, 3, 3}, 10));
+  // input_map.insert(pair<std::vector<int64>, int>({1, 250, 1, 1}, 5));
+  // input_map.insert(pair<std::vector<int64>, int>({1, 180, 1, 1}, 3));
+  // input_map.insert(pair<std::vector<int64>, int>({2, 27, 2, 1}, 3));
+  // input_map.insert(pair<std::vector<int64>, int>({10, 40, 5, 5}, 2));
+  // input_map.insert(pair<std::vector<int64>, int>({2, 9, 5, 1}, 3));
+  // input_map.insert(pair<std::vector<int64>, int>({30, 3000, 3, 3}, 10));
 
   vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT};
