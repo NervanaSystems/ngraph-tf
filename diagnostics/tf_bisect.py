@@ -1,6 +1,8 @@
 from __future__ import print_function
 import tensorflow as tf, pdb
 from ngtf_graph_viewer import load_file
+import numpy as np
+import ngraph
 
 def create_poset_grouping(poset, sink_first=False):
     """Given a partial ordering map, returns uncomparable element groupings.
@@ -42,7 +44,7 @@ def create_poset_grouping(poset, sink_first=False):
     else:
         return groupings
 
-def topo_sort_graph(graph):
+def group_topo_sort_graph(graph):
     # inp_nodes_gdef = filter(lambda n : len(n.input)==0 , graphdef.node)
     # inp_node_name_size_map = {k.name : [d.size for d in k.attr["shape"].shape.dim] for k in inp_nodes}
 
@@ -64,11 +66,37 @@ def topo_sort_graph(graph):
     for edge in edge_to_srcdst_map:
         src, dests = edge_to_srcdst_map[edge]
         poset[src] = poset.get(src, []) + dests
-    grouped = create_poset_grouping(poset, False)  #TODO: not working. debug
-    pdb.set_trace()     
+    grouped = create_poset_grouping(poset, True)  #TODO: not working. debug
+    return grouped
 
+def bisect(grouped, graph):
+    pass
 
-#load_file(graph_file_name, input_binary)
+def normalize_tensor_name(tname):
+    return tname + (':0' if len(tname.split(':')) == 1 else '')
+
+def generate_feed_dict(input_dims={}, dtypes={}):
+    feed_dict_random = {}
+    for k in input_dims:
+        if len(input_dims[k]) == 0:
+            val = np.random.random(1)[0]
+        else:
+            val = np.random.random(input_dims[k])
+        feed_dict_random[normalize_tensor_name(k)] = val
+        # TODO support other dtypes. currently only generates floats
+    return feed_dict_random
+
+def find_divergent_point(graph, sess_fn1, sess_fn2, feed_dict):
+    grouped = group_topo_sort_graph(graph)
+    network_inputs = grouped[max(grouped.keys())]
+    for network_input_op in network_inputs:
+        assert network_input_op.type in ['Const', 'VariableV2', 'Placeholder']
+        assert len(network_input_op.inputs) == 0
+        assert len(network_input_op.outputs) == 1  # TODO: is this a valid assumption?
+
+    #pdb.set_trace()
+    sess_fn2(list(grouped[1]), feed_dict)  #TODO: debug.
+    result = bisect(grouped, graph)
 
 def sample_network():
     n_input = 100
@@ -83,8 +111,28 @@ def sample_network():
     return tf.get_default_graph()
 
 #in_tensor_list = [tf.get_default_graph().get_tensor_by_name(tname) for tname in input_tensor_name_list]
+def sess_fn1(outtensors, feeddict):
+    ngraph.enable()
+    with tf.Session() as sess:
+        return sess.run(outtensors, feeddict)
+def sess_fn2(outtensors, feeddict):
+    ngraph.disable()
+    with tf.Session() as sess:
+        return sess.run(outtensors, feeddict)
 
-topo_sort_graph(sample_network())
+def sample_test():
+    input_dims = {'random_normal/stddev': [], 'Placeholder': [50, 100], 'random_normal_1/mean': [], 'random_normal/mean': [], 'Variable_1': [20, 20], 'Variable': [100, 20], 'random_normal_1/stddev': [], 'random_normal/shape': [2], 'random_normal_1/shape': [2]}
+    feed_dict_random = generate_feed_dict(input_dims)
+    # TODO feed_dict_random + non-random input, if desired
+    feed_dict = feed_dict_random
+    find_divergent_point(sample_network(), sess_fn1, sess_fn2, feed_dict)
+
+sample_test()
+
+# TODO: try networks with while loop
+# TODO: have a way to specify input sizes. if not specified, infer somehow?
+
+
 
 
 
