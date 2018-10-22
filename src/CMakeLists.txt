@@ -30,6 +30,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 set(SRC 
    ngraph_api.cc
    ngraph_assign_clusters.cc
+   ngraph_backend_state.cc
    ngraph_builder.cc
    ngraph_capture_variables.cc
    ngraph_cluster_manager.cc

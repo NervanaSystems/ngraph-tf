@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include "ngraph/runtime/backend.hpp"
 
 #include "ngraph_api.h"
+#include "ngraph_backend_state.h"
 
 namespace tensorflow {
 namespace ngraph_bridge {
@@ -65,7 +65,13 @@ vector<string> ListBackends() {
 }
 tensorflow::Status SetBackend(const string& type) {
   try {
-    ngraph::runtime::Backend::create(type);
+    auto backend = ngraph::runtime::Backend::create(type);
+
+    auto* state = backend_state::GlobalState();
+    std::lock_guard<std::mutex> lock{state->mu};
+    state->is_cpu = backend_state::IsCPUConfig(type);
+    state->backend = std::move(backend);
+
   } catch (const runtime_error& e) {
     return tensorflow::errors::Unavailable("Backend unavailable: ", type,
                                            " Reason: ", e.what());
