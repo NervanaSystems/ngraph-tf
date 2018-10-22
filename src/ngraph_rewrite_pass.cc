@@ -128,13 +128,6 @@ mutex NGraphRewritePass::s_serial_counter_mutex;
 class NGraphVariableCapturePass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
-    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
-    // passes become a no-op.
-    //
-    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-      return Status::OK();
-    }
-
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphVariableCapturePass: options.graph == nullptr";
@@ -149,6 +142,13 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
     // If requested, dump pre-capture graphs.
     if (DumpPrecaptureGraphs()) {
       DumpGraphs(options, idx, "precapture", "Pre-Capture Graph");
+    }
+
+    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
+    // passes become a no-op.
+    //
+    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+      return Status::OK();
     }
 
     // Do variable capture then, if requested, dump the graphs.
@@ -194,12 +194,6 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
 class NGraphEncapsulationPass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
-    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
-    // passes become a no-op.
-    //
-    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-      return Status::OK();
-    }
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphEncapsulationPass: options.graph == nullptr";
@@ -214,6 +208,13 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     // If requested, dump unmarked graphs.
     if (DumpUnmarkedGraphs()) {
       DumpGraphs(options, idx, "unmarked", "Unmarked Graph");
+    }
+
+    // If NGRAPH_TF_DISABLE is set we will not do anything; all subsequent
+    // passes become a no-op.
+    //
+    if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+      return Status::OK();
     }
 
     // 1. Mark for clustering then, if requested, dump the graphs.
