@@ -101,7 +101,6 @@ static Status ConfirmationOk(
     std::map<std::string, ConfirmationFunction>& confirmation_function_map,
     bool& confirmation_ok) {
   auto it = confirmation_function_map.find(node->type_string());
-
   if (it != confirmation_function_map.end()) {
     TF_RETURN_IF_ERROR(it->second(node, &confirmation_ok));
   }

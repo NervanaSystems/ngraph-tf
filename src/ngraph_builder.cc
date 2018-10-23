@@ -1395,7 +1395,7 @@ static Status TranslateDepthToSpaceOp(
         " is not divisible by square of the block_size ", block_size);
   }
 
-   ng::AxisVector ng_reshape_shape;
+  ng::AxisVector ng_reshape_shape;
   ng::AxisVector ng_transpose_shape;
   ng::AxisVector ng_output_shape;
 

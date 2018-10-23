@@ -88,12 +88,12 @@ TEST(ArrayOps, DepthToSpaceNHWC) {
 TEST(ArrayOps, DepthToSpaceNCHW) {
   std::map<std::vector<int64>, int> input_map;
   input_map.insert(pair<std::vector<int64>, int>({1, 4, 1, 1}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 250, 1, 1}, 5));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 180, 1, 1}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({2, 27, 2, 1}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({10, 40, 5, 5}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({2, 9, 5, 1}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({30, 3000, 3, 3}, 10));
+  input_map.insert(pair<std::vector<int64>, int>({1, 250, 1, 1}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({1, 180, 1, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({2, 27, 2, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 40, 5, 5}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({2, 9, 5, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({30, 3000, 3, 3}, 10));
 
   vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -117,7 +117,7 @@ TEST(ArrayOps, DepthToSpaceNCHW) {
     vector<Tensor> ngraph_outputs;
     opexecuter.ExecuteOnNGraph(ngraph_outputs);
 
-    // On CPU, the op only supports NCHW data format
+    // On CPU, the op only supports NHWC data format
     Scope tf_scope = Scope::NewRootScope();
     auto input_data_NHWC = ops::Transpose(tf_scope, input_data, {0, 2, 3, 1});
     auto r_tf = ops::DepthToSpace(tf_scope, input_data_NHWC, block_size);
@@ -133,6 +133,7 @@ TEST(ArrayOps, DepthToSpaceNCHW) {
     Compare(tf_outputs, ngraph_outputs);
   }
 }  // end of op DepthToSpaceNCHW
+
 // Test op: Dequantize
 // Dequantizes a tensor from i8 to float
 TEST(ArrayOps, Dequantizei8) {
@@ -480,13 +481,13 @@ TEST(ArrayOps, Slice) {
 TEST(ArrayOps, SpaceToDepthNHWC) {
   std::map<std::vector<int64>, int> input_map;
   input_map.insert(pair<std::vector<int64>, int>({1, 2, 2, 1}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 2, 2, 3}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 3, 3, 3}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 10, 10, 5}, 10));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 6, 4, 1}, 2));
-  // input_map.insert(pair<std::vector<int64>, int>({1, 20, 10, 3}, 5));
-  // input_map.insert(pair<std::vector<int64>, int>({2, 3, 6, 3}, 3));
-  // input_map.insert(pair<std::vector<int64>, int>({10, 10, 10, 10}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 2, 2, 3}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 3, 3, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({1, 10, 10, 5}, 10));
+  input_map.insert(pair<std::vector<int64>, int>({1, 6, 4, 1}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 20, 10, 3}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({2, 3, 6, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 10, 10, 10}, 2));
 
   vector<int> static_input_indexes = {};
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -504,12 +505,6 @@ TEST(ArrayOps, SpaceToDepthNHWC) {
     std::vector<Output> sess_run_fetchoutputs = {R};
     OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes,
                           output_datatypes, sess_run_fetchoutputs);
-
-    vector<Tensor> output;
-    //opexecuter.ExecuteOnNGraph(output);
-    // for(auto out : output){
-    //   PrintTensorAllValues(out,100);
-    // }
     opexecuter.RunTest();
   }
 }  // end of op SpaceToDepthNHWC
@@ -547,7 +542,7 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
     vector<Tensor> ngraph_outputs;
     opexecuter.ExecuteOnNGraph(ngraph_outputs);
 
-    // On CPU, the op only supports NCHW data format
+    // On CPU, the op only supports NHWC data format
     Scope tf_scope = Scope::NewRootScope();
     auto input_data_NHWC = ops::Transpose(tf_scope, input_data, {0, 2, 3, 1});
     auto r_tf = ops::SpaceToDepth(tf_scope, input_data_NHWC, block_size);
