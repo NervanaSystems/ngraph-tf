@@ -1402,10 +1402,17 @@ static Status TranslateDepthToSpaceOp(
   switch (format_to_int_map[tf_data_format]) {
     // NHWC
     case 0: {
-      ng_reshape_shape.push_back(input_shape[0]);  // N dimension
+      // ng_reshape_shape = [batch_size,
+      //                     height,
+      //                     width,
+      //                     block_size,
+      //                     block_size,
+      //                     channel / (block_size * block_size)]
+      ng_reshape_shape.push_back(input_shape[0]);
       for (int i = 0; i < num_spatial_dimensions; i++) {
         ng_reshape_shape.push_back(input_shape[i + 1]);
       }
+
       int64 num_blocks = 1;
       for (int i = 0; i < num_spatial_dimensions; i++) {
         ng_reshape_shape.push_back(block_size);
@@ -1413,6 +1420,12 @@ static Status TranslateDepthToSpaceOp(
       }
       ng_reshape_shape.push_back(input_shape[channel_dimension] / num_blocks);
 
+      // ng_transpose_shape = [batch_size,
+      //                       height,
+      //                       block_size,
+      //                       width,
+      //                       block_size,
+      //                       channel / (block_size * block_size)]
       ng_transpose_shape.push_back(0);
       for (int i = 0; i < num_spatial_dimensions; i++) {
         ng_transpose_shape.push_back(i + 1);
@@ -1420,6 +1433,10 @@ static Status TranslateDepthToSpaceOp(
       }
       ng_transpose_shape.push_back(channel_dimension + num_spatial_dimensions);
 
+      // ng_output_shape = [batch_size,
+      //                    height * block_size,
+      //                    width * block_size,
+      //                    channel / (block_size * block_size)]
       ng_output_shape.push_back(input_shape[0]);
       for (int i = 0; i < num_spatial_dimensions; i++) {
         ng_output_shape.push_back(input_shape[i + 1] * block_size);
@@ -1427,8 +1444,15 @@ static Status TranslateDepthToSpaceOp(
       ng_output_shape.push_back(input_shape[channel_dimension] / num_blocks);
       break;
     }  // end of case NHWC
+
     // NCHW
     case 1: {
+      // ng_reshape_shape = [batch_size,
+      //                     block_size,
+      //                     block_size,
+      //                     channel / (block_size * block_size),
+      //                     height,
+      //                     width]
       int64 num_blocks = 1;
       ng_reshape_shape.push_back(input_shape[0]);  // N dimension
       for (int i = 0; i < num_spatial_dimensions; i++) {
@@ -1441,6 +1465,12 @@ static Status TranslateDepthToSpaceOp(
         ng_reshape_shape.push_back(input_shape[i + 2]);
       }
 
+      // ng_transpose_shape = [batch_size,
+      //                       channel / (block_size * block_size)
+      //                       height,
+      //                       block_size,
+      //                       width,
+      //                       block_size]
       ng_transpose_shape.push_back(0);
       ng_transpose_shape.push_back(1 + num_spatial_dimensions);
       for (int i = 0; i < num_spatial_dimensions; i++) {
@@ -1448,6 +1478,10 @@ static Status TranslateDepthToSpaceOp(
         ng_transpose_shape.push_back(i + 1);
       }
 
+      // ng_output_shape = [batch_size,
+      //                    channel / (block_size * block_size)
+      //                    height * block_size,
+      //                    width * block_size]
       ng_output_shape.push_back(input_shape[0]);
       ng_output_shape.push_back(input_shape[channel_dimension] / num_blocks);
       for (int i = 0; i < num_spatial_dimensions; i++) {
