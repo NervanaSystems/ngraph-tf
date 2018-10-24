@@ -18,7 +18,7 @@ import sys
 import argparse
 import os
 import re
-import fnmatch 
+import fnmatch
 """
 tf_unittest_runner is primarily used to run tensorflow python 
 unit tests using ngraph
@@ -55,7 +55,9 @@ def main():
         print(test_list)
         run_test(test_list)
 
-from fnmatch import fnmatch 
+
+from fnmatch import fnmatch
+
 
 def regex_walk(dirname, test_name):
     """
@@ -76,7 +78,6 @@ def regex_walk(dirname, test_name):
                 print(name)
                 test_list.append(name)
     return test_list
-    
 
 
 def list_tests(test_module):
@@ -117,6 +118,7 @@ def run_test(test_list, verbosity=2):
     for test in test_list:
         tests = loader.loadTestsFromName(test)
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
+
 
 if __name__ == '__main__':
     main()
