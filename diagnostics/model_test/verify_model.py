@@ -178,6 +178,7 @@ if __name__ == '__main__':
         random_input = np.random.randint(255, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
 
+<<<<<<< HEAD
     # Run the model on device1 
     result_tf_graph_arrs, out_tensor_names_cpu = calculate_output(
         parameters, device1, input_tensor_dim_map)
