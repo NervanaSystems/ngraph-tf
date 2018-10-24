@@ -58,6 +58,10 @@ python -m pytest \
     test_slice.py \
     test_sigmoidgrad.py \
     test_tanhgrad.py
+
+export NGRAPH_TF_DISABLE_ASSERTS=1
+python -m pytest test_disable_assert.py
+unset NGRAPH_TF_DISABLE_ASSERTS
 popd
 
 echo "--------------------------------------------------------------------------"

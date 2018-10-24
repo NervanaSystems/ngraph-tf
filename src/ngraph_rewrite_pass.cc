@@ -20,6 +20,7 @@
 #include "ngraph_assign_clusters.h"
 #include "ngraph_capture_variables.h"
 #include "ngraph_deassign_clusters.h"
+#include "ngraph_disable_assert.h"
 #include "ngraph_encapsulate_clusters.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
@@ -157,6 +158,17 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
       DumpGraphs(options, idx, "captured", "Graph With Variables Captured");
     }
 
+    // Disable "Assert" if specifically asked by the user
+    if (std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr) {
+      TF_RETURN_IF_ERROR(DisableAssert(options.graph->get()));
+      NGRAPH_VLOG(0) << "Model running with Asserts disabled.";
+      // If requested, dump captured graphs without asserts
+      if (DumpDisabledAssertsGraphs()) {
+        DumpGraphs(options, idx, "assert_disabled",
+                   "Captured Graph without Asserts");
+      }
+    }
+
     return Status::OK();
   }
 
@@ -168,6 +180,10 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
   static bool DumpCapturedGraphs() {
     return DumpAllGraphs() ||
            std::getenv("NGRAPH_TF_DUMP_CAPTURED_GRAPHS") != nullptr;
+  }
+  static bool DumpDisabledAssertsGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DISABLE_ASSERTS") != nullptr;
   }
 };
 
