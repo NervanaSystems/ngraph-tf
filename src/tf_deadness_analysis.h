@@ -71,9 +71,16 @@ class DeadnessAnalysis {
   // instance of DeadnessAnalysis in `result`.
   static Status Run(const Graph& graph,
                     std::unique_ptr<DeadnessAnalysis>* result);
+
+  // For Data Flow ops, updates predicate_string
+  virtual void GetNodePredicate(const Node& node, string& predicate_string) = 0;
+
+  // virtual void GetPredicateMap(
+  //    std::map<Edge*, std::string>& edge_predicate_map) = 0;
 };
 
 }  // namespace ngraph_bridge
+
 }  // namespace tensorflow
 
 #endif  // NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_

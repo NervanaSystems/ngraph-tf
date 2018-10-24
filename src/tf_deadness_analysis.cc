@@ -45,8 +45,6 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.cc
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tf_deadness_analysis.h"
 
-#include "absl/container/flat_hash_set.h"
-
 // ALGORITHM OVERVIEW
 //
 // We map every output produced by each node in the TensorFlow graph (including
@@ -313,6 +311,8 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   Status Populate();
   bool HasInputsWithMismatchingDeadness(const Node& node) override;
   void Print() const override;
+  void GetNodePredicate(const Node& node, string& predicate_string);
+  // void GetPredicateMap(std::map<Edge*, std::string>& edge_predicate_map);
 
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
@@ -486,6 +486,34 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   }
   return false;
 }
+
+// If all output edges of the op have the same predicate update predicate_string
+void DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
+                                            string& predicate_string) {
+  Predicate* pred = nullptr;
+  for (const Edge* edge : node.out_edges()) {
+    auto it = predicate_map_.find(InputEdgeToTensorId(edge));
+    if (it == predicate_map_.end()) {
+      NGRAPH_VLOG(5) << "Cannot find predicate for Edge ";
+      NGRAPH_VLOG(5) << "Src " << edge->src()->name() << "["
+                     << edge->src()->type_string() << "]"
+                     << " ,Src Idx " << edge->src_output() << " DST "
+                     << edge->dst()->name() << "[" << edge->dst()->type_string()
+                     << "]"
+                     << " ,Dst Idx " << edge->dst_input();
+    }
+    CHECK(it != predicate_map_.end());
+
+    if (pred != nullptr && *pred != *it->second) {
+      return;
+    }
+    pred = it->second;
+  }
+
+  // All outputs have the same predicate
+  predicate_string = pred->ToString();
+}
+
 void DeadnessAnalysisImpl::Print() const {
   std::vector<TensorId> tensor_ids;
   for (const auto& kv_pair : predicate_map_) {

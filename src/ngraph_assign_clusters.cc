@@ -31,6 +31,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
+#include "tf_deadness_analysis.h"
 #include "tf_graphcycles.h"
 
 using namespace std;
@@ -54,7 +55,7 @@ namespace ngraph_bridge {
 //           |
 //          N7
 //
-// If nodes N1, N2, N3, N4, N6, and N7 are all marked, but N6 is unmarked, the
+// If nodes N1, N2, N3, N4, N6, and N7 are all marked, but N5 is unmarked, the
 // clustering pass will assign nodes N1, N2, N3, and N4 to one cluster, and
 // nodes N6 and N7 to another.
 //
@@ -66,6 +67,13 @@ namespace ngraph_bridge {
 //       cluster, there is no path from N1 to N2 traversing any node N3 that
 //       is _not_ in the same cluster as N1 and N2 (in other words,
 //       data/control flow cannot "re-enter" the cluster).
+//
+// Other Constraints (Non Data Flow Constraints)
+//
+//   (1) If N1 is a static input to N2, N1 and N2 are not placed in the same
+//       cluster (More on static inputs in ngraph_mark_for_clustering)
+//   (2) If N1 and N2 have mismatching deadness predicates, they are not
+//       placed in the same cluster (More on deadness in tf_deadness_analysis)
 //
 // Given the above constraints, we try to find the "biggest" clusters we can.
 //
@@ -83,23 +91,48 @@ namespace {
 struct Cluster {
   int index;
   std::set<tensorflow::Node*> nodes;
+  std::string predicate_string;
 };
-}
+}  // namespace
 
 Status AssignClusters(Graph* graph) {
   std::map<Node*, std::shared_ptr<Cluster>> cluster_map;
 
+  // Create map of Edge (TensorId?) and Predicate String generated from Deadness
+  // Analysis
+  // TODO: FLAG to disable deadness #if
+  // !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+  std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
+  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
+  std::string CONTROL_FLOW_OP_PRED_STRING = "NULL";
+  std::string TRUE_PRED_STRING = "#true";
+  // Deadness is typically introduced by control flow op. So, all the outgoing
+  // edges from the data flow op have the same deadness predicate (And
+  // Predicate of all its inputs) So we can attach a predicate string to the
+  // data-flow node (predicate of its output edge).
+  // As nGraph supports only data-flow ops all the nodes marked for clustering
+  // can be associated with a string predicate
+  std::map<Node*, std::string> nodes_predicate_map;
+
   GraphCycles gc;
 
+  // Initial Step: Each node is a cluster of its own
   for (auto node : graph->op_nodes()) {
     int new_index = gc.NewNode();
-    NGRAPH_VLOG(5) << "Creating cycle graph node: " << new_index << " for "
+    NGRAPH_VLOG(5) << "Creating graphcycle node: " << new_index << " for "
                    << node->name() << "[" << node->type_string() << "]";
     cluster_map[node] = std::make_shared<Cluster>();
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
+
+    std::string pred_string = CONTROL_FLOW_OP_PRED_STRING;
+    // if data flow op pred_string will be updated
+    deadness_analyzer->GetNodePredicate(*node, pred_string);
+
+    cluster_map[node]->predicate_string = pred_string;
   }
 
+  // Check for existing cyclicity in the graph
   for (auto edge : graph->edges()) {
     Node* src = edge->src();
     Node* dst = edge->dst();
@@ -170,6 +203,45 @@ Status AssignClusters(Graph* graph) {
     }
   }
 
+  // Add Shadow nodes and edges to avoid clustering wrong nodes
+  for (auto edge : graph->edges()) {
+    Node* src = edge->src();
+    Node* dst = edge->dst();
+
+    if (!src->IsOp() || !dst->IsOp()) {
+      continue;
+    }
+
+    string src_predicate = cluster_map[src]->predicate_string;
+    string dst_predicate = cluster_map[dst]->predicate_string;
+
+    // If either src or dest is control flow op then we ignore them as they are
+    // not candidates for clustering
+    if (src_predicate == CONTROL_FLOW_OP_PRED_STRING ||
+        dst_predicate == CONTROL_FLOW_OP_PRED_STRING) {
+      continue;
+    }
+
+    // If either is TRUE PRED then they can take part in clustering irrespective
+    // of the predicate of the other node
+    if (src_predicate == TRUE_PRED_STRING ||
+        dst_predicate == TRUE_PRED_STRING) {
+      continue;
+    }
+
+    // If we find mismatching deadness the edge cannot be contracted, add a
+    // shadow edge
+    if (src_predicate != dst_predicate) {
+      int shadow_node_index = gc.NewNode();
+      bool gc_success =
+          gc.InsertEdge(cluster_map[edge->src()]->index, shadow_node_index);
+      gc_success &=
+          gc.InsertEdge(shadow_node_index, cluster_map[edge->dst()]->index);
+      if (!gc_success)
+        errors::Internal("Unable to create shadow edges in GraphCycles");
+    }
+  }
+
   NGRAPH_VLOG(2) << "Starting contraction";
   bool changed;
 
@@ -187,6 +259,9 @@ Status AssignClusters(Graph* graph) {
       int src_index = cluster_map[src]->index;
       int dst_index = cluster_map[dst]->index;
 
+      string src_predicate = cluster_map[src]->predicate_string;
+      string dst_predicate = cluster_map[dst]->predicate_string;
+
       if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
         NGRAPH_VLOG(5) << "Skipping (not marked): " << src->name() << "["
                        << edge->src_output() << "]@" << src_index << " -> "
@@ -195,15 +270,41 @@ Status AssignClusters(Graph* graph) {
         continue;
       }
 
+      // If the node marked for clustering has CONTROL_FLOW_OP_PRED_STRING, it
+      // breaks our assumption that all supported ops are data flow ops, and all
+      // its outputs have the same predicate
+      if (src_predicate == CONTROL_FLOW_OP_PRED_STRING ||
+          dst_predicate == CONTROL_FLOW_OP_PRED_STRING) {
+        Node* err_node =
+            (src_predicate == CONTROL_FLOW_OP_PRED_STRING) ? src : dst;
+        errors::Internal(
+            "Attempting to cluster node with mismatching output deadness : ",
+            err_node->name(), "[", err_node->type_string(), "]");
+      }
+
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
         NGRAPH_VLOG(5) << "Contracting: " << src->name() << "["
                        << edge->src_output() << "]@" << src_index << " -> "
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
+
+        if (src_predicate != TRUE_PRED_STRING &&
+            dst_predicate != TRUE_PRED_STRING &&
+            src_predicate != dst_predicate) {
+          errors::Internal(
+              "Attempting to cluster node with mismatching output deadness : "
+              "Src: ",
+              src->name(), "[", src->type_string(), "] -> Dst: ", dst->name(),
+              "[", dst->type_string(), "]");
+        }
+
         // using cluster_map[dst]->nodes in the loop directly appears to
         // invalidate the iterator when `node` == `dst`
         // this happens with clang but not gcc
+        std::string cluster_pred =
+            (src_predicate != TRUE_PRED_STRING) ? src_predicate : dst_predicate;
+        cluster_map[src]->predicate_string = cluster_pred;
         auto cluster_dst = cluster_map[dst];
         for (auto node : cluster_dst->nodes) {
           cluster_map[src]->nodes.insert(node);
