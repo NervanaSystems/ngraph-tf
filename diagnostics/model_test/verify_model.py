@@ -2,21 +2,44 @@ import tensorflow as tf
 import argparse
 import numpy as np
 import ngraph
+from google.protobuf import text_format
 import json
 import os
 
+def createFolder(directory):
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except OSError:
+        print ('Error: Creating directory. ' +  directory)
+    os.chdir(output_folder)
+
+def set_os_env(select_device):
+    if select_device == 'CPU':
+        # run on TF only
+        ngraph.disable()
+        os.environ['NGRAPH_TF_BACKEND']='CPU'
+    else:
+        if not ngraph.is_enabled():
+            ngraph.enable()
+        
+        back_end = select_device.split("NGRAPH_")
+        os.environ['NGRAPH_TF_BACKEND']=back_end[1]
+
+        if quantized_mode == 'QUANTIZED':
+            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH']='1'
+        else:
+            # float mode
+            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH']='0'
 
 def calculate_output(param_dict, select_device, input_example):
     """Calculate the output of the imported frozen graph given the input.
-
     Load the graph def from frozen_graph_file on selected device, then get the tensors based on the input and output name from the graph,
     then feed the input_example to the graph and retrieves the output vector.
-
     Args:
     param_dict: The dictionary contains all the user-input data in the json file.
     select_device: "NGRAPH" or "CPU".
     input_example: A map with key is the name of the input tensor, and value is the random generated example
-
     Returns:
         The output vector obtained from running the input_example through the graph.
     """
@@ -27,19 +50,23 @@ def calculate_output(param_dict, select_device, input_example):
         raise Exception("Input graph file '" + frozen_graph_filename +
                         "' does not exist!")
 
-    with tf.gfile.GFile(frozen_graph_filename, "rb") as f:
-        graph_def = tf.GraphDef()
-        graph_def.ParseFromString(f.read())
-
-    if select_device == 'CPU':
-        ngraph.disable()
+    graph_def = tf.GraphDef()
+    if frozen_graph_filename.endswith("pbtxt"):
+        with open(frozen_graph_filename, "r") as f:
+            text_format.Merge(f.read(), graph_def)
     else:
-        # run on NGRAPH
-        if not ngraph.is_enabled():
-            ngraph.enable()
+        with open(frozen_graph_filename, "rb") as f:
+            graph_def.ParseFromString(f.read())
+
+    set_os_env(select_device)
 
     with tf.Graph().as_default() as graph:
         tf.import_graph_def(graph_def)
+        if len(output_tensor_name) == 0:
+            # if no outputs are specified, then compare for all tensors
+            output_tensor_name = sum(
+                [[j.name for j in i.outputs] for i in graph.get_operations()],
+                [])
 
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
@@ -48,7 +75,7 @@ def calculate_output(param_dict, select_device, input_example):
         tensor_to_example_map[t] = input_example[item]
 
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
-    output_tensor = graph.get_tensor_by_name(output_tensor_name)
+    output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
 
     config = tf.ConfigProto(
         allow_soft_placement=True,
@@ -57,22 +84,18 @@ def calculate_output(param_dict, select_device, input_example):
 
     with tf.Session(graph=graph, config=config) as sess:
         output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
-        return output_tensor
+        return output_tensor, output_tensor_name
 
 
 def calculate_norm(ngraph_output, tf_output, desired_norm):
     """Calculate desired_norm between vectors.
-
     Calculate the L1/L2/inf norm between the NGRAPH and tensorflow output vectors.
-
     Args:
         ngraph_output: The output vector generated from NGRAPH graph.
         tf_output: The output vector generated from tensorflow graph.
         desired_norm: L1/L2/inf norm. 
-
     Returns:
         Calculated norm between the vectors.
-
     Raises:
         Exception: If the dimension of the two vectors mismatch.
     """
@@ -97,7 +120,6 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
 def parse_json():
     """
         Parse the user input json file.
-
         Returns:
             A dictionary contains all the parsed parameters.
     """
@@ -118,11 +140,32 @@ if __name__ == '__main__':
 
     parameters = parse_json()
 
+    # Get devices name to compare
+    device1 = parameters["device_name1"]
+    device2 = parameters["device_name2"]
+
+    # Get quantized mode
+    quantized_mode = parameters["quantized_mode"]
+
+    # Get L1/L2/Inf threshold value
+    l1_norm_threshold = parameters["l1_norm_threshold"]
+    l2_norm_threshold = parameters["l2_norm_threshold"]
+    inf_norm_threshold = parameters["inf_norm_threshold"]
+
+    # Get log file name to save output
+    log_file = parameters["log_file_name"]
+    output_folder = device1+"-"+device2+"-"+quantized_mode
+    createFolder(output_folder)
+    file = open(log_file, "w")
+    file.write("Model name: {}\n".format(parameters["model_name"]))
+    file.write("L1/L2/Inf norm configuration: {}, {}, {}\n".format(l1_norm_threshold, l2_norm_threshold, inf_norm_threshold))
+
     # Generate random input based on input_dimension
     np.random.seed(100)
     input_dimension = parameters["input_dimension"]
     input_tensor_name = parameters["input_tensor_name"]
     bs = int(parameters["batch_size"])
+
 
     assert len(input_dimension) == len(
         input_tensor_name
@@ -131,36 +174,60 @@ if __name__ == '__main__':
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
     for (dim, name) in zip(input_dimension, input_tensor_name):
-        random_input = np.random.random_sample([bs] + dim)
+        #random_input = np.random.random_sample([bs] + dim)
+        random_input = np.random.randint(255, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
 
-    # Run the model on tensorflow
-    result_tf_graph = calculate_output(parameters, "CPU", input_tensor_dim_map)
-    # Run the model on ngraph
-    result_ngraph = calculate_output(parameters, "NGRAPH", input_tensor_dim_map)
+    # Run the model on device1 
+    result_tf_graph_arrs, out_tensor_names_cpu = calculate_output(
+        parameters, device1, input_tensor_dim_map)
+    # Run the model on device2
+    result_ngraph_arrs, out_tensor_names_ngraph = calculate_output(
+        parameters, device2, input_tensor_dim_map)
 
-    l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
-    l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
-    inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
-    l1_norm_threshold = parameters["l1_norm_threshold"]
-    l2_norm_threshold = parameters["l2_norm_threshold"]
-    inf_norm_threshold = parameters["inf_norm_threshold"]
+    assert all(
+        [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
+    for tname, result_ngraph, result_tf_graph in zip(
+            out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
+        file.write(">>>Start {}\n".format(tname))
 
-    if l1_norm > l1_norm_threshold:
-        print("The L1 norm %f is greater than the threshold %f " %
-              (l1_norm, l1_norm_threshold))
-    else:
-        print("L1 norm test passed")
+        new_out_layer = tname.replace("/","_")
+        nparray_tf = np.array(result_tf_graph)
+        nparray_ngraph = np.array(result_ngraph)
+        np.save(device1+"-"+new_out_layer+".npy", nparray_tf)
+        np.save(device2+"-"+new_out_layer+".npy", nparray_ngraph)
 
-    if l2_norm > l2_norm_threshold:
-        print("The L2 norm %f is greater than the threshold %f " %
-              (l2_norm, l2_norm_threshold))
-    else:
-        print("L2 norm test passed")
+        l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
+        l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
+        inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
-    if inf_norm > inf_norm_threshold:
-        print("The inf norm %f is greater than the threshold %f " %
-              (inf_norm, inf_norm_threshold))
-    else:
-        print("inf norm test passed")
+        if l1_norm > l1_norm_threshold:
+            print("The L1 norm %f is greater than the threshold %f for %s" %
+                  (l1_norm, l1_norm_threshold, tname))
+            file.write("L1 norm test - Fail: The L1 norm %f is greater than the threshold %f\n" %
+                  (l1_norm, l1_norm_threshold))
+        else:
+            print("L1 norm test passed for ", tname)
+            file.write("L1 norm test - Pass\n")
+
+        if l2_norm > l2_norm_threshold:
+            print("The L2 norm %f is greater than the threshold %f for %s" %
+                  (l2_norm, l2_norm_threshold, tname))
+            file.write("L2 norm test - Fail: The L2 norm %f is greater than the threshold %f\n" %
+                  (l2_norm, l2_norm_threshold))
+        else:
+            print("L2 norm test passed for ", tname)
+            file.write("L2 norm test - Pass\n")
+
+        if inf_norm > inf_norm_threshold:
+            print("The inf norm %f is greater than the threshold %f for %s" %
+                  (inf_norm, inf_norm_threshold, tname))
+            file.write("Inf norm test - Fail: The inf norm %f is greater than the threshold %f\n" %
+                  (inf_norm, inf_norm_threshold)) 
+        else:
+            print("inf norm test passed for ", tname)
+            file.write("Inf norm test - Pass\n")
+
+    file.write(">>>All layer test is done")
+    file.close()

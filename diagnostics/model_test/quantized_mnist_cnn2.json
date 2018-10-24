@@ -1,0 +1,27 @@
+{
+    "model_name": "mnist_cnn",
+    "device_name1": "NGRAPH_CPU",
+    "device_name2": "NGRAPH_NNPI",
+    "quantized_mode": "QUANTIZED",
+    "frozen_graph_location": "/home/yeonsily/workspace/ds_app_auto_testsuite/nnpi_transformer/quantization_test/mnist_quantized_fully_trained_20181004.pb",
+    "input_tensor_name": ["import/inputs/image/placeholder:0"],
+    "output_tensor_name": [
+ "import/inputs/image/placeholder:0",
+ "import/inputs/image/FixedQuantize/QuantizeAndDequantizeV2/input_max:0",
+ "import/model/conv0/conv0/scaled_weights/FixedQuantize/QuantizeAndDequantizeV2:0",
+ "import/model/conv0/conv0/BatchNorm/bias:0",
+ "import/model/conv1/conv1/scaled_weights/FixedQuantize/QuantizeAndDequantizeV2:0",
+ "import/model/conv1/conv1/BatchNorm/bias:0",
+ "import/model/conv2/conv2/scaled_weights/FixedQuantize/QuantizeAndDequantizeV2:0",
+ "import/model/conv2/conv2/BatchNorm/bias:0",
+ "import/model/fc1/flatten/shape:0",
+ "import/model/conv0/conv0/Relu6/FixedQuantize/mul_2:0",
+ "import/model/fc2/softmax:0"
+],
+    "log_file_name": "output.log",
+    "l1_norm_threshold": 0.01,
+    "l2_norm_threshold": 0.01,
+    "inf_norm_threshold": 0.01,
+    "input_dimension" : [[28,28,1]],
+    "batch_size": 16
+}
