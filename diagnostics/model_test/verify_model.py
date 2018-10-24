@@ -13,7 +13,6 @@ def createFolder(directory):
             os.makedirs(directory)
     except OSError:
         print('Error: Creating directory. ' + directory)
-    os.chdir(output_folder)
 
 
 def set_os_env(select_device):
@@ -167,6 +166,7 @@ if __name__ == '__main__':
     log_file = parameters["log_file_name"]
     output_folder = device1 + "-" + device2 + "-" + quantized_mode
     createFolder(output_folder)
+    os.chdir(output_folder)
     file = open(log_file, "w")
     file.write("Model name: {}\n".format(parameters["model_name"]))
     file.write("L1/L2/Inf norm configuration: {}, {}, {}\n".format(
@@ -182,10 +182,13 @@ if __name__ == '__main__':
         input_tensor_name
     ), "input_tensor_name dimension should match input_dimension in json file"
 
+    # Get random value range
+    rand_val_range = parameters["random_val"]
+
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
     for (dim, name) in zip(input_dimension, input_tensor_name):
-        random_input = np.random.randint(255, size=[bs] + dim).astype('float32')
+        random_input = np.random.randint(rand_val_range, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
 
     # Run the model on device1
