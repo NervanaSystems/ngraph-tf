@@ -6,31 +6,34 @@ from google.protobuf import text_format
 import json
 import os
 
+
 def createFolder(directory):
     try:
         if not os.path.exists(directory):
             os.makedirs(directory)
     except OSError:
-        print ('Error: Creating directory. ' +  directory)
+        print('Error: Creating directory. ' + directory)
     os.chdir(output_folder)
+
 
 def set_os_env(select_device):
     if select_device == 'CPU':
         # run on TF only
         ngraph.disable()
-        os.environ['NGRAPH_TF_BACKEND']='CPU'
+        os.environ['NGRAPH_TF_BACKEND'] = 'CPU'
     else:
         if not ngraph.is_enabled():
             ngraph.enable()
 
         back_end = select_device.split("NGRAPH_")
-        os.environ['NGRAPH_TF_BACKEND']=back_end[1]
+        os.environ['NGRAPH_TF_BACKEND'] = back_end[1]
 
         if quantized_mode == 'QUANTIZED':
-            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH']='1'
+            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = '1'
         else:
             # float mode
-            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH']='0'
+            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = '0'
+
 
 def calculate_output(param_dict, select_device, input_example):
     """Calculate the output of the imported frozen graph given the input.
@@ -162,11 +165,12 @@ if __name__ == '__main__':
 
     # Get log file name to save output
     log_file = parameters["log_file_name"]
-    output_folder = device1+"-"+device2+"-"+quantized_mode
+    output_folder = device1 + "-" + device2 + "-" + quantized_mode
     createFolder(output_folder)
     file = open(log_file, "w")
     file.write("Model name: {}\n".format(parameters["model_name"]))
-    file.write("L1/L2/Inf norm configuration: {}, {}, {}\n".format(l1_norm_threshold, l2_norm_threshold, inf_norm_threshold))
+    file.write("L1/L2/Inf norm configuration: {}, {}, {}\n".format(
+        l1_norm_threshold, l2_norm_threshold, inf_norm_threshold))
 
     # Generate random input based on input_dimension
     np.random.seed(100)
@@ -197,11 +201,11 @@ if __name__ == '__main__':
             out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
         file.write(">>>Start {}\n".format(tname))
 
-        new_out_layer = tname.replace("/","_")
+        new_out_layer = tname.replace("/", "_")
         nparray_tf = np.array(result_tf_graph)
         nparray_ngraph = np.array(result_ngraph)
-        np.save(device1+"-"+new_out_layer+".npy", nparray_tf)
-        np.save(device2+"-"+new_out_layer+".npy", nparray_ngraph)
+        np.save(device1 + "-" + new_out_layer + ".npy", nparray_tf)
+        np.save(device2 + "-" + new_out_layer + ".npy", nparray_ngraph)
 
         l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
         l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
@@ -210,8 +214,9 @@ if __name__ == '__main__':
         if l1_norm > l1_norm_threshold:
             print("The L1 norm %f is greater than the threshold %f for %s" %
                   (l1_norm, l1_norm_threshold, tname))
-            file.write("L1 norm test - Fail: The L1 norm %f is greater than the threshold %f\n" %
-                  (l1_norm, l1_norm_threshold))
+            file.write(
+                "L1 norm test - Fail: The L1 norm %f is greater than the threshold %f\n"
+                % (l1_norm, l1_norm_threshold))
         else:
             print("L1 norm test passed for ", tname)
             file.write("L1 norm test - Pass\n")
@@ -219,8 +224,9 @@ if __name__ == '__main__':
         if l2_norm > l2_norm_threshold:
             print("The L2 norm %f is greater than the threshold %f for %s" %
                   (l2_norm, l2_norm_threshold, tname))
-            file.write("L2 norm test - Fail: The L2 norm %f is greater than the threshold %f\n" %
-                  (l2_norm, l2_norm_threshold))
+            file.write(
+                "L2 norm test - Fail: The L2 norm %f is greater than the threshold %f\n"
+                % (l2_norm, l2_norm_threshold))
         else:
             print("L2 norm test passed for ", tname)
             file.write("L2 norm test - Pass\n")
@@ -228,8 +234,9 @@ if __name__ == '__main__':
         if inf_norm > inf_norm_threshold:
             print("The inf norm %f is greater than the threshold %f for %s" %
                   (inf_norm, inf_norm_threshold, tname))
-            file.write("Inf norm test - Fail: The inf norm %f is greater than the threshold %f\n" %
-                  (inf_norm, inf_norm_threshold))
+            file.write(
+                "Inf norm test - Fail: The inf norm %f is greater than the threshold %f\n"
+                % (inf_norm, inf_norm_threshold))
         else:
             print("inf norm test passed for ", tname)
             file.write("Inf norm test - Pass\n")
