@@ -19,19 +19,16 @@ def set_os_env(select_device):
     if select_device == 'CPU':
         # run on TF only
         ngraph.disable()
-        os.environ['NGRAPH_TF_BACKEND'] = 'CPU'
     else:
         if not ngraph.is_enabled():
             ngraph.enable()
 
+        assert select_device[:
+                             7] == "NGRAPH_", "Expecting device name to start with NGRAPH_"
         back_end = select_device.split("NGRAPH_")
         os.environ['NGRAPH_TF_BACKEND'] = back_end[1]
-
-        if quantized_mode == 'QUANTIZED':
-            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = '1'
-        else:
-            # float mode
-            os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = '0'
+        # quantized mode:1 / float mode:0
+        os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = str(quantized_mode)
 
 
 def calculate_output(param_dict, select_device, input_example):
@@ -150,12 +147,16 @@ if __name__ == '__main__':
 
     parameters = parse_json()
 
-    # Get devices name to compare
-    device1 = parameters["device_name1"]
-    device2 = parameters["device_name2"]
+    # Get reference/testing backend to compare
+    device1 = parameters["reference_backend"]
+    device2 = parameters["testing_backend"]
 
     # Get quantized mode
     quantized_mode = parameters["quantized_mode"]
+    if (quantized_mode == 1):
+        mode = "QUANTIZED"
+    else:
+        mode = "FLOAT"
 
     # Get L1/L2/Inf threshold value
     l1_norm_threshold = parameters["l1_norm_threshold"]
@@ -164,7 +165,7 @@ if __name__ == '__main__':
 
     # Get log file name to save output
     log_file = parameters["log_file_name"]
-    output_folder = device1 + "-" + device2 + "-" + quantized_mode
+    output_folder = device1 + "-" + device2 + "-" + mode
     createFolder(output_folder)
     os.chdir(output_folder)
     file = open(log_file, "w")
@@ -192,10 +193,10 @@ if __name__ == '__main__':
             rand_val_range, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
 
-    # Run the model on device1
+    # Run the model on reference backend
     result_tf_graph_arrs, out_tensor_names_cpu = calculate_output(
         parameters, device1, input_tensor_dim_map)
-    # Run the model on device2
+    # Run the model on testing backend
     result_ngraph_arrs, out_tensor_names_ngraph = calculate_output(
         parameters, device2, input_tensor_dim_map)
 
