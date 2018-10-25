@@ -188,7 +188,8 @@ if __name__ == '__main__':
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
     for (dim, name) in zip(input_dimension, input_tensor_name):
-        random_input = np.random.randint(rand_val_range, size=[bs] + dim).astype('float32')
+        random_input = np.random.randint(
+            rand_val_range, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
 
     # Run the model on device1
