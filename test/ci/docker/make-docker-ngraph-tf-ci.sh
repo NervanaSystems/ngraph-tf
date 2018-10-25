@@ -46,9 +46,12 @@ else
     shift 1  # We found parameter two, remove it from $@
 fi
 
-# Set defaults
+DIR_DOCKERFILES='dockerfiles'
+PRE_DOCKERFILE='Dockerfile.ngraph_tf_ci.'
+PRE_NAME='ngraph_tf_ci_'
 
-echo "DBG: IMAGE_TYPE before case is ${IMAGE_TYPE}"
+# We accomodate both the old-style dockerfile names and a new
+# scalable naming, where IMAGE_TYPE matches the extension
 case "${IMAGE_TYPE}" in
     default)
         DOCKER_FILE='Dockerfile.ngraph-tf-ci-py2'
@@ -62,17 +65,14 @@ case "${IMAGE_TYPE}" in
         DOCKER_FILE='Dockerfile.ngraph-tf-ci-py3'
         IMAGE_NAME='ngraph_tf_ci_py3'
         ;;
-    ubuntu1604_gcc48_py27)
-        DOCKER_FILE='Dockerfile.ngraph-tf-ci.ubuntu1604-gcc48-py27'
-        IMAGE_NAME='ngraph_tf_ci_ubuntu1604_gcc_48_py27'
-        ;;
-    ubuntu1604_gcc48_py35)
-        DOCKER_FILE='Dockerfile.ngraph-tf-ci.ubuntu1604-gcc48-py35'
-        IMAGE_NAME='ngraph_tf_ci_ubuntu1604_gcc48_py35'
-        ;;
-    *)
-        echo "INTERNAL ERROR: unrecognized IMAGE_TYPE (${IMAGE_TYPE})"
-        exit 1
+    *)  # Look for a dockerfile with an extension matching IMAGE_TYPE
+        if [ -f "${DIR_DOCKERFILES}/${PRE_DOCKERFILE}${IMAGE_TYPE}" ] ; then
+            DOCKER_FILE="${PRE_DOCKERFILE}${IMAGE_TYPE}"
+            IMAGE_NAME="${PRE_NAME}${IMAGE_TYPE}"
+        else
+            echo "Dockerfile ${DIR_DOCKERFILES}/${PRE_DOCKERFILE}${IMAGE_TYPE} not found for image type ${IMAGE_TYPE}"
+            exit 1
+        fi
         ;;
 esac
 
@@ -98,10 +98,10 @@ set -u  # No unset variables after this point
 
 # Show in log what is being build
 echo "make-docker-ngraph-tf-ci is building the following:"
-echo "    IMAGE_TYPE: ${IMAGE_TYPE}"
+echo "    IMAGE_TYPE:  ${IMAGE_TYPE}"
 echo "    DOCKER_FILE: ${DOCKER_FILE}"
-echo "    IMAGE_NAME: ${IMAGE_NAME}"
-echo "    IMAGE_ID: ${IMAGE_ID}"
+echo "    IMAGE_NAME:  ${IMAGE_NAME}"
+echo "    IMAGE_ID:    ${IMAGE_ID}"
 
 # If proxy settings are detected in the environment, make sure they are
 # included on the docker-build command-line.  This mirrors a similar system
@@ -128,6 +128,6 @@ fi
 dbuild_cmd="docker build  --rm=true \
             ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
             $@ \
-            -f=${DOCKER_FILE}  -t=${IMAGE_NAME}:${IMAGE_ID}  ."
+            -f=${DIR_DOCKERFILES}/${DOCKER_FILE}  -t=${IMAGE_NAME}:${IMAGE_ID}  ."
 echo "Docker build command: ${dbuild_cmd}"
 $dbuild_cmd
