@@ -19,6 +19,7 @@ import argparse
 import os
 import re
 import fnmatch
+import pdb
 """
 tf_unittest_runner is primarily used to run tensorflow python 
 unit tests using ngraph
@@ -47,19 +48,20 @@ def main():
     arguments = parser.parse_args()
 
     if (arguments.list_tests):
-        regex_walk(arguments.tensorflow_path, arguments.list_tests)
-        list_tests(arguments.list_tests)
+        module_list = regex_walk(arguments.tensorflow_path,
+                                 arguments.list_tests)
+        list_tests(module_list, arguments.list_tests)
 
     if (arguments.run_test):
-        test_list = regex_walk(arguments.tensorflow_path, arguments.run_test)
-        print(test_list)
+        module_list = regex_walk(arguments.tensorflow_path, arguments.run_test)
+        test_list = list_tests(module_list, arguments.run_test)
         run_test(test_list)
 
 
 from fnmatch import fnmatch
 
 
-def regex_walk(dirname, test_name):
+def regex_walk(dirname, regex_input):
     """
     Adds all the directories under the specified dirname to the system path to 
     be able to import the modules.
@@ -68,19 +70,20 @@ def regex_walk(dirname, test_name):
     dirname: This is the tensorflow_path passed as an argument where 
     tensorflow is installed.
     """
-    test = test_name + '.py'
-    test_list = []
+    test = (re.split("\.", regex_input))[0] + '.py'
+
+    module_list = []
     for path, subdirs, files in os.walk(dirname):
         for name in files:
             if fnmatch(name, test):
                 sys.path.append(path)
                 name = os.path.splitext(name)[0]
-                print(name)
-                test_list.append(name)
-    return test_list
+                #print(name)
+                module_list.append(name)
+    return module_list
 
 
-def list_tests(test_module):
+def list_tests(module_list, regex_input):
     """
     Generates a list of test suites and test cases from a TF test target 
     specified. 
@@ -94,13 +97,27 @@ def list_tests(test_module):
     bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
     bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
     """
+    test_name = (re.split("\*", regex_input))[0]
     loader = unittest.TestLoader()
-    module = __import__(test_module)
-    test_modules = loader.loadTestsFromModule(module)
-    alltests = []
-    for test_class in test_modules:
-        alltests.append(([i.id() for i in test_class._tests]))
-    print('\n'.join((sorted(sum(alltests, [])))))
+    for test_module in module_list:
+        module = __import__(test_module)
+        test_modules = loader.loadTestsFromModule(module)
+        alltests = []
+        for test_class in test_modules:
+            alltests.append(([i.id() for i in test_class._tests]))
+            #print('\n'.join(sorted(sum(alltests, []))))
+    '''r = re.compile(test_name)
+    listtests = list(filter(r.match, alltests))
+    print(listtests)'''
+
+    listtests = []
+    for test in alltests:
+        for i in test:
+            #pdb.set_trace()
+            if test_name in i:
+                listtests.append(i)
+    print('\n'.join(listtests))
+    return listtests
 
 
 def run_test(test_list, verbosity=2):
