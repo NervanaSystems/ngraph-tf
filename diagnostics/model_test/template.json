@@ -2,7 +2,6 @@
     "model_name": "name_of_your_model",
     "reference_backend": "your_reference_backend",
     "testing_backend": "your_testing_backend",
-    "quantized_mode": 0,
     "frozen_graph_location": "/path/to/the/frozen_graph.pb",
     "input_tensor_name": ["input_tesor_1","input_tensor_2"],
     "output_tensor_name":["output_tensor_name1","output_tensor_name_2"],

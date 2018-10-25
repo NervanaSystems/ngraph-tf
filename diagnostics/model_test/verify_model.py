@@ -27,8 +27,6 @@ def set_os_env(select_device):
                              7] == "NGRAPH_", "Expecting device name to start with NGRAPH_"
         back_end = select_device.split("NGRAPH_")
         os.environ['NGRAPH_TF_BACKEND'] = back_end[1]
-        # quantized mode:1 / float mode:0
-        os.environ['NNPI_CONVERT_FLOAT_TO_QUANT_GRAPH'] = str(quantized_mode)
 
 
 def calculate_output(param_dict, select_device, input_example):
@@ -151,20 +149,13 @@ if __name__ == '__main__':
     device1 = parameters["reference_backend"]
     device2 = parameters["testing_backend"]
 
-    # Get quantized mode
-    quantized_mode = parameters["quantized_mode"]
-    if (quantized_mode == 1):
-        mode = "QUANTIZED"
-    else:
-        mode = "FLOAT"
-
     # Get L1/L2/Inf threshold value
     l1_norm_threshold = parameters["l1_norm_threshold"]
     l2_norm_threshold = parameters["l2_norm_threshold"]
     inf_norm_threshold = parameters["inf_norm_threshold"]
 
     # Create a folder to save output tensor arrays
-    output_folder = device1 + "-" + device2 + "-" + mode
+    output_folder = device1 + "-" + device2
     createFolder(output_folder)
     os.chdir(output_folder)
     print("Model name: " + parameters["model_name"])
