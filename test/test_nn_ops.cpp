@@ -427,6 +427,36 @@ TEST(NNOps, L2Loss) {
   }
 }
 
+//TODO: QMP only does QUINT, not QINT??
+// Computes Quantized Maxpool
+TEST(NNOps, QuantizedMaxPool) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  int channels = 2;
+
+  auto quant_type = DT_QUINT8;
+  Tensor A(quant_type, TensorShape({1, dim1, dim2, channels}));
+  AssignInputValues<quint8>(A, {50, 242, 14, 0, 17, 22, 100, 250, 34, 60, 79, 255});
+  
+  vector<int> ksize = {1, 2, 2, 1};
+  vector<int> strides = {1, 1, 1, 1};
+
+  vector<int> static_input_indexes = {1, 2};
+  auto R = ops::QuantizedMaxPool(root, A, -10.0f, 10.99f, ksize, strides, "SAME");
+
+  vector<DataType> output_datatypes = {quant_type, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.min_output, R.max_output};
+  OpExecuter opexecuter(root, "QuantizedMaxPool",
+                        static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+// TODO: vary stride and window
+//TODO: do quint test
+
 // Computes softmax cross entropy cost and gradients to backpropagate.
 TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
   Scope root = Scope::NewRootScope();
