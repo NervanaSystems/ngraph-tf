@@ -1741,9 +1741,8 @@ static Status TranslateFusedBatchNormOp(
     // computation.
     SaveNgOp(ng_op_map, op->name(), ng_variance);
   } else {
-    ng_batch_norm = make_shared<ng::op::BatchNormInference>(tf_epsilon, ng_scale,
-                                                            ng_offset, ng_input, ng_mean,
-                                                            ng_variance);
+    ng_batch_norm = make_shared<ng::op::BatchNormInference>(
+        tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean, ng_variance);
     BatchToTensorflow(is_nhwc, ng_batch_norm);
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
