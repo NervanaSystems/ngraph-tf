@@ -32,9 +32,9 @@ def set_os_env(select_device):
 
 
 def calculate_output(param_dict, select_device, input_example):
-    """Calculate the output of the imported frozen graph given the input.
+    """Calculate the output of the imported graph given the input.
 
-    Load the graph def from frozen_graph_file on selected device, then get the tensors based on the input and output name from the graph,
+    Load the graph def from graph file on selected device, then get the tensors based on the input and output name from the graph,
     then feed the input_example to the graph and retrieves the output vector.
 
     Args:
@@ -45,19 +45,19 @@ def calculate_output(param_dict, select_device, input_example):
     Returns:
         The output vector obtained from running the input_example through the graph.
     """
-    frozen_graph_filename = param_dict["frozen_graph_location"]
+    graph_filename = param_dict["graph_location"]
     output_tensor_name = param_dict["output_tensor_name"]
 
-    if not tf.gfile.Exists(frozen_graph_filename):
-        raise Exception("Input graph file '" + frozen_graph_filename +
+    if not tf.gfile.Exists(graph_filename):
+        raise Exception("Input graph file '" + graph_filename +
                         "' does not exist!")
 
     graph_def = tf.GraphDef()
-    if frozen_graph_filename.endswith("pbtxt"):
-        with open(frozen_graph_filename, "r") as f:
+    if graph_filename.endswith("pbtxt"):
+        with open(graph_filename, "r") as f:
             text_format.Merge(f.read(), graph_def)
     else:
-        with open(frozen_graph_filename, "rb") as f:
+        with open(graph_filename, "rb") as f:
             graph_def.ParseFromString(f.read())
 
     set_os_env(select_device)
