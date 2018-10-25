@@ -490,6 +490,9 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
 // If all output edges of the op have the same predicate update predicate_string
 void DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
                                             string& predicate_string) {
+  if (node.IsControlFlow()) {
+    return;
+  }
   Predicate* pred = nullptr;
   for (const Edge* edge : node.out_edges()) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
@@ -503,6 +506,12 @@ void DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
                      << " ,Dst Idx " << edge->dst_input();
     }
     CHECK(it != predicate_map_.end());
+
+    NGRAPH_VLOG(5) << "Edge: " << edge->src()->name() << "["
+                   << edge->src()->type_string() << "]:" << edge->src_output()
+                   << " -> " << edge->dst()->name() << "["
+                   << edge->dst()->type_string() << "]:" << edge->dst_input()
+                   << " ,Predicate: " << it->second->ToString();
 
     if (pred != nullptr && *pred != *it->second) {
       return;
@@ -524,6 +533,7 @@ void DeadnessAnalysisImpl::Print() const {
     auto it = predicate_map_.find(tensor_id);
     CHECK(it != predicate_map_.end()) << tensor_id.ToString();
     VLOG(2) << tensor_id.ToString() << " -> " << it->second->ToString();
+    NGRAPH_VLOG(5) << tensor_id.ToString() << " -> " << it->second->ToString();
   }
 }
 }  // namespace
@@ -535,6 +545,9 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
 
   TF_RETURN_IF_ERROR(analysis->Populate());
   if (VLOG_IS_ON(2)) {
+    analysis->Print();
+  }
+  if (NGRAPH_VLOG_IS_ON(5)) {
     analysis->Print();
   }
   *result = std::move(analysis);

@@ -51,6 +51,8 @@ its inputs are dead.
 
 #include "../test_utilities.h"
 #include "gtest/gtest.h"
+#include "ngraph_assign_clusters.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 #include "tf_graph_writer.h"
 
@@ -132,6 +134,71 @@ TEST(DeadnessCheck, livedead1TF) {
           {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
           {M, D}, &outputs),
       Status::OK());
+}
+
+TEST(DeadnessCheck, DTestPl) {
+  Scope root = Scope::NewRootScope();
+
+  auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
+  auto dataY = ops::Placeholder(root.WithOpName("dataY"), DataType::DT_FLOAT);
+  auto dataZ = ops::Placeholder(root.WithOpName("dataZ"), DataType::DT_FLOAT);
+  auto A = ops::Placeholder(root.WithOpName("A"), DataType::DT_FLOAT);
+  auto B = ops::Const(root.WithOpName("B"), {3.f, 2.f});
+
+  auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
+  auto predY = ops::Placeholder(root.WithOpName("PredY"), DataType::DT_BOOL);
+  auto predZ = ops::Placeholder(root.WithOpName("PredZ"), DataType::DT_BOOL);
+
+  auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
+  auto SY = ops::Switch(root.WithOpName("SwitchY"), dataY, predY);
+  auto SZ = ops::Switch(root.WithOpName("SwitchZ"), dataZ, predZ);
+
+  auto XYAdd =
+      ops::Add(root.WithOpName("XYAdd"), SX.output_true, SY.output_false);
+  auto XYMul = ops::Mul(root.WithOpName("XYMul"), XYAdd, B);
+  auto XYZSub = ops::Sub(root.WithOpName("XYZSub"), SZ.output_true, XYMul);
+  auto XYZMul = ops::Mul(root.WithOpName("XYZMul"), XYZSub, B);
+  auto YAdd = ops::Add(root.WithOpName("YAdd"), SY.output_true, A);
+  auto YMul = ops::Mul(root.WithOpName("YMul"), YAdd, B);
+
+  // Graph graph(OpRegistry::Global());
+  // TF_CHECK_OK(root.ToGraph(&graph));
+
+  // // for (const Edge* e : graph.edges()) {
+  // //   NGRAPH_VLOG(5) << "Edge between, Src: " << e->src()->name()
+  // //                  << " Src op index " << e->src_output()
+  // //                  << " ,Dst: " << e->dst()->name() << " dst ip index "
+  // //                  << e->dst_input();
+  // // }
+
+  // ASSERT_OK(MarkForClustering(&graph));
+  // ASSERT_OK(AssignClusters(&graph));
+
+  // int XYAdd_cluster, XYMul_cluster, XYZSub_cluster, XYZMul_cluster,
+  //     YAdd_cluster, YMul_cluster;
+  // ASSERT_OK(GetNodeCluster(XYAdd.node(), &XYAdd_cluster));
+  // ASSERT_OK(GetNodeCluster(XYMul.node(), &XYMul_cluster));
+  // ASSERT_OK(GetNodeCluster(XYZSub.node(), &XYZSub_cluster));
+  // ASSERT_OK(GetNodeCluster(XYZMul.node(), &XYZMul_cluster));
+  // ASSERT_OK(GetNodeCluster(YAdd.node(), &YAdd_cluster));
+  // ASSERT_OK(GetNodeCluster(YMul.node(), &YMul_cluster));
+
+  // ASSERT_EQ(XYAdd_cluster, XYMul_cluster);
+  // ASSERT_EQ(XYZSub_cluster, XYZMul_cluster);
+  // ASSERT_EQ(YAdd_cluster, YMul_cluster);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+  ASSERT_NE(session.Run({{dataX, {3.f, 5.f}},
+                         {dataY, {3.f, 2.f}},
+                         {dataZ, {3.f, 2.f}},
+                         {A, {3.f, 2.f}},
+                         //{B, {3.f, 2.f}},
+                         {predX, true},
+                         {predY, false},
+                         {predZ, true}},
+                        {XYZMul, YMul}, &outputs),
+            Status::OK());
 }
 
 }  // namespace testing

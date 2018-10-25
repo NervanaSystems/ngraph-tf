@@ -98,16 +98,14 @@ struct Cluster {
 Status AssignClusters(Graph* graph) {
   std::map<Node*, std::shared_ptr<Cluster>> cluster_map;
 
-  // Create map of Edge (TensorId?) and Predicate String generated from Deadness
-  // Analysis
-  // TODO: FLAG to disable deadness #if
-  // !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+  // TODO (malikshr): Add FLAG to disable deadness
+  // #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
   std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
   TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
   std::string CONTROL_FLOW_OP_PRED_STRING = "NULL";
   std::string TRUE_PRED_STRING = "#true";
   // Deadness is typically introduced by control flow op. So, all the outgoing
-  // edges from the data flow op have the same deadness predicate (And
+  // edges from the data flow op have the same deadness predicate ('And'
   // Predicate of all its inputs) So we can attach a predicate string to the
   // data-flow node (predicate of its output edge).
   // As nGraph supports only data-flow ops all the nodes marked for clustering
@@ -119,8 +117,6 @@ Status AssignClusters(Graph* graph) {
   // Initial Step: Each node is a cluster of its own
   for (auto node : graph->op_nodes()) {
     int new_index = gc.NewNode();
-    NGRAPH_VLOG(5) << "Creating graphcycle node: " << new_index << " for "
-                   << node->name() << "[" << node->type_string() << "]";
     cluster_map[node] = std::make_shared<Cluster>();
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
@@ -128,8 +124,11 @@ Status AssignClusters(Graph* graph) {
     std::string pred_string = CONTROL_FLOW_OP_PRED_STRING;
     // if data flow op pred_string will be updated
     deadness_analyzer->GetNodePredicate(*node, pred_string);
-
     cluster_map[node]->predicate_string = pred_string;
+    NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
+                   << node->name() << "[" << node->type_string()
+                   << "] Predicate : " << pred_string;
+    nodes_predicate_map[node] = pred_string;
   }
 
   // Check for existing cyclicity in the graph
@@ -197,48 +196,10 @@ Status AssignClusters(Graph* graph) {
           gc_success &= gc.InsertEdge(shadow_node_index,
                                       cluster_map[static_edge->dst()]->index);
           if (!gc_success)
-            errors::Internal("Unable to create shadow edges in GraphCycles");
+            return errors::Internal(
+                "Unable to create shadow edges in GraphCycles");
         }
       }
-    }
-  }
-
-  // Add Shadow nodes and edges to avoid clustering wrong nodes
-  for (auto edge : graph->edges()) {
-    Node* src = edge->src();
-    Node* dst = edge->dst();
-
-    if (!src->IsOp() || !dst->IsOp()) {
-      continue;
-    }
-
-    string src_predicate = cluster_map[src]->predicate_string;
-    string dst_predicate = cluster_map[dst]->predicate_string;
-
-    // If either src or dest is control flow op then we ignore them as they are
-    // not candidates for clustering
-    if (src_predicate == CONTROL_FLOW_OP_PRED_STRING ||
-        dst_predicate == CONTROL_FLOW_OP_PRED_STRING) {
-      continue;
-    }
-
-    // If either is TRUE PRED then they can take part in clustering irrespective
-    // of the predicate of the other node
-    if (src_predicate == TRUE_PRED_STRING ||
-        dst_predicate == TRUE_PRED_STRING) {
-      continue;
-    }
-
-    // If we find mismatching deadness the edge cannot be contracted, add a
-    // shadow edge
-    if (src_predicate != dst_predicate) {
-      int shadow_node_index = gc.NewNode();
-      bool gc_success =
-          gc.InsertEdge(cluster_map[edge->src()]->index, shadow_node_index);
-      gc_success &=
-          gc.InsertEdge(shadow_node_index, cluster_map[edge->dst()]->index);
-      if (!gc_success)
-        errors::Internal("Unable to create shadow edges in GraphCycles");
     }
   }
 
@@ -277,27 +238,24 @@ Status AssignClusters(Graph* graph) {
           dst_predicate == CONTROL_FLOW_OP_PRED_STRING) {
         Node* err_node =
             (src_predicate == CONTROL_FLOW_OP_PRED_STRING) ? src : dst;
-        errors::Internal(
+        return errors::Internal(
             "Attempting to cluster node with mismatching output deadness : ",
             err_node->name(), "[", err_node->type_string(), "]");
+      }
+
+      if (src_predicate != dst_predicate) {
+        continue;
       }
 
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
         NGRAPH_VLOG(5) << "Contracting: " << src->name() << "["
-                       << edge->src_output() << "]@" << src_index << " -> "
-                       << dst->name() << "[" << edge->dst_input() << "]@"
-                       << dst_index;
-
-        if (src_predicate != TRUE_PRED_STRING &&
-            dst_predicate != TRUE_PRED_STRING &&
-            src_predicate != dst_predicate) {
-          errors::Internal(
-              "Attempting to cluster node with mismatching output deadness : "
-              "Src: ",
-              src->name(), "[", src->type_string(), "] -> Dst: ", dst->name(),
-              "[", dst->type_string(), "]");
-        }
+                       << src->type_string() << " , " << edge->src_output()
+                       << "]@" << src_index << " -> " << dst->name() << "["
+                       << dst->type_string() << " , " << edge->dst_input()
+                       << "]@" << dst_index;
+        NGRAPH_VLOG(5) << "Src pred: " << src_predicate
+                       << " ,Dst pred: " << dst_predicate;
 
         // using cluster_map[dst]->nodes in the loop directly appears to
         // invalidate the iterator when `node` == `dst`
@@ -349,13 +307,38 @@ Status AssignClusters(Graph* graph) {
       continue;
     }
 
+    // Check Deadness Clustering
+    std::string cluster_pred_string = cluster->predicate_string;
+    for (auto node : cluster->nodes) {
+      if (nodes_predicate_map.find(node) == nodes_predicate_map.end()) {
+        return errors::Internal("Node ", node->name(), " [",
+                                node->type_string(), "]",
+                                " not found in predicate map");
+      }
+      std::string node_pred_string = nodes_predicate_map[node];
+
+      if (node_pred_string == CONTROL_FLOW_OP_PRED_STRING) {
+        return errors::Internal("Node ", node->name(), " [",
+                                node->type_string(), "]",
+                                " should not be clustered as control flow op");
+      }
+
+      if (node_pred_string != cluster_pred_string) {
+        return errors::Internal(
+            "Node ", node->name(), " [", node->type_string(), "]",
+            " Predicate : ", node_pred_string,
+            "should not be clustered in cluster with pred_String ",
+            cluster_pred_string);
+      }
+    }
+
     if (seen.count(cluster) == 0) {
       int cluster_idx = NGraphClusterManager::NewCluster();
 
       for (auto node : cluster->nodes) {
         if (NGRAPH_VLOG_IS_ON(5)) {
-          NGRAPH_VLOG(5) << ">> cluster " << cluster_idx << ": " << node
-                         << " :: " << node->name() << " ["
+          NGRAPH_VLOG(5) << ">> cluster " << cluster_idx << ": " << node->id()
+                         << " " << node << " :: " << node->name() << " ["
                          << node->type_string() << "]";
         }
 
@@ -378,6 +361,9 @@ Status AssignClusters(Graph* graph) {
 }
 
 Status GetNodeCluster(const Node* node, int* cluster) {
+  // NGRAPH_VLOG(5) << "Node " << node << " : id " << node->id() << " "
+  //               << node->name() << " [" << node->type_string() << "]";
+
   // TODO(amprocte): move attr name to a constant
   Status s = GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);
   if (s != Status::OK()) {
