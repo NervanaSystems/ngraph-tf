@@ -2514,21 +2514,22 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   return Status::OK();
 }
 
-static Status TranslateQuantizedMaxPoolOp(const Node* op, const std::vector<const Tensor*>& static_input_map,
+static Status TranslateQuantizedMaxPoolOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
-   std::vector<int32> tf_strides;
+  std::vector<int32> tf_strides;
   std::vector<int32> tf_ksize;
   std::string tf_padding_type;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-   bool is_nhwc = true;  // TODO, is this correct?
-   ng::Strides ng_strides(2);
+  bool is_nhwc = true;  // TODO, is this correct?
+  ng::Strides ng_strides(2);
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
-   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
                          ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
@@ -2537,10 +2538,10 @@ static Status TranslateQuantizedMaxPoolOp(const Node* op, const std::vector<cons
   ng::Shape ng_padding_above{0, 0};
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
-   std::vector<float> min_val, max_val;
+  std::vector<float> min_val, max_val;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_val));
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
-   if (min_val.size() != 1) {
+  if (min_val.size() != 1) {
     return errors::InvalidArgument(
         "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
         min_val.size());
@@ -2550,19 +2551,21 @@ static Status TranslateQuantizedMaxPoolOp(const Node* op, const std::vector<cons
         "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
         max_val.size());
   }
-   auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
+  auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
                                                    ng::Shape({1}), min_val);
   auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32,
                                                    ng::Shape({1}), max_val);
-   std::shared_ptr<ng::Node> ng_quant_maxpool =
-      ng::builder::ScaledQuantizedMaxPool(ng_input, ng_kernel_shape,
-                                            ng_strides, ng_padding_below,
-                                            ng_padding_above, static_pointer_cast<ng::Node>(ng_min), static_pointer_cast<ng::Node>(ng_max));
+  std::shared_ptr<ng::Node> ng_quant_maxpool =
+      ng::builder::ScaledQuantizedMaxPool(
+          ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+          ng_padding_above, static_pointer_cast<ng::Node>(ng_min),
+          static_pointer_cast<ng::Node>(ng_max));
   std::shared_ptr<ng::Node> ng_quant_maxpool_out0 =
       make_shared<ng::op::GetOutputElement>(ng_quant_maxpool, 0);
   BatchToTensorflow(is_nhwc, ng_quant_maxpool_out0);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out0);
-  //TODO: revisit min-max. They might change if min-max is too close. For now just passing them along from in to out.
+  // TODO: revisit min-max. They might change if min-max is too close. For now
+  // just passing them along from in to out.
   SaveNgOp(ng_op_map, op->name(), ng_min);
   SaveNgOp(ng_op_map, op->name(), ng_max);
   return Status::OK();
@@ -2659,9 +2662,11 @@ static Status TranslateQuantizeV2Op(
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
                                          ng::AxisSet(), ng_round_mode));
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), std::vector<float>({ng_min[0]})));
+           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
+                                         std::vector<float>({ng_min[0]})));
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(), std::vector<float>({ng_max[0]})));
+           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
+                                         std::vector<float>({ng_max[0]})));
   return Status::OK();
 }
 
