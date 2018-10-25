@@ -19,7 +19,6 @@ class NgraphTest(object):
         ngraph_tf_disable_deassign_clusters = os.environ.pop(
             'NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
-        os.environ['NGRAPH_TF_LOG_PLACEMENT'] = '1'
         os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
         ngraph.enable()
         with tf.Session(config=config) as sess:
@@ -37,14 +36,9 @@ class NgraphTest(object):
         ngraph_tf_disable_deassign_clusters = os.environ.pop(
             'NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
-        os.environ['NGRAPH_TF_LOG_PLACEMENT'] = '1'
-        os.environ['NGRAPH_TF_DISABLE'] = '1'
-
         ngraph.disable()
         with tf.Session(config=config) as sess:
             retval = l(sess)
-
-        os.environ.pop('NGRAPH_TF_DISABLE', None)
 
         if ngraph_tf_disable_deassign_clusters is not None:
             os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = \
