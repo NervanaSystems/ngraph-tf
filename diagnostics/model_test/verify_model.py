@@ -163,14 +163,12 @@ if __name__ == '__main__':
     l2_norm_threshold = parameters["l2_norm_threshold"]
     inf_norm_threshold = parameters["inf_norm_threshold"]
 
-    # Get log file name to save output
-    log_file = parameters["log_file_name"]
+    # Create a folder to save output tensor arrays
     output_folder = device1 + "-" + device2 + "-" + mode
     createFolder(output_folder)
     os.chdir(output_folder)
-    file = open(log_file, "w")
-    file.write("Model name: {}\n".format(parameters["model_name"]))
-    file.write("L1/L2/Inf norm configuration: {}, {}, {}\n".format(
+    print("Model name: " + parameters["model_name"])
+    print("L1/L2/Inf norm configuration: {}, {}, {}".format(
         l1_norm_threshold, l2_norm_threshold, inf_norm_threshold))
 
     # Generate random input based on input_dimension
@@ -204,8 +202,6 @@ if __name__ == '__main__':
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
     for tname, result_ngraph, result_tf_graph in zip(
             out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
-        file.write(">>>Start {}\n".format(tname))
-
         new_out_layer = tname.replace("/", "_")
         nparray_tf = np.array(result_tf_graph)
         nparray_ngraph = np.array(result_ngraph)
@@ -219,32 +215,17 @@ if __name__ == '__main__':
         if l1_norm > l1_norm_threshold:
             print("The L1 norm %f is greater than the threshold %f for %s" %
                   (l1_norm, l1_norm_threshold, tname))
-            file.write(
-                "L1 norm test - Fail: The L1 norm %f is greater than the threshold %f\n"
-                % (l1_norm, l1_norm_threshold))
         else:
             print("L1 norm test passed for ", tname)
-            file.write("L1 norm test - Pass\n")
 
         if l2_norm > l2_norm_threshold:
             print("The L2 norm %f is greater than the threshold %f for %s" %
                   (l2_norm, l2_norm_threshold, tname))
-            file.write(
-                "L2 norm test - Fail: The L2 norm %f is greater than the threshold %f\n"
-                % (l2_norm, l2_norm_threshold))
         else:
             print("L2 norm test passed for ", tname)
-            file.write("L2 norm test - Pass\n")
 
         if inf_norm > inf_norm_threshold:
             print("The inf norm %f is greater than the threshold %f for %s" %
                   (inf_norm, inf_norm_threshold, tname))
-            file.write(
-                "Inf norm test - Fail: The inf norm %f is greater than the threshold %f\n"
-                % (inf_norm, inf_norm_threshold))
         else:
             print("inf norm test passed for ", tname)
-            file.write("Inf norm test - Pass\n")
-
-    file.write(">>>All layer test is done")
-    file.close()
