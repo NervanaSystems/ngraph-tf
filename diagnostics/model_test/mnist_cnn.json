@@ -7,7 +7,7 @@
     "input_tensor_name": ["import/Placeholder:0"],
     "output_tensor_name": ["import/Placeholder:0", "import/fc2/yconv:0"],
     "log_file_name": "output.log",
-    "random_val": 255,
+    "random_val_range": 255,
     "l1_norm_threshold": 0.01,
     "l2_norm_threshold": 0.01,
     "inf_norm_threshold": 0.01,

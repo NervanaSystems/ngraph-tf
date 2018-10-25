@@ -183,7 +183,7 @@ if __name__ == '__main__':
     ), "input_tensor_name dimension should match input_dimension in json file"
 
     # Get random value range
-    rand_val_range = parameters["random_val"]
+    rand_val_range = parameters["random_val_range"]
 
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
