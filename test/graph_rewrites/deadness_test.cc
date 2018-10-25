@@ -136,14 +136,78 @@ TEST(DeadnessCheck, livedead1TF) {
       Status::OK());
 }
 
+// Ops A1, N1 and N2 should be placed in the same cluster
+//
+//               A1(#True)[Placeholder]
+//              /    \ 
+//             /      \
+//            /        \ 
+//       N1(#P1)[Add]  N2(#P1)[Sub]
+TEST(DeadnessCheck, DTestG1) {
+  Scope root = Scope::NewRootScope();
+
+  auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
+  auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
+  auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
+
+  auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, SX.output_false);
+  auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), A1, SX.output_false);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}}, {N1_Add, N2_Sub},
+                        &outputs),
+            Status::OK());
+}
+
+// Graph 2
+//
+//               A1(#True)[Placeholder]
+//              /    \      \ 
+//             /      \      \ 
+//            /        \      \ 
+//       N1(#P1)[Add]   \   N2(#P2)[Sub]
+//                       \     /
+//                        \   /
+//                      N3(#P2) [Mul]
+// There should be 3 cluster
+// Cluster 1 : C1
+// Cluster 2 : N2 and N3
+// Cluster 3 : N1
+TEST(DeadnessCheck, DTestG2) {
+  Scope root = Scope::NewRootScope();
+
+  auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
+  auto dataY = ops::Placeholder(root.WithOpName("dataY"), DataType::DT_FLOAT);
+  auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
+  auto predY = ops::Placeholder(root.WithOpName("PredY"), DataType::DT_BOOL);
+  auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
+  auto SY = ops::Switch(root.WithOpName("SwitchY"), dataY, predY);
+
+  auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), SX.output_true, A1);
+  auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), SY.output_true, A1);
+  auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N2_Sub, A1);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
+                         {dataY, {3.f, 2.f}},
+                         {predX, true},
+                         {predY, true}},
+                        {N1_Add, N3_Mul}, &outputs),
+            Status::OK());
+}
+
 TEST(DeadnessCheck, DTestPl) {
   Scope root = Scope::NewRootScope();
 
   auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
   auto dataY = ops::Placeholder(root.WithOpName("dataY"), DataType::DT_FLOAT);
   auto dataZ = ops::Placeholder(root.WithOpName("dataZ"), DataType::DT_FLOAT);
-  auto A = ops::Placeholder(root.WithOpName("A"), DataType::DT_FLOAT);
-  auto B = ops::Const(root.WithOpName("B"), {3.f, 2.f});
+  auto A = ops::Const(root.WithOpName("A"), {3.f, 2.f});
+  // auto B = ops::Const(root.WithOpName("B"), {3.f, 2.f});
 
   auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
   auto predY = ops::Placeholder(root.WithOpName("PredY"), DataType::DT_BOOL);
@@ -155,11 +219,11 @@ TEST(DeadnessCheck, DTestPl) {
 
   auto XYAdd =
       ops::Add(root.WithOpName("XYAdd"), SX.output_true, SY.output_false);
-  auto XYMul = ops::Mul(root.WithOpName("XYMul"), XYAdd, B);
+  auto XYMul = ops::Mul(root.WithOpName("XYMul"), XYAdd, A);
   auto XYZSub = ops::Sub(root.WithOpName("XYZSub"), SZ.output_true, XYMul);
-  auto XYZMul = ops::Mul(root.WithOpName("XYZMul"), XYZSub, B);
+  auto XYZMul = ops::Mul(root.WithOpName("XYZMul"), XYZSub, A);
   auto YAdd = ops::Add(root.WithOpName("YAdd"), SY.output_true, A);
-  auto YMul = ops::Mul(root.WithOpName("YMul"), YAdd, B);
+  auto YMul = ops::Mul(root.WithOpName("YMul"), YAdd, A);
 
   // Graph graph(OpRegistry::Global());
   // TF_CHECK_OK(root.ToGraph(&graph));
@@ -192,10 +256,10 @@ TEST(DeadnessCheck, DTestPl) {
   ASSERT_NE(session.Run({{dataX, {3.f, 5.f}},
                          {dataY, {3.f, 2.f}},
                          {dataZ, {3.f, 2.f}},
-                         {A, {3.f, 2.f}},
+                         //{A, {3.f, 2.f}},
                          //{B, {3.f, 2.f}},
                          {predX, true},
-                         {predY, false},
+                         {predY, true},
                          {predZ, true}},
                         {XYZMul, YMul}, &outputs),
             Status::OK());
