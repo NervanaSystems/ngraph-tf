@@ -19,7 +19,6 @@ import argparse
 import os
 import re
 import fnmatch
-import pdb
 """
 tf_unittest_runner is primarily used to run tensorflow python 
 unit tests using ngraph
@@ -48,15 +47,35 @@ def main():
     parser._action_groups.append(optional)
     arguments = parser.parse_args()
 
+    accepted_formats = [
+        "math_ops_test", "mat_ops_test.DivNoNanTest",
+        "math_ops_test.DivNoNanTest.testBasic", "math_ops_test.DivNoNanTest.*",
+        "math_ops_test.D*", "math_ops_test.*", "math_*_test", "math_*_*_test",
+        "math*_test"
+    ]
+
     if (arguments.list_tests):
-        module_list = regex_walk(arguments.tensorflow_path,
-                                 arguments.list_tests)
-        list_tests(module_list, arguments.list_tests)
+        try:
+            module_list = regex_walk(arguments.tensorflow_path,
+                                     arguments.list_tests)
+            list_tests(module_list, arguments.list_tests)
+        except:
+            print(
+                "Enter a valid argument to LIST tests.\nList of accepted formats:"
+            )
+            print('\n'.join(accepted_formats))
 
     if (arguments.run_test):
-        module_list = regex_walk(arguments.tensorflow_path, arguments.run_test)
-        test_list = list_tests(module_list, arguments.run_test)
-        run_test(test_list)
+        try:
+            module_list = regex_walk(arguments.tensorflow_path,
+                                     arguments.run_test)
+            test_list = list_tests(module_list, arguments.run_test)
+            run_test(test_list)
+        except:
+            print(
+                "Enter a valid argument to RUN tests.\nList of accepted formats:"
+            )
+            print('\n'.join(accepted_formats))
 
 
 from fnmatch import fnmatch
@@ -70,6 +89,18 @@ def regex_walk(dirname, regex_input):
     Args:
     dirname: This is the tensorflow_path passed as an argument where 
     tensorflow is installed.
+    
+    regex_input: Regular expression input string to filter and list/run tests.
+    Few examples of accepted regex_input are:
+    math_ops_test
+    math_ops_test.DivNanTest
+    math_ops_test.DivNoNanTest.testBasic
+    math_ops_test.DivNoNanTest.*
+    math_ops_test.D*
+    math_ops_test.*
+    math_*_test
+    math_*_*_test
+    math*_test
     """
     if (re.search("\.", regex_input) is None):
         test = regex_input + '.py'
@@ -82,6 +113,7 @@ def regex_walk(dirname, regex_input):
                 sys.path.append(path)
                 name = os.path.splitext(name)[0]
                 module_list.append(name)
+
     if not module_list:
         print("Error:Invalid test name")
         sys.exit()
@@ -94,19 +126,29 @@ def list_tests(module_list, regex_input):
     specified. 
 
     Args:
-    test_module: This is tensorflow test target name passed as an argument.
-    Example --list_tests=math_ops_test
-    To get the list of tensorflow python test modules/packages or 
-    labels, query using bazel.
-    bazel query 'kind(".*_test rule", //tensorflow/python/...)'
-    bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
+    module_list: This is a list tensorflow test target names passed as an argument.
+    Example --list_tests=math_ops_test.R*
+    To get the list of tensorflow python test modules, query using bazel.
     bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
-    """
 
+    regex_input: Regular expression input strings to filter and list tests. 
+    Few examples of accepted regex_input are:
+    math_ops_test
+    math_ops_test.DivNanTest
+    math_ops_test.DivNoNanTest.testBasic
+    math_ops_test.DivNoNanTest.*
+    math_ops_test.D*
+    math_ops_test.*
+    math_*_test
+    math_*_*_test
+    math*_test
+    """
     loader = unittest.TestLoader()
     alltests = []
     for test_module in module_list:
         module = __import__(test_module)
+        if (module is None):
+            print("Enter a valid test name to run")
         test_modules = loader.loadTestsFromModule(module)
         for test_class in test_modules:
             for i in test_class:
@@ -117,12 +159,10 @@ def list_tests(module_list, regex_input):
         return alltests
     else:
         test_name = (re.split("\*", regex_input))[0]
-        print(test_name)
         listtests = []
         for test in alltests:
-            for i in test:
-                if test_name in i:
-                    listtests.append(i)
+            if test_name in test:
+                listtests.append(test)
         print('\n'.join(listtests))
         return listtests
 
@@ -133,8 +173,9 @@ def run_test(test_list, verbosity=2):
     test name and prints stdout.
 
     Args:
-    test_name: This is the test suite or the test case passed as an argument.
-    Example: --run_test=math_ops_test.AccumulateNTest        
+    test_list: This is the list of tests to run,filtered based on the 
+    regex_input passed as an argument.
+    Example: --run_test=math_ops_test.A*   
     verbosity: Python verbose logging is set to 2. You get the help string 
     of every test and the result.
     """
