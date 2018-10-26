@@ -312,7 +312,6 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   bool HasInputsWithMismatchingDeadness(const Node& node) override;
   void Print() const override;
   void GetNodePredicate(const Node& node, string& predicate_string);
-  // void GetPredicateMap(std::map<Edge*, std::string>& edge_predicate_map);
 
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };

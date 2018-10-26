@@ -136,13 +136,14 @@ TEST(DeadnessCheck, livedead1TF) {
       Status::OK());
 }
 
-// Ops A1, N1 and N2 should be placed in the same cluster
+// Graph 1
 //
-//               A1(#True)[Placeholder]
+//               A1(#True)[Const]
 //              /    \ 
 //             /      \
 //            /        \ 
 //       N1(#P1)[Add]  N2(#P1)[Sub]
+// Ops A1, N1 and N2 should be placed in the same cluster
 TEST(DeadnessCheck, DTestG1) {
   Scope root = Scope::NewRootScope();
 
@@ -163,7 +164,7 @@ TEST(DeadnessCheck, DTestG1) {
 
 // Graph 2
 //
-//               A1(#True)[Placeholder]
+//               A1(#True)[Const]
 //              /    \      \ 
 //             /      \      \ 
 //            /        \      \ 
@@ -171,7 +172,7 @@ TEST(DeadnessCheck, DTestG1) {
 //                       \     /
 //                        \   /
 //                      N3(#P2) [Mul]
-// There should be 3 cluster
+// There should be 3 clusters
 // Cluster 1 : C1
 // Cluster 2 : N2 and N3
 // Cluster 3 : N1
@@ -200,15 +201,113 @@ TEST(DeadnessCheck, DTestG2) {
             Status::OK());
 }
 
+// Graph 3
+//
+// P1(#True)[Pl]   A1(#True)[Const]
+//     \          /    \ 
+//      \        /      \ 
+//       \     /         \ 
+//     N1(#True)[Add]  N4(#P1)[Sub]
+//            /   \ 
+//           /     \ 
+//          /       \ 
+//  N2(#P1)[Add]   N3(#P1)[Mul]
+//
+// Ops A1, N1, N2, N3 and N4 should be placed in the same cluster
+// P1 is not supported on nGraph so is not clustered
+TEST(DeadnessCheck, DTestG3) {
+  Scope root = Scope::NewRootScope();
+
+  auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
+  auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
+  auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
+
+  auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
+  auto P1 = ops::Placeholder(root.WithOpName("P1"), DataType::DT_FLOAT);
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, P1);
+  auto N2_Add = ops::Add(root.WithOpName("N2_Add"), N1_Add, SX.output_false);
+  auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N1_Add, SX.output_false);
+  auto N4_Sub = ops::Sub(root.WithOpName("N4_Sub"), A1, SX.output_false);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}, {P1, {3.f, 5.f}}},
+                        {N2_Add, N3_Mul, N4_Sub}, &outputs),
+            Status::OK());
+}
+
+// Graph 4
+// Ops A1, N1 and N2 should be placed in the same cluster
+//
+// P1(#True)[Pl]   A1(#True)[Const]
+//     \          /    \ 
+//      \        /      \ 
+//       \     /         \ 
+//     N1(#True)[Add]  N4(#P2)[Sub]
+//            /   \ 
+//           /     \ 
+//          /       \ 
+//  N2(#P1)[Add]   N3(#P1)[Mul]
+//
+// P1 is not supported on nGraph so is not clustered
+// There will be 3 clusters
+// Cluster 1: A1
+// Cluster 2: N1, N2, N3
+// Cluster 3: N4
+TEST(DeadnessCheck, DTestG4) {
+  Scope root = Scope::NewRootScope();
+
+  auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
+  auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
+  auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
+  auto dataY = ops::Placeholder(root.WithOpName("dataY"), DataType::DT_FLOAT);
+  auto predY = ops::Placeholder(root.WithOpName("PredY"), DataType::DT_BOOL);
+  auto SY = ops::Switch(root.WithOpName("SwitchY"), dataY, predY);
+
+  auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
+  auto P1 = ops::Placeholder(root.WithOpName("P1"), DataType::DT_FLOAT);
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, P1);
+  auto N2_Add = ops::Add(root.WithOpName("N2_Add"), N1_Add, SX.output_false);
+  auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N1_Add, SX.output_false);
+  auto N4_Sub = ops::Sub(root.WithOpName("N4_Sub"), A1, SY.output_false);
+
+  std::vector<Tensor> outputs;
+  ClientSession session(root);
+  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
+                         {dataY, {3.f, 5.f}},
+                         {predX, false},
+                         {predY, false},
+                         {P1, {3.f, 5.f}}},
+                        {N2_Add, N3_Mul, N4_Sub}, &outputs),
+            Status::OK());
+}
+
+// Graph 5
+//            SX(#True)[Switch]      SY(#True)[Switch]
+//                   \                   /  \ 
+//                    \(X)          (~Y)/    \(Y)
+//  A(#True)[Const]    \-> N1(X & ~Y)[Add]   N5(Y)[Add]<----- B(#True)[Pl]
+//         \                   |                |              |
+//          \                  |                |              |
+//           \----------->N2(X & ~Y)[Mul]    N6(Y)[Mul]<-------|
+//            \                |
+//             \               |
+// SZ(#True)----\-------->N3(Z & X & ~Y)[Sub]
+//  [Switch]     \             |
+//                \            |
+//                 \-->N4(Z & X & ~Y)[Mul]
+//
+// There should be 4 clusters
+// Cluster 1 : A1
+// Cluster 2 : N1 and N2
+// Cluster 3 : N3 and N4
+// Cluster 4 : N5 and N6
 TEST(DeadnessCheck, DTestPl) {
   Scope root = Scope::NewRootScope();
 
   auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
   auto dataY = ops::Placeholder(root.WithOpName("dataY"), DataType::DT_FLOAT);
   auto dataZ = ops::Placeholder(root.WithOpName("dataZ"), DataType::DT_FLOAT);
-  auto A = ops::Const(root.WithOpName("A"), {3.f, 2.f});
-  // auto B = ops::Const(root.WithOpName("B"), {3.f, 2.f});
-
   auto predX = ops::Placeholder(root.WithOpName("PredX"), DataType::DT_BOOL);
   auto predY = ops::Placeholder(root.WithOpName("PredY"), DataType::DT_BOOL);
   auto predZ = ops::Placeholder(root.WithOpName("PredZ"), DataType::DT_BOOL);
@@ -217,13 +316,15 @@ TEST(DeadnessCheck, DTestPl) {
   auto SY = ops::Switch(root.WithOpName("SwitchY"), dataY, predY);
   auto SZ = ops::Switch(root.WithOpName("SwitchZ"), dataZ, predZ);
 
-  auto XYAdd =
-      ops::Add(root.WithOpName("XYAdd"), SX.output_true, SY.output_false);
-  auto XYMul = ops::Mul(root.WithOpName("XYMul"), XYAdd, A);
-  auto XYZSub = ops::Sub(root.WithOpName("XYZSub"), SZ.output_true, XYMul);
-  auto XYZMul = ops::Mul(root.WithOpName("XYZMul"), XYZSub, A);
-  auto YAdd = ops::Add(root.WithOpName("YAdd"), SY.output_true, A);
-  auto YMul = ops::Mul(root.WithOpName("YMul"), YAdd, A);
+  auto A = ops::Const(root.WithOpName("A"), {3.f, 2.f});
+  auto B = ops::Const(root.WithOpName("B"), {3.f, 2.f});
+  auto N1_Add =
+      ops::Add(root.WithOpName("N1_Add"), SX.output_true, SY.output_false);
+  auto N2_Mul = ops::Mul(root.WithOpName("N2_Mul"), N1_Add, A);
+  auto N3_Sub = ops::Sub(root.WithOpName("N3_Sub"), SZ.output_true, N2_Mul);
+  auto N4_Mul = ops::Mul(root.WithOpName("N4_Mul"), N3_Sub, A);
+  auto N5_Add = ops::Add(root.WithOpName("N5_Add"), SY.output_true, B);
+  auto N6_Mul = ops::Mul(root.WithOpName("N6_Mul"), N5_Add, B);
 
   // Graph graph(OpRegistry::Global());
   // TF_CHECK_OK(root.ToGraph(&graph));
@@ -259,9 +360,9 @@ TEST(DeadnessCheck, DTestPl) {
                          //{A, {3.f, 2.f}},
                          //{B, {3.f, 2.f}},
                          {predX, true},
-                         {predY, true},
+                         {predY, false},
                          {predZ, true}},
-                        {XYZMul, YMul}, &outputs),
+                        {N4_Mul, N6_Mul}, &outputs),
             Status::OK());
 }
 
