@@ -469,6 +469,7 @@ TEST(NNOps, QuantizedMaxPool) {
     }
   }
 }
+// TODO: add a quantized maxpool test, where min-max are equal or close together
 
 // Computes softmax cross entropy cost and gradients to backpropagate.
 TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {
