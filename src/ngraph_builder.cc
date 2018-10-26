@@ -2543,18 +2543,18 @@ static Status TranslateQuantizedMaxPoolOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_val));
   if (min_val.size() != 1) {
     return errors::InvalidArgument(
-        "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
+        "QuantizedMaxPool Op: Min must be scalar. Got a vector of size, ",
         min_val.size());
   }
   if (max_val.size() != 1) {
     return errors::InvalidArgument(
-        "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
+        "QuantizedMaxPool Op: Max must be scalar. Got a vector of size, ",
         max_val.size());
   }
   auto ng_min = std::make_shared<ng::op::Constant>(ng::element::f32,
-                                                   ng::Shape({1}), min_val);
+                                                   ng::Shape({}), min_val);
   auto ng_max = std::make_shared<ng::op::Constant>(ng::element::f32,
-                                                   ng::Shape({1}), max_val);
+                                                   ng::Shape({}), max_val);
   std::shared_ptr<ng::Node> ng_quant_maxpool =
       ng::builder::ScaledQuantizedMaxPool(
           ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
@@ -2566,12 +2566,8 @@ static Status TranslateQuantizedMaxPoolOp(
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out0);
   // TODO: revisit min-max. They might change if min-max is too close. For now
   // just passing them along from in to out.
-  SaveNgOp(ng_op_map, op->name(),
-           std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({}),
-                                              min_val));
-  SaveNgOp(ng_op_map, op->name(),
-           std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({}),
-                                              max_val));
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_max);
   return Status::OK();
 }
 
