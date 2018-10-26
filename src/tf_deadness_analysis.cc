@@ -490,7 +490,7 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
 // If all output edges of the op have the same predicate update predicate_string
 void DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
                                             string& predicate_string) {
-  if (node.IsControlFlow()) {
+  if (node.IsSource() || node.IsSink() || node.IsControlFlow()) {
     return;
   }
   Predicate* pred = nullptr;
