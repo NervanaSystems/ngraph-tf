@@ -275,7 +275,6 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     Node* ret_node = graph.AddNode(new_ret_node_def, &status);
     ASSERT_EQ(Status::OK(), status) << "Failed to add output " << i
                                     << " of type _Retval";
-    ;
 
     // Add edges from _Retval to sink
     for (int j = 0; j < dest_nodes_metadata.size(); j++) {
@@ -377,7 +376,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
                                 expected_output_datatypes_[i], &ng_et_expected))
         << "Datatype of " << i << "th output is "
         << DataTypeString(expected_output_datatypes_[i])
-        << ". Ngraph's element type is " << ng_et_expected << std::endl;
+        << ". Ngraph's element type is " << ng_et_expected;
 
     // Expected element type should match ng_op_type
     ASSERT_EQ(ng_et_expected, ng_op_type)
