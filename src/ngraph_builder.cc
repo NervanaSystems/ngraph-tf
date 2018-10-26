@@ -2566,8 +2566,12 @@ static Status TranslateQuantizedMaxPoolOp(
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool_out0);
   // TODO: revisit min-max. They might change if min-max is too close. For now
   // just passing them along from in to out.
-  SaveNgOp(ng_op_map, op->name(), ng_min);
-  SaveNgOp(ng_op_map, op->name(), ng_max);
+  SaveNgOp(ng_op_map, op->name(),
+           std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({}),
+                                              min_val));
+  SaveNgOp(ng_op_map, op->name(),
+           std::make_shared<ng::op::Constant>(ng::element::f32, ng::Shape({}),
+                                              max_val));
   return Status::OK();
 }
 
