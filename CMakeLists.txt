@@ -129,41 +129,42 @@ else()
 endif(APPLE)
 
 # Find and build ngraph
-option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
-ExternalProject_Add(
-    ext_ngraph
-    GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.9.0
-    CMAKE_ARGS 
-        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
-        -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
-        -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
-        -DNGRAPH_UNIT_TEST_ENABLE=FALSE
-        -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
-        -DNGRAPH_DEX_ONLY=TRUE         
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
-        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
-    TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
-    STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
-    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
-    SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
-    BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
-    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
-    UPDATE_COMMAND ""
-    INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
-)
 
-set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
-
-
-
-if(OS_VERSION STREQUAL "\"centos\"")
-	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib64/${LIBNGRAPH_SO})
-else()
-	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO})
-endif()
-
+if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
+    option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
+    ExternalProject_Add(
+        ext_ngraph
+        GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
+        GIT_TAG v0.9.0
+        CMAKE_ARGS 
+            -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
+            -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
+            -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
+            -DNGRAPH_UNIT_TEST_ENABLE=FALSE
+            -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
+            -DNGRAPH_DEX_ONLY=TRUE         
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+            -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
+        TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
+        STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
+        DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
+        SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
+        BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
+        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
+        UPDATE_COMMAND ""
+        INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
+    )
+    
+    set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+    
+    
+    
+    if(OS_VERSION STREQUAL "\"centos\"")
+    	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib64/${LIBNGRAPH_SO})
+    else()
+    	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO})
+    endif()
 add_library(ngraph_lib SHARED IMPORTED)
 set_target_properties( 
     ngraph_lib 
@@ -172,6 +173,7 @@ set_target_properties(
 )
 
 add_dependencies(ngraph_lib ext_ngraph)
+endif()
 
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 
