@@ -117,8 +117,12 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     if desired_norm not in [1, 2, np.inf]:
         raise Exception('Only L2, L2, and inf norms are supported')
 
-    return np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
-                          desired_norm)
+    n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
+                       desired_norm)
+    if desired_norm is np.inf:
+        return n
+    else:
+        return n / len(ngraph_output_flatten)
 
 
 def parse_json():
