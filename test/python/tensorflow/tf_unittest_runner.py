@@ -30,6 +30,7 @@ def main():
     parser = argparse.ArgumentParser()
     optional = parser._action_groups.pop()
     required = parser.add_argument_group('required arguments')
+
     required.add_argument(
         '--tensorflow_path',
         help=
@@ -70,16 +71,20 @@ def regex_walk(dirname, regex_input):
     dirname: This is the tensorflow_path passed as an argument where 
     tensorflow is installed.
     """
-    test = (re.split("\.", regex_input))[0] + '.py'
-
+    if (re.search("\.", regex_input) is None):
+        test = regex_input + '.py'
+    else:
+        test = (re.split("\.", regex_input))[0] + '.py'
     module_list = []
     for path, subdirs, files in os.walk(dirname):
         for name in files:
             if fnmatch(name, test):
                 sys.path.append(path)
                 name = os.path.splitext(name)[0]
-                #print(name)
                 module_list.append(name)
+    if not module_list:
+        print("Error:Invalid test name")
+        sys.exit()
     return module_list
 
 
@@ -97,27 +102,29 @@ def list_tests(module_list, regex_input):
     bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output package
     bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label
     """
-    test_name = (re.split("\*", regex_input))[0]
+
     loader = unittest.TestLoader()
+    alltests = []
     for test_module in module_list:
         module = __import__(test_module)
         test_modules = loader.loadTestsFromModule(module)
-        alltests = []
         for test_class in test_modules:
-            alltests.append(([i.id() for i in test_class._tests]))
-            #print('\n'.join(sorted(sum(alltests, []))))
-    '''r = re.compile(test_name)
-    listtests = list(filter(r.match, alltests))
-    print(listtests)'''
+            for i in test_class:
+                alltests.append(i.id())
 
-    listtests = []
-    for test in alltests:
-        for i in test:
-            #pdb.set_trace()
-            if test_name in i:
-                listtests.append(i)
-    print('\n'.join(listtests))
-    return listtests
+    if (re.search("\.", regex_input) is None):
+        print('\n'.join(alltests))
+        return alltests
+    else:
+        test_name = (re.split("\*", regex_input))[0]
+        print(test_name)
+        listtests = []
+        for test in alltests:
+            for i in test:
+                if test_name in i:
+                    listtests.append(i)
+        print('\n'.join(listtests))
+        return listtests
 
 
 def run_test(test_list, verbosity=2):
