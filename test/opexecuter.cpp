@@ -142,7 +142,7 @@ void OpExecuter::ExecuteOnTF(vector<Tensor>& tf_outputs) {
   DeactivateNGraph();
   ClientSession session(tf_scope_);
   ASSERT_EQ(Status::OK(), session.Run(sess_run_fetchoutputs_, &tf_outputs))
-      << "Failed to run opexecutor on TF" << std::endl;
+      << "Failed to run opexecutor on TF";
   for (int i = 0; i < tf_outputs.size(); i++) {
     NGRAPH_VLOG(5) << " TF op " << i << tf_outputs[i].DebugString();
   }
@@ -198,14 +198,13 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   for (int i = 0; i < number_of_inputs; i++) {
     Node* ip;
     ASSERT_EQ(Status::OK(), test_op->input_node(i, &ip))
-        << "Failed to get input number " << i << " named " << ip->name()
-        << std::endl;
+        << "Failed to get input number " << i << " named " << ip->name();
     input_node.push_back(ip);
 
     Tensor ip_tensor;
     ASSERT_EQ(Status::OK(), GetNodeAttr(ip->attrs(), "value", &ip_tensor))
         << "Failed to get values from input number " << i << " named "
-        << ip->name() << std::endl;
+        << ip->name();
     input_shapes.push_back(ip_tensor.shape());
     input_dt.push_back(ip_tensor.dtype());
     tf_inputs.push_back(ip_tensor);
@@ -237,7 +236,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     Status status;
     Node* arg_node = graph.AddNode(new_arg_node_def, &status);
     ASSERT_EQ(Status::OK(), status) << "Failed to add node " << i << " named "
-                                    << ip_node->name() << std::endl;
+                                    << ip_node->name();
 
     // Remove the Const Node
     graph.RemoveNode(input_node[i]);
@@ -275,7 +274,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     Status status;
     Node* ret_node = graph.AddNode(new_ret_node_def, &status);
     ASSERT_EQ(Status::OK(), status) << "Failed to add output " << i
-                                    << " of type _Retval" << std::endl;
+                                    << " of type _Retval";
     ;
 
     // Add edges from _Retval to sink
@@ -306,7 +305,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   ASSERT_EQ(Status::OK(),
             Builder::TranslateGraph(input_shapes, static_input_map, &graph,
                                     ng_function))
-      << "Failed to TranslateGraph" << std::endl;
+      << "Failed to TranslateGraph";
 
   // ng function should get same number of outputs
   ASSERT_EQ(expected_output_datatypes_.size(), ng_function->get_output_size())
@@ -361,7 +360,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
               TFDataTypeToNGraphElementType(tf_inputs[i].dtype(), &ng_et))
         << "Datatype of " << i << "th input is "
         << DataTypeString(tf_inputs[i].dtype()) << ". Ngraph's element type is "
-        << ng_et << std::endl;
+        << ng_et;
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs[i]);
     auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
     ng_ip_tensors.push_back(result);
@@ -383,8 +382,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     // Expected element type should match ng_op_type
     ASSERT_EQ(ng_et_expected, ng_op_type)
         << "Expected Ngraph datatype of " << i << "th output is "
-        << ng_et_expected << ", but ngraph function has " << ng_op_type
-        << std::endl;
+        << ng_et_expected << ", but ngraph function has " << ng_op_type;
     vector<int64> dims;
     for (auto dim : ng_op_shape) {
       dims.push_back(dim);
