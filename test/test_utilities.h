@@ -103,12 +103,16 @@ bool Compare(T arg0, T arg1) {
 template <typename T>
 void Compare(const Tensor& T1, const Tensor& T2) {
   // Assert rank
-  ASSERT_EQ(T1.dims(), T2.dims()) << "Ranks unequal for T1 and T2" << std::endl;
+  ASSERT_EQ(T1.dims(), T2.dims())
+      << "Ranks unequal for T1 and T2. T1.shape = " << T1.shape()
+      << " T2.shape = " << T2.shape() << std::endl;
 
   // Assert each dimension
   for (int i = 0; i < T1.dims(); i++) {
     ASSERT_EQ(T1.dim_size(i), T2.dim_size(i))
-        << "T1 and T2 shapes do not match in dimension " << i << std::endl;
+        << "T1 and T2 shapes do not match in dimension " << i
+        << ". T1.shape = " << T1.shape() << " T2.shape = " << T2.shape()
+        << std::endl;
   }
 
   // Assert type
