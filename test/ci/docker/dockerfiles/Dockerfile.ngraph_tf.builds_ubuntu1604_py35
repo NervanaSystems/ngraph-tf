@@ -18,20 +18,18 @@
 
 FROM ubuntu:16.04
 
-# Default python environment is python 2, thus python-pip and virtualenv
-# python-numpy, python-dev, and python-wheel all needed for TensorFlow build
+# Default python environment is python 3, thus python3-pip and virtualenv
+# python3-numpy, python3-dev, and python3-wheel all needed for TensorFlow build
 # git is needed to clone tensorflow repository
 # unzip and wget are needed for installing bazel
 # sudo is required for installing the TF wheel into /usr/local/...
 # zlib1g, zlib1g-dev and bash-completion are required by bazel install
 # zip and golang-go are needed to run TensorFlow tests
 # curl and locate are needed by Tensorflow's configure command
-# enum appears to be used in the TensorFlow build
 # clang-format-3.9 is needed for code-style checks
-# python-tk is used by matplotlib (pip installed below)
 RUN apt-get update &&  apt-get install -y \
-    python-pip virtualenv \
-    python-numpy python-dev python-wheel \
+    python3-pip virtualenv \
+    python3-numpy python3-dev python3-wheel \
     git \
     unzip wget \
     sudo \
@@ -40,8 +38,11 @@ RUN apt-get update &&  apt-get install -y \
     libtinfo-dev \
     zip golang-go \
     locate curl \
-    clang-format-3.9 \
-    python-tk
+    clang-format-3.9
+
+# Report which gcc and g++ versions are present
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
 
 # The "locate" command uses a prepopulated index.  If this index is not built,
 # then "locate" will find absolutely nothing.  In Tensorflow's configure,
@@ -55,16 +56,15 @@ RUN updatedb
 # matplotlib and librosa are needed to run inference models
 # opencv-python is used by some inference models (for import cv2)
 # yapf and futures are needed for code-format checks (ngraph-tf PR#211)
-RUN pip install --upgrade pip
-RUN pip install six enum34 mock
-RUN pip install scipy portpicker sklearn
-RUN pip install keras_applications keras_preprocessing
-RUN pip install matplotlib librosa opencv-python
-RUN pip install yapf
-RUN pip install futures
+RUN pip3 install --upgrade pip
+RUN pip3 install six enum34 mock
+RUN pip3 install scipy portpicker sklearn
+RUN pip3 install keras_applications keras_preprocessing
+RUN pip3 install yapf
+RUN pip3 install futures
 
 # We include pytest so the Docker image can be used for daily validation
-RUN pip install --upgrade pytest
+RUN pip3 install --upgrade pytest
 
 # FROM NG-TF:
 # We need to be careful to run apt-get update in any RUN where apt-get install
