@@ -29,6 +29,27 @@
 #
 # NG_TF_PY_VERSION   Optional: Set python major version ("2" or "3", default=2)
 
+DIR_DOCKERFILES='dockerfiles'
+PRE_DOCKERFILE='Dockerfile.ngraph_tf.'
+PRE_NAME='ngraph_tf_'
+
+syntax() {
+    cmd=`basename ${0}`
+    echo "Syntax: ${cmd} DTag [ ImageType [ docker-run-options] ]"
+    echo "where:"
+    echo "    DTag         Required: tag for the docker image (as in DRepo:DTag)"
+    echo "    ImageType    Optional: which type of image to create"
+    echo 'Additional parameters are passed directly to the "docker run" command'
+    echo ' '
+    echo "Image types available:"
+    ls -1 "${DIR_DOCKERFILES}" | grep "${PRE_DOCKERFILE}" | sed -e "s/${PRE_DOCKERFILE}//"
+}  # syntax()
+
+if [ "${1}" = '-h' -o "${1}" = '--help' -o "${1}" = '' ] ; then
+    syntax
+    exit 0
+fi
+
 set -e  # Fail on any command with non-zero exit
 
 IMAGE_ID="$1"
@@ -45,10 +66,6 @@ if [ -z "${IMAGE_TYPE}" ] ; then  # PARAMETER 2 is OPTIONAL
 else
     shift 1  # We found parameter two, remove it from $@
 fi
-
-DIR_DOCKERFILES='dockerfiles'
-PRE_DOCKERFILE='Dockerfile.ngraph_tf_ci.'
-PRE_NAME='ngraph_tf_ci_'
 
 # We accomodate both the old-style dockerfile names and a new
 # scalable naming, where IMAGE_TYPE matches the extension
@@ -98,10 +115,10 @@ set -u  # No unset variables after this point
 
 # Show in log what is being build
 echo "make-docker-ngraph-tf-ci is building the following:"
-echo "    IMAGE_TYPE:  ${IMAGE_TYPE}"
-echo "    DOCKER_FILE: ${DOCKER_FILE}"
-echo "    IMAGE_NAME:  ${IMAGE_NAME}"
-echo "    IMAGE_ID:    ${IMAGE_ID}"
+echo "    Image Type         IMAGE_TYPE: ${IMAGE_TYPE}"
+echo "    Dockerfile        DOCKER_FILE: ${DOCKER_FILE}"
+echo "    Docker Repository  IMAGE_NAME: ${IMAGE_NAME}"
+echo "    Docker Tag           IMAGE_ID: ${IMAGE_ID}"
 
 # If proxy settings are detected in the environment, make sure they are
 # included on the docker-build command-line.  This mirrors a similar system
@@ -131,3 +148,12 @@ dbuild_cmd="docker build  --rm=true \
             -f=${DIR_DOCKERFILES}/${DOCKER_FILE}  -t=${IMAGE_NAME}:${IMAGE_ID}  ."
 echo "Docker build command: ${dbuild_cmd}"
 $dbuild_cmd
+dbuild_result=$?
+
+if [ $dbuild_result = 0 ] ; then
+    echo ' '
+    echo "Successfully created docker image ${IMAGE_NAME}:${IMAGE_ID}"
+else
+    echo ' '
+    echo "Docker image build reported an error (exit code ${dbuild_result})"
+fi
