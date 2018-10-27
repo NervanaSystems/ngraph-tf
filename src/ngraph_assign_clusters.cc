@@ -399,10 +399,10 @@ Status AssignClusters(Graph* graph) {
     }
 
     if (!has_ngraph_ops) {
+      seen.insert(cluster);
       continue;
     }
 
-    // if (seen.count(cluster) == 0) {
     int cluster_idx = NGraphClusterManager::NewCluster();
 
     for (auto node : cluster->nodes) {

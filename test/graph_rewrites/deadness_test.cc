@@ -155,13 +155,6 @@ TEST(DeadnessCheck, DTestG1) {
   auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, SX.output_false);
   auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), A1, SX.output_false);
 
-  //   std::vector<Tensor> outputs;
-  //   ClientSession session(root);
-  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}}, {N1_Add,
-  //   N2_Sub},
-  //                         &outputs),
-  //             Status::OK());
-
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(root.ToGraph(&graph));
   ASSERT_OK(MarkForClustering(&graph));
@@ -210,15 +203,6 @@ TEST(DeadnessCheck, DTestG2) {
   auto N1_Add = ops::Add(root.WithOpName("N1_Add"), SX.output_true, A1);
   auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), SY.output_true, A1);
   auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N2_Sub, A1);
-
-  //   std::vector<Tensor> outputs;
-  //   ClientSession session(root);
-  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
-  //                          {dataY, {3.f, 2.f}},
-  //                          {predX, true},
-  //                          {predY, true}},
-  //                         {N1_Add, N3_Mul}, &outputs),
-  //             Status::OK());
 
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(root.ToGraph(&graph));
@@ -362,16 +346,6 @@ TEST(DeadnessCheck, DTestG4) {
   ASSERT_NE(A1_cluster, B1_cluster);
   ASSERT_NE(A1_cluster, N4_Sub_cluster);
   ASSERT_NE(B1_cluster, N4_Sub_cluster);
-
-  //   std::vector<Tensor> outputs;
-  //   ClientSession session(root);
-  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
-  //                          {dataY, {3.f, 5.f}},
-  //                          {predX, false},
-  //                          {predY, false},
-  //                          {P1, {3.f, 5.f}}},
-  //                         {N2_Add, N3_Mul, N4_Sub}, &outputs),
-  //             Status::OK());
 }
 
 // Graph 5
