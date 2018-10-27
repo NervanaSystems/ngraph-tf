@@ -492,20 +492,22 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   vector<int64> filter_size_HWIO = {3, 3, 2, 2};
   // Out_delta :[batch, out_height, out_width, out_channels]
-  vector<int64> output_del_size_valid = {1, 3, 2, 2};
-  vector<int64> output_del_size_same = {1, 4, 3, 2};
+  vector<int64> output_del_size_valid = {1, 1, 1, 2};
+  //vector<int64> output_del_size_same = {1, 4, 3, 2};
 
   std::vector<int> stride = {1, 2, 2, 1};
 
   std::map<std::string, vector<int64>> out_delta_size_map = {
-      {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+      {"VALID", output_del_size_valid}};
+//   std::map<std::string, vector<int64>> out_delta_size_map = {
+//         {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
 
   // Conv2DBackpropInput has static input of index 0
   vector<int> static_input_indexes = {0};
 
   // changet the dilation attribute
   ops::Conv2DBackpropInput::Attrs op_attr;
-  op_attr = op_attr.Dilations({1, 1, 1, 1});
+  op_attr = op_attr.Dilations({1, 3, 2, 1});
 
   // TEST NHWC : default data format
   for (auto map_iterator : out_delta_size_map) {
@@ -516,10 +518,16 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
     auto input_sizes = ops::Const(root, input_size_NHWC);
 
     Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
-    AssignInputValuesRandom<float>(output_delta, -10.0f, 15.0f);
+    std::list<float> output_list(2);
+    std::iota(output_list.begin(), output_list.end(),0);
+    std::vector<float> output_vector{std::begin(output_list), std::end(output_list)};
+    AssignInputValues<float>(output_delta, output_vector);
 
     Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
-    AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+    std::list<float> filter_list(36);
+    std::iota(filter_list.begin(), filter_list.end(), 0);
+    std::vector<float> filter_vector{std::begin(filter_list), std::end(filter_list)};
+    AssignInputValues<float>(filter, filter_vector);
 
     auto R = ops::Conv2DBackpropInput(root, input_sizes, filter, output_delta,
                                       stride, padding_type, op_attr);
@@ -528,8 +536,22 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
     std::vector<Output> sess_run_fetchoutputs = {R};
     OpExecuter opexecuter(root, "Conv2DBackpropInput", static_input_indexes,
                           output_datatypes, sess_run_fetchoutputs);
+    vector<Tensor> ngraph_outputs;
+    opexecuter.ExecuteOnNGraph(ngraph_outputs);
 
-    opexecuter.RunTest();
+    vector<Tensor> tf_outputs;
+    Tensor tf_result(DT_FLOAT,TensorShape({1,7,6,2}));
+    auto tf_output ={1.f, 3.f,0.f,0.f,5.f,7.f,0.f,0.f,9.f, 11.f, 0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
+            0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,13.f,15.f,0.f,0.f,17.f,19.f,0.f,0.f,21.f,23.f,0.f,0.f,
+            0.f, 0.f,0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
+            25.f, 27.f,0.f, 0.f,29.f, 31.f,0.f, 0.f,33.f, 35.f,0.f, 0.f};
+    std::vector<float> tf_output_vector{std::begin(tf_output), std::end(tf_output)};
+    AssignInputValues(tf_result, tf_output_vector);
+    tf_outputs.push_back(tf_result);
+
+    Compare(tf_outputs, ngraph_outputs);
+
+    //opexecuter.RunTest();
   }
 }  // end of op Conv2DBackpropInputNHWCWithDilation
 
