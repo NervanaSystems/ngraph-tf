@@ -347,7 +347,7 @@ std::vector<Predicate*> DeadnessAnalysisImpl::GetIncomingPreds(
         (!in_edge->IsControlEdge() && edge_kind == EdgeKind::kDataOnly);
     if (should_process) {
       auto it = predicate_map_.find(InputEdgeToTensorId(in_edge));
-      CHECK(it != predicate_map_.end()) << edge->DebugString();
+      CHECK(it != predicate_map_.end()) << in_edge->DebugString();
       incoming_preds.push_back(it->second);
     }
   }

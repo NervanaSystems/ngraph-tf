@@ -112,7 +112,7 @@ Status AssignClusters(Graph* graph) {
   std::string CONTROL_FLOW_PRED_STRING = "#control_flow";
   // Same as the True predicate in tf_deadness_analysis
   std::string TRUE_PRED_STRING = "#true";
-
+  // This map is used only for error checking
   std::map<Node*, std::string> nodes_predicate_map;
 
   GraphCycles gc;
@@ -135,15 +135,9 @@ Status AssignClusters(Graph* graph) {
 
     cluster_map[node]->outgoing_edges = temp;
 
-    // // TODO : Try to directly create set of edges, instead of for loop
-    // for (const Edge* edge : node->out_edges()) {
-    //   cluster_map[node]->outgoing_edges.insert(edge);
-    // }
     NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
                    << node->name() << "[" << node->type_string()
                    << "] Predicate : " << pred_string;
-    NGRAPH_VLOG(5) << "Out Edges Size "
-                   << cluster_map[node]->outgoing_edges.size();
   }
 
   // Check for existing cyclicity in the graph
