@@ -424,9 +424,6 @@ Status AssignClusters(Graph* graph) {
 }
 
 Status GetNodeCluster(const Node* node, int* cluster) {
-  // NGRAPH_VLOG(5) << "Node " << node << " : id " << node->id() << " "
-  //               << node->name() << " [" << node->type_string() << "]";
-
   // TODO(amprocte): move attr name to a constant
   Status s = GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);
   if (s != Status::OK()) {
