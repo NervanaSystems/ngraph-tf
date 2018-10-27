@@ -491,20 +491,30 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
 
   // Filter :[filter_height, filter_width, in_channels, out_channels]
   vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+
   // Out_delta :[batch, out_height, out_width, out_channels]
   vector<int64> output_del_size_valid = {1, 1, 1, 2};
-  //vector<int64> output_del_size_same = {1, 4, 3, 2};
+  vector<int64> output_del_size_same = {1, 4, 3, 2};
 
   std::vector<int> stride = {1, 2, 2, 1};
 
+  // TF GPU results gathered running with same values of parameters
+  std::map<std::string, std::list<float>> tf_output_map = {
+      {"VALID", {1.f, 3.f,0.f,0.f,5.f,7.f,0.f,0.f,9.f, 11.f, 0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
+            0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,13.f,15.f,0.f,0.f,17.f,19.f,0.f,0.f,21.f,23.f,0.f,0.f,
+            0.f, 0.f,0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
+            25.f, 27.f,0.f, 0.f,29.f, 31.f,0.f, 0.f,33.f, 35.f,0.f, 0.f}}, 
+      {"SAME", {0.f, 0.f, 80.f, 92.f, 0.f, 0.f, 217.f, 247.f, 0.f,0.f, 252.f, 280.f, 0.f, 0.f, 128.f, 236.f, 0.f, 0.f,
+            361.f, 535.f, 0.f, 0.f, 396.f, 520.f, 0.f, 0.f, 428.f, 488.f, 0.f, 0.f, 811.f, 913.f, 0.f, 0.f, 696.f, 772.f, 0.f, 0.f, 340.f, 508.f,
+            0.f, 0.f, 920.f, 1196.f, 0.f, 0.f, 972.f, 1172.f, 0.f, 0.f, 776.f, 884.f, 0.f, 0.f, 1405.f, 1579.f, 0.f, 0.f, 1140.f, 1264.f,
+            0.f, 0.f, 788.f, 848.f, 0.f, 0.f, 1423.f, 1525.f, 0.f, 0.f, 1152.f, 1228.f, 0.f, 0.f, 1124.f, 1280.f, 0.f, 0.f, 1999.f, 2245.f,
+            0.f, 0.f, 1584.f, 1756.f}}
+  };
   std::map<std::string, vector<int64>> out_delta_size_map = {
-      {"VALID", output_del_size_valid}};
-//   std::map<std::string, vector<int64>> out_delta_size_map = {
-//         {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
+        {"VALID", output_del_size_valid}, {"SAME", output_del_size_same}};
 
   // Conv2DBackpropInput has static input of index 0
   vector<int> static_input_indexes = {0};
-
   // changet the dilation attribute
   ops::Conv2DBackpropInput::Attrs op_attr;
   op_attr = op_attr.Dilations({1, 3, 2, 1});
@@ -518,7 +528,11 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
     auto input_sizes = ops::Const(root, input_size_NHWC);
 
     Tensor output_delta(DT_FLOAT, TensorShape(output_delta_size));
-    std::list<float> output_list(2);
+    int size = 1;
+    for(auto num : output_delta_size){
+        size *= num;
+    }
+    std::list<float> output_list(size);
     std::iota(output_list.begin(), output_list.end(),0);
     std::vector<float> output_vector{std::begin(output_list), std::end(output_list)};
     AssignInputValues<float>(output_delta, output_vector);
@@ -539,19 +553,15 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
     vector<Tensor> ngraph_outputs;
     opexecuter.ExecuteOnNGraph(ngraph_outputs);
 
+    // Construct tf_outputs using gathered values
     vector<Tensor> tf_outputs;
     Tensor tf_result(DT_FLOAT,TensorShape({1,7,6,2}));
-    auto tf_output ={1.f, 3.f,0.f,0.f,5.f,7.f,0.f,0.f,9.f, 11.f, 0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
-            0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,13.f,15.f,0.f,0.f,17.f,19.f,0.f,0.f,21.f,23.f,0.f,0.f,
-            0.f, 0.f,0.f, 0.f,0.f,0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,0.f, 0.f,
-            25.f, 27.f,0.f, 0.f,29.f, 31.f,0.f, 0.f,33.f, 35.f,0.f, 0.f};
+    auto tf_output = tf_output_map[padding_type];
     std::vector<float> tf_output_vector{std::begin(tf_output), std::end(tf_output)};
     AssignInputValues(tf_result, tf_output_vector);
     tf_outputs.push_back(tf_result);
 
     Compare(tf_outputs, ngraph_outputs);
-
-    //opexecuter.RunTest();
   }
 }  // end of op Conv2DBackpropInputNHWCWithDilation
 
