@@ -155,11 +155,31 @@ TEST(DeadnessCheck, DTestG1) {
   auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, SX.output_false);
   auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), A1, SX.output_false);
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}}, {N1_Add, N2_Sub},
-                        &outputs),
-            Status::OK());
+  //   std::vector<Tensor> outputs;
+  //   ClientSession session(root);
+  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}}, {N1_Add,
+  //   N2_Sub},
+  //                         &outputs),
+  //             Status::OK());
+
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
+
+  std::map<std::string, Node*> node_map;
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
+
+  int N1_Add_cluster, N2_Sub_cluster, A1_cluster;
+  ASSERT_OK(GetNodeCluster(node_map["A1"], &A1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N1_Add"], &N1_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N2_Sub"], &N2_Sub_cluster));
+
+  // A1, N1 and N2 are in same cluster
+  ASSERT_EQ(N1_Add_cluster, N2_Sub_cluster);
+  ASSERT_EQ(N1_Add_cluster, A1_cluster);
 }
 
 // Graph 2
@@ -173,7 +193,7 @@ TEST(DeadnessCheck, DTestG1) {
 //                        \   /
 //                      N3(#P2) [Mul]
 // There should be 3 clusters
-// Cluster 1 : C1
+// Cluster 1 : A1
 // Cluster 2 : N2 and N3
 // Cluster 3 : N1
 TEST(DeadnessCheck, DTestG2) {
@@ -191,19 +211,42 @@ TEST(DeadnessCheck, DTestG2) {
   auto N2_Sub = ops::Sub(root.WithOpName("N2_Sub"), SY.output_true, A1);
   auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N2_Sub, A1);
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
-                         {dataY, {3.f, 2.f}},
-                         {predX, true},
-                         {predY, true}},
-                        {N1_Add, N3_Mul}, &outputs),
-            Status::OK());
+  //   std::vector<Tensor> outputs;
+  //   ClientSession session(root);
+  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
+  //                          {dataY, {3.f, 2.f}},
+  //                          {predX, true},
+  //                          {predY, true}},
+  //                         {N1_Add, N3_Mul}, &outputs),
+  //             Status::OK());
+
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
+
+  std::map<std::string, Node*> node_map;
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
+
+  int N1_Add_cluster, N2_Sub_cluster, A1_cluster, N3_Mul_cluster;
+  ASSERT_OK(GetNodeCluster(node_map["A1"], &A1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N1_Add"], &N1_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N2_Sub"], &N2_Sub_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N3_Mul"], &N3_Mul_cluster));
+
+  // N2 and N3 are in same cluster
+  ASSERT_EQ(N2_Sub_cluster, N3_Mul_cluster);
+  // A1, N1 and N2 are in different cluster
+  ASSERT_NE(N1_Add_cluster, A1_cluster);
+  ASSERT_NE(N2_Sub_cluster, A1_cluster);
+  ASSERT_NE(N2_Sub_cluster, N1_Add_cluster);
 }
 
 // Graph 3
 //
-// P1(#True)[Pl]   A1(#True)[Const]
+// A1(#True)[Pl]   B1(#True)[Const]
 //     \          /    \ 
 //      \        /      \ 
 //       \     /         \ 
@@ -213,7 +256,7 @@ TEST(DeadnessCheck, DTestG2) {
 //          /       \ 
 //  N2(#P1)[Add]   N3(#P1)[Mul]
 //
-// Ops A1, N1, N2, N3 and N4 should be placed in the same cluster
+// Ops A1, B2, N1, N2, N3 and N4 should be placed in the same cluster
 // P1 is not supported on nGraph so is not clustered
 TEST(DeadnessCheck, DTestG3) {
   Scope root = Scope::NewRootScope();
@@ -223,23 +266,43 @@ TEST(DeadnessCheck, DTestG3) {
   auto SX = ops::Switch(root.WithOpName("SwitchX"), dataX, predX);
 
   auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
-  auto P1 = ops::Placeholder(root.WithOpName("P1"), DataType::DT_FLOAT);
-  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, P1);
+  auto B1 = ops::Const(root.WithOpName("B1"), {3.f, 2.f});
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, B1);
   auto N2_Add = ops::Add(root.WithOpName("N2_Add"), N1_Add, SX.output_false);
   auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N1_Add, SX.output_false);
   auto N4_Sub = ops::Sub(root.WithOpName("N4_Sub"), A1, SX.output_false);
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}}, {predX, false}, {P1, {3.f, 5.f}}},
-                        {N2_Add, N3_Mul, N4_Sub}, &outputs),
-            Status::OK());
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
+
+  std::map<std::string, Node*> node_map;
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
+
+  int N1_Add_cluster, N2_Add_cluster, A1_cluster, N3_Mul_cluster,
+      N4_Sub_cluster, B1_cluster;
+  ASSERT_OK(GetNodeCluster(node_map["A1"], &A1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["B1"], &B1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N1_Add"], &N1_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N2_Add"], &N2_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N3_Mul"], &N3_Mul_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N4_Sub"], &N4_Sub_cluster));
+
+  // A1, B1, N1, N2, N3 and N4 are in the same cluster
+  ASSERT_EQ(A1_cluster, B1_cluster);
+  ASSERT_EQ(N1_Add_cluster, N2_Add_cluster);
+  ASSERT_EQ(N3_Mul_cluster, N4_Sub_cluster);
+  ASSERT_EQ(A1_cluster, N1_Add_cluster);
+  ASSERT_EQ(N1_Add_cluster, N3_Mul_cluster);
 }
 
 // Graph 4
 // Ops A1, N1 and N2 should be placed in the same cluster
 //
-// P1(#True)[Pl]   A1(#True)[Const]
+// A1(#True)[Const]   B1(#True)[Const]
 //     \          /    \ 
 //      \        /      \ 
 //       \     /         \ 
@@ -251,8 +314,8 @@ TEST(DeadnessCheck, DTestG3) {
 //
 // P1 is not supported on nGraph so is not clustered
 // There will be 3 clusters
-// Cluster 1: A1
-// Cluster 2: N1, N2, N3
+// Cluster 1: B1
+// Cluster 2: A1, N1, N2, N3
 // Cluster 3: N4
 TEST(DeadnessCheck, DTestG4) {
   Scope root = Scope::NewRootScope();
@@ -265,21 +328,50 @@ TEST(DeadnessCheck, DTestG4) {
   auto SY = ops::Switch(root.WithOpName("SwitchY"), dataY, predY);
 
   auto A1 = ops::Const(root.WithOpName("A1"), {3.f, 2.f});
-  auto P1 = ops::Placeholder(root.WithOpName("P1"), DataType::DT_FLOAT);
-  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, P1);
+  auto B1 = ops::Const(root.WithOpName("B1"), {3.f, 2.f});
+  auto N1_Add = ops::Add(root.WithOpName("N1_Add"), A1, B1);
   auto N2_Add = ops::Add(root.WithOpName("N2_Add"), N1_Add, SX.output_false);
   auto N3_Mul = ops::Mul(root.WithOpName("N3_Mul"), N1_Add, SX.output_false);
-  auto N4_Sub = ops::Sub(root.WithOpName("N4_Sub"), A1, SY.output_false);
+  auto N4_Sub = ops::Sub(root.WithOpName("N4_Sub"), B1, SY.output_false);
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-  ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
-                         {dataY, {3.f, 5.f}},
-                         {predX, false},
-                         {predY, false},
-                         {P1, {3.f, 5.f}}},
-                        {N2_Add, N3_Mul, N4_Sub}, &outputs),
-            Status::OK());
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
+
+  std::map<std::string, Node*> node_map;
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
+
+  int N1_Add_cluster, N2_Add_cluster, A1_cluster, N3_Mul_cluster,
+      N4_Sub_cluster, B1_cluster;
+  ASSERT_OK(GetNodeCluster(node_map["A1"], &A1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["B1"], &B1_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N1_Add"], &N1_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N2_Add"], &N2_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N3_Mul"], &N3_Mul_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N4_Sub"], &N4_Sub_cluster));
+
+  // A1, N1, N2, N3 are in the same cluster
+  ASSERT_EQ(A1_cluster, N1_Add_cluster);
+  ASSERT_EQ(N2_Add_cluster, N3_Mul_cluster);
+  ASSERT_EQ(A1_cluster, N2_Add_cluster);
+
+  // A1, B1 and N4 are in different clusters
+  ASSERT_NE(A1_cluster, B1_cluster);
+  ASSERT_NE(A1_cluster, N4_Sub_cluster);
+  ASSERT_NE(B1_cluster, N4_Sub_cluster);
+
+  //   std::vector<Tensor> outputs;
+  //   ClientSession session(root);
+  //   ASSERT_EQ(session.Run({{dataX, {3.f, 5.f}},
+  //                          {dataY, {3.f, 5.f}},
+  //                          {predX, false},
+  //                          {predY, false},
+  //                          {P1, {3.f, 5.f}}},
+  //                         {N2_Add, N3_Mul, N4_Sub}, &outputs),
+  //             Status::OK());
 }
 
 // Graph 5
@@ -301,7 +393,7 @@ TEST(DeadnessCheck, DTestG4) {
 // Cluster 1 : A1
 // Cluster 2 : N1 and N2
 // Cluster 3 : N3 and N4
-// Cluster 4 : N5 and N6
+// Cluster 4 : B, N5 and N6
 TEST(DeadnessCheck, DTestPl) {
   Scope root = Scope::NewRootScope();
 
@@ -326,44 +418,47 @@ TEST(DeadnessCheck, DTestPl) {
   auto N5_Add = ops::Add(root.WithOpName("N5_Add"), SY.output_true, B);
   auto N6_Mul = ops::Mul(root.WithOpName("N6_Mul"), N5_Add, B);
 
-  // Graph graph(OpRegistry::Global());
-  // TF_CHECK_OK(root.ToGraph(&graph));
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
 
-  // // for (const Edge* e : graph.edges()) {
-  // //   NGRAPH_VLOG(5) << "Edge between, Src: " << e->src()->name()
-  // //                  << " Src op index " << e->src_output()
-  // //                  << " ,Dst: " << e->dst()->name() << " dst ip index "
-  // //                  << e->dst_input();
-  // // }
+  std::map<std::string, Node*> node_map;
 
-  // ASSERT_OK(MarkForClustering(&graph));
-  // ASSERT_OK(AssignClusters(&graph));
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
 
-  // int XYAdd_cluster, XYMul_cluster, XYZSub_cluster, XYZMul_cluster,
-  //     YAdd_cluster, YMul_cluster;
-  // ASSERT_OK(GetNodeCluster(XYAdd.node(), &XYAdd_cluster));
-  // ASSERT_OK(GetNodeCluster(XYMul.node(), &XYMul_cluster));
-  // ASSERT_OK(GetNodeCluster(XYZSub.node(), &XYZSub_cluster));
-  // ASSERT_OK(GetNodeCluster(XYZMul.node(), &XYZMul_cluster));
-  // ASSERT_OK(GetNodeCluster(YAdd.node(), &YAdd_cluster));
-  // ASSERT_OK(GetNodeCluster(YMul.node(), &YMul_cluster));
+  int N1_Add_cluster, N2_Mul_cluster, N3_Sub_cluster, N4_Mul_cluster,
+      N5_Add_cluster, N6_Mul_cluster, A_cluster, B_cluster;
 
-  // ASSERT_EQ(XYAdd_cluster, XYMul_cluster);
-  // ASSERT_EQ(XYZSub_cluster, XYZMul_cluster);
-  // ASSERT_EQ(YAdd_cluster, YMul_cluster);
+  ASSERT_OK(GetNodeCluster(node_map["A"], &A_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["B"], &B_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N1_Add"], &N1_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N2_Mul"], &N2_Mul_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N3_Sub"], &N3_Sub_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N4_Mul"], &N4_Mul_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N5_Add"], &N5_Add_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["N6_Mul"], &N6_Mul_cluster));
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-  ASSERT_NE(session.Run({{dataX, {3.f, 5.f}},
-                         {dataY, {3.f, 2.f}},
-                         {dataZ, {3.f, 2.f}},
-                         //{A, {3.f, 2.f}},
-                         //{B, {3.f, 2.f}},
-                         {predX, true},
-                         {predY, false},
-                         {predZ, true}},
-                        {N4_Mul, N6_Mul}, &outputs),
-            Status::OK());
+  // N1 and N2 are in the same cluster
+  ASSERT_EQ(N1_Add_cluster, N2_Mul_cluster);
+  // N3 and N4 are in same cluster
+  ASSERT_EQ(N3_Sub_cluster, N4_Mul_cluster);
+  // B, N5 and N6 are in same cluster
+  ASSERT_EQ(N5_Add_cluster, N6_Mul_cluster);
+  ASSERT_EQ(N5_Add_cluster, B_cluster);
+
+  // N1 and N3 are in different cluster
+  ASSERT_NE(N1_Add_cluster, N3_Sub_cluster);
+  // N1 and N5 are in different cluster
+  ASSERT_NE(N1_Add_cluster, N5_Add_cluster);
+  // N3 and N5 are in differenct cluster
+  ASSERT_NE(N3_Sub_cluster, N5_Add_cluster);
+  // A, N1, N3 and N5 are a different cluster
+  ASSERT_NE(A_cluster, N1_Add_cluster);
+  ASSERT_NE(A_cluster, N3_Sub_cluster);
+  ASSERT_NE(A_cluster, N5_Add_cluster);
 }
 
 }  // namespace testing
