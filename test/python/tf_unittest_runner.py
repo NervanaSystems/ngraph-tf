@@ -48,14 +48,15 @@ def main():
     arguments = parser.parse_args()
 
     if (arguments.list_tests):
-        test_list = helper(arguments.tensorflow_path, arguments.list_tests)
+        test_list = get_test_list(arguments.tensorflow_path,
+                                  arguments.list_tests)
         print('\n'.join(test_list))
     if (arguments.run_test):
-        test_list = helper(arguments.tensorflow_path, arguments.run_test)
+        test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         run_test(test_list)
 
 
-def helper(tf_path, test_regex):
+def get_test_list(tf_path, test_regex):
     accepted_formats = [
         "math_ops_test", "mat_ops_test.DivNoNanTest",
         "math_ops_test.DivNoNanTest.testBasic", "math_ops_test.DivNoNanTest.*",
@@ -67,7 +68,8 @@ def helper(tf_path, test_regex):
     except:
         module_list = []
         print(
-            "Invalid module name.Use bazel query to get list of tensorflow python test modules"
+            """Invalid module name. Use bazel query below to get list of tensorflow python test modules.
+            bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label"""
         )
     try:
         test_list = list_tests(module_list, test_regex)
