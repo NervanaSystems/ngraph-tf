@@ -47,35 +47,37 @@ def main():
     parser._action_groups.append(optional)
     arguments = parser.parse_args()
 
+    if (arguments.list_tests):
+        test_list = helper(arguments.tensorflow_path, arguments.list_tests)
+        print('\n'.join(test_list))
+    if (arguments.run_test):
+        test_list = helper(arguments.tensorflow_path, arguments.run_test)
+        run_test(test_list)
+
+
+def helper(tf_path, test_regex):
     accepted_formats = [
         "math_ops_test", "mat_ops_test.DivNoNanTest",
         "math_ops_test.DivNoNanTest.testBasic", "math_ops_test.DivNoNanTest.*",
         "math_ops_test.D*", "math_ops_test.*", "math_*_test", "math_*_*_test",
         "math*_test"
     ]
-
-    if (arguments.list_tests):
-        try:
-            module_list = regex_walk(arguments.tensorflow_path,
-                                     arguments.list_tests)
-            list_tests(module_list, arguments.list_tests)
-        except:
-            print(
-                "Enter a valid argument to LIST tests.\nList of accepted formats:"
-            )
-            print('\n'.join(accepted_formats))
-
-    if (arguments.run_test):
-        try:
-            module_list = regex_walk(arguments.tensorflow_path,
-                                     arguments.run_test)
-            test_list = list_tests(module_list, arguments.run_test)
-            run_test(test_list)
-        except:
-            print(
-                "Enter a valid argument to RUN tests.\nList of accepted formats:"
-            )
-            print('\n'.join(accepted_formats))
+    try:
+        module_list = regex_walk(tf_path, test_regex)
+    except:
+        module_list = []
+        print(
+            "Invalid module name.Use bazel query to get list of tensorflow python test modules"
+        )
+    try:
+        test_list = list_tests(module_list, test_regex)
+    except:
+        test_list = []
+        print(
+            "Enter a valid argument to --list_tests or --run_test.\nList of accepted formats:"
+        )
+        print('\n'.join(accepted_formats))
+    return test_list
 
 
 from fnmatch import fnmatch
@@ -113,9 +115,7 @@ def regex_walk(dirname, regex_input):
                 sys.path.append(path)
                 name = os.path.splitext(name)[0]
                 module_list.append(name)
-
     if not module_list:
-        print("Error:Invalid test name")
         sys.exit()
     return module_list
 
@@ -155,7 +155,6 @@ def list_tests(module_list, regex_input):
                 alltests.append(i.id())
 
     if (re.search("\.", regex_input) is None):
-        print('\n'.join(alltests))
         return alltests
     else:
         test_name = (re.split("\*", regex_input))[0]
@@ -163,7 +162,6 @@ def list_tests(module_list, regex_input):
         for test in alltests:
             if test_name in test:
                 listtests.append(test)
-        print('\n'.join(listtests))
         return listtests
 
 
