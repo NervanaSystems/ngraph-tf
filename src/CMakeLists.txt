@@ -98,19 +98,19 @@ endif
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
 
 # Next install all the other prerequisites
-    if(OS_VERSION STREQUAL "\"centos\"")
-    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
-    else()
-    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
-    endif()
-    
-    #Install nbench if we built
-    if(DEFINED NGRAPH_TOOLS_ENABLE)
-    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
-    endif()
+if(OS_VERSION STREQUAL "\"centos\"")
+	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
+else()
+	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
+endif()
 
-    # Now create the Python pip package
-    install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_LIB_DIR}\")")
-    install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
-    install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
-    install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
+#Install nbench if we built
+if(DEFINED NGRAPH_TOOLS_ENABLE)
+	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
+endif()
+
+# Now create the Python pip package
+install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_LIB_DIR}\")")
+install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
+install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
+install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
