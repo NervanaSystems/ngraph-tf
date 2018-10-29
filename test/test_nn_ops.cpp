@@ -368,7 +368,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
 }  // end of op Conv2DBackpropInputNCHWSame
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
-// Input is in NCHW format
+// Input is in NCHW format, and with non-trivial dilation attributes
 TEST(NNOps, Conv2DBackpropInputNCHWSameWithDilation) {
   // Input NHWC :[batch, in_channels, in_height, in_width]
   string padding_type = "SAME";
@@ -439,11 +439,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSameWithDilation) {
 
   // Compare NGraph and TF Outputs
   Compare(tf_outputs, ngraph_outputs);
-}  // end of op Conv2DBackpropInputNCHWSame
-
-
-
-
+}  // end of op Conv2DBackpropInputNCHWSameWithDilation
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
 // input is in the NCHW format
@@ -513,6 +509,77 @@ TEST(NNOps, Conv2DBackpropInputNCHWValid) {
   // Compare NGraph and TF Outputs
   Compare(tf_outputs, ngraph_outputs);
 }  // end of op Conv2DBackpropInputNCHWValid
+
+// Conv2DBackpropInput op : compute the graidents of conv with respects to input
+// Input is in NCHW format, and with non-trivial dilation attributes
+TEST(NNOps, Conv2DBackpropInputNCHWValidWithDilation) {
+  // Input NHWC :[batch, in_channels, in_height, in_width]
+  string padding_type = "VALID";
+  initializer_list<int32> input_size_NCHW = {1, 2, 7, 6};  // an integer vector
+
+  // Filter :[filter_height, filter_width, in_channels, out_channels]
+  vector<int64> filter_size_HWIO = {3, 3, 2, 2};
+  // Out_delta :[batch, out_channels, out_height, out_width]
+  vector<int64> output_del_size_same_NCHW = {1, 2, 1, 1};
+  std::vector<int> stride_NCHW = {1, 1, 2, 2};
+  // Conv2DBackpropInput has static input of index 0
+  vector<int> static_input_indexes = {0};
+
+  Scope ngraph_scope = Scope::NewRootScope();
+  ops::Conv2DBackpropInput::Attrs op_attr_nchw;
+  op_attr_nchw = op_attr_nchw.DataFormat("NCHW");
+  op_attr_nchw = op_attr_nchw.Dilations({1, 1, 3, 2});
+
+  auto input_data_NCHW = ops::Const(ngraph_scope, input_size_NCHW);
+
+  Tensor output_delta(DT_FLOAT, TensorShape(output_del_size_same_NCHW));
+  int size = 1;
+  for(auto num : output_del_size_same_NCHW){
+      size *= num;
+  }
+  std::list<float> output_list(size);
+  std::iota(output_list.begin(), output_list.end(),0);
+  std::vector<float> output_vector{std::begin(output_list), std::end(output_list)};
+  AssignInputValues<float>(output_delta, output_vector);
+
+  Tensor filter(DT_FLOAT, TensorShape(filter_size_HWIO));
+  size = 1;
+  for(auto num : filter_size_HWIO){
+      size *= num;
+  }
+  std::list<float> filter_list(size);
+  std::iota(filter_list.begin(), filter_list.end(), 0);
+  std::vector<float> filter_vector{std::begin(filter_list), std::end(filter_list)};
+  AssignInputValues<float>(filter, filter_vector);
+
+  auto r_ngraph = ops::Conv2DBackpropInput(ngraph_scope, input_data_NCHW,
+                                           filter, output_delta, stride_NCHW,
+                                           padding_type, op_attr_nchw);
+
+  vector<Output> sess_run_fetchoutputs = {r_ngraph};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  OpExecuter opexecuter_ngraph(ngraph_scope, "Conv2DBackpropInput",
+                               static_input_indexes, output_datatypes,
+                               sess_run_fetchoutputs);
+  vector<Tensor> ngraph_outputs;
+  opexecuter_ngraph.ExecuteOnNGraph(ngraph_outputs);
+
+  // Construct tf_outputs using gathered values
+  vector<Tensor> tf_outputs;
+  Tensor tf_result(DT_FLOAT,TensorShape({1,2,7,6}));
+  auto tf_output ={1.f, 0.f, 5.f, 0.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 
+  0.f, 0.f, 13.f, 0.f, 17.f, 0.f, 21.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+  25.f, 0.f, 29.f, 0.f, 33.f, 0.f,3.f, 0.f, 7.f, 0.f, 11.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 
+  0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 15.f, 0.f, 19.f, 0.f, 23.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 
+  0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 27.f, 0.f, 31.f, 0.f, 35.f, 0.f};
+
+  std::vector<float> tf_output_vector{std::begin(tf_output), std::end(tf_output)};
+  AssignInputValues(tf_result, tf_output_vector);
+  tf_outputs.push_back(tf_result);
+
+  // Compare NGraph and TF Outputs
+  Compare(tf_outputs, ngraph_outputs);
+}  // end of op Conv2DBackpropInputNCHWValidWithDilation
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
 // Test case for TF default data format: NHWC
