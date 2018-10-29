@@ -90,8 +90,10 @@ endif()
 
 
 
+if (DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
+    set(NGRAPH_INSTALL_DIR, ${PREBUILT_NGRAPH_INSTALL_PATH})    
+endif
 
-if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
 # First install the libngraph_bridge.so
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
 
@@ -112,19 +114,3 @@ install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")
     install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
     install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
     install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
-else()
-# First install the libngraph_bridge.so
-install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
-
-install(DIRECTORY ${PREBUILT_NGRAPH_INSTALL_PATH}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
-
-    #Install nbench if we built
-    if(DEFINED NGRAPH_TOOLS_ENABLE)
-    	install(DIRECTORY ${PREBUILT_NGRAPH_INSTALL_PATH}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
-    endif()
-    # Now create the Python pip package
-    install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_LIB_DIR}\")")
-    install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
-    install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
-    install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")
-endif()
