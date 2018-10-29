@@ -103,7 +103,7 @@ Status AssignClusters(Graph* graph) {
   // edges from the data flow op have the same deadness predicate ('And'
   // Predicate of all its input predicates) and we can attach a predicate string
   // to the data-flow node (predicate of its output edge). Control flow ops are
-  // assigned a placeholder predicate string.
+  // assigned a placeholder predicate string (CONTROL_FLOW_PRED_STRING) .
 
   // TODO (malikshr): Add FLAG to disable deadness
   // #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
@@ -130,10 +130,9 @@ Status AssignClusters(Graph* graph) {
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
     cluster_map[node]->predicate_string = pred_string;
-    std::set<const Edge*> temp(node->out_edges().begin(),
-                               node->out_edges().end());
 
-    cluster_map[node]->outgoing_edges = temp;
+    cluster_map[node]->outgoing_edges = std::set<const Edge*>(
+        node->out_edges().begin(), node->out_edges().end());
 
     NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
                    << node->name() << "[" << node->type_string()
