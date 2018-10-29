@@ -129,7 +129,7 @@ else()
 endif(APPLE)
 
 # Find and build ngraph
-
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
     ExternalProject_Add(
