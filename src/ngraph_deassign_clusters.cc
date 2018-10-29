@@ -77,17 +77,17 @@ static void MaybeLogPlacement(const Graph* graph) {
   }
 
   int perc_marked_for_clustering_of_total =
-      number_of_nodes > 0
-          ? (int)((float)nodes_marked_for_clustering) * 100.0 / number_of_nodes
-          : 0;
+      number_of_nodes > 0 ? (int)(((float)nodes_marked_for_clustering) * 100.0 /
+                                  number_of_nodes)
+                          : 0;
   int perc_assigned_clusters_of_total =
       number_of_nodes > 0
-          ? (int)((float)nodes_assigned_cluster) * 100.0 / number_of_nodes
+          ? (int)(((float)nodes_assigned_cluster) * 100.0 / number_of_nodes)
           : 0;
   int perc_assigned_clusters_of_marked =
       nodes_marked_for_clustering > 0
-          ? (int)((float)nodes_assigned_cluster) * 100.0 /
-                nodes_marked_for_clustering
+          ? (int)(((float)nodes_assigned_cluster) * 100.0 /
+                  nodes_marked_for_clustering)
           : 0;
 
   std::cout << "Number of nodes in the graph: " << number_of_nodes << std::endl;
