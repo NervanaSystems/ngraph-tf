@@ -58,7 +58,7 @@ static void MaybeLogPlacement(const Graph* graph) {
 
   std::map<int, std::set<const Node*>> final_cluster_map;
   int number_of_nodes = 0, nodes_marked_for_clustering = 0,
-      nodes_assigned_cluster = 0;
+      nodes_assigned_a_cluster = 0;
   for (auto node : graph->nodes()) {
     number_of_nodes++;
     // Check marked for clustering
@@ -71,18 +71,18 @@ static void MaybeLogPlacement(const Graph* graph) {
     if (!GetNodeCluster(node, &cluster_idx).ok()) {
       cluster_idx = -1;
     } else {
-      nodes_assigned_cluster++;
+      nodes_assigned_a_cluster++;
     }
     final_cluster_map[cluster_idx].insert(node);
   }
 
   int perc_marked_for_clustering_of_total =
-      (int)(((float)nodes_marked_for_clustering) * 100.0 / number_of_nodes);
+      (int)((nodes_marked_for_clustering * 100.0) / number_of_nodes);
   int perc_assigned_clusters_of_total =
-      (int)(((float)nodes_assigned_cluster) * 100.0 / number_of_nodes);
+      (int)((nodes_assigned_a_cluster * 100.0) / number_of_nodes);
   int perc_assigned_clusters_of_marked =
       nodes_marked_for_clustering > 0
-          ? (int)(((float)nodes_assigned_cluster) * 100.0 /
+          ? (int)((nodes_assigned_a_cluster * 100.0) /
                   nodes_marked_for_clustering)
           : 0;
 
@@ -91,8 +91,9 @@ static void MaybeLogPlacement(const Graph* graph) {
             << nodes_marked_for_clustering << " ("
             << perc_marked_for_clustering_of_total << "% of total nodes)"
             << std::endl;
-  std::cout << "Number of nodes assigned a cluster: " << nodes_assigned_cluster
-            << " (" << perc_assigned_clusters_of_total << "% of total nodes) \t"
+  std::cout << "Number of nodes assigned a cluster: "
+            << nodes_assigned_a_cluster << " ("
+            << perc_assigned_clusters_of_total << "% of total nodes) \t"
             << " (" << perc_assigned_clusters_of_marked
             << "% of nodes marked for clustering) \t" << std::endl;
   std::cout << "Number of ngraph clusters :" << final_cluster_map.size() - 1
