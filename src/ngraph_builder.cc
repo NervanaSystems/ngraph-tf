@@ -2539,15 +2539,18 @@ static Status TranslateQuantizedMaxPoolOp(
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
+  // Creating and passing dummy nodes to ScaledQuantizedMaxPool because it does
+  // not use them. If it ever starts using min/max, the dummy min-max would
+  // cause it to fail
+  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
   std::shared_ptr<ng::Node> ng_quant_maxpool =
-      ng::builder::ScaledQuantizedMaxPool(
-          ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
-          ng_padding_above, static_pointer_cast<ng::Node>(ng_min),
-          static_pointer_cast<ng::Node>(ng_max));
+      ng::builder::ScaledQuantizedMaxPool(ng_input, ng_kernel_shape, ng_strides,
+                                          ng_padding_below, ng_padding_above,
+                                          dummy_min, dummy_max);
   BatchToTensorflow(is_nhwc, ng_quant_maxpool);
   SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool);
-  // TODO: revisit min-max. They might change if min-max is too close. For now
-  // just passing them along from in to out.
+  // For maxpool input min-max remains unchanged and is just propagated along
+  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
   SaveNgOp(ng_op_map, op->name(), ng_min);
   SaveNgOp(ng_op_map, op->name(), ng_max);
   return Status::OK();
