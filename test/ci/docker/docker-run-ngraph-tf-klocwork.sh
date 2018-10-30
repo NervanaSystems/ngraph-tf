@@ -57,7 +57,7 @@ case "${NG_TF_PY_VERSION}" in
         # DISABLED  IMAGE_CLASS='ngraph_tf_ci_klocwork_py2'
         ;;
     3)
-        IMAGE_CLASS='ngraph_tf_klocwork_py3'
+        IMAGE_CLASS='ngraph_tf_klocwork_ubuntu1604_py35'
         ;;
     *)
         echo 'NG_TF_PY_VERSION must be set to "2", "3", or left unset (default is "2")'
