@@ -99,6 +99,7 @@ struct Cluster {
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
 // Returns the predicate of the merged cluster
+// If Src Predicate is TRUE then merged cluster gets the dst predicate
 string GetMergedClusterPred(string& src_predicate, string& dst_predicate) {
   return DeadnessAnalysis::IsTruePredString(src_predicate) ? dst_predicate
                                                            : src_predicate;
@@ -197,8 +198,8 @@ Status CheckNodeClusterAssignmentWRTDeadness(
   if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
       node_pred_string != cluster_pred_string) {
     return errors::Internal(
-        "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
-        node_pred_string,
+        "Node ", node->name(), " [", node->type_string(), "]",
+        " Predicate : ", node_pred_string,
         "should not be clustered in cluster with pred_String ",
         cluster_pred_string);
   }
@@ -248,6 +249,9 @@ void MergeClusters(Edge* edge,
 
 }  // namespace
 
+// Main Entry point for Cluster Assignment to the Node
+// Adds an attribute "_ngraph_cluster" (cluster_id) to each Node that can be
+// encapsulated
 Status AssignClusters(Graph* graph) {
   std::map<Node*, std::shared_ptr<Cluster>> cluster_map;
 
