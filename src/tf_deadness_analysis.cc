@@ -311,7 +311,7 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   Status Populate();
   bool HasInputsWithMismatchingDeadness(const Node& node) override;
   void Print() const override;
-  void GetNodePredicate(const Node& node, string& predicate_string);
+  Status GetNodePredicate(const Node& node, string& pred_string);
 
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
@@ -468,25 +468,30 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   return false;
 }
 
-// If all output edges of the op have the same predicate update predicate_string
-void DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
-                                            string& predicate_string) {
+Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
+                                              string& pred_string) {
   if (node.IsSource() || node.IsSink() || node.IsControlFlow()) {
-    return;
+    pred_string = CONTROL_FLOW_PRED_STRING;
+    return Status::OK();
   }
+
   Predicate* pred = nullptr;
   for (const Edge* edge : node.out_edges()) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
     CHECK(it != predicate_map_.end()) << edge->DebugString();
 
+    // This node is not control flow but has
     if (pred != nullptr && *pred != *it->second) {
-      return;
+      return errors::Internal(node.name(), "[", node.type_string(), "]",
+                              " is a non control flow op. But its outputs have "
+                              "different predicates");
     }
     pred = it->second;
   }
 
   // All outputs have the same predicate
-  predicate_string = pred->ToString();
+  pred_string = pred->ToString();
+  return Status::OK();
 }
 
 void DeadnessAnalysisImpl::Print() const {
@@ -503,6 +508,7 @@ void DeadnessAnalysisImpl::Print() const {
 }
 }  // namespace
 DeadnessAnalysis::~DeadnessAnalysis() {}
+
 /*static*/ Status DeadnessAnalysis::Run(
     const Graph& graph, std::unique_ptr<DeadnessAnalysis>* result) {
   std::unique_ptr<DeadnessAnalysisImpl> analysis(
@@ -515,6 +521,11 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
   *result = std::move(analysis);
   return Status::OK();
 }
+
+/*static*/ const std::string DeadnessAnalysis::CONTROL_FLOW_PRED_STRING =
+    "#control_flow";
+// Same as the True predicate used in AndPredicate
+/*static*/ const std::string DeadnessAnalysis::TRUE_PRED_STRING = "#true";
 
 }  // namespace ngraph_bridge
 

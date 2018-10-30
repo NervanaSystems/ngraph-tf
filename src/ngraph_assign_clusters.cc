@@ -91,29 +91,168 @@ namespace {
 struct Cluster {
   int index;
   std::set<tensorflow::Node*> nodes;
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
   std::string predicate_string;
   std::set<const Edge*> outgoing_edges;
+#endif
 };
+
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+// Returns the predicate of the merged cluster
+string GetMergedClusterPred(string& src_predicate, string& dst_predicate) {
+  return DeadnessAnalysis::IsTruePredString(src_predicate) ? dst_predicate
+                                                           : src_predicate;
+}
+
+// Checks whether it's ok to contract the edge as far as deadness is concerned
+// Source and Dst Predicates of the edge should match
+Status CanContractEdgeDeadnessCheck(
+    Edge* edge, std::map<Node*, std::shared_ptr<Cluster>>& cluster_map,
+    bool& is_deadness_ok) {
+  is_deadness_ok = false;
+  Node* src = edge->src();
+  Node* dst = edge->dst();
+
+  string src_predicate = cluster_map[src]->predicate_string;
+  string dst_predicate = cluster_map[dst]->predicate_string;
+
+  // If the node marked for clustering has CONTROL_FLOW_PRED_STRING, it
+  // breaks our assumption that all supported ops are data flow ops
+  if (DeadnessAnalysis::IsControlFlowPredString(src_predicate) ||
+      DeadnessAnalysis::IsControlFlowPredString(dst_predicate)) {
+    return errors::Internal(
+        "Attempting to contract edge with control flow ops : ",
+        edge->DebugString());
+  }
+
+  // Case src X , dst Y , X!=Y // cannot be contracted
+  if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
+      !DeadnessAnalysis::IsTruePredString(dst_predicate) &&
+      src_predicate != dst_predicate) {
+    return Status::OK();
+  }
+
+  // Case src X , dst True // invalid scenario
+  if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
+      DeadnessAnalysis::IsTruePredString(dst_predicate)) {
+    return errors::Internal("Attempting to cluster control-flow node ",
+                            dst->name(), "[", dst->type_string(), "]");
+  }
+
+  // Case src True, dst Y
+  // If this edge is contracted, all the outputs of the merged cluster will
+  // have the predicate Y. Hence contraction is possible only when, all
+  // outputs of the src cluster (other than the current edge) have the
+  // predicate Y
+  if (DeadnessAnalysis::IsTruePredString(src_predicate)) {
+    auto src_cluster_out_edges = cluster_map[src]->outgoing_edges;
+    bool found_same_out_preds = true;
+    std::string pred_check = dst_predicate;
+
+    for (const Edge* src_cluster_edge : src_cluster_out_edges) {
+      if (src_cluster_edge == edge) {
+        continue;
+      }
+      Node* src_cluster_dst = src_cluster_edge->dst();
+      std::string src_cluster_dst_pred =
+          cluster_map[src_cluster_dst]->predicate_string;
+      if (pred_check != src_cluster_dst_pred) {
+        found_same_out_preds = false;
+        break;
+      }
+    }
+    // Cannot contract this edge
+    if (!found_same_out_preds) {
+      return Status::OK();
+    }
+  }
+
+  // Case src X, dst Y, X==Y
+  // Case src True, dst Y(Y can be True), all other output edges from src
+  // cluster have pred Y
+  is_deadness_ok = true;
+  return Status::OK();
+}
+
+// Some sanity checks for Node's cluster assignment wrt Deadness
+Status CheckNodeClusterAssignmentWRTDeadness(
+    Node* node, std::map<Node*, string> nodes_predicate_map,
+    string cluster_pred_string) {
+  if (nodes_predicate_map.find(node) == nodes_predicate_map.end()) {
+    return errors::Internal("Node ", node->name(), " [", node->type_string(),
+                            "]", " not found in predicate map");
+  }
+  std::string node_pred_string = nodes_predicate_map[node];
+
+  if (DeadnessAnalysis::IsControlFlowPredString(node_pred_string)) {
+    return errors::Internal(
+        "Node ", node->name(), " [", node->type_string(), "]",
+        " should not be clustered as it is a control flow op");
+  }
+
+  if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
+      node_pred_string != cluster_pred_string) {
+    return errors::Internal(
+        "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
+        node_pred_string,
+        "should not be clustered in cluster with pred_String ",
+        cluster_pred_string);
+  }
+  return Status::OK();
+}
+#endif
+
+// Merges src and dst clusters of the edge
+void MergeClusters(Edge* edge,
+                   std::map<Node*, std::shared_ptr<Cluster>>& cluster_map) {
+  Node* src = edge->src();
+  Node* dst = edge->dst();
+  int src_index = cluster_map[src]->index;
+  int dst_index = cluster_map[dst]->index;
+
+  // Merge dst cluster into src cluster
+  NGRAPH_VLOG(5) << "Contracting: " << src->name() << "[" << src->type_string()
+                 << " , " << edge->src_output() << "]@" << src_index << " -> "
+                 << dst->name() << "[" << dst->type_string() << " , "
+                 << edge->dst_input() << "]@" << dst_index;
+
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+  string src_predicate = cluster_map[src]->predicate_string;
+  string dst_predicate = cluster_map[dst]->predicate_string;
+  NGRAPH_VLOG(5) << "Src pred: " << src_predicate
+                 << " ,Dst pred: " << dst_predicate;
+
+  std::string cluster_pred = GetMergedClusterPred(src_predicate, dst_predicate);
+
+  cluster_map[src]->predicate_string = cluster_pred;
+  // Update outgoing edges of the merged cluster
+  cluster_map[src]->outgoing_edges.insert(
+      cluster_map[dst]->outgoing_edges.begin(),
+      cluster_map[dst]->outgoing_edges.end());
+  cluster_map[src]->outgoing_edges.erase(edge);
+#endif
+
+  auto cluster_dst = cluster_map[dst];
+  // using cluster_map[dst]->nodes in the loop directly appears to
+  // invalidate the iterator when `node` == `dst`
+  // this happens with clang but not gcc
+  for (auto node : cluster_dst->nodes) {
+    cluster_map[src]->nodes.insert(node);
+    cluster_map[node] = cluster_map[src];
+  }
+}
+
 }  // namespace
 
 Status AssignClusters(Graph* graph) {
   std::map<Node*, std::shared_ptr<Cluster>> cluster_map;
 
-  // Deadness is typically introduced by control flow ops. So, all the outgoing
-  // edges from the data flow op have the same deadness predicate ('And'
-  // Predicate of all its input predicates) and we can attach a predicate string
-  // to the data-flow node (predicate of its output edge). Control flow ops are
-  // assigned a placeholder predicate string (CONTROL_FLOW_PRED_STRING) .
-
-  // TODO (malikshr): Add FLAG to disable deadness
-  // #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
   std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
   TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
-  std::string CONTROL_FLOW_PRED_STRING = "#control_flow";
-  // Same as the True predicate in tf_deadness_analysis
-  std::string TRUE_PRED_STRING = "#true";
   // This map is used only for error checking
   std::map<Node*, std::string> nodes_predicate_map;
+#endif
 
   GraphCycles gc;
 
@@ -121,22 +260,23 @@ Status AssignClusters(Graph* graph) {
   for (auto node : graph->nodes()) {
     int new_index = gc.NewNode();
     cluster_map[node] = std::make_shared<Cluster>();
-
-    std::string pred_string = CONTROL_FLOW_PRED_STRING;
-    // if data flow op pred_string will be updated
-    deadness_analyzer->GetNodePredicate(*node, pred_string);
-    nodes_predicate_map[node] = pred_string;
-
     cluster_map[node]->index = new_index;
     cluster_map[node]->nodes.insert(node);
+    NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
+                   << node->name() << "[" << node->type_string() << "]";
+
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+    // get predicate string for the node
+    string pred_string;
+    TF_RETURN_IF_ERROR(deadness_analyzer->GetNodePredicate(*node, pred_string));
+    nodes_predicate_map[node] = pred_string;
     cluster_map[node]->predicate_string = pred_string;
 
     cluster_map[node]->outgoing_edges = std::set<const Edge*>(
         node->out_edges().begin(), node->out_edges().end());
-
-    NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
-                   << node->name() << "[" << node->type_string()
-                   << "] Predicate : " << pred_string;
+    NGRAPH_VLOG(5) << node->name() << "[" << node->type_string() << "]"
+                   << "  : Predicate " << pred_string;
+#endif
   }
 
   // Check for existing cyclicity in the graph
@@ -228,9 +368,6 @@ Status AssignClusters(Graph* graph) {
       int src_index = cluster_map[src]->index;
       int dst_index = cluster_map[dst]->index;
 
-      string src_predicate = cluster_map[src]->predicate_string;
-      string dst_predicate = cluster_map[dst]->predicate_string;
-
       if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
         NGRAPH_VLOG(5) << "Skipping (not marked): " << src->name() << "["
                        << edge->src_output() << "]@" << src_index << " -> "
@@ -239,94 +376,22 @@ Status AssignClusters(Graph* graph) {
         continue;
       }
 
-      // If the node marked for clustering has CONTROL_FLOW_PRED_STRING, it
-      // breaks our assumption that all supported ops are data flow ops
-      if (src_predicate == CONTROL_FLOW_PRED_STRING ||
-          dst_predicate == CONTROL_FLOW_PRED_STRING) {
-        return errors::Internal(
-            "Attempting to contract edge with control flow ops : ",
-            edge->DebugString());
-      }
-
-      // Case src X , dst Y , X!=Y // cannot be contracted
-      if (src_predicate != TRUE_PRED_STRING &&
-          dst_predicate != TRUE_PRED_STRING && src_predicate != dst_predicate) {
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+      // check if the edge can be contracted with respect to deadness
+      bool is_deadness_ok = false;
+      TF_RETURN_IF_ERROR(
+          CanContractEdgeDeadnessCheck(edge, cluster_map, is_deadness_ok));
+      if (!is_deadness_ok) {
+        // do not contract, src and dst node cannot be in the same cluster
         continue;
       }
+#endif
 
-      // Case src X , dst True // invalid scenario
-      if (src_predicate != TRUE_PRED_STRING &&
-          dst_predicate == TRUE_PRED_STRING) {
-        return errors::Internal("Attempting to cluster control-flow node ",
-                                dst->name(), "[", dst->type_string(), "]");
-      }
-
-      // Case src True, dst Y
-      // If this edge is contracted, all the outputs of the merged cluster will
-      // have the predicate Y. Hence contraction is possible only when, all
-      // outputs of the src cluster (other than the current edge) have the
-      // predicate Y
-      if (src_predicate == TRUE_PRED_STRING) {
-        auto src_cluster_out_edges = cluster_map[src]->outgoing_edges;
-        bool found_same_out_preds = true;
-        std::string pred_check = dst_predicate;
-
-        for (const Edge* src_cluster_edge : src_cluster_out_edges) {
-          if (src_cluster_edge == edge) {
-            continue;
-          }
-
-          Node* src_cluster_dst = src_cluster_edge->dst();
-          std::string src_cluster_dst_pred =
-              cluster_map[src_cluster_dst]->predicate_string;
-          if (pred_check != src_cluster_dst_pred) {
-            found_same_out_preds = false;
-            break;
-          }
-        }
-
-        // Cannot contract this edge
-        if (!found_same_out_preds) {
-          continue;
-        }
-      }
-
-      // Can be clustered
-      // Case src X, dst Y, X==Y
-      // Case src True, dst Y(Y can be True), all other output edges from src
-      // cluster have pred Y
-
-      // Try clustering
+      // Check if contracting the edge will lead to cycles
+      // if not, MergeClusters
       if (gc.HasEdge(src_index, dst_index) &&
           gc.ContractEdge(src_index, dst_index)) {
-        NGRAPH_VLOG(5) << "Contracting: " << src->name() << "["
-                       << src->type_string() << " , " << edge->src_output()
-                       << "]@" << src_index << " -> " << dst->name() << "["
-                       << dst->type_string() << " , " << edge->dst_input()
-                       << "]@" << dst_index;
-        NGRAPH_VLOG(5) << "Src pred: " << src_predicate
-                       << " ,Dst pred: " << dst_predicate;
-
-        // Merge dst cluster into src cluster
-        std::string cluster_pred =
-            (src_predicate != TRUE_PRED_STRING) ? src_predicate : dst_predicate;
-        cluster_map[src]->predicate_string = cluster_pred;
-
-        auto cluster_dst = cluster_map[dst];
-        // Update outgoing edges of the merged cluster
-        for (auto cluster_dst_out_edge : cluster_dst->outgoing_edges) {
-          cluster_map[src]->outgoing_edges.insert(cluster_dst_out_edge);
-        }
-        cluster_map[src]->outgoing_edges.erase(edge);
-
-        // using cluster_map[dst]->nodes in the loop directly appears to
-        // invalidate the iterator when `node` == `dst`
-        // this happens with clang but not gcc
-        for (auto node : cluster_dst->nodes) {
-          cluster_map[src]->nodes.insert(node);
-          cluster_map[node] = cluster_map[src];
-        }
-
+        MergeClusters(edge, cluster_map);
         // something changed
         changed = true;
       }
@@ -345,34 +410,19 @@ Status AssignClusters(Graph* graph) {
 
     bool has_ngraph_ops = false;
     bool has_non_ngraph_ops = false;
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
     std::string cluster_pred_string = cluster->predicate_string;
+#endif
 
     for (auto node : cluster->nodes) {
       if (NodeIsMarkedForClustering(node)) {
         has_ngraph_ops = true;
 
-        // Check deadness
-        if (nodes_predicate_map.find(node) == nodes_predicate_map.end()) {
-          return errors::Internal("Node ", node->name(), " [",
-                                  node->type_string(), "]",
-                                  " not found in predicate map");
-        }
-        std::string node_pred_string = nodes_predicate_map[node];
-
-        if (node_pred_string == CONTROL_FLOW_PRED_STRING) {
-          return errors::Internal(
-              "Node ", node->name(), " [", node->type_string(), "]",
-              " should not be clustered as it is a control flow op");
-        }
-
-        if (node_pred_string != TRUE_PRED_STRING &&
-            node_pred_string != cluster_pred_string) {
-          return errors::Internal(
-              "Node ", node->name(), " [", node->type_string(), "]",
-              " Predicate : ", node_pred_string,
-              "should not be clustered in cluster with pred_String ",
-              cluster_pred_string);
-        }
+// Some sanity checks for deadness
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+        TF_RETURN_IF_ERROR(CheckNodeClusterAssignmentWRTDeadness(
+            node, nodes_predicate_map, cluster_pred_string));
+#endif
       } else {
         has_non_ngraph_ops = true;
       }
@@ -422,6 +472,7 @@ Status AssignClusters(Graph* graph) {
   return Status::OK();
 }
 
+// Updates cluster with the assigned cluster-id of the node
 Status GetNodeCluster(const Node* node, int* cluster) {
   // TODO(amprocte): move attr name to a constant
   Status s = GetNodeAttr(node->attrs(), "_ngraph_cluster", cluster);

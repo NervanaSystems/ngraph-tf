@@ -14,6 +14,39 @@
  * limitations under the License.
  *******************************************************************************/
 
+#include "../test_utilities.h"
+#include "gtest/gtest.h"
+#include "ngraph_assign_clusters.h"
+#include "ngraph_mark_for_clustering.h"
+#include "ngraph_utils.h"
+#include "tf_graph_writer.h"
+
+#include "tensorflow/core/common_runtime/dma_helper.h"
+#include "tensorflow/core/framework/graph.pb.h"
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/tensor_types.h"
+#include "tensorflow/core/graph/algorithm.h"
+#include "tensorflow/core/graph/graph.h"
+#include "tensorflow/core/graph/graph_constructor.h"
+#include "tensorflow/core/platform/env.h"
+
+#include "tensorflow/cc/client/client_session.h"
+#include "tensorflow/cc/ops/standard_ops.h"
+#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/public/session.h"
+
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+using namespace std;
+namespace ng = ngraph;
+
+namespace tensorflow {
+
+namespace ngraph_bridge {
+
+namespace testing {
+
+#define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
+
 /*******************************************************************************
 
 This test is inspired from the deadness test, mentioned in the commit message of
@@ -48,92 +81,48 @@ as far as the executor is concerned and said node won't get scheduled if any of
 its inputs are dead.
 
 *******************************************************************************/
-
-#include "../test_utilities.h"
-#include "gtest/gtest.h"
-#include "ngraph_assign_clusters.h"
-#include "ngraph_mark_for_clustering.h"
-#include "ngraph_utils.h"
-#include "tf_graph_writer.h"
-
-#include "tensorflow/core/common_runtime/dma_helper.h"
-#include "tensorflow/core/framework/graph.pb.h"
-#include "tensorflow/core/framework/op.h"
-#include "tensorflow/core/framework/tensor_types.h"
-#include "tensorflow/core/graph/algorithm.h"
-#include "tensorflow/core/graph/graph.h"
-#include "tensorflow/core/graph/graph_constructor.h"
-#include "tensorflow/core/platform/env.h"
-
-#include "tensorflow/cc/client/client_session.h"
-#include "tensorflow/cc/ops/standard_ops.h"
-#include "tensorflow/core/framework/tensor.h"
-#include "tensorflow/core/public/session.h"
-
-using namespace std;
-namespace ng = ngraph;
-
-namespace tensorflow {
-
-namespace ngraph_bridge {
-
-namespace testing {
-
-#define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
-
-TEST(DeadnessCheck, livedead1NGRAPH) {
+//
+//
+//    P(#Live)  Q(#Live)     R(#CanBeDead)
+//       \         /  \         /
+//        \       /    \       /
+//         \     /      \     /
+//           M (#Live)   D(#CanBeDead)
+//
+// M and D cannot be clustered together
+TEST(DeadnessCheck, livedead1) {
   Scope root = Scope::NewRootScope();
 
-  auto A = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto B = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto C = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto pred = ops::Placeholder(root, DataType::DT_BOOL);
+  auto A = ops::Placeholder(root.WithOpName("A"), DataType::DT_FLOAT);
+  auto B = ops::Placeholder(root.WithOpName("B"), DataType::DT_FLOAT);
+  auto C = ops::Placeholder(root.WithOpName("C"), DataType::DT_FLOAT);
+  auto pred = ops::Placeholder(root.WithOpName("predS"), DataType::DT_BOOL);
 
-  auto S = ops::Switch(root, A, pred);
-  auto P = ops::Add(root, A, B);
+  auto S = ops::Switch(root.WithOpName("S"), A, pred);
+  auto P = ops::Add(root.WithOpName("P"), A, B);
 
-  auto Q = ops::Add(root, A, C);
-  auto R = ops::Sub(root, S.output_true, B);
+  auto Q = ops::Add(root.WithOpName("Q"), A, C);
+  auto R = ops::Sub(root.WithOpName("R"), S.output_true, B);
 
-  auto M = ops::Mul(root, P, Q);
-  auto D = ops::RealDiv(root, Q, R);
+  auto M = ops::Mul(root.WithOpName("M"), P, Q);
+  auto D = ops::RealDiv(root.WithOpName("D"), Q, R);
 
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
+  Graph graph(OpRegistry::Global());
+  TF_CHECK_OK(root.ToGraph(&graph));
+  ASSERT_OK(MarkForClustering(&graph));
+  ASSERT_OK(AssignClusters(&graph));
 
-  ASSERT_NE(
-      session.Run(
-          {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-          {M, D}, &outputs),
-      Status::OK());
-}
+  std::map<std::string, Node*> node_map;
+  for (auto node : graph.op_nodes()) {
+    node_map[node->name()] = node;
+  }
 
-TEST(DeadnessCheck, livedead1TF) {
-  Scope root = Scope::NewRootScope();
-  DeactivateNGraph();
+  int M_cluster, D_cluster;
+  ASSERT_OK(GetNodeCluster(node_map["M"], &M_cluster));
+  ASSERT_OK(GetNodeCluster(node_map["D"], &D_cluster));
 
-  auto A = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto B = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto C = ops::Placeholder(root, DataType::DT_FLOAT);
-  auto pred = ops::Placeholder(root, DataType::DT_BOOL);
-
-  auto S = ops::Switch(root, A, pred);
-  auto P = ops::Add(root, A, B);
-
-  auto Q = ops::Add(root, A, C);
-  auto R = ops::Sub(root, S.output_true, B);
-
-  auto M = ops::Mul(root, P, Q);
-  auto D = ops::RealDiv(root, Q, R);
-
-  std::vector<Tensor> outputs;
-  ClientSession session(root);
-
-  ASSERT_NE(
-      session.Run(
-          {{A, {3.f, 5.f}}, {B, {3.f, 2.f}}, {C, {3.f, 2.f}}, {pred, false}},
-          {M, D}, &outputs),
-      Status::OK());
+  // M and D cannot be in the same cluster
+  ASSERT_NE(M_cluster, D_cluster);
 }
 
 // Graph 1
@@ -230,7 +219,7 @@ TEST(DeadnessCheck, DTestG2) {
 
 // Graph 3
 //
-// A1(#True)[Pl]   B1(#True)[Const]
+// A1(#True)[Const]   B1(#True)[Const]
 //     \          /    \ 
 //      \        /      \ 
 //       \     /         \ 
@@ -240,8 +229,7 @@ TEST(DeadnessCheck, DTestG2) {
 //          /       \ 
 //  N2(#P1)[Add]   N3(#P1)[Mul]
 //
-// Ops A1, B2, N1, N2, N3 and N4 should be placed in the same cluster
-// P1 is not supported on nGraph so is not clustered
+// Ops A1, B1, N1, N2, N3 and N4 should be placed in the same cluster
 TEST(DeadnessCheck, DTestG3) {
   Scope root = Scope::NewRootScope();
 
@@ -287,9 +275,9 @@ TEST(DeadnessCheck, DTestG3) {
 // Ops A1, N1 and N2 should be placed in the same cluster
 //
 // A1(#True)[Const]   B1(#True)[Const]
-//     \          /    \ 
-//      \        /      \ 
-//       \     /         \ 
+//     \              /    \ 
+//      \            /      \ 
+//       \          /         \ 
 //     N1(#True)[Add]  N4(#P2)[Sub]
 //            /   \ 
 //           /     \ 
@@ -368,7 +356,7 @@ TEST(DeadnessCheck, DTestG4) {
 // Cluster 2 : N1 and N2
 // Cluster 3 : N3 and N4
 // Cluster 4 : B, N5 and N6
-TEST(DeadnessCheck, DTestPl) {
+TEST(DeadnessCheck, DTestG5) {
   Scope root = Scope::NewRootScope();
 
   auto dataX = ops::Placeholder(root.WithOpName("dataX"), DataType::DT_FLOAT);
@@ -427,7 +415,7 @@ TEST(DeadnessCheck, DTestPl) {
   ASSERT_NE(N1_Add_cluster, N3_Sub_cluster);
   // N1 and N5 are in different cluster
   ASSERT_NE(N1_Add_cluster, N5_Add_cluster);
-  // N3 and N5 are in differenct cluster
+  // N3 and N5 are in different cluster
   ASSERT_NE(N3_Sub_cluster, N5_Add_cluster);
   // A, N1, N3 and N5 are a different cluster
   ASSERT_NE(A_cluster, N1_Add_cluster);
@@ -438,3 +426,4 @@ TEST(DeadnessCheck, DTestPl) {
 }  // namespace testing
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
+#endif  // NGRAPH_TF_DISABLE_DEADNESS_CHECK

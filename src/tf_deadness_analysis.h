@@ -89,7 +89,23 @@ class DeadnessAnalysis {
                     std::unique_ptr<DeadnessAnalysis>* result);
 
   // For Data Flow ops, updates predicate_string
-  virtual void GetNodePredicate(const Node& node, string& predicate_string) = 0;
+  // Deadness is typically introduced by control flow ops. So, all the outgoing
+  // edges from the data flow op have the same deadness predicate ('And'
+  // Predicate of all its input predicates) and we can attach a predicate string
+  // to the data-flow node (predicate of its output edge). Control flow ops are
+  // assigned a placeholder predicate string (CONTROL_FLOW_PRED_STRING) .
+  virtual Status GetNodePredicate(const Node& node, string& pred_string) = 0;
+
+  static const std::string CONTROL_FLOW_PRED_STRING;
+  static const std::string TRUE_PRED_STRING;
+
+  static bool IsControlFlowPredString(string& predicate) {
+    return CONTROL_FLOW_PRED_STRING == predicate;
+  }
+
+  static bool IsTruePredString(string& predicate) {
+    return TRUE_PRED_STRING == predicate;
+  }
 };
 
 }  // namespace ngraph_bridge
