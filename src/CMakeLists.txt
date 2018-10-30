@@ -92,7 +92,7 @@ endif()
 
 if (DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     set(NGRAPH_INSTALL_DIR, ${PREBUILT_NGRAPH_INSTALL_PATH})    
-endif
+endif()
 
 # First install the libngraph_bridge.so
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
