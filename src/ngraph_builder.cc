@@ -2649,6 +2649,8 @@ static Status TranslateQuantizeV2Op(
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
                                          std::vector<float>({ng_min[0]})));
+  // TODO: For quantizev2 revisit output min-max (which would change in case
+  // input min-max are too close. For now just propagating inputs
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
                                          std::vector<float>({ng_max[0]})));
