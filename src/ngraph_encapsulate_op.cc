@@ -336,7 +336,7 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
       try {
-        if (s_ng_backend_name == "CPU") {
+        if (s_ng_backend_name == "GPU") {
           // We need to check last_tv != nullptr, since there are cases where at
           // the first call to the ng_function, both the current_src_ptr (when
           // the input is a 0-sized tensor) and last_src_ptr (uninitialized at
@@ -373,7 +373,7 @@ class NGraphEncapsulateOp : public OpKernel {
                 current_src_ptr, 0,
                 current_tv->get_element_count() * ng_element_type.size());
           }
-        }  // if (s_ng_backend_name == "CPU")
+        }  // if (s_ng_backend_name == "GPU")
       } catch (const std::exception& exp) {
         OP_REQUIRES(
             ctx, false,
@@ -430,7 +430,7 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
-      if (s_ng_backend_name == "CPU") {
+      if (s_ng_backend_name == "GPU") {
         // We need to check last_tv != nullptr, since there are cases where at
         // the first call to the ng_function, both the current_dst_ptr (when the
         // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
@@ -447,7 +447,7 @@ class NGraphEncapsulateOp : public OpKernel {
         } else {
           current_tv = m_ng_backend->create_tensor(ng_element_type, ng_shape);
         }
-      }  // if (s_ng_backend_name == "CPU")
+      }  // if (s_ng_backend_name == "GPU")
 
       current_tv->set_stale(true);
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
@@ -461,7 +461,8 @@ class NGraphEncapsulateOp : public OpKernel {
     // Execute the nGraph function.
     {
       mutex_lock l(s_ng_backend_mutex);
-      NGRAPH_VLOG(4)
+      std::cout << "compute start" << std::endl;
+      NGRAPH_VLOG(0)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
@@ -477,12 +478,13 @@ class NGraphEncapsulateOp : public OpKernel {
             errors::Internal("Error in executing the nGraph computation\n"));
       }
     }
-    NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
+    std::cout << "compute done" << std::endl;
+    NGRAPH_VLOG(0) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    // Copy value to host if backend is not CPU
+    // Copy value to host if backend is not GPU
     try {
-      if (s_ng_backend_name != "CPU") {
+      if (s_ng_backend_name != "GPU") {
         for (size_t i = 0; i < output_caches.size(); ++i) {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::Tensor> dst_tv;
@@ -537,7 +539,7 @@ std::string NGraphEncapsulateOp::s_ng_backend_name;
 mutex NGraphEncapsulateOp::s_ng_backend_mutex;
 }  // namespace ngraph_bridge
 
-REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_GPU),
                         ngraph_bridge::NGraphEncapsulateOp);
 
 }  // namespace tensorflow

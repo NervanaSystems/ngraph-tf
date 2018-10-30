@@ -178,7 +178,7 @@ REGISTER_OP("NGraphVariable")
     .SetIsStateful()
     .SetShapeFn(shape_inference::ExplicitShape);
 
-REGISTER_KERNEL_BUILDER(Name("NGraphVariable").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("NGraphVariable").Device(DEVICE_GPU),
                         NGraphVariableOp);
 
 }  // namespace ngraph_bridge
