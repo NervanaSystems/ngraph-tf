@@ -471,7 +471,7 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
 Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
                                               string& pred_string) {
   if (node.IsSource() || node.IsSink() || node.IsControlFlow()) {
-    pred_string = CONTROL_FLOW_PRED_STRING;
+    DeadnessAnalysis::GetControlFlowPredString(pred_string);
     return Status::OK();
   }
 

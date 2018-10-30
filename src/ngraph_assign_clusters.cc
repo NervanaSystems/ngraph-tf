@@ -109,7 +109,6 @@ string GetMergedClusterPred(string& src_predicate, string& dst_predicate) {
 Status CanContractEdgeDeadnessCheck(
     Edge* edge, std::map<Node*, std::shared_ptr<Cluster>>& cluster_map,
     bool& is_deadness_ok) {
-  is_deadness_ok = false;
   Node* src = edge->src();
   Node* dst = edge->dst();
 
@@ -129,10 +128,13 @@ Status CanContractEdgeDeadnessCheck(
   if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
       !DeadnessAnalysis::IsTruePredString(dst_predicate) &&
       src_predicate != dst_predicate) {
+    is_deadness_ok = false;
     return Status::OK();
   }
 
   // Case src X , dst True // invalid scenario
+  // If src has Non-True Predicate and dst has True Predicate, it implies that
+  // the dst node is control flow
   if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
       DeadnessAnalysis::IsTruePredString(dst_predicate)) {
     return errors::Internal("Attempting to cluster control-flow node ",
@@ -163,6 +165,7 @@ Status CanContractEdgeDeadnessCheck(
     }
     // Cannot contract this edge
     if (!found_same_out_preds) {
+      is_deadness_ok = false;
       return Status::OK();
     }
   }
@@ -170,14 +173,15 @@ Status CanContractEdgeDeadnessCheck(
   // Case src X, dst Y, X==Y
   // Case src True, dst Y(Y can be True), all other output edges from src
   // cluster have pred Y
+  // Ok to contract
   is_deadness_ok = true;
   return Status::OK();
 }
 
 // Some sanity checks for Node's cluster assignment wrt Deadness
 Status CheckNodeClusterAssignmentWRTDeadness(
-    Node* node, std::map<Node*, string> nodes_predicate_map,
-    string cluster_pred_string) {
+    Node* node, std::map<Node*, string>& nodes_predicate_map,
+    string& cluster_pred_string) {
   if (nodes_predicate_map.find(node) == nodes_predicate_map.end()) {
     return errors::Internal("Node ", node->name(), " [", node->type_string(),
                             "]", " not found in predicate map");

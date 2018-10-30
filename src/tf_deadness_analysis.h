@@ -96,9 +96,6 @@ class DeadnessAnalysis {
   // assigned a placeholder predicate string (CONTROL_FLOW_PRED_STRING) .
   virtual Status GetNodePredicate(const Node& node, string& pred_string) = 0;
 
-  static const std::string CONTROL_FLOW_PRED_STRING;
-  static const std::string TRUE_PRED_STRING;
-
   static bool IsControlFlowPredString(string& predicate) {
     return CONTROL_FLOW_PRED_STRING == predicate;
   }
@@ -106,6 +103,20 @@ class DeadnessAnalysis {
   static bool IsTruePredString(string& predicate) {
     return TRUE_PRED_STRING == predicate;
   }
+
+  static void GetControlFlowPredString(string& predicate) {
+    predicate = CONTROL_FLOW_PRED_STRING;
+    return;
+  }
+
+  static void GetTruePredString(string& predicate) {
+    predicate = TRUE_PRED_STRING;
+    return;
+  }
+
+ private:
+  static const std::string CONTROL_FLOW_PRED_STRING;
+  static const std::string TRUE_PRED_STRING;
 };
 
 }  // namespace ngraph_bridge
