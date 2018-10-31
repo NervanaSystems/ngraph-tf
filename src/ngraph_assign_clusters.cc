@@ -198,8 +198,8 @@ Status CheckNodeClusterAssignmentWRTDeadness(
   if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
       node_pred_string != cluster_pred_string) {
     return errors::Internal(
-        "Node ", node->name(), " [", node->type_string(), "]",
-        " Predicate : ", node_pred_string,
+        "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
+        node_pred_string,
         "should not be clustered in cluster with pred_String ",
         cluster_pred_string);
   }
