@@ -90,23 +90,22 @@ endif()
 
 
 
-if (DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
-    set(NGRAPH_INSTALL_DIR, ${PREBUILT_NGRAPH_INSTALL_PATH})    
-endif()
-
 # First install the libngraph_bridge.so
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
 
 # Next install all the other prerequisites
-if(OS_VERSION STREQUAL "\"centos\"")
-	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
-else()
-	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
-endif()
-
-#Install nbench if we built
-if(DEFINED NGRAPH_TOOLS_ENABLE)
-	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
+# This flag is for when building nGraph as a standalone library
+if (NGRAPH_STANDALONE)
+    if(OS_VERSION STREQUAL "\"centos\"")
+    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
+    else()
+    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
+    endif()
+    
+    #Install nbench if we built
+    if(DEFINED NGRAPH_TOOLS_ENABLE)
+    	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
+    endif()
 endif()
 
 # Now create the Python pip package

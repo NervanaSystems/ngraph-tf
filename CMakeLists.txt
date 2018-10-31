@@ -101,10 +101,13 @@ endif()
 set(CMAKE_MACOSX_RPATH 1)
 if(APPLE)
     set(CMAKE_INSTALL_RPATH "@loader_path/;@loader_path/../tensorflow;")
+elseif(DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow:${PREBUILT_NGRAPH_INSTALL_PATH}/lib")
 else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()
 
+message("RPATH is ${CMAKE_INSTALL_RPATH}")
 # Find TensorFlow
 find_package(TensorFlow REQUIRED)
 
@@ -130,6 +133,7 @@ endif(APPLE)
 
 # Find and build ngraph
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
+option(NGRAPH_STANDALONE "Build ngraph-TF bridge based on nGraph core as a standalone library" FALSE)
 if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     ExternalProject_Add(
         ext_ngraph
