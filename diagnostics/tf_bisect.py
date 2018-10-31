@@ -3,6 +3,7 @@ import tensorflow as tf, pdb
 from ngtf_graph_viewer import load_file
 import numpy as np
 import ngraph
+import tensorflow_hub as hub
 
 def create_poset_grouping(poset, sink_first=False):
     """Given a partial ordering map, returns uncomparable element groupings.
@@ -180,7 +181,27 @@ def sample_test():
     feed_dict = feed_dict_random
     find_divergent_point(sample_network(), sess_fn1, sess_fn2, feed_dict)
 
-sample_test()
+
+def sample_test_1():
+    with tf.Graph().as_default():
+        #module_url = "https://tfhub.dev/google/nnlm-en-dim128-with-normalization/1"
+        module_url = "https://tfhub.dev/google/imagenet/mobilenet_v2_140_224/classification/2"
+        module = hub.Module(module_url)
+        height, width = hub.get_expected_image_size(module)
+        images = np.ones([10, height, width, 3])
+        logits = module(images)
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.tables_initializer())
+            #curr_graph = tf.get_default_graph()
+            sess.run(logits)
+            pdb.set_trace()
+            print('hello')
+
+
+sample_test_1()
+
+#sample_test()
 
 # TODO: try networks with while loop
 # TODO: have a way to specify input sizes. if not specified, infer somehow?
