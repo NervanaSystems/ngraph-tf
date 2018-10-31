@@ -197,8 +197,8 @@ def run_test(test_list, verbosity=2):
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
 
 
-def read_tests_from_file(filename, verbosity=2):
-    with open('tests_to_run.txt') as list_of_tests:
+def read_tests_from_file(filename):
+    with open(filename) as list_of_tests:
         return [
             line.split('#')[0].rstrip('\n').strip(' ')
             for line in list_of_tests.readlines()
