@@ -132,7 +132,7 @@ TEST(NNOps, Conv2DBackpropFilterNCHWSame) {
   auto filter_sizes = ops::Const(ngraph_scope, filter_size_HWIO);
   vector<int> stride_NCHW = {1, 1, 2, 2};
 
-  // Dialtion rates > 1 not supported by TF on CPU
+  // Dilation rates > 1 not supported by TF on CPU
   ops::Conv2DBackpropFilter::Attrs op_attr_nchw;
   op_attr_nchw = op_attr_nchw.DataFormat("NCHW");
   op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
@@ -252,7 +252,7 @@ TEST(NNOps, Conv2DBackpropFilterNCHWValid) {
   auto filter_sizes = ops::Const(ngraph_scope, filter_size_HWIO);
   vector<int> stride_NCHW = {1, 1, 2, 2};
 
-  // Dialtion rates > 1 not supported by TF on CPU
+  // Dilation rates > 1 not supported by TF on CPU
   ops::Conv2DBackpropFilter::Attrs op_attr_nchw;
   op_attr_nchw = op_attr_nchw.DataFormat("NCHW");
   op_attr_nchw = op_attr_nchw.Dilations({1, 1, 1, 1});
