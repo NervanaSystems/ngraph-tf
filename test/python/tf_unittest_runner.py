@@ -46,9 +46,8 @@ def main():
     )
     optional.add_argument(
         '--run_tests_from_file',
-        help=
-        "Runs the tests specified in a file.Enter the file name. Eg:--run_tests_from_file=tests_to_run.txt"
-    )
+        help="""Reads the test names specified in a file and runs them. 
+        Eg:--run_tests_from_file=tests_to_run.txt""")
     parser._action_groups.append(optional)
     arguments = parser.parse_args()
 
@@ -61,7 +60,7 @@ def main():
         print('\n'.join(test_list))
         run_test(test_list)
     if (arguments.run_tests_from_file):
-        list_of_tests = run_tests_from_file(arguments.run_tests_from_file)
+        list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
         for test in list_of_tests:
             test_list = get_test_list(arguments.tensorflow_path, test)
             test_list = list(set(test_list))
@@ -198,17 +197,13 @@ def run_test(test_list, verbosity=2):
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
 
 
-def run_tests_from_file(filename, verbosity=2):
-    f = open('tests_to_run.txt')
-    line = f.readline()
-    list_of_tests = []
-    while line:
-        line = line.rstrip('\n')
-        if '#' not in line:
-            list_of_tests.append(line)
-        line = f.readline()
-    f.close()
-    return list_of_tests
+def read_tests_from_file(filename, verbosity=2):
+    with open('tests_to_run.txt') as list_of_tests:
+        return [
+            line.split('#')[0].rstrip('\n').strip(' ')
+            for line in list_of_tests.readlines()
+            if line[0] != '#'
+        ]
 
 
 if __name__ == '__main__':
