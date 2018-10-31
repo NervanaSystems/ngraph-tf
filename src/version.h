@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#ifndef NGRAPH_TF_BRIDGE_VERSION_UTILS_H_
-#define NGRAPH_TF_BRIDGE_VERSION_UTILS_H_
+#ifndef NGRAPH_TF_VERSION_H_
+#define NGRAPH_TF_VERSION_H_
 
-#include "tensorflow/core/public/version.h"
+namespace tensorflow {
+namespace ngraph_bridge {
+extern "C" {
+// Returns the ngraph-tensorflow library version
+const char* ngraph_tf_version();
+}
+}  // namespace ngraph_bridge
+}  // namespace tensorflow
 
-#define TF_VERSION_GEQ(REQ_TF_MAJ_VER, REQ_TF_MIN_VER) \
-  ((TF_MAJOR_VERSION > REQ_TF_MAJ_VER) ||              \
-   ((TF_MAJOR_VERSION == REQ_TF_MAJ_VER) &&            \
-    (TF_MINOR_VERSION >= REQ_TF_MIN_VER)))
-
-#endif  // NGRAPH_TF_BRIDGE_VERSION_UTILS_H_
+#endif  // NGRAPH_TF_VERSION_H_
