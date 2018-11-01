@@ -993,6 +993,72 @@ TEST(NNOps, L2Loss) {
   }
 }
 
+// No C++ api for this op
+/*
+// TODO write a test where bias is int32
+// Computes custom op QuantizedConv2DWithBiasAndReluAndRequantize
+TEST(NNOps, QuantizedConv2DWithBiasAndReluAndRequantize) {
+  int dim1 = 2, dim2 = 3;
+  int in_channels = 2, out_channels = 1;
+
+  for (int filter_w = 1; filter_w < 3; filter_w++) {
+    for (int filter_h = 1; filter_h < 3; filter_h++) {
+  for (int dilationsize1 = 1; dilationsize1 < 3; dilationsize1++) {
+    for (int dilationsize2 = 1; dilationsize2 < 3; dilationsize2++) {
+      for (int stride1 = 1; stride1 < 3; stride1++) {
+        for (int stride2 = 1; stride2 < 3; stride2++) {
+          for (auto padding_mode : {"SAME", "VALID"}) {
+            Scope root = Scope::NewRootScope();
+            auto quant_type = DT_QUINT8;  // Only this quantized type is
+supported for now
+            Tensor inp(quant_type, TensorShape({1, dim1, dim2, in_channels}));
+            AssignInputValues<quint8>(inp, {50, 242, 14, 0, 17, 22, 100, 250,
+34, 60, 79, 255});
+            Tensor filter(quant_type, TensorShape({filter_w, filter_h,
+in_channels, out_channels}));
+            vector<quint8> filt_vector(filter_w * filter_h * in_channels *
+out_channels);
+            std::iota(filt_vector.begin(), filt_vector.end(), 0);
+            AssignInputValues<quint8>(filter, filt_vector);
+            Tensor bias(float, TensorShape({out_channels}));
+            AssignInputValues<float>(inp, {5.0});
+
+
+            vector<int> dilation_size = {1, dilationsize1, dilationsize2, 1};
+            vector<int> strides = {1, stride1, stride2, 1};
+
+            auto attrs =
+ops::QuantizedConv2DWithBiasAndReluAndRequantize::Attrs();
+            attrs.dilations_ = dilation_size;
+            attrs.strides_ = strides;
+            //attrs.? = padding_mode
+
+            vector<int> static_input_indexes = {3, 4, 5, 6, 7, 8};
+            Tensor bias(float, TensorShape({out_channels}));
+            auto R = ops::QuantizedConv2DWithBiasAndReluAndRequantize(root, inp,
+filter, bias, -10.0f, 10.99f, ksize, strides, padding_mode);
+
+            vector<DataType> output_datatypes = {quant_type, DT_FLOAT,
+                                                 DT_FLOAT};
+
+            std::vector<Output> sess_run_fetchoutputs = {R.output, R.min_output,
+                                                         R.max_output};
+            OpExecuter opexecuter(root,
+"QuantizedConv2DWithBiasAndReluAndRequantize",
+                                  static_input_indexes, output_datatypes,
+                                  sess_run_fetchoutputs);
+
+            opexecuter.RunTest();
+          }
+        }
+      }
+    }
+  }
+    }
+  }
+}
+*/
+
 // Note: TF only supports QUINT8 for QMP in CPU
 // Source:
 // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/quantized_pooling_ops.cc#L127
@@ -1035,7 +1101,33 @@ TEST(NNOps, QuantizedMaxPool) {
     }
   }
 }
-// TODO: add a quantized maxpool test, where min-max are equal or close together
+
+// Computes Quantized Maxpool when min==max
+TEST(NNOps, QuantizedMaxPoolSameMinMax) {
+  int dim1 = 2;
+  int dim2 = 3;
+  int channels = 2;
+
+  Scope root = Scope::NewRootScope();
+  auto quant_type = DT_QUINT8;
+  Tensor A(quant_type, TensorShape({1, dim1, dim2, channels}));
+  AssignInputValues<quint8>(A, {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5});
+  vector<int> ksize = {1, 2, 2, 1};
+  vector<int> strides = {1, 2, 2, 1};
+
+  vector<int> static_input_indexes = {1, 2};
+  auto R =
+      ops::QuantizedMaxPool(root, A, -10.0f, -10.0f, ksize, strides, "SAME");
+
+  vector<DataType> output_datatypes = {quant_type, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.min_output,
+                                               R.max_output};
+  OpExecuter opexecuter(root, "QuantizedMaxPool", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
 
 // Computes softmax cross entropy cost and gradients to backpropagate.
 TEST(NNOps, SparseSoftmaxCrossEntropyWithLogits) {

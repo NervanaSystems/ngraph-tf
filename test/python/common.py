@@ -36,7 +36,7 @@ class NgraphTest(object):
             'NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
         os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
-        ngraph.enable()
+        ngraph.disable()
         with tf.Session(config=config) as sess:
             retval = l(sess)
 
