@@ -213,8 +213,8 @@ Status CheckNodeClusterAssignmentWRTDeadness(
   }
 
   // If the node has True Pred (T1) and its cluster pred is non-true (P1)
-  // Then all outgoing edges from node, which are not in the same cluster should
-  // be P1
+  // Then all outgoing edges from node which are not in the same cluster should
+  // be connected to clusters with pred P1
   if (DeadnessAnalysis::IsTruePredString(node_pred_string) &&
       !DeadnessAnalysis::IsTruePredString(cluster_pred_string)) {
     for (auto e : node->out_edges()) {
