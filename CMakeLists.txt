@@ -138,7 +138,6 @@ if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-        GIT_TAG v0.9.0
         CMAKE_ARGS 
             -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
             -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
@@ -158,7 +157,7 @@ if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
         UPDATE_COMMAND ""
         INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
     )
-    
+   
     set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
     
     
@@ -168,6 +167,7 @@ if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     else()
     	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO})
     endif()
+
 add_library(ngraph_lib SHARED IMPORTED)
 set_target_properties( 
     ngraph_lib 

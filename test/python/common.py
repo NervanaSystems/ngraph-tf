@@ -1,8 +1,26 @@
+# ==============================================================================
+#  Copyright 2018 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# ==============================================================================
+
 import os
 import platform
 import random
 
 import tensorflow as tf
+
+import ngraph
 
 __all__ = ['LIBNGRAPH_BRIDGE', 'NgraphTest']
 
@@ -14,19 +32,16 @@ LIBNGRAPH_BRIDGE = 'libngraph_bridge.' + _ext
 class NgraphTest(object):
 
     def with_ngraph(self, l, config=tf.ConfigProto()):
-        ngraph_tf_disable = os.environ.pop('NGRAPH_TF_DISABLE', None)
         ngraph_tf_disable_deassign_clusters = os.environ.pop(
             'NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
         os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
-
+        ngraph.enable()
         with tf.Session(config=config) as sess:
             retval = l(sess)
 
         os.environ.pop('NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
-        if ngraph_tf_disable is not None:
-            os.environ['NGRAPH_TF_DISABLE'] = ngraph_tf_disable
         if ngraph_tf_disable_deassign_clusters is not None:
             os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = \
                 ngraph_tf_disable_deassign_clusters
@@ -34,19 +49,13 @@ class NgraphTest(object):
         return retval
 
     def without_ngraph(self, l, config=tf.ConfigProto()):
-        ngraph_tf_disable = os.environ.pop('NGRAPH_TF_DISABLE', None)
         ngraph_tf_disable_deassign_clusters = os.environ.pop(
             'NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)
 
-        os.environ['NGRAPH_TF_DISABLE'] = '1'
-
+        ngraph.disable()
         with tf.Session(config=config) as sess:
             retval = l(sess)
 
-        os.environ.pop('NGRAPH_TF_DISABLE', None)
-
-        if ngraph_tf_disable is not None:
-            os.environ['NGRAPH_TF_DISABLE'] = ngraph_tf_disable
         if ngraph_tf_disable_deassign_clusters is not None:
             os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = \
                 ngraph_tf_disable_deassign_clusters
