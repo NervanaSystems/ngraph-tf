@@ -480,7 +480,7 @@ Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
     CHECK(it != predicate_map_.end()) << edge->DebugString();
 
-    // This node is not control flow but has
+    // This node is not control flow but has different output predicates
     if (pred != nullptr && *pred != *it->second) {
       return errors::Internal(node.name(), "[", node.type_string(), "]",
                               " is a non control flow op. But its outputs have "

@@ -96,22 +96,20 @@ class DeadnessAnalysis {
   // assigned a placeholder predicate string (CONTROL_FLOW_PRED_STRING) .
   virtual Status GetNodePredicate(const Node& node, string& pred_string) = 0;
 
-  static bool IsControlFlowPredString(string& predicate) {
+  inline static bool IsControlFlowPredString(const string& predicate) {
     return CONTROL_FLOW_PRED_STRING == predicate;
   }
 
-  static bool IsTruePredString(string& predicate) {
+  inline static bool IsTruePredString(const string& predicate) {
     return TRUE_PRED_STRING == predicate;
   }
 
-  static void GetControlFlowPredString(string& predicate) {
+  inline static void GetControlFlowPredString(string& predicate) {
     predicate = CONTROL_FLOW_PRED_STRING;
-    return;
   }
 
-  static void GetTruePredString(string& predicate) {
+  inline static void GetTruePredString(string& predicate) {
     predicate = TRUE_PRED_STRING;
-    return;
   }
 
  private:

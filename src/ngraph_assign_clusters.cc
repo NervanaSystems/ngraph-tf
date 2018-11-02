@@ -100,7 +100,10 @@ struct Cluster {
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
 // Returns the predicate of the merged cluster
 // If Src Predicate is TRUE then merged cluster gets the dst predicate
-string GetMergedClusterPred(string& src_predicate, string& dst_predicate) {
+// WARNING : This function does not do any checks
+// Use this function when ready to merge
+inline string GetMergedClusterPred(const string& src_predicate,
+                                   const string& dst_predicate) {
   return DeadnessAnalysis::IsTruePredString(src_predicate) ? dst_predicate
                                                            : src_predicate;
 }
@@ -144,8 +147,8 @@ Status CanContractEdgeDeadnessCheck(
 
   // Case src True, dst Y
   // If this edge is contracted, all the outputs of the merged cluster will
-  // have the predicate Y. Hence contraction is possible only when, all
-  // outputs of the src cluster (other than the current edge) have the
+  // have the predicate Y (True & Y = Y). Hence contraction is possible only
+  // when, all outputs of the src cluster (other than the current edge) have the
   // predicate Y
   if (DeadnessAnalysis::IsTruePredString(src_predicate)) {
     auto src_cluster_out_edges = cluster_map[src]->outgoing_edges;
@@ -181,13 +184,14 @@ Status CanContractEdgeDeadnessCheck(
 
 // Some sanity checks for Node's cluster assignment wrt Deadness
 Status CheckNodeClusterAssignmentWRTDeadness(
-    Node* node, std::map<Node*, string>& nodes_predicate_map,
-    string& cluster_pred_string) {
-  if (nodes_predicate_map.find(node) == nodes_predicate_map.end()) {
+    Node* node, const std::map<Node*, string>& nodes_predicate_map,
+    const string& cluster_pred_string) {
+  auto itr = nodes_predicate_map.find(node);
+  if (itr == nodes_predicate_map.end()) {
     return errors::Internal("Node ", node->name(), " [", node->type_string(),
                             "]", " not found in predicate map");
   }
-  std::string node_pred_string = nodes_predicate_map[node];
+  std::string node_pred_string = itr->second;
 
   if (DeadnessAnalysis::IsControlFlowPredString(node_pred_string)) {
     return errors::Internal(
@@ -198,9 +202,9 @@ Status CheckNodeClusterAssignmentWRTDeadness(
   if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
       node_pred_string != cluster_pred_string) {
     return errors::Internal(
-        "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
-        node_pred_string,
-        "should not be clustered in cluster with pred_String ",
+        "Node ", node->name(), " [", node->type_string(), "]",
+        " Predicate : ", node_pred_string,
+        "should not be clustered in cluster with predicate ",
         cluster_pred_string);
   }
   return Status::OK();
@@ -208,6 +212,9 @@ Status CheckNodeClusterAssignmentWRTDeadness(
 #endif
 
 // Merges src and dst clusters of the edge
+// This function does not do any checks for merging, but rather implements the
+// merge, i.e. updates the properties of the merged cluster
+// WARNING : Use this function when ready to merge
 void MergeClusters(Edge* edge,
                    std::map<Node*, std::shared_ptr<Cluster>>& cluster_map) {
   Node* src = edge->src();
@@ -225,7 +232,7 @@ void MergeClusters(Edge* edge,
   string src_predicate = cluster_map[src]->predicate_string;
   string dst_predicate = cluster_map[dst]->predicate_string;
   NGRAPH_VLOG(5) << "Src pred: " << src_predicate
-                 << " ,Dst pred: " << dst_predicate;
+                 << ", Dst pred: " << dst_predicate;
 
   std::string cluster_pred = GetMergedClusterPred(src_predicate, dst_predicate);
 
