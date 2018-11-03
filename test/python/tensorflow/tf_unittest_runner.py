@@ -58,14 +58,19 @@ def main():
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         print('\n'.join(test_list))
-        run_test(test_list)
+        test_result = run_test(test_list)
+        print_results(test_list, test_result)
     if (arguments.run_tests_from_file):
+        all_test_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
         for test in list_of_tests:
             test_list = get_test_list(arguments.tensorflow_path, test)
             test_list = list(set(test_list))
-            print('\n'.join(test_list))
-            run_test(test_list)
+            for test_name in test_list:
+                all_test_list.append(test_name)
+            print('\n'.join(all_test_list))
+        test_result = run_test(all_test_list)
+        print_results(all_test_list, test_result)
 
 
 def get_test_list(tf_path, test_regex):
@@ -195,6 +200,7 @@ def run_test(test_list, verbosity=2):
     for test in test_list:
         tests = loader.loadTestsFromName(test)
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
+    return test_result
 
 
 def read_tests_from_file(filename):
@@ -204,6 +210,25 @@ def read_tests_from_file(filename):
             for line in list_of_tests.readlines()
             if line[0] != '#'
         ]
+
+
+def print_results(test_list, test_result):
+    succeeded = []
+    failures = []
+    errors = []
+    for test in test_list:
+        if test_result.wasSuccessful():
+            succeeded.append(test)
+        elif test_result.failures:
+            failures.append(test)
+        elif test_result.errors:
+            errors.append(test)
+    for test_name in succeeded:
+        print(test_name + ' ..PASS')
+    for test_name in failures:
+        print(test_name + ' ..FAIL')
+    for test_name in errors:
+        print(test_name + ' ..ERROR')
 
 
 if __name__ == '__main__':
