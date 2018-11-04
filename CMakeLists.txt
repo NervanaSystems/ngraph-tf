@@ -128,6 +128,13 @@ else()
     set(LIBNGRAPH_SO "libngraph.so")
 endif(APPLE)
 
+if (NGRAPH_PLAIDML_ENABLE)
+    if (NOT DEFINED PlaidML_DIR)
+        message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
+    endif()
+    message(STATUS "nGraph/PlaidML enabled")
+endif()
+
 # Find and build ngraph
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
