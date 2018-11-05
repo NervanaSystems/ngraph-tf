@@ -63,7 +63,9 @@ if [ -z "${IMAGE_ID}" ] ; then
 fi
 
 # Check if we have a docker ID of image:ID, or just ID
-long_ID=`echo ${IMAGE_ID} | grep ':'`
+# Use || true to make sure the exit code is always zero, so that the script is
+# not killed if ':' is not found
+long_ID=`echo ${IMAGE_ID} | grep ':' || true`
 
 # If we have just ID, then IMAGE_CLASS AND IMAGE_ID have
 # already been set above
