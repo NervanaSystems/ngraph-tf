@@ -53,6 +53,87 @@ namespace testing {
 // Use only Tensors and ops::Const() to provide input to the test op
 // Please ensure the alphabetical order while adding the test functions
 
+// Test DepthToSpace with NHWC data format
+TEST(ArrayOps, DepthToSpaceNHWC) {
+  std::map<std::vector<int64>, int> input_map;
+  input_map.insert(pair<std::vector<int64>, int>({1, 1, 1, 4}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 1, 1, 12}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 1, 1, 27}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({1, 1, 1, 500}, 10));
+  input_map.insert(pair<std::vector<int64>, int>({1, 4, 2, 75}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({2, 1, 2, 27}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 5, 5, 40}, 2));
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  map<std::vector<int64>, int>::iterator iter;
+  for (iter = input_map.begin(); iter != input_map.end(); iter++) {
+    std::vector<int64> shape = iter->first;
+    int block_size = iter->second;
+
+    Scope root = Scope::NewRootScope();
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::DepthToSpace(root, input_data, block_size);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "DepthToSpace", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+    opexecuter.RunTest();
+  }
+}  // end of op DepthToSpaceNHWC
+
+// Test DepthToSpace with NCHW data format
+TEST(ArrayOps, DepthToSpaceNCHW) {
+  std::map<std::vector<int64>, int> input_map;
+  input_map.insert(pair<std::vector<int64>, int>({1, 4, 1, 1}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 250, 1, 1}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({1, 180, 1, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({2, 27, 2, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 40, 5, 5}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({2, 9, 5, 1}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({30, 3000, 3, 3}, 10));
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  ops::DepthToSpace::Attrs attrs;
+  attrs.data_format_ = "NCHW";
+
+  map<std::vector<int64>, int>::iterator iter;
+  for (iter = input_map.begin(); iter != input_map.end(); iter++) {
+    std::vector<int64> shape = iter->first;
+    int block_size = iter->second;
+
+    Scope root = Scope::NewRootScope();
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::DepthToSpace(root, input_data, block_size, attrs);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "DepthToSpace", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    vector<Tensor> ngraph_outputs;
+    opexecuter.ExecuteOnNGraph(ngraph_outputs);
+
+    // On CPU, the op only supports NHWC data format
+    Scope tf_scope = Scope::NewRootScope();
+    auto input_data_NHWC = ops::Transpose(tf_scope, input_data, {0, 2, 3, 1});
+    auto r_tf = ops::DepthToSpace(tf_scope, input_data_NHWC, block_size);
+    auto r_tf_NCHW = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
+    vector<Output> sess_run_fetchoutputs_tf = {r_tf_NCHW};
+    OpExecuter opexecuter_tf(tf_scope, "DepthToSpace", static_input_indexes,
+                             output_datatypes, sess_run_fetchoutputs_tf);
+
+    vector<Tensor> tf_outputs;
+    opexecuter_tf.ExecuteOnTF(tf_outputs);
+
+    // Compare NGraph and TF Outputs
+    Compare(tf_outputs, ngraph_outputs);
+  }
+}  // end of op DepthToSpaceNCHW
+
 // Test op: Dequantize
 // Dequantizes a tensor from i8 to float
 TEST(ArrayOps, Dequantizei8) {
@@ -77,6 +158,31 @@ TEST(ArrayOps, Dequantizei8) {
 
   opexecuter.RunTest();
 }  // end of test op Dequantizei8
+
+// Test op: Dequantize
+// Dequantizes a tensor from u8 to float
+TEST(ArrayOps, Dequantizeu8) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(A, {0, 1, 5, 17, 82, 100});
+
+  auto attrs = ops::Dequantize::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::Dequantize R = ops::Dequantize(root, A, 0.0f, 128.0f, attrs);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "Dequantize", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Dequantizeu8
 
 // Test op: Fill
 TEST(ArrayOps, Fill) {
@@ -179,7 +285,7 @@ TEST(ArrayOps, QuantizeV2i8) {
   int dim2 = 3;
 
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
-  AssignInputValues<float>(A, {0.9, 1.3, 2.6, 3.5, 4.2, 5.0});
+  AssignInputValues<float>(A, {-0.9, -1.3, 2.6, 3.5, 4.2, 5.0});
   auto quant_type = DT_QINT8;
 
   auto attrs = ops::QuantizeV2::Attrs();
@@ -197,8 +303,91 @@ TEST(ArrayOps, QuantizeV2i8) {
 
   opexecuter.RunTest();
 }  // end of test op QuantizeV2i8
-// TODO: add tests for u8
+
+// Test op: QuantizeV2
+// Quantizes a tensor from float to i8. Also tests min-max output
+// TODO: enable this test when min-max output generation is supported
+TEST(ArrayOps, DISABLED_QuantizeV2i8minmax) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValues<float>(A, {-0.9, -1.3, 2.6, 3.5, 4.2, 5.0});
+  auto quant_type = DT_QINT8;
+
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R =
+      ops::QuantizeV2(root, A, -10.0f, 10.99f, quant_type, attrs);
+
+  vector<DataType> output_datatypes = {quant_type, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.output_min,
+                                               R.output_max};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2i8
+
+// Test op: QuantizeV2
+// Quantizes a tensor from float to u8
+TEST(ArrayOps, QuantizeV2u8SameRange) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValues<float>(A, {0.9, 1.3, 2.6, 3.5, 4.2, 5.0});
+  auto quant_type = DT_QUINT8;
+
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0.9f, 5.0f, quant_type, attrs);
+
+  vector<DataType> output_datatypes = {quant_type};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2u8SameRange
+
+// Test op: QuantizeV2
+// Quantizes a tensor from float to u8
+TEST(ArrayOps, QuantizeV2u8DiffRange) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2}));
+  AssignInputValues<float>(A, {0.9, 1.3, 2.6, 3.5, 4.2, 5.0});
+  auto quant_type = DT_QUINT8;
+
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0.0f, 6.0f, quant_type, attrs);
+
+  vector<DataType> output_datatypes = {quant_type, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.output_min,
+                                               R.output_max};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2u8DiffRange
+
 // TODO: add tests for other modes (MIN_COMBINED, MIN_FIRST)
+// TODO: add a test where min==max
 
 // Test op: QuantizeAndDequantizeV2
 // Quantizes and dequantize a tensor
@@ -364,6 +553,119 @@ TEST(ArrayOps, SizeOpDefault) {
     opexecuter.RunTest();
   }
 }  // end of op SizeDefault
+
+// Test slice op
+TEST(ArrayOps, Slice) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 4, 1});
+
+  std::vector<int64> begin = {0, 0, 2, 0};
+  std::vector<int64> size = {-1, -1, 2, -1};
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    Tensor begin_tensor(DT_INT64, TensorShape({4}));
+    AssignInputValues(begin_tensor, begin);
+    Tensor size_tensor(DT_INT64, TensorShape({4}));
+    AssignInputValues(size_tensor, size);
+
+    auto R = ops::Slice(root, input_data, begin_tensor, size_tensor);
+
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Slice", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op Slice
+
+// Test SpaceToDepth with NHWC data format
+TEST(ArrayOps, SpaceToDepthNHWC) {
+  std::map<std::vector<int64>, int> input_map;
+  input_map.insert(pair<std::vector<int64>, int>({1, 2, 2, 1}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 2, 2, 3}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 3, 3, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({1, 10, 10, 5}, 10));
+  input_map.insert(pair<std::vector<int64>, int>({1, 6, 4, 1}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 20, 10, 3}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({2, 3, 6, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 10, 10, 10}, 2));
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  map<std::vector<int64>, int>::iterator iter;
+  for (iter = input_map.begin(); iter != input_map.end(); iter++) {
+    std::vector<int64> shape = iter->first;
+    int block_size = iter->second;
+
+    Scope root = Scope::NewRootScope();
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::SpaceToDepth(root, input_data, block_size);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+    opexecuter.RunTest();
+  }
+}  // end of op SpaceToDepthNHWC
+
+// Test SpaceToDepth with NCHW data format
+TEST(ArrayOps, SpaceToDepthNCHW) {
+  std::map<std::vector<int64>, int> input_map;
+  input_map.insert(pair<std::vector<int64>, int>({1, 1, 2, 2}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({1, 10, 5, 5}, 5));
+  input_map.insert(pair<std::vector<int64>, int>({1, 20, 3, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({2, 3, 6, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({10, 10, 10, 10}, 2));
+  input_map.insert(pair<std::vector<int64>, int>({2, 1, 15, 3}, 3));
+  input_map.insert(pair<std::vector<int64>, int>({30, 30, 30, 30}, 10));
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  ops::SpaceToDepth::Attrs attrs;
+  attrs.data_format_ = "NCHW";
+
+  map<std::vector<int64>, int>::iterator iter;
+  for (iter = input_map.begin(); iter != input_map.end(); iter++) {
+    std::vector<int64> shape = iter->first;
+    int block_size = iter->second;
+
+    Scope root = Scope::NewRootScope();
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::SpaceToDepth(root, input_data, block_size, attrs);
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "SpaceToDepth", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    vector<Tensor> ngraph_outputs;
+    opexecuter.ExecuteOnNGraph(ngraph_outputs);
+
+    // On CPU, the op only supports NHWC data format
+    Scope tf_scope = Scope::NewRootScope();
+    auto input_data_NHWC = ops::Transpose(tf_scope, input_data, {0, 2, 3, 1});
+    auto r_tf = ops::SpaceToDepth(tf_scope, input_data_NHWC, block_size);
+    auto r_tf_NCHW = ops::Transpose(tf_scope, r_tf, {0, 3, 1, 2});
+    vector<Output> sess_run_fetchoutputs_tf = {r_tf_NCHW};
+    OpExecuter opexecuter_tf(tf_scope, "SpaceToDepth", static_input_indexes,
+                             output_datatypes, sess_run_fetchoutputs_tf);
+
+    vector<Tensor> tf_outputs;
+    opexecuter_tf.ExecuteOnTF(tf_outputs);
+
+    // Compare NGraph and TF Outputs
+    Compare(tf_outputs, ngraph_outputs);
+  }
+}  // end of op SpaceToDepthNCHW
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {

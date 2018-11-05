@@ -101,7 +101,6 @@ static Status ConfirmationOk(
     std::map<std::string, ConfirmationFunction>& confirmation_function_map,
     bool& confirmation_ok) {
   auto it = confirmation_function_map.find(node->type_string());
-
   if (it != confirmation_function_map.end()) {
     TF_RETURN_IF_ERROR(it->second(node, &confirmation_ok));
   }
@@ -146,14 +145,6 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 //
 Status MarkForClustering(Graph* graph) {
   if (config::IsEnabled() == false) {
-    return Status::OK();
-  }
-
-  //
-  // If NGRAPH_TF_DISABLE is set we will not mark anything; all subsequent
-  // passes become a no-op.
-  //
-  if (std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
     return Status::OK();
   }
 
@@ -254,6 +245,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
       confirmation_function_map["Dequantize"] = SimpleConfirmationFunction();
       confirmation_function_map["Equal"] = SimpleConfirmationFunction();
       confirmation_function_map["Exp"] = SimpleConfirmationFunction();
@@ -307,6 +299,8 @@ Status MarkForClustering(Graph* graph) {
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
+      confirmation_function_map["QuantizedMaxPool"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
         string mode;
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "mode", &mode));
@@ -328,6 +322,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Slice"] = SimpleConfirmationFunction();
       confirmation_function_map["Snapshot"] = SimpleConfirmationFunction();
       confirmation_function_map["Softmax"] = SimpleConfirmationFunction();
+      confirmation_function_map["SpaceToDepth"] = SimpleConfirmationFunction();
       confirmation_function_map["SparseSoftmaxCrossEntropyWithLogits"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Split"] = SimpleConfirmationFunction();
@@ -382,6 +377,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["DepthToSpace"]["T"] = NGraphDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["Equal"]["T"] = NGraphDTypes();
@@ -423,6 +419,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
+      type_constraint_map["QuantizedMaxPool"]["T"] =
+          NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
@@ -443,6 +441,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Slice"]["Index"] = NGraphIndexDTypes();
       type_constraint_map["Snapshot"]["T"] = NGraphDTypes();
       type_constraint_map["Softmax"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["SpaceToDepth"]["T"] = NGraphDTypes();
       type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["T"] =
           NGraphNumericDTypes();
       type_constraint_map["SparseSoftmaxCrossEntropyWithLogits"]["Tlabels"] =

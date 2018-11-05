@@ -38,6 +38,9 @@ void DeactivateNGraph();
 
 // Print Functions
 void PrintTensor(const Tensor& T1);
+void PrintTensorAllValues(
+    const Tensor& T1,
+    int64 max_entries);  // print max_entries of elements in the Tensor
 
 // Assignment Functions
 // TODO : Retire AssignInputValuesAnchor and AssignInputValuesRandom
@@ -99,8 +102,20 @@ bool Compare(T arg0, T arg1) {
 // Compares two Tensors
 template <typename T>
 void Compare(const Tensor& T1, const Tensor& T2) {
-  ASSERT_EQ(T1.shape(), T2.shape());
-  ASSERT_EQ(T1.dtype(), T2.dtype());
+  // Assert rank
+  ASSERT_EQ(T1.dims(), T2.dims())
+      << "Ranks unequal for T1 and T2. T1.shape = " << T1.shape()
+      << " T2.shape = " << T2.shape();
+
+  // Assert each dimension
+  for (int i = 0; i < T1.dims(); i++) {
+    ASSERT_EQ(T1.dim_size(i), T2.dim_size(i))
+        << "T1 and T2 shapes do not match in dimension " << i
+        << ". T1.shape = " << T1.shape() << " T2.shape = " << T2.shape();
+  }
+
+  // Assert type
+  ASSERT_EQ(T1.dtype(), T2.dtype()) << "Types of T1 and T2 did not match";
   auto T_size = T1.flat<T>().size();
   auto T1_data = T1.flat<T>().data();
   auto T2_data = T2.flat<T>().data();
