@@ -58,8 +58,7 @@ def main():
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         print('\n'.join(test_list))
-        test_result = run_test(test_list)
-        print_results(test_list, test_result)
+        run_test(test_list)
     if (arguments.run_tests_from_file):
         all_test_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
@@ -69,8 +68,7 @@ def main():
             for test_name in test_list:
                 all_test_list.append(test_name)
             print('\n'.join(all_test_list))
-        test_result = run_test(all_test_list)
-        print_results(all_test_list, test_result)
+        run_test(all_test_list)
 
 
 def get_test_list(tf_path, test_regex):
@@ -85,15 +83,15 @@ def get_test_list(tf_path, test_regex):
     except:
         module_list = []
         print(
-            """Invalid module name. Use bazel query below to get list of tensorflow python test modules.
-            bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label"""
+            """\nInvalid module name. Use bazel query below to get list of tensorflow python test modules.
+            bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label\n"""
         )
     try:
         test_list = list_tests(module_list, test_regex)
     except:
         test_list = []
         print(
-            "Enter a valid argument to --list_tests or --run_test.\nList of accepted formats:"
+            "\nEnter a valid argument to --list_tests or --run_test.\n \nLIST OF ACCEPTED FORMATS:"
         )
         print('\n'.join(accepted_formats))
     return test_list
@@ -181,6 +179,9 @@ def list_tests(module_list, regex_input):
         for test in alltests:
             if test_name in test:
                 listtests.append(test)
+        if not listtests:
+            print("\nTest is not a part of this test suite\n")
+            sys.exit()
         return listtests
 
 
@@ -197,10 +198,28 @@ def run_test(test_list, verbosity=2):
     of every test and the result.
     """
     loader = unittest.TestLoader()
+    result = []
+    succeeded = []
+    failures = []
+    errors = []
     for test in test_list:
         tests = loader.loadTestsFromName(test)
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
-    return test_result
+        result.append([test, test_result])
+        if test_result.wasSuccessful():
+            succeeded.append(test)
+            test_result.testsRun += 1
+        elif test_result.failures:
+            failures.append(test)
+            test_result.testsRun -= 1
+        elif test_result.errors:
+            errors.append(test)
+    for test_name in succeeded:
+        print(test_name + ' ..PASS')
+    for test_name in failures:
+        print(test_name + ' ..FAIL')
+    for test_name in errors:
+        print(test_name + ' ..ERROR')
 
 
 def read_tests_from_file(filename):
@@ -210,25 +229,6 @@ def read_tests_from_file(filename):
             for line in list_of_tests.readlines()
             if line[0] != '#'
         ]
-
-
-def print_results(test_list, test_result):
-    succeeded = []
-    failures = []
-    errors = []
-    for test in test_list:
-        if test_result.wasSuccessful():
-            succeeded.append(test)
-        elif test_result.failures:
-            failures.append(test)
-        elif test_result.errors:
-            errors.append(test)
-    for test_name in succeeded:
-        print(test_name + ' ..PASS')
-    for test_name in failures:
-        print(test_name + ' ..FAIL')
-    for test_name in errors:
-        print(test_name + ' ..ERROR')
 
 
 if __name__ == '__main__':
