@@ -23,23 +23,23 @@ message( STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_BINARY_DIR}")
 if (PYTHON)
     set(SETUP_PY_IN "${CMAKE_CURRENT_LIST_DIR}/setup.in.py")
     set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/python/setup.py")
-    set(INIT_PY_IN  "${CMAKE_CURRENT_LIST_DIR}/ngraph/__init__.in.py")
-    set(INIT_PY     "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/__init__.py")
+    set(INIT_PY_IN  "${CMAKE_CURRENT_LIST_DIR}/ngraph_config/__init__.in.py")
+    set(INIT_PY     "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/__init__.py")
     set(PIP_PACKAGE "${CMAKE_CURRENT_BINARY_DIR}/build_pip")
 
-    # Create the python/ngraph directory
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/ngraph)
+    # Create the python/ngraph_config directory
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/ngraph_config)
 
     # Get the list of libraries we need for the Python pip package
     file(GLOB NGRAPH_LIB_FILES "${NGTF_INSTALL_DIR}/lib*")
     
-    # Copy the ngraph libraries from install
+    # Copy the ngraph_config libraries from install
     foreach(DEP_FILE ${NGRAPH_LIB_FILES})
         get_filename_component(lib_file_real_path ${DEP_FILE} ABSOLUTE)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)
         set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n")
         file(COPY ${lib_file_real_path} 
-            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph")        
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config")        
     endforeach()            
 
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
@@ -57,7 +57,7 @@ if (PYTHON)
             install_name_tool -change 
             libngraph.${NGRAPH_VERSION}.dylib 
             @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
-            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libngraph_bridge.dylib
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libngraph_bridge.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
             ERROR_STRIP_TRAILING_WHITESPACE
@@ -70,7 +70,7 @@ if (PYTHON)
             install_name_tool -change 
             libngraph.${NGRAPH_VERSION}.dylib 
             @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
-            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libcpu_backend.dylib
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libcpu_backend.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
             ERROR_STRIP_TRAILING_WHITESPACE
@@ -79,25 +79,71 @@ if (PYTHON)
             message(FATAL_ERROR "Cannot update @loader_path")
         endif()
 
-        set(lib_list 
+        set(cpu_lib_list
             libmkldnn.0.dylib
             libmklml.dylib
             libiomp5.dylib
             libtbb.dylib
         )
 
-        FOREACH(lib_file ${lib_list})
+        FOREACH(lib_file ${cpu_lib_list})
             message("Library: " ${lib_file})
             execute_process(COMMAND 
                 install_name_tool -change 
                 @rpath/${lib_file} 
                 @loader_path/${lib_file} 
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libcpu_backend.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libcpu_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
             )
         ENDFOREACH()
+
+        if ("${NGRAPH_LIB_FILES};" MATCHES "/libplaidml_backend.dylib;")
+            execute_process(COMMAND
+                install_name_tool -change
+                libngraph.${NGRAPH_VERSION}.dylib
+                @loader_path/libngraph.${NGRAPH_VERSION}.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                RESULT_VARIABLE result
+                ERROR_VARIABLE ERR
+                ERROR_STRIP_TRAILING_WHITESPACE
+            )
+            if(${result})
+                message(FATAL_ERROR "Cannot update @loader_path")
+            endif()
+
+            execute_process(COMMAND
+                install_name_tool -change
+                libplaidml.dylib
+                @loader_path/libplaidml.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                RESULT_VARIABLE result
+                ERROR_VARIABLE ERR
+                ERROR_STRIP_TRAILING_WHITESPACE
+            )
+            if(${result})
+                message(FATAL_ERROR "Cannot update @loader_path")
+            endif()
+
+            set(plaidml_lib_list
+                libplaidml.dylib
+            )
+
+            FOREACH(lib_file ${plaidml_lib_list})
+                message("Library: " ${lib_file})
+                execute_process(COMMAND
+                    install_name_tool -change
+                    @rpath/${lib_file}
+                    @loader_path/${lib_file}
+                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                    RESULT_VARIABLE result
+                    ERROR_VARIABLE ERR
+                    ERROR_STRIP_TRAILING_WHITESPACE
+                )
+            ENDFOREACH()
+        endif()
+
     endif()
 
     execute_process(
