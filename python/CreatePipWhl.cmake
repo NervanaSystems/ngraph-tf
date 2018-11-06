@@ -63,7 +63,7 @@ if (PYTHON)
             ERROR_STRIP_TRAILING_WHITESPACE
         )
         if(${result})
-            message(FATAL_ERROR "Cannot update @loader_path")
+            message(FATAL_ERROR "Cannot update @loader_path: ERR: " ${ERR})
         endif()
 
         execute_process(COMMAND 
@@ -76,7 +76,7 @@ if (PYTHON)
             ERROR_STRIP_TRAILING_WHITESPACE
         )
         if(${result})
-            message(FATAL_ERROR "Cannot update @loader_path")
+            message(FATAL_ERROR "Cannot update @loader_path: ERR: " ${ERR})
         endif()
 
         set(cpu_lib_list
@@ -97,6 +97,10 @@ if (PYTHON)
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
             )
+            if(${result})
+                message(FATAL_ERROR "Cannot update @loader_path: ERR: " ${ERR})
+            endif()
+
         ENDFOREACH()
 
         if ("${NGRAPH_LIB_FILES};" MATCHES "/libplaidml_backend.dylib;")
@@ -104,26 +108,26 @@ if (PYTHON)
                 install_name_tool -change
                 libngraph.${NGRAPH_VERSION}.dylib
                 @loader_path/libngraph.${NGRAPH_VERSION}.dylib
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
             )
             if(${result})
-                message(FATAL_ERROR "Cannot update @loader_path")
+                message(FATAL_ERROR "Cannot update @loader_path: ERR: " ${ERR})
             endif()
 
             execute_process(COMMAND
                 install_name_tool -change
                 libplaidml.dylib
                 @loader_path/libplaidml.dylib
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
             )
             if(${result})
-                message(FATAL_ERROR "Cannot update @loader_path")
+                message(FATAL_ERROR "Cannot update @loader_path: ERR: " ${ERR})
             endif()
 
             set(plaidml_lib_list
@@ -136,7 +140,7 @@ if (PYTHON)
                     install_name_tool -change
                     @rpath/${lib_file}
                     @loader_path/${lib_file}
-                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph/libplaidml_backend.dylib
+                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
                     RESULT_VARIABLE result
                     ERROR_VARIABLE ERR
                     ERROR_STRIP_TRAILING_WHITESPACE
