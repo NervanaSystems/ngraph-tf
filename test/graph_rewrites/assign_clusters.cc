@@ -17,9 +17,9 @@
 
 #include "ngraph_assign_clusters.h"
 #include "ngraph_utils.h"
+
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/node_builder.h"
-#include "tf_graph_writer.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -34,7 +34,7 @@ namespace testing {
 
 // Test that a "Const" fed to a static input is still coalesced with the
 // reader.
-TEST(AssignClusters, ConstToStatic) {
+TEST(assign_clusters, const_to_static) {
   Graph g(OpRegistry::Global());
 
   Tensor t_input(DT_FLOAT, TensorShape{2, 3});
@@ -66,15 +66,6 @@ TEST(AssignClusters, ConstToStatic) {
                 .Attr("_ngraph_static_inputs", std::vector<int32>{1})
                 .Finalize(&g, &node3));
 
-  // Add edges from SRC to node1 and node2
-  // Add edge from node3 to SINK
-  // The graph is disconnected without these edges
-  Node* source = g.source_node();
-  Node* sink = g.sink_node();
-  g.AddEdge(source, Graph::kControlSlot, node1, Graph::kControlSlot);
-  g.AddEdge(source, Graph::kControlSlot, node2, Graph::kControlSlot);
-  g.AddEdge(node3, Graph::kControlSlot, sink, Graph::kControlSlot);
-
   ASSERT_OK(AssignClusters(&g));
 
   int node1_cluster, node2_cluster, node3_cluster;
@@ -103,7 +94,7 @@ TEST(AssignClusters, ConstToStatic) {
 // Node1-->Node2 coalesced
 // Node1-->Node3 coalesced   **actually invalid, because Node1 is now in same
 //                             cluster as Node2, and we can't contract 2 & 3.
-TEST(AssignClusters, Cone) {
+TEST(assign_clusters, cone) {
   Graph g(OpRegistry::Global());
 
   Tensor t(DT_FLOAT, TensorShape{2, 3});
@@ -135,15 +126,6 @@ TEST(AssignClusters, Cone) {
                 .Attr("_ngraph_marked_for_clustering", true)
                 .Attr("_ngraph_static_inputs", std::vector<int32>{1})
                 .Finalize(&g, &node3));
-
-  // Add edges from SRC to node1 and node2
-  // Add edge from node3 to SINK
-  // The graph is disconnected without these edges
-  Node* source = g.source_node();
-  Node* sink = g.sink_node();
-  g.AddEdge(source, Graph::kControlSlot, node1, Graph::kControlSlot);
-  g.AddEdge(source, Graph::kControlSlot, node2, Graph::kControlSlot);
-  g.AddEdge(node3, Graph::kControlSlot, sink, Graph::kControlSlot);
 
   ASSERT_OK(AssignClusters(&g));
 
