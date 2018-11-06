@@ -21,6 +21,7 @@ import ngraph_config
 from google.protobuf import text_format
 import json
 import os
+import sys
 
 
 def createFolder(directory):
@@ -211,6 +212,7 @@ if __name__ == '__main__':
 
     assert all(
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
+    passed = True
     for tname, result_ngraph, result_tf_graph in zip(
             out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
         new_out_layer = tname.replace("/", "_")
@@ -223,20 +225,29 @@ if __name__ == '__main__':
         l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
         inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
+        print("\n["+tname+"]")
         if l1_norm > l1_norm_threshold:
-            print("The L1 norm %f is greater than the threshold %f for %s" %
-                  (l1_norm, l1_norm_threshold, tname))
+            print("The L1 norm %f is greater than L1 threshold %f" %
+                  (l1_norm, l1_norm_threshold))
+            passed = False
         else:
-            print("L1 norm test passed for ", tname)
+            print("L1 norm test passed - L1 norm: %f, L1 treshold: %f" %
+                  (l1_norm, l1_norm_threshold))
 
         if l2_norm > l2_norm_threshold:
-            print("The L2 norm %f is greater than the threshold %f for %s" %
-                  (l2_norm, l2_norm_threshold, tname))
+            print("The L2 norm %f is greater than L2 threshold %f" %
+                  (l2_norm, l2_norm_threshold))
+            passed = False
         else:
-            print("L2 norm test passed for ", tname)
+            print("L2 norm test passed - L2 norm: %f, L2 treshold: %f" %
+                  (l2_norm, l2_norm_threshold))
 
         if inf_norm > inf_norm_threshold:
-            print("The inf norm %f is greater than the threshold %f for %s" %
-                  (inf_norm, inf_norm_threshold, tname))
+            print("The inf norm %f is greater than inf threshold %f" %
+                  (inf_norm, inf_norm_threshold))
+            passed = False
         else:
-            print("inf norm test passed for ", tname)
+            print("Inf norm test passed - inf norm: %f, inf treshold: %f" %
+                  (inf_norm, inf_norm_threshold))
+    if not passed:
+        sys.exit(1)

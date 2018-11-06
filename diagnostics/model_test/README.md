@@ -1,6 +1,6 @@
 # Compare model output between two different backends
 
-### This model_test tool will run the model inference seperately on two specified backends(e.g.Tensorflow and nGraph) in json file and the desired outputs from each backend should match given the same inputs. It can be used as a debugging tool for layer by layer comparison, and also a verification that nGraph produces the same output as Tensorflow. 
+### This model_test tool will run the model inference seperately on any two specified backends(e.g. Tensorflow (without nGraph), nGraph-CPU , nGraph-GPU, etc.) in json file and the desired outputs from each backend should match given the same inputs. It can be used as a debugging tool for layer by layer comparison, and also a verification that nGraph produces the same output as Tensorflow.
 
 # Required files to use the tool:
 * A json file: Provide model specific parameters. Look at the example ```mnist_cnn.json```. You can start with the ```template.json``` and modify it to match your model
