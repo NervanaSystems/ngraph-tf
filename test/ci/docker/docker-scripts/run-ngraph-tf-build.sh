@@ -129,6 +129,29 @@ fi
 
 xtime="$(date)"
 echo  ' '
+echo  "===== Checking gcc and OS version at ${xtime} ====="
+echo  ' '
+
+echo 'gcc is being run from:'
+which gcc
+
+echo ' '
+echo 'gcc verison is:'
+gcc --version
+
+echo 'g++ is being run from:'
+which g++
+
+echo ' '
+echo 'g++ version is:'
+g++ --version
+
+echo ' '
+echo 'Ubuntu version is:'
+cat /etc/os-release
+
+xtime="$(date)"
+echo  ' '
 echo  "===== Starting nGraph TensorFlow Bridge Source Code Format Check at ${xtime} ====="
 echo  ' '
 
