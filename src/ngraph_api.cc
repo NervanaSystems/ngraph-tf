@@ -56,7 +56,7 @@ bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 // note that TensorFlow always uses camel case for the C++ API, but not for
 // Python
 void Enable() { _is_enabled = true; }
-void Disable() { _is_enabled = false; }
+void Disable() { _is_enabled = false; _is_logging_placement = false;}
 bool IsEnabled() { return _is_enabled; }
 
 size_t BackendsLen() { return ListBackends().size(); }
@@ -65,7 +65,8 @@ vector<string> ListBackends() {
 }
 tensorflow::Status SetBackend(const string& type) {
   try {
-    ngraph::runtime::Backend::create(type);
+    //ngraph::runtime::Backend::create(type);
+
   } catch (const runtime_error& e) {
     return tensorflow::errors::Unavailable("Backend unavailable: ", type,
                                            " Reason: ", e.what());
