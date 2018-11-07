@@ -223,37 +223,29 @@ def run_test(test_list, verbosity=2):
             errors.append(test)
 
     print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
+    summary = {}
     for test_name in succeeded:
         print(test_name + '\033[92m' + ' ..PASS' + '\033[0m')
     for test_name in failures:
         print(test_name + '\033[91m' + ' ..FAIL' + '\033[0m')
     for test_name in errors:
-        print(test_name + '\033[93m' + ' ..ERROR' + '\033[0m')
-    return ([succeeded, 1], [failures, -1])
+        print(test_name + '\033[33m' + ' ..ERROR' + '\033[0m')
+    summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
+    return summary
 
 
 def print_stats(status_list):
     print('\033[1m' + '\n==STATS==' + '\033[0m')
-    if status_list[0][1] is 1:
+    for key in status_list:
         test_class_name = {}
-        for test_name in status_list[0][0]:
-            module, classname, testcase = test_name.split('.')
+        test_name = status_list[key]
+        for test in test_name:
+            module, classname, testcase = test.split('.')
             module_classname = module + '.' + classname
             test_class_name[module_classname] = test_class_name.get(
                 module_classname, 0) + 1
         for k in test_class_name:
-            print 'Number of tests ' + '\033[92m' + 'PASSED ' + '\033[0m' + 'in ' + k, test_class_name[
-                k]
-    if status_list[1][1] is -1:
-        test_class_name = {}
-        for test_name in status_list[1][0]:
-            module, classname, testcase = test_name.split('.')
-            module_classname = module + '.' + classname
-            test_class_name[module_classname] = test_class_name.get(
-                module_classname, 0) + 1
-        for k in test_class_name:
-            print 'Number of tests ' + '\033[91m' + 'FAILED ' + '\033[0m' + 'in ' + k, test_class_name[
-                k]
+            print 'Number of tests ' + key + ' in ' + k, test_class_name[k]
 
 
 if __name__ == '__main__':
