@@ -301,6 +301,10 @@ echo  ' '
 echo  "===== Installing nGraph Wheel at ${xtime} ====="
 echo  ' '
 
+echo 'md5sum of wheel that was built above, and will be installed:'
+cd "${bridge_dir}"
+md5sum ngraph*.whl
+
 cd "${bridge_dir}"
 pip install ngraph*.whl
 
