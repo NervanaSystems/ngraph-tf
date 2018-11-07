@@ -213,6 +213,7 @@ if __name__ == '__main__':
     assert all(
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
     passed = True
+    th_dict = {"L1": l1_norm_threshold, "L2": l2_norm_threshold, "inf": inf_norm_threshold}
     for tname, result_ngraph, result_tf_graph in zip(
             out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
         new_out_layer = tname.replace("/", "_")
@@ -225,29 +226,14 @@ if __name__ == '__main__':
         l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
         inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
+        norm_dict = {"L1": l1_norm, "L2": l2_norm, "inf": inf_norm}
         print("\n["+tname+"]")
-        if l1_norm > l1_norm_threshold:
-            print("The L1 norm %f is greater than L1 threshold %f" %
-                  (l1_norm, l1_norm_threshold))
-            passed = False
-        else:
-            print("L1 norm test passed - L1 norm: %f, L1 treshold: %f" %
-                  (l1_norm, l1_norm_threshold))
-
-        if l2_norm > l2_norm_threshold:
-            print("The L2 norm %f is greater than L2 threshold %f" %
-                  (l2_norm, l2_norm_threshold))
-            passed = False
-        else:
-            print("L2 norm test passed - L2 norm: %f, L2 treshold: %f" %
-                  (l2_norm, l2_norm_threshold))
-
-        if inf_norm > inf_norm_threshold:
-            print("The inf norm %f is greater than inf threshold %f" %
-                  (inf_norm, inf_norm_threshold))
-            passed = False
-        else:
-            print("Inf norm test passed - inf norm: %f, inf treshold: %f" %
-                  (inf_norm, inf_norm_threshold))
+        #start the loop and check norms
+        for norm_name in norm_dict:
+            if norm_dict[norm_name] > th_dict[norm_name]:
+                print("The",norm_name,"norm test passed -",norm_name,"norm:",np.float32(norm_dict[norm_name]).astype(str),",",norm_name,"treshold:",np.float32(th_dict[norm_name]).astype(str))
+                passed = False
+            else:
+                print("The",norm_name,"norm test passed -",norm_name,"norm:",np.float32(norm_dict[norm_name]).astype(str),",",norm_name,"treshold:",np.float32(th_dict[norm_name]).astype(str))
     if not passed:
         sys.exit(1)
