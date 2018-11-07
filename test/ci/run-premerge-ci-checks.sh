@@ -47,14 +47,12 @@ echo "--------------------------------------------------------------------------
 export GTEST_OUTPUT="xml:${BUILD_DIR}/xunit_gtest.xml"
 ./gtest_ngtf 
 
-####### Disabled tests for now #######
-#pushd python
+pushd python
 # We need to explictly run python here, since "pytest" is also a shell script,
 # and that shell script starts with "#! /usr/bin/python", overriding any
 # python installed in a virtual environment.
-#python -m pytest
-#popd
-####### Disabled tests for now #######
+python -m pytest
+popd
 
 echo "--------------------------------------------------------------------------"
 echo "Running test for installation of the ngraph module"
@@ -73,7 +71,7 @@ rm -rf benchmarks
 git clone https://github.com/tensorflow/benchmarks.git
 pushd benchmarks/scripts/tf_cnn_benchmarks/
 git checkout 4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed
-echo "import ngraph" >> convnet_builder.py
+echo "import ngraph_config" >> convnet_builder.py
 export JUNIT_WRAP_FILE="${BUILD_DIR}/junit_resnet50_imagenet_inference.xml"
 export JUNIT_WRAP_SUITE='inference_validation'
 export JUNIT_WRAP_TEST='tf_cnn_benchmarks_resnet50'
@@ -84,8 +82,12 @@ export JUNIT_WRAP_TEST='tf_cnn_benchmarks_resnet50'
 #  --data_name=imagenet --data_dir "${NGRAPH_IMAGENET_DATASET}" --datasets_use_prefetch=False 
 
 # Training test
-${JUNIT} python tf_cnn_benchmarks.py --data_format NCHW  --num_inter_threads=1 --train_dir=./modelsavepath/ --num_batches 5 --model=resnet50 --batch_size=128
+${JUNIT} OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+    python tf_cnn_benchmarks.py --data_format NCHW  --num_inter_threads=1 \
+        --train_dir=./modelsavepath/ --num_batches 5 --model=resnet50 --batch_size=128
 # Inference test
-${JUNIT} python tf_cnn_benchmarks.py --data_format NCHW --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath --eval --model=resnet50 --batch_size=128
+${JUNIT} OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+    python tf_cnn_benchmarks.py --data_format NCHW --num_inter_threads 1 \
+        --train_dir=$(pwd)/modelsavepath --eval --model=resnet50 --batch_size=128
 popd
 

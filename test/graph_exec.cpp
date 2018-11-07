@@ -32,6 +32,8 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+namespace testing {
+
 TEST(graph_exec, axpy) {
   GraphDef gdef;
   // auto status = ReadTextProto(Env::Default(), "test_py.pbtxt",
@@ -49,7 +51,8 @@ TEST(graph_exec, axpy) {
   // during the graph rewrite passes and considered internal
   opts.allow_internal_ops = true;
 
-  ASSERT_EQ(ConvertGraphDefToGraph(opts, gdef, &input_graph), Status::OK());
+  ASSERT_EQ(ConvertGraphDefToGraph(opts, gdef, &input_graph), Status::OK())
+      << "Could not convert graphdef to graph";
   // Create the inputs for this graph
   Tensor x(DT_FLOAT, TensorShape({2, 3}));
   Tensor y(DT_FLOAT, TensorShape({2, 3}));
@@ -63,7 +66,8 @@ TEST(graph_exec, axpy) {
   shared_ptr<ng::Function> ng_function;
   ASSERT_EQ(Status::OK(),
             ngraph_bridge::Builder::TranslateGraph(inputs, static_input_map,
-                                                   &input_graph, ng_function));
+                                                   &input_graph, ng_function))
+      << "Could not complete TranslateGraph successfully";
 
   // Create the nGraph backend
   auto backend = ng::runtime::Backend::create("CPU");
@@ -87,7 +91,7 @@ TEST(graph_exec, axpy) {
   t_y->write(&v_x, 0, sizeof(v_x));
 
   // Allocate tensor for the result(s)
-  vector<shared_ptr<ng::runtime::TensorView>> outputs;
+  vector<shared_ptr<ng::runtime::Tensor>> outputs;
   for (auto i = 0; i < ng_function->get_output_size(); i++) {
     auto shape = ng_function->get_output_shape(i);
     auto elem_type = ng_function->get_output_element_type(i);
@@ -107,6 +111,8 @@ TEST(graph_exec, axpy) {
   // TODO
 }
 
+}  // namespace testing
+
 }  // namespace ngraph_bridge
 
-}  // namespace tensorflwo
+}  // namespace tensorflow

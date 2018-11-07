@@ -46,10 +46,9 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
   out << "\n";
 }
 
-std::ostream& DumpNGTensor(
-    std::ostream& s, const string& name,
-    const std::shared_ptr<ngraph::runtime::TensorView>& t) {
-  // std::shared_ptr<ngraph::runtime::TensorView> t{get_tensor()};
+std::ostream& DumpNGTensor(std::ostream& s, const string& name,
+                           const std::shared_ptr<ngraph::runtime::Tensor>& t) {
+  // std::shared_ptr<ngraph::runtime::Tensor> t{get_tensor()};
   const ngraph::Shape& shape = t->get_shape();
   s << "Tensor<" << name << ": ";
 
@@ -63,16 +62,16 @@ std::ostream& DumpNGTensor(
   s << ">{";
   size_t rank = shape.size();
   if (rank == 0) {
-    s << GetScalarFromTensorView<float>(t, pos++);
+    s << GetScalarFromTensor<float>(t, pos++);
   } else if (rank <= 2) {
     s << "[";
     for (size_t i = 0; i < shape.at(0); ++i) {
       if (rank == 1) {
-        s << GetScalarFromTensorView<float>(t, pos++);
+        s << GetScalarFromTensor<float>(t, pos++);
       } else if (rank == 2) {
         s << "[";
         for (size_t j = 0; j < shape.at(1); ++j) {
-          s << GetScalarFromTensorView<float>(t, pos++);
+          s << GetScalarFromTensor<float>(t, pos++);
 
           if (j + 1 < shape.at(1)) {
             s << ", ";
@@ -120,11 +119,16 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
     case DataType::DT_BOOL:
       *ng_et = ng::element::boolean;
       break;
+    case DataType::DT_QINT8:
+      *ng_et = ng::element::i8;
+      break;
+    case DataType::DT_QUINT8:
+      *ng_et = ng::element::u8;
+      break;
     default:
       return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                    DataType_Name(tf_dt));
   }
-
   return Status::OK();
 }
 
@@ -147,8 +151,8 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
 
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
   static gtl::ArraySlice<DataType> result{
-      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
-      DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_BOOL};
+      DT_FLOAT,  DT_DOUBLE, DT_INT8,   DT_INT16, DT_INT32, DT_INT64, DT_UINT8,
+      DT_UINT16, DT_UINT32, DT_UINT64, DT_BOOL,  DT_QINT8, DT_QUINT8};
   return result;
 }
 
@@ -159,9 +163,37 @@ const gtl::ArraySlice<DataType>& NGraphNumericDTypes() {
   return result;
 }
 
+const gtl::ArraySlice<DataType>& NGraphNumericAndQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{
+      DT_FLOAT, DT_DOUBLE, DT_INT8,   DT_INT16,  DT_INT32, DT_INT64,
+      DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_QINT8, DT_QUINT8};
+  return result;
+}
+
 const gtl::ArraySlice<DataType>& NGraphIndexDTypes() {
   static gtl::ArraySlice<DataType> result{DT_INT32, DT_INT64};
   return result;
+}
+
+const gtl::ArraySlice<DataType>& NGraphSupportedQuantizedDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_QINT8, DT_QUINT8};
+  return result;
+}
+
+const gtl::ArraySlice<DataType>& NGraphRealDTypes() {
+  static gtl::ArraySlice<DataType> result{DT_FLOAT, DT_DOUBLE};
+  return result;
+}
+
+Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
+  for (auto i : axes) {
+    if (i < (int)-rank || i >= (int)rank) {
+      return errors::InvalidArgument("Axis Dimension is out of range. Got ", i,
+                                     ", should be in range [-", rank, ", ",
+                                     rank, ")");
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace ngraph_bridge

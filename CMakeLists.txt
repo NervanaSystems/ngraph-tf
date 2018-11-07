@@ -68,6 +68,15 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+execute_process(COMMAND cat /etc/os-release 
+    OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+string(REGEX MATCH "ID=\"([a-z])+\"" OS_VERSION "${LSB_RELEASE_ID_SHORT}")
+string(REGEX MATCH "\"([a-z])+\"" OS_VERSION "${OS_VERSION}")
+message("OS version is ${OS_VERSION}")
+
 # Default to four jobs if the command fails.
 if(NPROC_RESULT)
     message (WARNING "Unable to detect number of processors. Building nGraph with make -j4.")
@@ -119,18 +128,31 @@ else()
     set(LIBNGRAPH_SO "libngraph.so")
 endif(APPLE)
 
+if (NGRAPH_PLAIDML_ENABLE)
+    if (NOT DEFINED PlaidML_DIR)
+        message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
+    endif()
+    message(STATUS "nGraph/PlaidML enabled")
+endif()
+
 # Find and build ngraph
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG v0.8.0
+    GIT_TAG 516fbe13f24878a66b01f7a37a8d1ff166d84890
     CMAKE_ARGS 
+        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
         -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
         -DNGRAPH_UNIT_TEST_ENABLE=FALSE
-        -DNGRAPH_TOOLS_ENABLE=FALSE 
+        -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
         -DNGRAPH_DEX_ONLY=TRUE         
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
+        -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
+        -DPlaidML_DIR=${PlaidML_DIR}
     TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
     STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
@@ -144,20 +166,28 @@ ExternalProject_Add(
 set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 
 
+
+if(OS_VERSION STREQUAL "\"centos\"")
+	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib64/${LIBNGRAPH_SO})
+else()
+	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO})
+endif()
+
 add_library(ngraph_lib SHARED IMPORTED)
 set_target_properties( 
     ngraph_lib 
     PROPERTIES IMPORTED_LOCATION 
-    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO}
+    ${NGRAPH_IMPORTED_LOCATION}
 )
+
 add_dependencies(ngraph_lib ext_ngraph)
 
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 
 # Add the directories to be built
+add_subdirectory(third-party)
 add_subdirectory(logging)
 add_subdirectory(src)
-add_subdirectory(third-party)
 if (UNIT_TEST_ENABLE)
     if (NOT DEFINED TF_SRC_DIR)
         message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")

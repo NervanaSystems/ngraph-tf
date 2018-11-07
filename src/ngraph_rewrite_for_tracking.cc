@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
+#include "ngraph_rewrite_for_tracking.h"
 
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/node_builder.h"
@@ -38,6 +39,8 @@ Status RewriteForTracking(Graph* graph) {
 
       bool just_looking = true;
 
+      // If any of the nodes reading from this Variable node read the data as
+      // reference then we dont track it, else we do
       for (auto edge : node->out_edges()) {
         if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
             IsRefType(edge->dst()->input_type(edge->dst_input()))) {
@@ -82,16 +85,29 @@ Status RewriteForTracking(Graph* graph) {
 
         replacement->set_assigned_device_name(node->assigned_device_name());
 
+        // Add edge from the input nodes (to the variable node (NGraphVariable))
+        // to the new replacement node (also of type NGraphVariable)
+        NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
+                       << replacement->DebugString();
+
+        // Though edges will be removed when we remove the node
+        // we specifically remove the edges to be sure
+        for (auto edge : node->in_edges()) {
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          graph->AddEdge(edge->src(), edge->src_output(), replacement,
+                         edge->dst_input());
+          graph->RemoveEdge(edge);
+        }
+
         std::vector<const Edge*> edges;
         for (auto edge : node->out_edges()) {
           edges.push_back(edge);
         }
         for (auto edge : edges) {
-          if (edge->dst()->IsOp()) {
-            NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-            graph->UpdateEdge(replacement, edge->src_output(), edge->dst(),
-                              edge->dst_input());
-          }
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          graph->AddEdge(replacement, edge->src_output(), edge->dst(),
+                         edge->dst_input());
+          graph->RemoveEdge(edge);
         }
 
         replaced_nodes.push_back(node);

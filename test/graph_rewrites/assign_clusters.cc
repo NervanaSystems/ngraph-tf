@@ -28,6 +28,8 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+namespace testing {
+
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 
 // Test that a "Const" fed to a static input is still coalesced with the
@@ -71,8 +73,10 @@ TEST(assign_clusters, const_to_static) {
   ASSERT_OK(GetNodeCluster(node2, &node2_cluster));
   ASSERT_OK(GetNodeCluster(node3, &node3_cluster));
 
-  ASSERT_EQ(node1_cluster, node2_cluster);
-  ASSERT_EQ(node2_cluster, node3_cluster);
+  ASSERT_EQ(node1_cluster, node2_cluster)
+      << "Node 1 and 2 did not land up in same cluster";
+  ASSERT_EQ(node2_cluster, node3_cluster)
+      << "Node 2 and 3 did not land up in same cluster";
 }
 
 // Given a graph of this form:
@@ -131,6 +135,8 @@ TEST(assign_clusters, cone) {
 
   ASSERT_NE(node2_cluster, node3_cluster);
 }
+
+}  // namespace testing
 
 }  // namespace ngraph_bridge
 

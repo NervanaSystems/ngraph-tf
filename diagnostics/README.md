@@ -29,11 +29,11 @@ To get a **full** dump use the following set of flags
 *  View the original network with encapsulate information by running tensorboard, using the files created in ```./vis```.
 
 ### Disable NGRAPH in python
-* In your script, import ngraph by having: ```import ngraph```
-* Disable ngraph by calling: ```ngraph.disable()```
-* Enable ngraph by calling: ```ngraph.enable()```
+* In your script, import ngraph_config by having: ```import ngraph_config_config```
+* Disable ngraph by calling: ```ngraph_config.disable()```
+* Enable ngraph by calling: ```ngraph_config.enable()```
 * Checking whether ngraph is enabled by calling: ```ngraph.is_enabled()```
-* You need to enable ngraph every time you called ```ngraph.disable()```, so it is good to check 
+* You need to enable ngraph every time you called ```ngraph_config.disable()```, so it is good to check 
 if ngraph is enabled by calling ```ngraph.is_enabled()```
 * _Caution_: The above functions are only effective at the beginning of the execution. Once the session is created and ```run``` is called, the above functions will not be able to disable ngraph. 
 * For example usage, take a look at the ```model_test/verify_model.py``` in the diagnostics folder
@@ -62,9 +62,9 @@ python ngtf_graph_viewer.py -h
 ### Some commandline samples/usecases
 
 * pbtxt to TB: ```python ngtf_graph_viewer.py pbtxtfile.pbtxt ./vis```
-* pbtxt to dot: ```python ngtf_graph_viewer.py -v 1 pbtxtfile.pbtxt ./vis```
+* pbtxt to dot: ```python ngtf_graph_viewer.py -v 0 pbtxtfile.pbtxt ./vis```
 * pb to TB: ```python ngtf_graph_viewer.py -b pbtxtfile.pb ./vis```
-* pb to dot: ```python ngtf_graph_viewer.py -b -v 1 pbtxtfile.pb ./vis```
+* pb to dot: ```python ngtf_graph_viewer.py -b -v 0 pbtxtfile.pb ./vis```
 * pbtxt to TB after prepending cluster information. See **Visualizing encapsulates using TB**: ```python ngtf_graph_viewer.py -c nodemap.pkl pbtxtfile.pbtxt ./vis```
 
 
