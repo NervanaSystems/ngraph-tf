@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow_hub as hub
 import numpy as np
-import ngraph
+import ngraph_config
 import argparse
 
 url_dict = {}
@@ -40,8 +40,8 @@ def compare(model_name, batch_size, threshold=0.001):
 
             ngraph_result = sess.run(logits_ngraph)
 
-    ngraph.disable()
-    if ngraph.is_enabled():
+    ngraph_config.disable()
+    if ngraph_config.is_enabled():
         raise Exception("Ngraph should be disabled")
     else:
         print("Running {} on CPU".format(model_name))
