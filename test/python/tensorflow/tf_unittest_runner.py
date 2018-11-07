@@ -58,7 +58,8 @@ def main():
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         print('\n'.join(test_list))
-        run_test(test_list)
+        status_list = run_test(test_list)
+        print_stats(status_list)
     if (arguments.run_tests_from_file):
         all_test_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
@@ -68,7 +69,8 @@ def main():
             for test_name in test_list:
                 all_test_list.append(test_name)
             print('\n'.join(all_test_list))
-        run_test(all_test_list)
+        status_list = run_test(all_test_list)
+        print_stats(status_list)
 
 
 def get_test_list(tf_path, test_regex):
@@ -185,6 +187,15 @@ def list_tests(module_list, regex_input):
         return listtests
 
 
+def read_tests_from_file(filename):
+    with open(filename) as list_of_tests:
+        return [
+            line.split('#')[0].rstrip('\n').strip(' ')
+            for line in list_of_tests.readlines()
+            if line[0] != '#'
+        ]
+
+
 def run_test(test_list, verbosity=2):
     """
     Runs a specific test suite or test case given with the fully qualified 
@@ -198,37 +209,51 @@ def run_test(test_list, verbosity=2):
     of every test and the result.
     """
     loader = unittest.TestLoader()
-    result = []
     succeeded = []
     failures = []
     errors = []
     for test in test_list:
         tests = loader.loadTestsFromName(test)
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
-        result.append([test, test_result])
         if test_result.wasSuccessful():
             succeeded.append(test)
-            test_result.testsRun += 1
         elif test_result.failures:
             failures.append(test)
-            test_result.testsRun -= 1
         elif test_result.errors:
             errors.append(test)
+
+    print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
     for test_name in succeeded:
-        print(test_name + ' ..PASS')
+        print(test_name + '\033[92m' + ' ..PASS' + '\033[0m')
     for test_name in failures:
-        print(test_name + ' ..FAIL')
+        print(test_name + '\033[91m' + ' ..FAIL' + '\033[0m')
     for test_name in errors:
-        print(test_name + ' ..ERROR')
+        print(test_name + '\033[93m' + ' ..ERROR' + '\033[0m')
+    return ([succeeded, 1], [failures, -1])
 
 
-def read_tests_from_file(filename):
-    with open(filename) as list_of_tests:
-        return [
-            line.split('#')[0].rstrip('\n').strip(' ')
-            for line in list_of_tests.readlines()
-            if line[0] != '#'
-        ]
+def print_stats(status_list):
+    print('\033[1m' + '\n==STATS==' + '\033[0m')
+    if status_list[0][1] is 1:
+        test_class_name = {}
+        for test_name in status_list[0][0]:
+            module, classname, testcase = test_name.split('.')
+            module_classname = module + '.' + classname
+            test_class_name[module_classname] = test_class_name.get(
+                module_classname, 0) + 1
+        for k in test_class_name:
+            print 'Number of tests ' + '\033[92m' + 'PASSED ' + '\033[0m' + 'in ' + k, test_class_name[
+                k]
+    if status_list[1][1] is -1:
+        test_class_name = {}
+        for test_name in status_list[1][0]:
+            module, classname, testcase = test_name.split('.')
+            module_classname = module + '.' + classname
+            test_class_name[module_classname] = test_class_name.get(
+                module_classname, 0) + 1
+        for k in test_class_name:
+            print 'Number of tests ' + '\033[91m' + 'FAILED ' + '\033[0m' + 'in ' + k, test_class_name[
+                k]
 
 
 if __name__ == '__main__':
