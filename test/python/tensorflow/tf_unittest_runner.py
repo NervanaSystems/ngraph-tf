@@ -247,7 +247,7 @@ def print_results(status_list):
             test_class_name[module_classname] = test_class_name.get(
                 module_classname, 0) + 1
         for k in test_class_name:
-            print 'Number of tests ' + key + ' ' + k, test_class_name[k]
+            print('Number of tests ' + key + ' ' + k, test_class_name[k])
 
 
 if __name__ == '__main__':
