@@ -54,7 +54,7 @@ namespace ngraph_bridge {
 //           |
 //          N7
 //
-// If nodes N1, N2, N3, N4, N6, and N7 are all marked, but N6 is unmarked, the
+// If nodes N1, N2, N3, N4, N6, and N7 are all marked, but N5 is unmarked, the
 // clustering pass will assign nodes N1, N2, N3, and N4 to one cluster, and
 // nodes N6 and N7 to another.
 //
