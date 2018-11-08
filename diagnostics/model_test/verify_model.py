@@ -213,7 +213,11 @@ if __name__ == '__main__':
     assert all(
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
     passed = True
-    th_dict = {"L1": l1_norm_threshold, "L2": l2_norm_threshold, "inf": inf_norm_threshold}
+    th_dict = {
+        "L1": l1_norm_threshold,
+        "L2": l2_norm_threshold,
+        "inf": inf_norm_threshold
+    }
     for tname, result_ngraph, result_tf_graph in zip(
             out_tensor_names_cpu, result_ngraph_arrs, result_tf_graph_arrs):
         new_out_layer = tname.replace("/", "_")
@@ -227,14 +231,19 @@ if __name__ == '__main__':
         inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
 
         norm_dict = {"L1": l1_norm, "L2": l2_norm, "inf": inf_norm}
-        print("\n["+tname+"]")
+        print("\n[" + tname + "]")
         #start the loop and check norms
         for norm_name in norm_dict:
             np.set_printoptions(precision=15)
             if norm_dict[norm_name] > th_dict[norm_name]:
-                print("The %s norm is greater than %s threshold - %s norm: %f, %s threshold: %f" % (norm_name, norm_name, norm_name, norm_dict[norm_name], norm_name, th_dict[norm_name]))
+                print(
+                    "The %s norm is greater than %s threshold - %s norm: %f, %s threshold: %f"
+                    % (norm_name, norm_name, norm_name, norm_dict[norm_name],
+                       norm_name, th_dict[norm_name]))
                 passed = False
             else:
-                print("The %s norm test passed - %s norm: %f, %s threshold: %f" % (norm_name, norm_name, norm_dict[norm_name], norm_name, th_dict[norm_name]))
+                print("The %s norm test passed - %s norm: %f, %s threshold: %f"
+                      % (norm_name, norm_name, norm_dict[norm_name], norm_name,
+                         th_dict[norm_name]))
     if not passed:
         sys.exit(1)
