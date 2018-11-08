@@ -221,7 +221,6 @@ def run_test(test_list, verbosity=2):
             failures.append(test)
         elif test_result.errors:
             errors.append(test)
-    summary = {}
     summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
     return summary
 
