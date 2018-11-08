@@ -1397,7 +1397,7 @@ static Status TranslateDepthToSpaceOp(
   }
 
   ng::AxisVector ng_reshape_shape;
-  ng::AxisVector ng_transpose_shape;
+  ng::AxisVector ng_transpose_permutation;
   ng::AxisVector ng_output_shape;
 
   switch (format_to_int_map[tf_data_format]) {
@@ -1427,12 +1427,13 @@ static Status TranslateDepthToSpaceOp(
       //                       width,
       //                       block_size,
       //                       channel / (block_size * block_size)]
-      ng_transpose_shape.push_back(0);
+      ng_transpose_permutation.push_back(0);
       for (int i = 0; i < num_spatial_dimensions; i++) {
-        ng_transpose_shape.push_back(i + 1);
-        ng_transpose_shape.push_back(i + 1 + num_spatial_dimensions);
+        ng_transpose_permutation.push_back(i + 1);
+        ng_transpose_permutation.push_back(i + 1 + num_spatial_dimensions);
       }
-      ng_transpose_shape.push_back(channel_dimension + num_spatial_dimensions);
+      ng_transpose_permutation.push_back(channel_dimension +
+                                         num_spatial_dimensions);
 
       // ng_output_shape = [batch_size,
       //                    height * block_size,
@@ -1472,11 +1473,11 @@ static Status TranslateDepthToSpaceOp(
       //                       block_size,
       //                       width,
       //                       block_size]
-      ng_transpose_shape.push_back(0);
-      ng_transpose_shape.push_back(1 + num_spatial_dimensions);
+      ng_transpose_permutation.push_back(0);
+      ng_transpose_permutation.push_back(1 + num_spatial_dimensions);
       for (int i = 0; i < num_spatial_dimensions; i++) {
-        ng_transpose_shape.push_back(i + 2 + num_spatial_dimensions);
-        ng_transpose_shape.push_back(i + 1);
+        ng_transpose_permutation.push_back(i + 2 + num_spatial_dimensions);
+        ng_transpose_permutation.push_back(i + 1);
       }
 
       // ng_output_shape = [batch_size,
@@ -1497,8 +1498,8 @@ static Status TranslateDepthToSpaceOp(
   auto reshaped =
       make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_reshape_shape);
 
-  auto final_result = make_shared<ng::op::Reshape>(reshaped, ng_transpose_shape,
-                                                   ng_output_shape);
+  auto final_result = make_shared<ng::op::Reshape>(
+      reshaped, ng_transpose_permutation, ng_output_shape);
   SaveNgOp(ng_op_map, op->name(), final_result);
 
   return Status::OK();
