@@ -59,7 +59,7 @@ def main():
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         print('\n'.join(test_list))
         status_list = run_test(test_list)
-        print_stats(status_list)
+        print_results(status_list)
     if (arguments.run_tests_from_file):
         all_test_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
@@ -70,7 +70,7 @@ def main():
                 all_test_list.append(test_name)
             print('\n'.join(all_test_list))
         status_list = run_test(all_test_list)
-        print_stats(status_list)
+        print_results(status_list)
 
 
 def get_test_list(tf_path, test_regex):
@@ -213,30 +213,33 @@ def run_test(test_list, verbosity=2):
     failures = []
     errors = []
     for test in test_list:
-        tests = loader.loadTestsFromName(test)
-        test_result = unittest.TextTestRunner(verbosity=verbosity).run(tests)
+        test_result = unittest.TextTestRunner(verbosity=verbosity).run(
+            loader.loadTestsFromName(test))
         if test_result.wasSuccessful():
             succeeded.append(test)
         elif test_result.failures:
             failures.append(test)
         elif test_result.errors:
             errors.append(test)
-
-    print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
     summary = {}
-    for test_name in succeeded:
-        print(test_name + '\033[92m' + ' ..PASS' + '\033[0m')
-    for test_name in failures:
-        print(test_name + '\033[91m' + ' ..FAIL' + '\033[0m')
-    for test_name in errors:
-        print(test_name + '\033[33m' + ' ..ERROR' + '\033[0m')
     summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
     return summary
 
 
-def print_stats(status_list):
+def print_results(status_list):
+    print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
+    for key in ["PASSED", "ERRORS", "FAILED"]:
+        test_name = status_list[key]
+        for test in test_name:
+            if key is "PASSED":
+                print(test + '\033[92m' + ' ..PASS' + '\033[0m')
+            if key is "FAILED":
+                print(test + '\033[91m' + ' ..FAIL' + '\033[0m')
+            if key is "ERRORS":
+                print(test + '\033[33m' + ' ..ERROR' + '\033[0m')
+
     print('\033[1m' + '\n==STATS==' + '\033[0m')
-    for key in status_list:
+    for key in ["PASSED", "ERRORS", "FAILED"]:
         test_class_name = {}
         test_name = status_list[key]
         for test in test_name:
@@ -245,7 +248,7 @@ def print_stats(status_list):
             test_class_name[module_classname] = test_class_name.get(
                 module_classname, 0) + 1
         for k in test_class_name:
-            print 'Number of tests ' + key + ' in ' + k, test_class_name[k]
+            print 'Number of tests ' + key + ' ' + k, test_class_name[k]
 
 
 if __name__ == '__main__':
