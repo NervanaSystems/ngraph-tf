@@ -58,7 +58,6 @@ bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 void Enable() { _is_enabled = true; }
 void Disable() {
   _is_enabled = false;
-  _is_logging_placement = false;
 }
 bool IsEnabled() { return _is_enabled; }
 
