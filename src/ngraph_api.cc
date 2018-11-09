@@ -56,10 +56,7 @@ bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 // note that TensorFlow always uses camel case for the C++ API, but not for
 // Python
 void Enable() { _is_enabled = true; }
-void Disable() {
-  _is_enabled = false;
-  _is_logging_placement = false;
-}
+void Disable() { _is_enabled = false; }
 bool IsEnabled() { return _is_enabled; }
 
 size_t BackendsLen() { return ListBackends().size(); }
@@ -79,8 +76,8 @@ tensorflow::Status SetBackend(const string& type) {
 void StartLoggingPlacement() { _is_logging_placement = true; }
 void StopLoggingPlacement() { _is_logging_placement = false; }
 bool IsLoggingPlacement() {
-  return _is_logging_placement ||
-         (_is_enabled && std::getenv("NGRAPH_TF_LOG_PLACEMENT") != nullptr);
+  return _is_enabled && (_is_logging_placement ||
+                         std::getenv("NGRAPH_TF_LOG_PLACEMENT") != nullptr);
 }
 
 }  // namespace config
