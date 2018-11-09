@@ -336,11 +336,7 @@ Status MarkForClustering(Graph* graph) {
         int tf_new_axis_mask;
         TF_RETURN_IF_ERROR(
             GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
-        if (tf_new_axis_mask != 0) {
-          *result = false;
-        } else {
-          *result = true;
-        }
+        *result = (tf_new_axis_mask == 0);
         return Status::OK();
       };
       confirmation_function_map["Pack"] = SimpleConfirmationFunction();

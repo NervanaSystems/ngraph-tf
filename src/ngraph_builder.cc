@@ -3377,13 +3377,21 @@ static Status TranslateStridedSliceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   // TODO refactor StrideSlice with Slice op
-  shared_ptr<ng::Node> ng_input, ng_begin, ng_size, ng_stride;
-  TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_begin, &ng_size, &ng_stride));
+  //cout << "\n\nEntering TranslateStridedSliceOp \n";
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   int tf_shrink_axis_mask;
   TF_RETURN_IF_ERROR(
       GetNodeAttr(op->attrs(), "shrink_axis_mask", &tf_shrink_axis_mask));
+
+  /*
+  int tf_end_mask;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "end_mask", &tf_end_mask));
+
+  int tf_begin_mask;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "begin_mask", &tf_begin_mask));
+  */
 
   std::vector<int64> lower_vec;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lower_vec));
@@ -3394,6 +3402,12 @@ static Status TranslateStridedSliceOp(
   std::vector<int64> stride_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 3, static_input_map, &stride_vec));
+
+  /*
+  cout << "STATICVECTS: " << ng::join(lower_vec)
+       << " ===== " << ng::join(end_vec) << " ======= " << ng::join(stride_vec)
+       << "\n";
+  */
 
   NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
   NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
@@ -3407,6 +3421,7 @@ static Status TranslateStridedSliceOp(
       end_vec.push_back(0);
     }
   }
+
   NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: "
                  << ng::join(lower_vec);
   NGRAPH_VLOG(3) << "extended End input for StridedSlice: "
@@ -3444,10 +3459,65 @@ static Status TranslateStridedSliceOp(
   }
   NGRAPH_VLOG(3) << "stride input for StridedSlice: " << ng::join(stride_vec);
 
+  /*
+  cout << "XXXXX lower_vec.size(): " << lower_vec.size() << "\n";
+  for (int i = 0; i < lower_vec.size(); i++) {
+    if ((tf_begin_mask & (1 << i)) != 0) {
+      lower_vec[i] = 0;
+    }
+  }
+
+  
+  for (int i = 0; i < end_vec.size(); i++) {
+    if ((tf_end_mask & (1 << i)) != 0) {
+      end_vec[i] = 0;
+    }
+  }
+  */
+
   std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
   std::vector<size_t> u(end_vec.begin(), end_vec.end());
+
+  //TODO: stride can be negative in TF. directly copying from TF stride to unsigned vector `s` will result in problems
   std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
 
+  /*
+  cout << "Lower: " << l.size() << "\n";
+  for (auto i : l) cout << i << " ";
+  cout << "\n";
+  for (auto i : lower_vec) cout << i << " ";
+  cout << "\n";
+  cout << "Upper: " << u.size() << "\n";
+  for (auto i : u) cout << i << " ";
+  cout << "\n";
+  for (auto i : end_vec) cout << i << " ";
+  cout << "\n";
+  cout << "Size: " << s.size() << "\n";
+  for (auto i : s) cout << i << " ";
+  cout << "\n";
+  for (auto i : stride_vec) cout << i << " ";
+  cout << "\n";
+  cout << *ng_input << "\n";
+  cout << ng_input->get_shape() << "\n";
+  
+
+  int tf_new_axis_mask;
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(op->attrs(), "new_axis_mask", &tf_new_axis_mask));
+
+  int tf_ellipsis_mask;
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(op->attrs(), "ellipsis_mask", &tf_ellipsis_mask));
+
+  
+  cout << "tf_shrink_axis_mask: " << tf_shrink_axis_mask << "\n";
+  cout << "tf_new_axis_mask: " << tf_new_axis_mask << "\n";
+  cout << "tf_end_mask: " << tf_end_mask << "\n";
+  cout << "tf_begin_mask: " << tf_begin_mask << "\n";
+  cout << "tf_ellipsis_mask: " << tf_ellipsis_mask << "\n";
+
+  cout << "XXXXX" << op->name() << "\n";
+  */
   std::shared_ptr<ng::Node> ng_strided_slice =
       make_shared<ng::op::Slice>(ng_input, l, u, s);
 

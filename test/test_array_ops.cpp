@@ -667,6 +667,193 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
   }
 }  // end of op SpaceToDepthNCHW
 
+// Test op: StridedSlice
+TEST(ArrayOps, StridedSlice) {
+  vector<int> static_input_indexes = {1, 2, 3};  // has static input
+  std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //, {5, 5, 5}};
+  auto in_tensor_type = DT_FLOAT;
+
+  auto print_vect = [](vector<int64> v) {
+    for (auto i : v) cout << " | " << i << " ";
+    cout << "\n";
+  };
+
+  // A tensor of rank r has a shape vector of length r representing the sizes of
+  // its dimensions
+  // To represent a coordinate in the tensor, we need a r-tuple, whose ith index
+  // is < the ith value of the shape vector
+  // Alternatively we can also use a single integer (< prod(tensorshape)) to
+  // represent a coordinate (assuming we agree upon things like
+  // row-major/column-major)
+  // In other words, we can establish a bijective map to vectorize and
+  // un-vectorize a rank r tensor
+
+  // vector index to r rank index
+
+  auto num_elems_in_tensor = [](std::vector<int64> shape_vect) {
+    return std::accumulate(begin(shape_vect), end(shape_vect), 1,
+                           std::multiplies<int64>());
+  };
+  auto vectorized_idx_to_coordinate = [num_elems_in_tensor](
+      int vectorized_idx, std::vector<int64> shape_vect,
+      std::vector<int64>* coord) {
+    auto num_elems = num_elems_in_tensor(shape_vect);
+    ASSERT_TRUE(std::accumulate(
+        begin(shape_vect), end(shape_vect), true,
+        [](bool acc, int64 item) { return (item >= 0) && acc; }))
+        << "Expected all elements of shape_vect to be >= 0, but found some "
+           "negative ones";
+    ASSERT_TRUE(vectorized_idx < num_elems)
+        << "Vectorized idx(" << vectorized_idx
+        << ") should have been less than number of elements in the tensor("
+        << num_elems << ")";
+    ASSERT_TRUE(vectorized_idx >= 0) << "Vectorized idx(" << vectorized_idx
+                                     << ") should have been greater than 0";
+    coord->resize(shape_vect.size());
+    for (int i = shape_vect.size() - 1; i >= 0; i--) {
+      (*coord)[i] = vectorized_idx % shape_vect[i];
+      vectorized_idx = vectorized_idx / shape_vect[i];
+    }
+  };
+
+  // r-rank index to vector index
+  auto coordinate_to_vectorized_idx = [](std::vector<int64> coord,
+                                         std::vector<int64> shape_vect,
+                                         int64* vectorized_idx) {
+    ASSERT_TRUE(coord.size() == shape_vect.size())
+        << "In coordinate_to_int_idx size of coord(" << coord.size()
+        << ") and shape_vector(" << shape_vect.size() << ") do not match";
+    ASSERT_TRUE(std::inner_product(
+        coord.begin(), coord.end(), shape_vect.begin(), true,
+        [](bool x, bool y) { return x && y; }, std::less<int64>()))
+        << "All coordinates should be less than the lengths along their "
+           "dimensions";
+    ASSERT_TRUE(std::accumulate(begin(coord), end(coord), true, [](bool acc,
+                                                                   int64 item) {
+      return (item >= 0) && acc;
+    })) << "Expected all elements of coord to be >= 0, but found some negative "
+           "ones";
+    ASSERT_TRUE(std::accumulate(
+        begin(shape_vect), end(shape_vect), true,
+        [](bool acc, int64 item) { return (item >= 0) && acc; }))
+        << "Expected all elements of shape_vect to be >= 0, but found some "
+           "negative ones";
+    vector<int64> cum_prod(shape_vect.size());
+    // Consider an example: shape_vect = {2, 3, 4},
+    // shape_vect.rbegin(): begin at the end ie 4. shape_vect.rend()-1: iterate
+    // upto the 2nd element (which is 3). cum_prod.rbegin()+1: populate results
+    // in reverse order
+    std::partial_sum(shape_vect.rbegin(), shape_vect.rend() - 1,
+                     cum_prod.rbegin() + 1, std::multiplies<int64>());
+    cum_prod.back() = 1;
+    // cum_prod is {12, 4, 1}. partial_sum computes the cumulative product
+    // values 12 and 4, while 1 is added to the vector later
+    *vectorized_idx =
+        std::inner_product(cum_prod.begin(), cum_prod.end(), coord.begin(),
+                           0);  // vector dot product of cum_prod and coord
+  };
+
+  // TODO: can input_size ever have an element which is 0
+  int64 tot_num_tests_run = 0;
+  for (auto input_size : input_sizes) {
+    auto rank = input_size.size();
+    auto tot_num_elems_in_tensor = num_elems_in_tensor(input_size);
+    for (int start_vectorized_idx = 0;
+         start_vectorized_idx < tot_num_elems_in_tensor;
+         start_vectorized_idx++) {
+      for (int end_vectorized_idx = 0;
+           end_vectorized_idx < tot_num_elems_in_tensor; end_vectorized_idx++) {
+        vector<int64> cstart, cend;
+        // cout << "Printing input_size\n";
+        // print_vect(input_size);
+        vectorized_idx_to_coordinate(start_vectorized_idx, input_size, &cstart);
+        vectorized_idx_to_coordinate(end_vectorized_idx, input_size, &cend);
+        std::vector<int64> diff_start_end(cstart.size());
+        // Compute the difference between start and end coordinates and store in
+        // diff_start_end. Some coordinates of the diff vector could be negative
+        std::transform(cend.begin(), cend.end(), cstart.begin(),
+                       diff_start_end.begin(), std::minus<int64>());
+
+        // For a tensor with rank 2 and shape (a, b), (-a, -b) to (a, b) are min
+        // and max vals of diff_start_end.
+        // Therefore the new normalized (all positive) coordinate system has
+        // 2^rank elements more that the original tensor of shape (a, b)
+        auto num_elems_in_non_negative_representation_of_diff =
+            (1 << rank) * tot_num_elems_in_tensor;
+
+        std::vector<int64> non_negative_representation_of_diff(
+            rank);  // if input is (a, b), this vector is (2a, 2b)
+        std::transform(input_size.begin(), input_size.end(),
+                       non_negative_representation_of_diff.begin(),
+                       [](int64 x) { return 2 * x; });
+        // cout << "Printing diff_start_end\n";
+        // print_vect(diff_start_end);
+
+        // TODO: strides[i] could be more than gap between start[i] and end[i]..
+        // have a test for that too
+        print_vect(cstart);
+        print_vect(cend);
+        cout << "=============\n";
+        for (int vectorized_idx_for_stride = 0;
+             vectorized_idx_for_stride <
+             num_elems_in_non_negative_representation_of_diff;
+             vectorized_idx_for_stride++) {
+          vector<int64> non_neg_stride_coordinate;
+          vectorized_idx_to_coordinate(vectorized_idx_for_stride,
+                                       non_negative_representation_of_diff,
+                                       &non_neg_stride_coordinate);
+          // cout << "vectorized_idx_for_stride: " << vectorized_idx_for_stride
+          // << " num_elems_in_non_negative_representation_of_diff: " <<
+          // num_elems_in_non_negative_representation_of_diff << "\n";
+          // cout << "Printing non_neg_stride_coordinate\n";
+          // print_vect(non_neg_stride_coordinate);
+
+          // Continuing the example: we had considered it in a space (0, 0) to
+          // (2a, 2b) to make it all positive. Now bring it back to (-a, -b) to
+          // (a, b)
+          std::vector<int64> cstride(rank);
+          std::transform(non_neg_stride_coordinate.begin(),
+                         non_neg_stride_coordinate.end(), input_size.begin(),
+                         cstride.begin(), std::minus<int64>());
+
+          // strides cannot be 0. num_elems_in_tensor function calculates
+          // product of elements, so if one dimension is 0, the whole product is
+          // 0
+          if (num_elems_in_tensor(cstride) == 0) continue;
+
+          // print_vect(cstart);
+          // print_vect(cend);
+          // print_vect(cstride);
+          // cout << "=============\n";
+          tot_num_tests_run++;
+
+          Scope root = Scope::NewRootScope();
+
+          Tensor input_data(in_tensor_type, TensorShape(input_size));
+          AssignInputValuesRandom<float>(input_data, -5.0f, 10.0f);
+
+          Tensor begin(DT_INT64, TensorShape({3}));
+          AssignInputValues<int64>(begin, cstart);
+          Tensor end(DT_INT64, TensorShape({3}));
+          AssignInputValues<int64>(end, cend);
+          Tensor strides(DT_INT64, TensorShape({3}));
+          AssignInputValues<int64>(strides, cstride);
+
+          auto R = ops::StridedSlice(root, input_data, begin, end, strides);
+          vector<DataType> output_datatypes = {in_tensor_type};
+          std::vector<Output> sess_run_fetchoutputs = {R};
+
+          OpExecuter opexecuter(root, "StridedSlice", static_input_indexes,
+                                output_datatypes, sess_run_fetchoutputs);
+
+          opexecuter.RunTest();
+        }
+      }
+    }
+  }
+  cout << "Ran a total of " << tot_num_tests_run << " tests\n";
+}  // end of test op Tile
+
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
   std::vector<std::vector<int64>> input_sizes;  // 1-D or higher
