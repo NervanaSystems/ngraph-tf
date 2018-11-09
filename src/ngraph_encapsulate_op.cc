@@ -15,8 +15,8 @@
  *******************************************************************************/
 #include <cstdlib>
 #include <fstream>
-#include <utility>
 #include <mutex>
+#include <utility>
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
