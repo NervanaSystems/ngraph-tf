@@ -670,7 +670,8 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
 // Test op: StridedSlice
 TEST(ArrayOps, StridedSlice) {
   vector<int> static_input_indexes = {1, 2, 3};  // has static input
-  std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //, {5, 5, 5}};
+  // std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //, {5, 5, 5}};
+  std::vector<std::vector<int64>> input_sizes = {{2}, {2, 3, 4}};
   auto in_tensor_type = DT_FLOAT;
 
   auto print_vect = [](vector<int64> v) {
@@ -728,10 +729,10 @@ TEST(ArrayOps, StridedSlice) {
         [](bool x, bool y) { return x && y; }, std::less<int64>()))
         << "All coordinates should be less than the lengths along their "
            "dimensions";
-    ASSERT_TRUE(std::accumulate(begin(coord), end(coord), true, [](bool acc,
-                                                                   int64 item) {
-      return (item >= 0) && acc;
-    })) << "Expected all elements of coord to be >= 0, but found some negative "
+    ASSERT_TRUE(std::accumulate(
+        begin(coord), end(coord), true,
+        [](bool acc, int64 item) { return (item >= 0) && acc; }))
+        << "Expected all elements of coord to be >= 0, but found some negative "
            "ones";
     ASSERT_TRUE(std::accumulate(
         begin(shape_vect), end(shape_vect), true,
@@ -754,6 +755,7 @@ TEST(ArrayOps, StridedSlice) {
   };
 
   // TODO: can input_size ever have an element which is 0
+  // TODO: what if end is > dimension?
   int64 tot_num_tests_run = 0;
   for (auto input_size : input_sizes) {
     auto rank = input_size.size();
@@ -764,8 +766,7 @@ TEST(ArrayOps, StridedSlice) {
       for (int end_vectorized_idx = 0;
            end_vectorized_idx < tot_num_elems_in_tensor; end_vectorized_idx++) {
         vector<int64> cstart, cend;
-        // cout << "Printing input_size\n";
-        // print_vect(input_size);
+
         vectorized_idx_to_coordinate(start_vectorized_idx, input_size, &cstart);
         vectorized_idx_to_coordinate(end_vectorized_idx, input_size, &cend);
         std::vector<int64> diff_start_end(cstart.size());
@@ -786,13 +787,10 @@ TEST(ArrayOps, StridedSlice) {
         std::transform(input_size.begin(), input_size.end(),
                        non_negative_representation_of_diff.begin(),
                        [](int64 x) { return 2 * x; });
-        // cout << "Printing diff_start_end\n";
-        // print_vect(diff_start_end);
 
         // TODO: strides[i] could be more than gap between start[i] and end[i]..
         // have a test for that too
-        print_vect(cstart);
-        print_vect(cend);
+
         cout << "=============\n";
         for (int vectorized_idx_for_stride = 0;
              vectorized_idx_for_stride <
@@ -802,11 +800,6 @@ TEST(ArrayOps, StridedSlice) {
           vectorized_idx_to_coordinate(vectorized_idx_for_stride,
                                        non_negative_representation_of_diff,
                                        &non_neg_stride_coordinate);
-          // cout << "vectorized_idx_for_stride: " << vectorized_idx_for_stride
-          // << " num_elems_in_non_negative_representation_of_diff: " <<
-          // num_elems_in_non_negative_representation_of_diff << "\n";
-          // cout << "Printing non_neg_stride_coordinate\n";
-          // print_vect(non_neg_stride_coordinate);
 
           // Continuing the example: we had considered it in a space (0, 0) to
           // (2a, 2b) to make it all positive. Now bring it back to (-a, -b) to
@@ -821,22 +814,22 @@ TEST(ArrayOps, StridedSlice) {
           // 0
           if (num_elems_in_tensor(cstride) == 0) continue;
 
-          // print_vect(cstart);
-          // print_vect(cend);
-          // print_vect(cstride);
-          // cout << "=============\n";
-          tot_num_tests_run++;
+          print_vect(cstart);
+          print_vect(cend);
+          print_vect(cstride);
 
           Scope root = Scope::NewRootScope();
 
           Tensor input_data(in_tensor_type, TensorShape(input_size));
-          AssignInputValuesRandom<float>(input_data, -5.0f, 10.0f);
+          std::vector<float> data_vect(tot_num_elems_in_tensor);
+          std::iota(data_vect.begin(), data_vect.end(), 0.0f);
+          AssignInputValues<float>(input_data, data_vect);
 
-          Tensor begin(DT_INT64, TensorShape({3}));
+          Tensor begin(DT_INT64, TensorShape({rank}));
           AssignInputValues<int64>(begin, cstart);
-          Tensor end(DT_INT64, TensorShape({3}));
+          Tensor end(DT_INT64, TensorShape({rank}));
           AssignInputValues<int64>(end, cend);
-          Tensor strides(DT_INT64, TensorShape({3}));
+          Tensor strides(DT_INT64, TensorShape({rank}));
           AssignInputValues<int64>(strides, cstride);
 
           auto R = ops::StridedSlice(root, input_data, begin, end, strides);
@@ -847,6 +840,7 @@ TEST(ArrayOps, StridedSlice) {
                                 output_datatypes, sess_run_fetchoutputs);
 
           opexecuter.RunTest();
+          tot_num_tests_run++;
         }
       }
     }
