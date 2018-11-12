@@ -2531,7 +2531,7 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
           (3 + i), " must be scalar. Got a vector of size, ", tmp_vect.size());
     }
     static_inps[i] = std::make_shared<ng::op::Constant>(
-        ng::element::f32, ng::Shape({1}), tmp_vect);
+        ng::element::f32, ng::Shape({}), tmp_vect);
   }
   std::vector<int32> tf_strides;
   std::vector<int32> tf_dilations;
