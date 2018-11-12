@@ -3413,6 +3413,11 @@ static Status TranslateStridedSliceOp(
   cout << "Begin input for StridedSlice: " << ng::join(begin_vec) << "\n";
   cout << "End input for StridedSlice: " << ng::join(end_vec) << "\n";
   cout << "Stride input for StridedSlice: " << ng::join(stride_vec) << "\n";
+  cout << "tf_shrink_axis_mask: " << tf_shrink_axis_mask << "\n";
+  cout << "tf_begin_mask: " << tf_begin_mask << "\n";
+  cout << "tf_end_mask: " << tf_end_mask << "\n";
+  cout << "tf_new_axis_mask: " << tf_new_axis_mask << "\n";
+  cout << "tf_ellipsis_mask: " << tf_ellipsis_mask << "\n";
 
   auto& input_shape = ng_input->get_shape();
   cout << "Input shape for StridedSlice: " << ng::join(input_shape) << "\n";
@@ -3433,26 +3438,39 @@ static Status TranslateStridedSliceOp(
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
-                            size_t dim, bool begin_mask, bool end_mask) {
+                            size_t dim, bool begin_mask, bool end_mask,
+                            bool shrink_mask) {
     if (begin_mask) {
-      tf_begin_idx = tf_stride > 0 ? 0 : dim;
+      tf_begin_idx = tf_stride > 0 ? 0 : dim;  // TODO: is this dim or dim-1
     }
     if (end_mask) {
       tf_end_idx = tf_stride > 0 ? dim : 0;
     }
 
     auto ng_begin_idx = clamper(tf_begin_idx, dim);
-    // Check if the directions indicated by begin and end idx match stride sign
-    // If they don't match, assign ng_begin_idx. Since we make
-    // ng_end_idx==ng_begin_idx, the tensor will be empty
-    auto ng_end_idx = ((tf_end_idx - tf_begin_idx > 0) != (tf_stride > 0))
-                          ? ng_begin_idx
-                          : clamper(tf_end_idx, dim);
-    if (ng_begin_idx > ng_end_idx) {
-      ng_begin_idx = dim - 1 - ng_begin_idx;
-      ng_end_idx = dim - 1 - ng_end_idx;
+    auto ng_end_idx = shrink_mask ? ng_begin_idx + 1 : clamper(tf_end_idx, dim);
+    // TODO: assert if shrink_mask is True, then tf_begin_idx is in range [-d,
+    // d)
+
+    if (!shrink_mask) {
+      // Check if the directions indicated by begin and end idx match stride
+      // sign
+      // If they don't match, assign ng_begin_idx. Since we make
+      // ng_end_idx==ng_begin_idx, the tensor will be empty
+      if ((ng_end_idx > ng_begin_idx) != (tf_stride > 0)) {
+        ng_end_idx = ng_begin_idx;
+      }
+
+      // Reverse if necessary (negative stride)
+      if (ng_begin_idx > ng_end_idx) {
+        ng_begin_idx = dim - 1 - ng_begin_idx;
+        ng_end_idx = dim - 1 - ng_end_idx;
+      }
     }
-    return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride));
+
+    bool needs_reverse = shrink_mask ? false : (tf_stride < 0);
+    return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride),
+                           needs_reverse);
   };
 
   auto extract_bit = [](int bit_mask, int bit_location) {
@@ -3470,18 +3488,25 @@ static Status TranslateStridedSliceOp(
   // initialize them with 0, dim and 1 respectively
   vector<size_t> ng_begin_vec(in_rank, 0), ng_stride_vec(in_rank, 1);
   vector<size_t> ng_end_vec(dim_vec);
+  vector<size_t> ng_needs_reversal(in_rank, 0);  // should have been a
+                                                 // vector<bool>, but it is
+                                                 // optimized, so tie won't
+                                                 // work. Hence using size_t
   for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
-    std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx],
-             ng_stride_vec[dim_idx]) =
+    std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx], ng_stride_vec[dim_idx],
+             ng_needs_reversal[dim_idx]) =
         tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
                  dim_vec[dim_idx], extract_bit(tf_begin_mask, dim_idx),
-                 extract_bit(tf_end_mask, dim_idx));
+                 extract_bit(tf_end_mask, dim_idx),
+                 extract_bit(tf_shrink_axis_mask, dim_idx));
   }
 
   // filter out negative stride dimensions
   vector<size_t> neg_strides;
   for (int dim_idx = 0; dim_idx < in_rank; dim_idx++) {
-    if (stride_vec[dim_idx] < 0) neg_strides.push_back(dim_idx);
+    if (ng_needs_reversal[dim_idx]) {
+      neg_strides.push_back(dim_idx);
+    }
   }
 
   // atleast one stride was negative, in which case reverse the input
@@ -3491,9 +3516,9 @@ static Status TranslateStridedSliceOp(
   std::shared_ptr<ng::Node> ng_strided_slice = make_shared<ng::op::Slice>(
       ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
 
-  NGRAPH_VLOG(3) << " NG Lower Vector " << ng::join(ng_begin_vec);
-  NGRAPH_VLOG(3) << " NG End Vector " << ng::join(ng_end_vec);
-  NGRAPH_VLOG(3) << " NG Stride Vector " << ng::join(ng_stride_vec);
+  cout << " NG Lower Vector " << ng::join(ng_begin_vec) << "\n";
+  cout << " NG End Vector " << ng::join(ng_end_vec) << "\n";
+  cout << " NG Stride Vector " << ng::join(ng_stride_vec) << "\n";
 
   vector<size_t> output_shape;
   if (tf_shrink_axis_mask) {
@@ -3501,6 +3526,8 @@ static Status TranslateStridedSliceOp(
     vector<size_t> output_shape;
 
     // TODO: use rank instead of ng_begin_vec.size()
+    // maybe not rank... since ng_begin_vec.size() can be less than rank. and
+    // shrink_mask will have atmost ng_begin_vec.size() elements
     for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
         output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
@@ -3523,6 +3550,7 @@ static Status TranslateStridedSliceOp(
     ng_strided_slice = make_shared<ng::op::Reshape>(
         ng_strided_slice, ng_axis_order, ng_final_shape);
   }
+
   // TODO: assert size in this dim was 1
   // TODO: assert new_axis_mask and tf_shrink_axis_mask are not set at the same
   // time?
