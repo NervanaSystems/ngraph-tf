@@ -667,7 +667,6 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
   }
 }  // end of op SpaceToDepthNCHW
 
-
 // Test op: StridedSlice
 // In this test the begin, end and stride vectors have length < rank
 TEST(ArrayOps, StridedSliceTest1) {
@@ -706,8 +705,7 @@ TEST(ArrayOps, StridedSliceTest1) {
   attrs.end_mask_ = 0;
   attrs.new_axis_mask_ = 0;
   attrs.shrink_axis_mask_ = 1;
-  //attrs.shrink_axis_mask_ = 0;
-
+  // attrs.shrink_axis_mask_ = 0;
 
   auto R = ops::StridedSlice(root, input_data, begin, end, strides);
   vector<DataType> output_datatypes = {in_tensor_type};

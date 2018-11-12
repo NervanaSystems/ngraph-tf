@@ -3463,9 +3463,11 @@ static Status TranslateStridedSliceOp(
   auto in_rank = dim_vec.size();
 
   // TODO: assert begin, end and stride vectors are of equal length
-  // TODO: when ellipses mask is fully supported, this part can be done by setting ellipses bit at the end (1<<begin_vec.size())
+  // TODO: when ellipses mask is fully supported, this part can be done by
+  // setting ellipses bit at the end (1<<begin_vec.size())
 
-  // begin, end and stride vectors may not have same size as input rank, hence initialize them with 0, dim and 1 respectively
+  // begin, end and stride vectors may not have same size as input rank, hence
+  // initialize them with 0, dim and 1 respectively
   vector<size_t> ng_begin_vec(in_rank, 0), ng_stride_vec(in_rank, 1);
   vector<size_t> ng_end_vec(dim_vec);
   for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
@@ -3502,10 +3504,9 @@ static Status TranslateStridedSliceOp(
     for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
         output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
-      }
-      else{
-        //TODO: must it equal 1 or can it be 0 too?
-        assert (ng_end_vec[i] - ng_begin_vec[i] <= 1);
+      } else {
+        // TODO: must it equal 1 or can it be 0 too?
+        assert(ng_end_vec[i] - ng_begin_vec[i] <= 1);
       }
       shrink_axis_mask >>= 1;
     }
@@ -3522,8 +3523,9 @@ static Status TranslateStridedSliceOp(
     ng_strided_slice = make_shared<ng::op::Reshape>(
         ng_strided_slice, ng_axis_order, ng_final_shape);
   }
-  //TODO: assert size in this dim was 1
-  // TODO: assert new_axis_mask and tf_shrink_axis_mask are not set at the same time?
+  // TODO: assert size in this dim was 1
+  // TODO: assert new_axis_mask and tf_shrink_axis_mask are not set at the same
+  // time?
   // TODO: tf_new_axis_mask can exceed rank
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
