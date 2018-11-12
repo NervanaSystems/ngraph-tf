@@ -3533,6 +3533,7 @@ static Status TranslateStridedSliceOp(
         output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
       } else {
         // TODO: must it equal 1 or can it be 0 too?
+        // TODO: return TF status instead of plain assert
         assert(ng_end_vec[i] - ng_begin_vec[i] <= 1);
       }
       shrink_axis_mask >>= 1;
