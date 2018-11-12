@@ -3413,23 +3413,27 @@ static Status TranslateStridedSliceOp(
   std::vector<int64> stride_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 3, static_input_map, &stride_vec));
-
-  NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(begin_vec);
-  NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
+  cout << "------------------\n";
+  cout << "Begin input for StridedSlice: " << ng::join(begin_vec) << "\n";
+  cout << "End input for StridedSlice: " << ng::join(end_vec) << "\n";
+  cout << "Stride input for StridedSlice: " << ng::join(stride_vec) << "\n";
 
   auto& input_shape = ng_input->get_shape();
-  NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
+  cout << "Input shape for StridedSlice: " << ng::join(input_shape) << "\n";
 
-  //        .|   ........     <-- y = dim-1 (dim = 5)
+  //         |    .......     <-- y = max_val (max_val = 5)
+  //        .|   .
   //       . |  .
-  //      .  | .              <-- y = x>0 ? x : x+dim
+  //      .  | .              <-- y = x>0 ? x : x+max_val
   //     .   |.
   // -.-.----.------------    <-- y = 0
   //         |
   //         |
-  auto clamper = [](int idx, size_t dim) {
-    return idx >= 0 ? ((idx > dim - 1) ? dim - 1 : idx)
-                    : ((idx < -dim) ? 0 : idx + dim);
+
+  // clamper is a function that implements the graph above.
+  auto clamper = [](int idx, size_t max_val) {
+    return idx >= 0 ? ((idx > max_val) ? max_val : idx)
+                    : ((idx < -max_val) ? 0 : idx + max_val);
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
@@ -3445,7 +3449,7 @@ static Status TranslateStridedSliceOp(
     // Check if the directions indicated by begin and end idx match stride sign
     // If they don't match, assign ng_begin_idx. Since we make
     // ng_end_idx==ng_begin_idx, the tensor will be empty
-    auto ng_end_idx = (tf_end_idx - tf_begin_idx > 0) != (tf_stride > 0)
+    auto ng_end_idx = ((tf_end_idx - tf_begin_idx > 0) != (tf_stride > 0))
                           ? ng_begin_idx
                           : clamper(tf_end_idx, dim);
     if (ng_begin_idx > ng_end_idx) {
@@ -3460,9 +3464,15 @@ static Status TranslateStridedSliceOp(
   };
 
   auto dim_vec = ng_input->get_shape();
-  auto rank = dim_vec.size();
-  vector<size_t> ng_begin_vec(rank), ng_end_vec(rank), ng_stride_vec(rank);
-  for (int dim_idx = 0; dim_idx < rank; dim_idx++) {
+  auto in_rank = dim_vec.size();
+
+  // TODO: assert begin, end and stride vectors are of equal length
+  // TODO: when ellipses mask is fully supported, this part can be done by setting ellipses bit at the end (1<<begin_vec.size())
+
+  // begin, end and stride vectors may not have same size as input rank, hence initialize them with 0, dim and 1 respectively
+  vector<size_t> ng_begin_vec(in_rank, 0), ng_stride_vec(in_rank, 1);
+  vector<size_t> ng_end_vec(dim_vec);
+  for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
     std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx],
              ng_stride_vec[dim_idx]) =
         tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
@@ -3472,7 +3482,7 @@ static Status TranslateStridedSliceOp(
 
   // filter out negative stride dimensions
   vector<size_t> neg_strides;
-  for (int dim_idx = 0; dim_idx < rank; dim_idx++) {
+  for (int dim_idx = 0; dim_idx < in_rank; dim_idx++) {
     if (stride_vec[dim_idx] < 0) neg_strides.push_back(dim_idx);
   }
 
@@ -3496,6 +3506,10 @@ static Status TranslateStridedSliceOp(
     for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
         output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
+      }
+      else{
+        //TODO: must it equal 1 or can it be 0 too?
+        assert (ng_end_vec[i] - ng_begin_vec[i] <= 1);
       }
       shrink_axis_mask >>= 1;
     }

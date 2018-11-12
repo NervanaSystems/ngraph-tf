@@ -667,6 +667,58 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
   }
 }  // end of op SpaceToDepthNCHW
 
+
+// Test op: StridedSlice
+// In this test the begin, end and stride vectors have length < rank
+TEST(ArrayOps, StridedSliceTest1) {
+  vector<int> static_input_indexes = {1, 2, 3};
+
+  Scope root = Scope::NewRootScope();
+  auto in_tensor_type = DT_FLOAT;
+  std::vector<int64> input_size = {39, 128, 128};
+  Tensor input_data(in_tensor_type, TensorShape(input_size));
+
+  auto num_elems_in_tensor = [](std::vector<int64> shape_vect) {
+    return std::accumulate(begin(shape_vect), end(shape_vect), 1,
+                           std::multiplies<int64>());
+  };
+  auto tot_num_elems_in_tensor = num_elems_in_tensor(input_size);
+
+  std::vector<float> data_vect(tot_num_elems_in_tensor);
+  std::iota(data_vect.begin(), data_vect.end(), 0.0f);
+  AssignInputValues<float>(input_data, data_vect);
+
+  auto rank = input_size.size();
+  std::vector<int64> cstart = {0, 1};
+  std::vector<int64> cend = {0, 2};
+  std::vector<int64> cstride = {1, 1};
+
+  Tensor begin(DT_INT64, TensorShape({cstart.size()}));
+  AssignInputValues<int64>(begin, cstart);
+  Tensor end(DT_INT64, TensorShape({cend.size()}));
+  AssignInputValues<int64>(end, cend);
+  Tensor strides(DT_INT64, TensorShape({cstride.size()}));
+  AssignInputValues<int64>(strides, cstride);
+
+  ops::StridedSlice::Attrs attrs;
+  attrs.begin_mask_ = 0;
+  attrs.ellipsis_mask_ = 0;
+  attrs.end_mask_ = 0;
+  attrs.new_axis_mask_ = 0;
+  attrs.shrink_axis_mask_ = 1;
+  //attrs.shrink_axis_mask_ = 0;
+
+
+  auto R = ops::StridedSlice(root, input_data, begin, end, strides);
+  vector<DataType> output_datatypes = {in_tensor_type};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "StridedSlice", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
 // Test op: StridedSlice
 TEST(ArrayOps, StridedSlice) {
   vector<int> static_input_indexes = {1, 2, 3};  // has static input
