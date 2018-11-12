@@ -3410,8 +3410,6 @@ static Status TranslateStridedSliceOp(
   std::vector<int64> end_vec;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &end_vec));
 
-  cout << "end_vec 0: " << ng::join(end_vec) << "\n";
-
   std::vector<int64> stride_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 3, static_input_map, &stride_vec));
@@ -3436,8 +3434,12 @@ static Status TranslateStridedSliceOp(
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
                             size_t dim, bool begin_mask, bool end_mask) {
-    if (begin_mask) tf_begin_idx = tf_stride > 0 ? 0 : dim;
-    if (end_mask) tf_end_idx = tf_stride > 0 ? dim : 0;
+    if (begin_mask) {
+      tf_begin_idx = tf_stride > 0 ? 0 : dim;
+    }
+    if (end_mask) {
+      tf_end_idx = tf_stride > 0 ? dim : 0;
+    }
 
     auto ng_begin_idx = clamper(tf_begin_idx, dim);
     // Check if the directions indicated by begin and end idx match stride sign
@@ -3447,7 +3449,8 @@ static Status TranslateStridedSliceOp(
                           ? ng_begin_idx
                           : clamper(tf_end_idx, dim);
     if (ng_begin_idx > ng_end_idx) {
-      std::swap(ng_begin_idx, ng_end_idx);
+      ng_begin_idx = dim - 1 - ng_begin_idx;
+      ng_end_idx = dim - 1 - ng_end_idx;
     }
     return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride));
   };
@@ -3473,11 +3476,6 @@ static Status TranslateStridedSliceOp(
     if (stride_vec[dim_idx] < 0) neg_strides.push_back(dim_idx);
   }
 
-  cout << "+++++++++++++\n";
-  cout << ng::join(ng_begin_vec) << "\n";
-  cout << ng::join(ng_end_vec) << "\n";
-  cout << ng::join(ng_stride_vec) << "\n";
-
   // atleast one stride was negative, in which case reverse the input
   if (neg_strides.size() > 0)
     ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
@@ -3490,16 +3488,18 @@ static Status TranslateStridedSliceOp(
   NGRAPH_VLOG(3) << " NG Stride Vector " << ng::join(ng_stride_vec);
 
   vector<size_t> output_shape;
-  if (tf_shrink_axis_mask > 0) {
+  if (tf_shrink_axis_mask) {
     int64 shrink_axis_mask = tf_shrink_axis_mask;
     vector<size_t> output_shape;
 
+    // TODO: use rank instead of ng_begin_vec.size()
     for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
-        output_shape.push_back(end_vec[i] - ng_begin_vec[i]);
+        output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
       }
       shrink_axis_mask >>= 1;
     }
+
     NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
 
     ng::Shape ng_final_shape(output_shape);
@@ -3512,6 +3512,9 @@ static Status TranslateStridedSliceOp(
     ng_strided_slice = make_shared<ng::op::Reshape>(
         ng_strided_slice, ng_axis_order, ng_final_shape);
   }
+  //TODO: assert size in this dim was 1
+  // TODO: assert new_axis_mask and tf_shrink_axis_mask are not set at the same time?
+  // TODO: tf_new_axis_mask can exceed rank
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
   return Status::OK();

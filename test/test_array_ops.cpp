@@ -671,7 +671,7 @@ TEST(ArrayOps, SpaceToDepthNCHW) {
 TEST(ArrayOps, StridedSlice) {
   vector<int> static_input_indexes = {1, 2, 3};  // has static input
   // std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //, {5, 5, 5}};
-  std::vector<std::vector<int64>> input_sizes = {{2}, {2, 3, 4}};
+  std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //{2}
   auto in_tensor_type = DT_FLOAT;
 
   auto print_vect = [](vector<int64> v) {
@@ -812,7 +812,9 @@ TEST(ArrayOps, StridedSlice) {
           // strides cannot be 0. num_elems_in_tensor function calculates
           // product of elements, so if one dimension is 0, the whole product is
           // 0
-          if (num_elems_in_tensor(cstride) == 0) continue;
+          if (num_elems_in_tensor(cstride) == 0) {
+            continue;
+          }
 
           print_vect(cstart);
           print_vect(cend);

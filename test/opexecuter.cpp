@@ -134,6 +134,10 @@ void OpExecuter::RunTest(const string& ng_backend_name) {
   ExecuteOnNGraph(ngraph_outputs, ng_backend_name);
   vector<Tensor> tf_outputs;
   ExecuteOnTF(tf_outputs);
+  cout << "TF tensor:=====\n";
+  PrintTensorAllValues(tf_outputs[0], 50);
+  cout << "NG tensor:=====\n";
+  PrintTensorAllValues(ngraph_outputs[0], 50);
   Compare(tf_outputs, ngraph_outputs);
 }
 
