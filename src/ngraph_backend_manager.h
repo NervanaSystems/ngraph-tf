@@ -23,8 +23,8 @@
 #include <ostream>
 #include <vector>
 
-#include "ngraph/ngraph.hpp"
 #include <absl/base/thread_annotations.h>
+#include "ngraph/ngraph.hpp"
 #include "ngraph_log.h"
 
 using namespace std;
@@ -38,7 +38,6 @@ struct Backend {
   unique_ptr<ng::runtime::Backend> backend_ptr;
   mutex backend_mutex;
 };
-
 
 class BackendManager {
  public:
@@ -63,7 +62,7 @@ class BackendManager {
   // Returns the nGraph supported backend names
   static Status GetSupportedBackendNames(vector<string>& backend_names);
 
- //private:
+  // private:
   static string ng_backend_name_;
   static mutex ng_backend_name_mutex_;
   static map<string, Backend*> ng_backend_map_;

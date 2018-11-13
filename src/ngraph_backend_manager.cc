@@ -34,14 +34,14 @@ mutex BackendManager::ng_backend_map_mutex_;
 
 Status BackendManager::SetBackendName(const string& backend_name) {}
 
-void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name){
-  std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_); 
+void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name) {
+  std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_);
   auto itr = BackendManager::ng_backend_map_.find(backend_name);
   // if backend does not exist create it
   if (itr == BackendManager::ng_backend_map_.end()) {
     Backend* bend = new Backend;
     std::unique_ptr<ng::runtime::Backend> bend_ptr =
-       ng::runtime::Backend::create(backend_name);
+        ng::runtime::Backend::create(backend_name);
     bend->backend_ptr = std::move(bend_ptr);
     BackendManager::ng_backend_map_[backend_name] = bend;
   }
@@ -53,15 +53,14 @@ ng::runtime::Backend* BackendManager::GetBackend(const string& backend_name) {
 }
 
 // LockBackend
-/*static*/ void BackendManager::LockBackend(const string& backend_name){
+/*static*/ void BackendManager::LockBackend(const string& backend_name) {
   BackendManager::ng_backend_map_.at(backend_name)->backend_mutex.lock();
 }
 
 // UnlockBackend
-/*static*/ void BackendManager::UnlockBackend(const string& backend_name){
+/*static*/ void BackendManager::UnlockBackend(const string& backend_name) {
   BackendManager::ng_backend_map_.at(backend_name)->backend_mutex.unlock();
 }
-
 
 // Returns the nGraph supported backend names
 Status BackendManager::GetSupportedBackendNames(vector<string>& backend_names) {

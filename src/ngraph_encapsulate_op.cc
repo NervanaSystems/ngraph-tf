@@ -28,13 +28,13 @@
 
 #include "ngraph/serializer.hpp"
 
+#include "ngraph_backend_manager.h"
 #include "ngraph_builder.h"
 #include "ngraph_cluster_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
-#include "ngraph_backend_manager.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -125,6 +125,14 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Set the backend type for the op
     op_backend_name = "CPU";
+    const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
+    if (ng_backend_env_value != nullptr) {
+      string backend_env = std::string(ng_backend_env_value);
+      if (!backend_env.empty()) {
+        op_backend_name = backend_env;
+      }
+    }
+
     BackendManager::CreateBackendIfDoesNotExist(op_backend_name);
   }
 
@@ -212,7 +220,7 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4) << "Get backend of type: " << op_backend_name;
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(op_backend_name);
-    
+
     // Get the inputs
     std::vector<TensorShape> input_shapes;
     std::stringstream signature_ss;
@@ -449,8 +457,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Execute the nGraph function.
     {
-      //mutex_lock l(s_ng_backend_mutex);
-      //std::lock_guard<std::mutex> lock(backend_mutex_ptr); 
+      // mutex_lock l(s_ng_backend_mutex);
+      // std::lock_guard<std::mutex> lock(backend_mutex_ptr);
       BackendManager::LockBackend(op_backend_name);
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
