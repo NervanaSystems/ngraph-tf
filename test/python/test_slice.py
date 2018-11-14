@@ -30,8 +30,6 @@ from tensorflow.python.ops import array_ops
 
 from common import NgraphTest
 
-import pdb
-
 
 class TestSliceOperations(NgraphTest):
 
@@ -59,7 +57,6 @@ class TestSliceOperations(NgraphTest):
 
         for v, e in zip(slice_vals, expected):
             np.testing.assert_array_equal(v, e)
-
 
     def test_strided_slice(self):
         inp = np.random.rand(4, 5).astype("f")
@@ -100,6 +97,7 @@ class TestSliceOperations(NgraphTest):
 
         #pdb.set_trace()
         print(slice_ts)
+
         def run_test(sess):
             return sess.run(slice_ts, feed_dict={x: a})
 

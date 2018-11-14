@@ -3409,29 +3409,19 @@ static Status TranslateStridedSliceOp(
   std::vector<int64> stride_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 3, static_input_map, &stride_vec));
-  cout << "------------------\n";
-  cout << "Begin input for StridedSlice: " << ng::join(begin_vec) << "\n";
-  cout << "End input for StridedSlice: " << ng::join(end_vec) << "\n";
-  cout << "Stride input for StridedSlice: " << ng::join(stride_vec) << "\n";
-  cout << "tf_shrink_axis_mask: " << tf_shrink_axis_mask << "\n";
-  cout << "tf_begin_mask: " << tf_begin_mask << "\n";
-  cout << "tf_end_mask: " << tf_end_mask << "\n";
-  cout << "tf_new_axis_mask: " << tf_new_axis_mask << "\n";
-  cout << "tf_ellipsis_mask: " << tf_ellipsis_mask << "\n";
 
   auto& input_shape = ng_input->get_shape();
-  cout << "Input shape for StridedSlice: " << ng::join(input_shape) << "\n";
 
-  //         |    .......     <-- y = max_val (max_val = 5)
-  //        .|   .
-  //       . |  .
-  //      .  | .              <-- y = x>=0 ? x : x+max_val
-  //     .   |.
-  // ---.----.------------    <-- y = 0
-  //  ..     |                <-- y = -1
-  //         |
+  //           |    .......     <-- y = max_val (max_val = 5)
+  //          .|   .
+  //         . |  .
+  //        .  | .              <-- y = x>=0 ? x : x+max_val
+  //       .   |.
+  // -.-.-.----.------------    <-- y = 0 (for inclusive)
+  //  * *      |                <-- y = -1 (for exclusive)
+  //           |
 
-  // clamper is a function that implements the graph above (for exclusive case).
+  // clamper is a function that implements the graph above.
   // For inclusive, the graph is clamped at 0 and dim-1
   // Given dimension d, [0, d-1] are valid locations.
   // -1 represents std::rend(). d represents std::end().
@@ -3464,13 +3454,6 @@ static Status TranslateStridedSliceOp(
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
                             size_t dim, bool begin_mask, bool end_mask,
                             bool shrink_mask) {
-    cout << "tf_begin_idx 1 : " << tf_begin_idx << "\n";
-    cout << "tf_end_idx 1 : " << tf_end_idx << "\n";
-    cout << "tf_stride 1 : " << tf_stride << "\n";
-    cout << "begin_mask " << begin_mask << "\n";
-    cout << "end_mask " << end_mask << "\n";
-    cout << "shrink_mask " << shrink_mask << "\n";
-    cout << "dim 1:  " << dim << "\n";
     // if begin mask is present, depending on stride sign use 0 (std::begin) or
     // dim-1 (std::rbegin)
     // clamped_end_idx could line in [-1, d]
@@ -3481,13 +3464,8 @@ static Status TranslateStridedSliceOp(
     // However note, we cannot set to -1, since it has another meaning, hence
     // setting to -(dim+1), which would translate to -1 in clamped coordinates
     // take care to convert dim from sixze_t to int
-    cout << end_mask << " " << (tf_stride > 0) << " " << dim << " " << (-((int)dim + 1)) << " " << tf_end_idx << "\n";
     int tf_ignore_end_if_needed =
         end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
-    cout << "tf_ignore_begin_if_needed 1 : " << tf_ignore_begin_if_needed
-         << "\n";
-    cout << "tf_ignore_end_if_needed 1 : " << tf_ignore_end_if_needed << "\n";
-
 
     // using size_t for clamped_begin_idx because: clamped_begin_idx is
     // inclusive, so it must lie in [0, dim-1]
@@ -3495,8 +3473,6 @@ static Status TranslateStridedSliceOp(
     int64 clamped_end_idx =
         clamper(shrink_mask ? clamped_begin_idx + 1 : tf_ignore_end_if_needed,
                 dim, false);
-    cout << "clamped_begin_idx 1 : " << clamped_begin_idx << "\n";
-    cout << "clamped_end_idx 1 : " << clamped_end_idx << "\n";
 
     // TODO: assert if shrink_mask is True, then clamped_begin_idx is in range
     // [0, d-1]
@@ -3517,12 +3493,9 @@ static Status TranslateStridedSliceOp(
         // clamped_end_idx!=-1 (since clamped_begin_idx cannot be -1), hence end
         // index assignment is type safe
         ng_end_idx = clamped_end_idx;
-        cout << "here1\n";
       } else {  // In the whole of this else: clamped_begin_idx !=
                 // clamped_end_idx, so !(a < b) iff a > b and vice versa when
                 // comparing the indexes
-        cout << (int)clamped_begin_idx << " " << clamped_end_idx << " " << ((int)clamped_begin_idx < clamped_end_idx) << "\n";
-        cout << tf_stride << " " << (tf_stride > 0) << " " << (((int)clamped_begin_idx < clamped_end_idx) != (tf_stride > 0)) << "\n";
         // take care to use (int) typecase when comparing int and size_t
         if (((int)clamped_begin_idx < clamped_end_idx) != (tf_stride > 0)) {
           // Empty due to mismatching directions
@@ -3534,7 +3507,6 @@ static Status TranslateStridedSliceOp(
           ng_end_idx = clamped_begin_idx;
           // Any assignment where ng_begin_idx = ng_end_idx = x (where 0 <= x <=
           // d-1) would have worked for the 2 empty cases above
-          cout << "here2\n";
         }
         // Anything after this is non-empty. Anything before this has dealt with
         // empty cases
@@ -3549,12 +3521,11 @@ static Status TranslateStridedSliceOp(
             // Type safety: tf_stride > 0 ==> clamped_begin_idx <
             // clamped_end_idx. clamped_begin_idx could be 0,
             // which means clamped_end_idx > 0. Hence type-safe
-            cout << "here3: clamped_end_idx " << clamped_end_idx << "\n";
             ng_end_idx = clamped_end_idx;
-            cout << "here3\n";
           } else {  // clamped_begin_idx > clamped_end_idx, tf_stride < 0
 
-            // clamped_begin_idx is [0, d] && clamped_begin_idx > clamped_end_idx, 
+            // clamped_begin_idx is [0, d] && clamped_begin_idx >
+            // clamped_end_idx,
             // which implies clamped_end_idx is [-1,d-1]
             // Type safety: With clamped_end_idx in [-1,d-1],
             // dim - 1 - clamped_end_idx is in [0, dim]. Hence type safe
@@ -3578,7 +3549,6 @@ static Status TranslateStridedSliceOp(
             // safe
             ng_begin_idx = dim - 1 - clamped_begin_idx;
             needs_reverse = true;
-            cout << "here4\n";
           }
         }
       }
@@ -3596,8 +3566,6 @@ static Status TranslateStridedSliceOp(
       ng_begin_idx = clamped_begin_idx;
       ng_end_idx = clamped_end_idx;
     }
-    cout << "ng_begin_idx 1 : " << ng_begin_idx << "\n";
-    cout << "ng_end_idx 1 : " << ng_end_idx << "\n";
     return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride),
                            needs_reverse);
   };
@@ -3622,8 +3590,6 @@ static Status TranslateStridedSliceOp(
                                                  // optimized, so tie won't
                                                  // work. Hence using size_t
   for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
-    cout << "dim_idx: " << dim_idx << "-------\n";
-    cout << "dim_vec[dim_idx]: " << dim_vec[dim_idx] << "\n";
     std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx], ng_stride_vec[dim_idx],
              ng_needs_reversal[dim_idx]) =
         tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
@@ -3644,16 +3610,14 @@ static Status TranslateStridedSliceOp(
   if (neg_strides.size() > 0)
     ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
 
-  cout << " NG Lower Vector " << ng::join(ng_begin_vec) << "\n";
-  cout << " NG End Vector " << ng::join(ng_end_vec) << "\n";
-  cout << " NG Stride Vector " << ng::join(ng_stride_vec) << "\n";
-  cout << "ng_needs_reversal: " << ng::join(ng_needs_reversal) << "\n";
-  cout << "neg_strides: " << ng::join(neg_strides) << "\n";
+  NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
+  NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
+  NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
+  NGRAPH_VLOG(3) << "NG Needs Reversal: " << ng::join(ng_needs_reversal);
 
   std::shared_ptr<ng::Node> ng_strided_slice = make_shared<ng::op::Slice>(
       ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
 
-  vector<size_t> output_shape;
   if (tf_shrink_axis_mask) {
     int64 shrink_axis_mask = tf_shrink_axis_mask;
     vector<size_t> output_shape;
