@@ -6,8 +6,8 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
 
  - Python tests using Tensorflow with nGraph embedded
  - Python tests by patching Tensorflow to allow runnings tests using nGraph. 
-   Apply the patch in your installed tensoflow file:<local virtualenv>/local/lib/<python>/site-packages/tensorflow/python/framework/test_util.py" 
-	```tf_unittest_ngraph.patch```
+   Apply the patch ```tf_unittest_ngraph.patch``` in your installed tensoflow file:"<local virtualenv>/local/lib/<python>/site-packages/tensorflow/python/framework/test_util.py" 
+	
 
 ## Usage
 
@@ -69,5 +69,5 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
    ```
  -  List of tests to run can be listed in a text file and pass the file name 
      to  argument `--run_tests_from_file` to run. 
- -  To verify the Op placement on ngraph while running the tests set NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_DISABLE_DEASSIGN_CLUSTER
+ -  To verify the Op placement on ngraph while running the tests set NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_DISABLE_DEASSIGN_CLUSTER=1
 
