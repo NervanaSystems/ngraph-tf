@@ -30,9 +30,11 @@ from tensorflow.python.ops import array_ops
 
 from common import NgraphTest
 
+import pdb
+
 
 class TestSliceOperations(NgraphTest):
-    '''
+
     def test_slice(self):
         inp = np.random.rand(4, 4).astype("f")
         slice_ts = []
@@ -57,7 +59,7 @@ class TestSliceOperations(NgraphTest):
 
         for v, e in zip(slice_vals, expected):
             np.testing.assert_array_equal(v, e)
-    '''
+
 
     def test_strided_slice(self):
         inp = np.random.rand(4, 5).astype("f")
@@ -81,9 +83,23 @@ class TestSliceOperations(NgraphTest):
         slice_ts.append(x[0][1])
         slice_ts.append(x[-1])
 
+        # Various ways of representing identity slice
+        slice_ts.append(x[:, :])
+        slice_ts.append(x[::, ::])
+        slice_ts.append(x[::1, ::1])
+
+        # Reverse in each dimension independently
+        slice_ts.append(x[::-1, :])
+        slice_ts.append(x[:, ::-1])
+
+        ## negative index tests i.e. n-2 in first component
+        slice_ts.append(x[-2::-1, ::1])
+
         # unsupported currently
         # slice_ts.append(x[:, tf.newaxis])
 
+        #pdb.set_trace()
+        print(slice_ts)
         def run_test(sess):
             return sess.run(slice_ts, feed_dict={x: a})
 
@@ -102,6 +118,18 @@ class TestSliceOperations(NgraphTest):
         expected.append(inp[0][1])
         expected.append(inp[-1])
         #TODO: support ellipses and new_axis correctly
+
+        # Various ways of representing identity slice
+        expected.append(inp[:, :])
+        expected.append(inp[::, ::])
+        expected.append(inp[::1, ::1])
+
+        # Reverse in each dimension independently
+        expected.append(inp[::-1, :])
+        expected.append(inp[:, ::-1])
+
+        ## negative index tests i.e. n-2 in first component
+        expected.append(inp[-2::-1, ::1])
 
         for v, e in zip(slice_vals, expected):
             np.testing.assert_array_equal(v, e)

@@ -3437,25 +3437,28 @@ static Status TranslateStridedSliceOp(
   // -1 represents std::rend(). d represents std::end().
   // These two are useful for representing exclusive boundaries for end-ranges
   // Example for dim = 3:
-  // ranges:                (-inf,-(d-1))|[-(d-1),0)|[0,d-1]|(d-1,inf)
-  // TF index:                  -5 -4 -3 | -2 -1    | 0 1 2 | 3 4 5
-  // clamped begin (inclusive):  0  0  0 |  1  2    | 0 1 2 | 3 3 3
-  // clamped end (exclusive):   -1 -1 -1 |  1  2    | 0 1 2 | 3 3 3
+  // ranges:                 (-inf,-d)|   [-d,0)    |[0,d-1]|(d-1,inf)
+  // TF index:                  -5 -4 |-3  -2 -1    | 0 1 2 | 3 4 5
+  // clamped begin (inclusive):  0  0 | 0   1  2    | 0 1 2 | 3 3 3
+  // clamped end (exclusive):   -1 -1 | 0   1  2    | 0 1 2 | 3 3 3
   auto clamper = [](int idx, size_t dim, bool inclusive) {
-    // if idx is in [-(d-1), d-1], then its same for both inclusive and exclusive
+    // if idx is in [-(d-1), d-1], then its same for both inclusive and
+    // exclusive
     // The first 2 cases breaks down this range
-    if (idx >= 0 && idx <= (dim - 1)){
+    if (idx >= 0 && idx <= (dim - 1)) {
       return idx;
-    } else if (idx < 0 && idx >= -(dim - 1)){
-      return idx + dim;
-    } else if (idx > dim - 1){ 
-      return dim;
-    } // The next case handles the clamping (differently for inclusive and exclusive cases) 
-    else if (idx < -(dim - 1)) {
+    } else if (idx < 0 && idx + dim >= 0) {  // careful not to do idx >= -dim
+                                             // (since dim is unsigned)
+      return idx + (int)dim;  // Type casting to int to enable unambiguous auto
+                              // type inference of return type
+    } else if (idx > dim - 1) {
+      return (int)dim;
+    }  // The next case handles the clamping (differently for inclusive and
+       // exclusive cases)
+    else if (idx + dim <
+             0) {  // careful not to do idx < -dim (since dim is unsigned)
       return 0 - (inclusive ? 0 : 1);
     }
-    //return idx >= 0 ? ((idx > max_val) ? max_val : idx)
-     //               : ((idx < -max_val) ? -1 : idx + max_val);
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
@@ -3463,69 +3466,138 @@ static Status TranslateStridedSliceOp(
                             bool shrink_mask) {
     cout << "tf_begin_idx 1 : " << tf_begin_idx << "\n";
     cout << "tf_end_idx 1 : " << tf_end_idx << "\n";
-    // if begin mask is present, depending on stride sign use 0 (std::begin) or dim-1 (std::rbegin)
+    cout << "tf_stride 1 : " << tf_stride << "\n";
+    cout << "begin_mask " << begin_mask << "\n";
+    cout << "end_mask " << end_mask << "\n";
+    cout << "shrink_mask " << shrink_mask << "\n";
+    cout << "dim 1:  " << dim << "\n";
+    // if begin mask is present, depending on stride sign use 0 (std::begin) or
+    // dim-1 (std::rbegin)
     // clamped_end_idx could line in [-1, d]
-    auto tf_ignore_begin_if_needed = begin_mask ? (tf_stride > 0 ? 0 : dim-1) : tf_begin_idx;
-    // if end mask is present, depending on stride sign use -1 (std::rend) or dim (std::end)
-    auto tf_ignore_end_if_needed = end_mask ? (tf_stride > 0 ? dim : -1) : tf_end_idx;
-    // using size_t for clamped_begin_idx because: clamped_begin_idx is inclusive, so it must lie in [0, dim-1]
+    int tf_ignore_begin_if_needed =
+        begin_mask ? (tf_stride > 0 ? 0 : dim - 1) : tf_begin_idx;
+    // if end mask is present, depending on stride sign use -1 (std::rend) or
+    // dim (std::end).
+    // However note, we cannot set to -1, since it has another meaning, hence
+    // setting to -(dim+1), which would translate to -1 in clamped coordinates
+    // take care to convert dim from sixze_t to int
+    cout << end_mask << " " << (tf_stride > 0) << " " << dim << " " << (-((int)dim + 1)) << " " << tf_end_idx << "\n";
+    int tf_ignore_end_if_needed =
+        end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
+    cout << "tf_ignore_begin_if_needed 1 : " << tf_ignore_begin_if_needed
+         << "\n";
+    cout << "tf_ignore_end_if_needed 1 : " << tf_ignore_end_if_needed << "\n";
+
+
+    // using size_t for clamped_begin_idx because: clamped_begin_idx is
+    // inclusive, so it must lie in [0, dim-1]
     size_t clamped_begin_idx = clamper(tf_ignore_begin_if_needed, dim, true);
-    int64 clamped_end_idx = clamper(shrink_mask ? clamped_begin_idx + 1 : tf_ignore_end_if_needed, dim, false);
+    int64 clamped_end_idx =
+        clamper(shrink_mask ? clamped_begin_idx + 1 : tf_ignore_end_if_needed,
+                dim, false);
+    cout << "clamped_begin_idx 1 : " << clamped_begin_idx << "\n";
+    cout << "clamped_end_idx 1 : " << clamped_end_idx << "\n";
 
+    // TODO: assert if shrink_mask is True, then clamped_begin_idx is in range
+    // [0, d-1]
 
-    /*
-    if (end_mask){
-      // if end mask is present, depending on stride sign use -1 (std::rend) or dim (std::end). else call clamper
-      clamped_end_idx = (tf_stride > 0 ? dim : -1);
-    else{
-      clamped_end_idx = clamper(shrink_mask ? ng_begin_idx + 1 : tf_end_idx, dim);
-      // clamped_end_idx = shrink_mask ? ng_begin_idx + 1 : clamper(tf_end_idx, dim);
-    }*/
+    // Now we have converted semantically non-monotonic and unbounded TF indexes
+    // (-inf, inf) to bounded and monotonic clamped indexes [-1, d]
+    // Now we need to convert clamped indexes [-1, d] to ngraph indexes [0, d]
+    // (taking care of reversal in case of negative strides)
 
-    // TODO: assert if shrink_mask is True, then tf_begin_idx is in range [-d,
-    // d)
-
-
-    // Now we have converted semantically non-monotonic and unbounded TF indexes (-inf, inf) to bounded and monotonic clamped indexes [-1, d]
-    // Now we need to convert clamped indexes [-1, d] to ngraph indexes [0, d] (taking care of reversal in case of negative strides)
-
-    bool needs_reverse = shrink_mask ? false : (tf_stride < 0);
+    bool needs_reverse = false;
     size_t ng_begin_idx, ng_end_idx;
 
     if (!shrink_mask) {
-      // Check if the direction computed by begin and end idx match stride sign
-      // If they don't match, assign clamped_begin_idx to both. Since we make
-      // ng_end_idx==ng_begin_idx, the tensor will be empty.
-      // Type safety: in this case both ng_begin_idx and ng_end_idx of size_t get assigned by a size_t type variable clamped_begin_idx, so types match
-      if ((clamped_begin_idx > clamped_begin_idx) != (tf_stride > 0)) {
-        ng_begin_idx = clamped_begin_idx
-        ng_end_idx = clamped_begin_idx;
-      }
+      if (clamped_begin_idx == clamped_end_idx) {
+        // Empty due to matching indexes
+        ng_begin_idx = clamped_begin_idx;
+        // Type safety: clamped_begin_idx == clamped_end_idx implies,
+        // clamped_end_idx!=-1 (since clamped_begin_idx cannot be -1), hence end
+        // index assignment is type safe
+        ng_end_idx = clamped_end_idx;
+        cout << "here1\n";
+      } else {  // In the whole of this else: clamped_begin_idx !=
+                // clamped_end_idx, so !(a < b) iff a > b and vice versa when
+                // comparing the indexes
+        cout << (int)clamped_begin_idx << " " << clamped_end_idx << " " << ((int)clamped_begin_idx < clamped_end_idx) << "\n";
+        cout << tf_stride << " " << (tf_stride > 0) << " " << (((int)clamped_begin_idx < clamped_end_idx) != (tf_stride > 0)) << "\n";
+        // take care to use (int) typecase when comparing int and size_t
+        if (((int)clamped_begin_idx < clamped_end_idx) != (tf_stride > 0)) {
+          // Empty due to mismatching directions
+          ng_begin_idx = clamped_begin_idx;
+          // Type safe: since clamped_begin_idx is size_t (>0)
+          // [0:-4:1] in TF would convert to [0:-1:1] in clamped domain. hence
+          // we do not assign ng_end_idx = clamped_end_idx (which would not be
+          // type safe due to the -1)
+          ng_end_idx = clamped_begin_idx;
+          // Any assignment where ng_begin_idx = ng_end_idx = x (where 0 <= x <=
+          // d-1) would have worked for the 2 empty cases above
+          cout << "here2\n";
+        }
+        // Anything after this is non-empty. Anything before this has dealt with
+        // empty cases
+        else {
+          // in this case either (clamped_begin_idx < clamped_end_idx &&
+          // tf_stride > 0) or (clamped_begin_idx > clamped_end_idx && tf_stride
+          // < 0)
+          // that is clamped_begin_idx < clamped_end_idx <==> tf_stride > 0.
+          // hence using only 1 of the clauses is enough
+          if (tf_stride > 0) {
+            ng_begin_idx = clamped_begin_idx;
+            // Type safety: tf_stride > 0 ==> clamped_begin_idx <
+            // clamped_end_idx. clamped_begin_idx could be 0,
+            // which means clamped_end_idx > 0. Hence type-safe
+            cout << "here3: clamped_end_idx " << clamped_end_idx << "\n";
+            ng_end_idx = clamped_end_idx;
+            cout << "here3\n";
+          } else {  // clamped_begin_idx > clamped_end_idx, tf_stride < 0
 
-      // Reverse if necessary (negative stride)
-      if (clamped_begin_idx > clamped_end_idx) {
-        // We know clamped_begin_idx in [0, d] and clamped_end_idx in [-1, d]
-        // Therefore clamped_begin_idx > clamped_end_idx implies clamped_end_idx != d
-        // Reversal is done by doing max-i. In case of begin indexes, the max is d-1, in case of end, it is d
+            // clamped_begin_idx is [0, d] && clamped_begin_idx > clamped_end_idx, 
+            // which implies clamped_end_idx is [-1,d-1]
+            // Type safety: With clamped_end_idx in [-1,d-1],
+            // dim - 1 - clamped_end_idx is in [0, dim]. Hence type safe
+            ng_end_idx = dim - 1 - clamped_end_idx;
 
-        
-        ng_begin_idx = clamped_begin_idx==dim ? dim-1 : dim-1 - clamped_begin_idx;
-        //ng_begin_idx = dim - 1 - clamped_begin_idx;
-        cout << "ng_begin_idx 2 : " << ng_begin_idx << "\n";
-        ng_end_idx = dim - ng_end_idx;
-        cout << "ng_end_idx 2 : " << ng_end_idx << "\n";
+            if (clamped_begin_idx == dim) {
+              clamped_begin_idx = dim - 1;
+            }
+            // Note clamped_begin_idx != dim here.
+            // If clamped_begin_idx==dim && clamped_end_idx==dim, then "Empty
+            // due to matching indexes" handles it
+            // If clamped_begin_idx==dim && clamped_end_idx<dim, then 2 cases:
+            //   tf_stride > 0: then "Empty due to mismatching directions"
+            //   handles it
+            //   tf_stride < 0: Then we set it to dim-1 above
+            // Consider the case of dim=3, where in tf notation we have:
+            // [4:1:-1], in clampe notation, we get [3:1:-1], which really means
+            // [2:1:-1]
+
+            // Type safety: Since clamped_begin_idx is [0, d-1] here, it is type
+            // safe
+            ng_begin_idx = dim - 1 - clamped_begin_idx;
+            needs_reverse = true;
+            cout << "here4\n";
+          }
+        }
       }
     } else {
-      // cases when clamped indexes are in [0,d] and hence can be directly copied
-      // TODO: what about tf_begin=d, shrink=T, then clamped_end_idx = d, so a 0-d axis.
+      // cases when clamped indexes are in [0,d] and hence can be directly
+      // copied
+      // TODO: what about tf_begin=d, shrink=T, then clamped_end_idx = d, so a
+      // 0-d axis.
       // But since shrink is on, that is reshaped and the 0-d axis is removed?
-      // Is that a valid config, as shrink_axis must get an axis with dim = 1, right?
+      // Is that a valid config, as shrink_axis must get an axis with dim = 1,
+      // right?
 
-      //TODO: use TF_STATUS instead of asserting
-      assert (clamped_end_idx-clamped_begin_idx == 1);
+      // TODO: use TF_STATUS instead of asserting
+      assert(clamped_end_idx - clamped_begin_idx == 1);
       ng_begin_idx = clamped_begin_idx;
       ng_end_idx = clamped_end_idx;
     }
+    cout << "ng_begin_idx 1 : " << ng_begin_idx << "\n";
+    cout << "ng_end_idx 1 : " << ng_end_idx << "\n";
     return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride),
                            needs_reverse);
   };
@@ -3551,6 +3623,7 @@ static Status TranslateStridedSliceOp(
                                                  // work. Hence using size_t
   for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
     cout << "dim_idx: " << dim_idx << "-------\n";
+    cout << "dim_vec[dim_idx]: " << dim_vec[dim_idx] << "\n";
     std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx], ng_stride_vec[dim_idx],
              ng_needs_reversal[dim_idx]) =
         tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
