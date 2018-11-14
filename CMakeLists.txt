@@ -140,7 +140,7 @@ option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG nishant_quantize_bias
+    GIT_TAG 58f08d6ffe223d6d70476f7c9cd50bf35ac95e45
     CMAKE_ARGS 
         -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
