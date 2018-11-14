@@ -3264,32 +3264,32 @@ static Status TranslateSplitVOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_length, ng_split_dim;
-  TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_length, &ng_split_dim));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   std::vector<int> lengths;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
 
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
-  std::vector<size_t> lower;
-  std::vector<size_t> upper;
-
-  for (int i = 0; i < rank; ++i) {
-    lower.push_back(0);
-    upper.push_back(shape[i]);
-  }
+  std::vector<size_t> lower(rank, 0);
+  std::vector<size_t> upper(shape);
 
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
+
+  if (split_dim_vec[0] < 0) {
+    split_dim_vec[0] = (int64)rank + split_dim_vec[0];
+  }
   int split_dim = split_dim_vec[0];
   int cursor = 0;
 
-  for (int i = 0; i < lengths.size(); ++i) {
-    lower[split_dim] = cursor;
-    cursor += lengths[i];
-    upper[split_dim] = cursor;
+  if (split_dim != 1) {
+    for (int i = 0; i < lengths.size(); ++i) {
+      lower[split_dim] = cursor;
+      cursor += lengths[i];
+      upper[split_dim] = cursor;
+    }
     SaveNgOp(ng_op_map, op->name(),
              make_shared<ng::op::Slice>(ng_input, lower, upper));
   }
