@@ -360,8 +360,19 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
         << "Datatype of " << i << "th input is "
         << DataTypeString(tf_inputs[i].dtype()) << ". Ngraph's element type is "
         << ng_et;
+    
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs[i]);
     auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
+    result->set_stale(true);
+
+    if(ng_backend_type!="CPU"){
+      if (result->get_stale()) {
+            result->write(
+                src_ptr, 0,
+                result->get_element_count() * ng_et.size());
+          }
+    }
+    
     ng_ip_tensors.push_back(result);
   }
 
@@ -389,6 +400,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     TensorShape tf_shape(dims);
     tf_op_shapes.push_back(tf_shape);
     auto result = backend->create_tensor(ng_op_type, ng_op_shape);
+    result->set_stale(true);
     ng_op_tensors.push_back(result);
   }
 
