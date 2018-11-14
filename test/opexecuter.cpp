@@ -360,8 +360,14 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
         << "Datatype of " << i << "th input is "
         << DataTypeString(tf_inputs[i].dtype()) << ". Ngraph's element type is "
         << ng_et;
+
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs[i]);
     auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
+
+    if (ng_backend_type != "CPU") {
+      result->write(src_ptr, 0, result->get_element_count() * ng_et.size());
+    }
+
     ng_ip_tensors.push_back(result);
   }
 
@@ -395,6 +401,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   // Execute the nGraph
   NGRAPH_VLOG(5) << " Executing on nGraph ";
   backend->call(ng_function, ng_op_tensors, ng_ip_tensors);
+
   NGRAPH_VLOG(5) << " Writing to Tensors ";
   for (auto i = 0; i < ng_function->get_output_size(); i++) {
     // Convert to tf tensor
