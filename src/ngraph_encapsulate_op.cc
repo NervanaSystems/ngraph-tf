@@ -518,7 +518,12 @@ class NGraphEncapsulateOp : public OpKernel {
   }
 
  private:
+  // TF Graph for the cluster
   Graph m_graph;
+  // cluster_id representing this nGraphEncapsulateOp
+  int m_ngraph_cluster;
+  // maintains which input to the encapsulated op is static
+  std::vector<bool> m_input_is_static;
 
   // map of signature computed from input shapes, and the corresponding
   // ng::Function
@@ -530,12 +535,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
   // Freshness tracker maintains a set of ng::functions using a particular base
   // pointer(for Tensor)
+  // A single instance of freshness_tracker is used across all nGraphEncapsulateOp and nGraphVariable op 
   NGraphFreshnessTracker* m_freshness_tracker;
-
-  // cluster_id representing this nGraphEncapsulateOp
-  int m_ngraph_cluster;
-  // maintains which input to the encapsulated op is static
-  std::vector<bool> m_input_is_static;
 
   // backend related
   static std::weak_ptr<ng::runtime::Backend> s_ng_backend_wptr;
