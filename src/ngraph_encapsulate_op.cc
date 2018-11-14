@@ -535,7 +535,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
   // Freshness tracker maintains a set of ng::functions using a particular base
   // pointer(for Tensor)
-  // A single instance of freshness_tracker is used across all nGraphEncapsulateOp and nGraphVariable op 
+  // A single instance of freshness_tracker is used across all
+  // nGraphEncapsulateOp and nGraphVariable op
   NGraphFreshnessTracker* m_freshness_tracker;
 
   // backend related

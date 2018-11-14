@@ -395,7 +395,6 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     TensorShape tf_shape(dims);
     tf_op_shapes.push_back(tf_shape);
     auto result = backend->create_tensor(ng_op_type, ng_op_shape);
-    result->set_stale(true);
     ng_op_tensors.push_back(result);
   }
 
