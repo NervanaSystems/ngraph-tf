@@ -20,12 +20,14 @@
 #ifndef NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
 #define NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
 
+#include <mutex>
 #include <ostream>
 #include <vector>
 
-#include <absl/base/thread_annotations.h>
 #include "ngraph/ngraph.hpp"
+#include "ngraph/runtime/backend_manager.hpp"
 #include "ngraph_log.h"
+#include "tensorflow/core/lib/core/errors.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -42,9 +44,9 @@ struct Backend {
 class BackendManager {
  public:
   // Returns the backend name currently set
-  static Status GetCurrentlySetBackendName(string& backend_name) {
-    backend_name = ng_backend_name_;
-    return Status::OK();
+  static string GetCurrentlySetBackendName() {
+    NGRAPH_VLOG(5) << "Getting backend";
+    return BackendManager::ng_backend_name_;
   };
 
   static void CreateBackendIfDoesNotExist(const string& backend_name);
@@ -60,13 +62,16 @@ class BackendManager {
   static void UnlockBackend(const string& backend_name);
 
   // Returns the nGraph supported backend names
-  static Status GetSupportedBackendNames(vector<string>& backend_names);
+  static unordered_set<string> GetSupportedBackendNames();
 
-  // private:
-  static string ng_backend_name_;
+ private:
+  static string ng_backend_name_;  // currently set backend name
   static mutex ng_backend_name_mutex_;
+  // map of cached backend objects
   static map<string, Backend*> ng_backend_map_;
   static mutex ng_backend_map_mutex_;
+  // set of backends supported by nGraph
+  static unordered_set<string> ng_supported_backends_;
 };
 
 }  // namespace ngraph_bridge

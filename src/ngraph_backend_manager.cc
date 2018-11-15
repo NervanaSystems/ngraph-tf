@@ -28,11 +28,23 @@ string BackendManager::ng_backend_name_ = "CPU";
 mutex BackendManager::ng_backend_name_mutex_;
 map<string, Backend*> BackendManager::ng_backend_map_;
 mutex BackendManager::ng_backend_map_mutex_;
+vector<string> ng_supported_backends =
+    ng::runtime::BackendManager::get_registered_backends();
+unordered_set<string> BackendManager::ng_supported_backends_(
+    ng_supported_backends.begin(), ng_supported_backends.end());
 
-// void BackendManager::lock(){}
-// void BackendManager::unlock(){}
-
-Status BackendManager::SetBackendName(const string& backend_name) {}
+Status BackendManager::SetBackendName(const string& backend_name) {
+  // Should check if the backend is supported only {"INTERPRETER","CPU"}
+  // currently Should also check if the backend library exists????
+  std::lock_guard<std::mutex> lock(BackendManager::ng_backend_name_mutex_);
+  auto itr = BackendManager::ng_supported_backends_.find(backend_name);
+  if (itr == BackendManager::ng_supported_backends_.end()) {
+    return errors::Internal("Backend ", backend_name,
+                            " is not suported on nGraph");
+  }
+  BackendManager::ng_backend_name_ = backend_name;
+  return Status::OK();
+}
 
 void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name) {
   std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_);
@@ -63,7 +75,8 @@ ng::runtime::Backend* BackendManager::GetBackend(const string& backend_name) {
 }
 
 // Returns the nGraph supported backend names
-Status BackendManager::GetSupportedBackendNames(vector<string>& backend_names) {
+unordered_set<string> BackendManager::GetSupportedBackendNames() {
+  return ng_supported_backends_;
 }
 
 }  // namespace ngraph_bridge
