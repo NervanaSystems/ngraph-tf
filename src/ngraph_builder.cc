@@ -3278,21 +3278,22 @@ static Status TranslateSplitVOp(
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
 
-  if (split_dim_vec[0] < 0) {
-    split_dim_vec[0] = (int64)rank + split_dim_vec[0];
-  }
-  int split_dim = split_dim_vec[0];
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
   int cursor = 0;
 
-  if (split_dim != 1) {
+  if (lengths.size() != 1) {
     for (int i = 0; i < lengths.size(); ++i) {
       lower[split_dim] = cursor;
       cursor += lengths[i];
       upper[split_dim] = cursor;
+      SaveNgOp(ng_op_map, op->name(),
+               make_shared<ng::op::Slice>(ng_input, lower, upper));
     }
-    SaveNgOp(ng_op_map, op->name(),
-             make_shared<ng::op::Slice>(ng_input, lower, upper));
+  } else {
+    SaveNgOp(ng_op_map, op->name(), ng_input);
   }
+
   return Status::OK();
 }
 
