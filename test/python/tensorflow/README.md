@@ -25,7 +25,7 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
     
     --tensorflow_path TENSORFLOW_PATH
     
-    Specify the path for Tensorflow source code.
+    Specify the path to Tensorflow source code.
     
     Eg:/localdisk/skantama/tf-ngraph/tensorflow
     
