@@ -4,9 +4,12 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
 
 ## What can be tested
 
- - Python tests using Tensorflow with nGraph embedded
- - Python tests by patching Tensorflow to allow runnings tests using nGraph. 
-   Apply the patch ```tf_unittest_ngraph.patch``` in your installed tensoflow file:"<local virtualenv>/local/lib/<python>/site-packages/tensorflow/python/framework/test_util.py" 
+ - Python tests using nGraph embedded in Tensorflow (when Tensorflow is built using Option 3 in the link below). 
+ - Python tests using Tensorflow (when built using Option 1 & 2 in the link below) by patching 
+   Tensorflow to allow runnings tests using nGraph. Apply the patch ```tf_unittest_ngraph.patch``` 
+   in your installed tensoflow file:"<local virtualenv>/local/lib/<python>/site-  packages/tensorflow/python/framework/test_util.py"
+	
+   https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md#linux-instructions
 	
 
 ## Usage
@@ -22,7 +25,7 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
     
     --tensorflow_path TENSORFLOW_PATH
     
-    Specify the path where Tensorflow is installed.
+    Specify the path for Tensorflow source code.
     
     Eg:/localdisk/skantama/tf-ngraph/tensorflow
     
@@ -52,10 +55,16 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
 ## How to run tests
 
  - `--tensorflow_path` is a required argument and must be passed to
-   specify the location of Tensorflow installation
+   specify the location of Tensorflow source code
+ 
+ -  NGRAPH_TF_DISABLE_DEASSIGN_CLUSTER=1 should be set always, else ops might not land
+    on ngraph due to reassignment of singleton clusters
+    
+ -  To get a list of test modules available in Tensorflow, use bazel query
+    ```bazel query 'kind(".*_test rule", //tensorflow/python/...)' --output label```
    
  - Tests can be run by specifying one or multiple tests at a time by
-   passing the name of the test or regular expressions.  Few examples of
+   passing the name of the module/test or regular expressions. Few examples of
    supported formats by `--run_test` argument :
  ``` math_ops_test 
        math_ops_test.DivNanTest
@@ -67,7 +76,9 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
        math_*_*_test
        math*_test
    ```
+   Note:math_ops_test is used just for an example, it could be any of the availble tensorflow test module
+   
  -  List of tests to run can be listed in a text file and pass the file name 
      to  argument `--run_tests_from_file` to run. 
- -  To verify the Op placement on ngraph while running the tests set NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_TF_DISABLE_DEASSIGN_CLUSTER=1
+ -  To verify the Op placement on ngraph while running the tests set NGRAPH_TF_LOG_PLACEMENT=1 
 
