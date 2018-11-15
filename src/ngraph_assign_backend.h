@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#pragma once
 
-#ifndef NGRAPH_TF_MARK_FOR_CLUSTERING_H_
-#define NGRAPH_TF_MARK_FOR_CLUSTERING_H_
+#pragma once
 
 #include "tensorflow/core/graph/graph.h"
 
@@ -24,13 +22,9 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status MarkForClustering(Graph* graph);
-bool NodeIsMarkedForClustering(const Node* node);
-void GetStaticInputs(const Node* node, std::vector<int32>* inputs);
-bool InputIsStatic(const Node* node, int index);
+// Assigns the currently set backend to all the ops
+Status AssignBackend(Graph* graph);
 Status GetNodeBackend(const Node* node, string* backend_name);
 
 }  // namespace ngraph_bridge
-
 }  // namespace tensorflow
-#endif  // NGRAPH_TF_MARK_FOR_CLUSTERING_H_

@@ -152,6 +152,9 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
       return Status::OK();
     }
 
+    // Do Assign Backend then
+    TF_RETURN_IF_ERROR(AssignBackend(options.graph->get()));
+
     // Do variable capture then, if requested, dump the graphs.
     TF_RETURN_IF_ERROR(CaptureVariables(options.graph->get()));
     if (DumpCapturedGraphs()) {

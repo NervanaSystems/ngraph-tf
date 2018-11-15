@@ -531,10 +531,14 @@ Status MarkForClustering(Graph* graph) {
 
   // Set Attributes for nodes marked for clustering
   // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
-  // 2. Set any other attributes as defined in set_attribute_map
+  // 2. Set the backend for each op
+  // 3. Set any other attributes as defined in set_attribute_map
+  string current_backend = BackendManager::GetCurrentlySetBackendName();
+
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
+    node->AddAttr("_ngraph_backend", current_backend);
 
     auto it = set_attributes_map.find(node->type_string());
     if (it != set_attributes_map.end()) {
@@ -564,6 +568,15 @@ bool InputIsStatic(const Node* node, int index) {
   std::vector<int32> inputs;
   GetStaticInputs(node, &inputs);
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
+}
+
+Status GetNodeBackend(const Node* node, string* backend_name) {
+  // TODO(amprocte): move attr name to a constant
+  Status s = GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name);
+  if (s != Status::OK()) {
+    *backend_name = "NotSet";
+  }
+  return s;
 }
 
 }  // namespace ngraph_bridge

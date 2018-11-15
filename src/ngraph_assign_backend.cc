@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#pragma once
 
-#ifndef NGRAPH_TF_MARK_FOR_CLUSTERING_H_
-#define NGRAPH_TF_MARK_FOR_CLUSTERING_H_
+#pragma once
 
 #include "tensorflow/core/graph/graph.h"
 
@@ -24,13 +22,24 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status MarkForClustering(Graph* graph);
-bool NodeIsMarkedForClustering(const Node* node);
-void GetStaticInputs(const Node* node, std::vector<int32>* inputs);
-bool InputIsStatic(const Node* node, int index);
-Status GetNodeBackend(const Node* node, string* backend_name);
+// If there are only certain type of ops that should be assigned a backend we
+// can add those checks here For e.g. : only ops placed on 'device' CPU etc.
+Status CanAssignBackend(Node* node, bool& can_assign_backend) {
+  can_assign_backend = true;
+  return Status::OK();
+}
+
+// Assigns the currently set backend to all the ops
+Status AssignBackend(Graph* graph) {}
+
+Status GetNodeBackend(const Node* node, string* backend_name) {
+  // TODO(amprocte): move attr name to a constant
+  Status s = GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name);
+  if (s != Status::OK()) {
+    *backend_name = "NotSet";
+  }
+  return s;
+}
 
 }  // namespace ngraph_bridge
-
 }  // namespace tensorflow
-#endif  // NGRAPH_TF_MARK_FOR_CLUSTERING_H_
