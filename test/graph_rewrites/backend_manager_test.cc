@@ -38,10 +38,20 @@ namespace testing {
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 #define ASSERT_NOT_OK(x) ASSERT_NE((x), ::tensorflow::Status::OK());
 
+/*
+These tests test the Backend Handling by the bridge
+Since the backend is set globaly the setting of NGRAPH_TF_BACKEND might cause
+some tests to fail
+For e.g. "BackendCLustering" test would fail If the NGRAPH_TF_BACKEND is set to
+INTERPRETER the nodes going to CPU also go to interpreter
+putting all the nodes in the same cluster.
+*/
+
 // Test SetBackendAPI
 TEST(BackendManager, SetBackend) {
-  string default_backend = BackendManager::GetCurrentlySetBackendName();
-  ASSERT_EQ(default_backend, "CPU");
+  ASSERT_OK(BackendManager::SetBackendName("CPU"));
+  string cpu_backend = BackendManager::GetCurrentlySetBackendName();
+  ASSERT_EQ(cpu_backend, "CPU");
 
   ASSERT_OK(BackendManager::SetBackendName("INTERPRETER"));
   string current_backend = BackendManager::GetCurrentlySetBackendName();
@@ -72,6 +82,7 @@ TEST(BackendManager, GetSupportedBackendNames) {
 
 // Test Backend Assignment
 TEST(BackendManager, BackendAssignment) {
+  ASSERT_OK(BackendManager::SetBackendName("CPU"));
   Scope root = Scope::NewRootScope();
   auto A = ops::Const(root.WithOpName("A"), {1.0f, 1.0f});
   auto B = ops::Const(root.WithOpName("B"), {1.0f, 1.0f});
@@ -114,6 +125,7 @@ TEST(BackendManager, BackendAssignment) {
 
 // Test Backend Clustering
 TEST(BackendManager, BackendClustering) {
+  ASSERT_OK(BackendManager::SetBackendName("CPU"));
   Scope root = Scope::NewRootScope();
   auto A = ops::Const(root.WithOpName("A"), {1.0f, 1.0f});
   auto B = ops::Const(root.WithOpName("B"), {1.0f, 1.0f});
@@ -145,6 +157,7 @@ TEST(BackendManager, BackendClustering) {
 
 // Test Backend Run
 TEST(BackendManager, BackendRun) {
+  ASSERT_OK(BackendManager::SetBackendName("INTERPRETER"));
   Scope root = Scope::NewRootScope();
   auto A = ops::Placeholder(root.WithOpName("A"), DT_FLOAT);
   auto B = ops::Placeholder(root.WithOpName("B"), DT_FLOAT);
@@ -152,17 +165,14 @@ TEST(BackendManager, BackendRun) {
   auto S = ops::Sub(root.WithOpName("S"), R, B);
 
   auto default_backend = BackendManager::GetCurrentlySetBackendName();
-  NGRAPH_VLOG(5) << "Running on " << default_backend;
   std::vector<Tensor> cpu_outputs;
   ClientSession session_cpu(root);
   // Run and fetch v
   ASSERT_OK(session_cpu.Run({{A, {1.0f, 1.0f}}, {B, {1.0f, 1.0f}}}, {R, S},
                             &cpu_outputs));
 
-  ASSERT_OK(BackendManager::SetBackendName("INTERPRETER"));
+  ASSERT_OK(BackendManager::SetBackendName("CPU"));
   auto backend2 = BackendManager::GetCurrentlySetBackendName();
-
-  NGRAPH_VLOG(5) << "Running on new backend" << backend2;
 
   std::vector<Tensor> inter_outputs;
   ClientSession session_inter(root);

@@ -342,9 +342,9 @@ Status AssignClusters(Graph* graph) {
                    << node->name() << "[" << node->type_string() << "]"
                    << " backend " << backend;
 
-    #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-        // get predicate string for the node
-        string pred_string;
+#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+    // get predicate string for the node
+    string pred_string;
     TF_RETURN_IF_ERROR(deadness_analyzer->GetNodePredicate(*node, pred_string));
     nodes_predicate_map[node] = pred_string;
     cluster_map[node]->predicate_string = pred_string;
