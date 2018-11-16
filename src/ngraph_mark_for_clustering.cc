@@ -127,19 +127,25 @@ static ConfirmationFunction SimpleConfirmationFunction() {
   return cf;
 };
 
-static ConfirmationFunction ConfirmationFunctionForRejectingStaticInputNodesIfNotConst(vector<size_t> idx) {
-        auto cf = [idx](Node* n, bool* result) {
+static ConfirmationFunction ConfirmationFunctionForRejectingStaticInputNodesIfNotConst(vector<int> idx_orig) {
+        auto cf = [idx_orig](Node* n, bool* result) {
+          auto idx = idx_orig;
+          std::transform(idx_orig.begin(), idx_orig.end(), idx.begin(),
+                   [n](int x) { return x >= 0 ? x : n->num_inputs() + x; });
+          
           std::vector<const Edge*> inedges;
           TF_RETURN_IF_ERROR(n->input_edges(&inedges));
           *result = true;
-          for (int i = 0; i < inedges.size(); i++){
-            if (std::find(idx.begin(), idx.end(), i) != idx.end()){
-              if (inedges[i]->src()->type_string() != "Const"){
+          for (int i = 0; i < inedges.size(); i++){ //for each input edge
+            if (std::find(idx.begin(), idx.end(), i) != idx.end()){  //if it is marked static
+              if (inedges[i]->src()->type_string() != "Const"){  //check if it is non-const
+                cout << "In new function. Rejecting " << n->type_string() << "\n";
                 *result = false;
                 break;
               }
             }
           }
+          cout << "In new function. Accepting " << n->type_string() << "\n";
           //*result = true;
           return Status::OK();
         };
@@ -475,13 +481,43 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
       type_constraint_map["Unpack"]["T"] = NGraphDTypes();
 
-
+      /*
       confirmation_function_map["Reshape"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
       confirmation_function_map["Slice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
       confirmation_function_map["Split"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
       confirmation_function_map["SplitV"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1,2});
       confirmation_function_map["StridedSlice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2, 3});
       confirmation_function_map["Tile"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      */
+
+      confirmation_function_map["Any"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["All"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["ArgMax"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["ArgMin"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["AvgPoolGrad"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
+      confirmation_function_map["ConcatV2"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({-1});
+      confirmation_function_map["Conv2DBackpropFilter"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Conv2DBackpropInput"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
+      confirmation_function_map["Dequantize"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["ExpandDims"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Fill"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
+      confirmation_function_map["Max"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Mean"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Min"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Pad"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Prod"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["QuantizeAndDequantizeV2"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
+          ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({3, 4, 5, 6, 7, 8});
+      confirmation_function_map["QuantizeV2"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["Reshape"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Slice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["Split"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
+      confirmation_function_map["SplitV"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["StridedSlice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2, 3});
+      confirmation_function_map["Sum"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Tile"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Transpose"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
 
       // Set Additional Attributes (if any)
       set_attributes_map["Any"] = SetStaticInputs({1});
