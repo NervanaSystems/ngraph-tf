@@ -124,7 +124,6 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     // Set the backend type for the op
-    // m_op_backend_name = "CPU";
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
     BackendManager::CreateBackendIfDoesNotExist(m_op_backend_name);

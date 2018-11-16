@@ -16,9 +16,9 @@
 
 #include "../test_utilities.h"
 #include "gtest/gtest.h"
-#include "ngraph_assign_clusters.h"
 #include "ngraph_backend_manager.h"
 #include "ngraph_mark_for_clustering.h"
+#include "ngraph_assign_clusters.h"
 
 #include "tensorflow/cc/client/client_session.h"
 #include "tensorflow/cc/ops/standard_ops.h"
@@ -79,7 +79,7 @@ TEST(BackendManager, BackendAssignment) {
 
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(root.ToGraph(&graph));
-
+  
   // Set backend 1
   string backend1 = "INTERPRETER";
   ASSERT_OK(BackendManager::SetBackendName(backend1));
@@ -93,12 +93,12 @@ TEST(BackendManager, BackendAssignment) {
   ASSERT_OK(GetNodeBackend(node_map["A"], &bA));
   ASSERT_OK(GetNodeBackend(node_map["B"], &bB));
   ASSERT_OK(GetNodeBackend(node_map["R"], &bR));
-
+  
   ASSERT_EQ(bA, bB);
   ASSERT_EQ(bA, bR);
   ASSERT_EQ(bA, backend1);
-
-  // Set backend 2
+  
+// Set backend 2
   string backend2 = "CPU";
   ASSERT_OK(BackendManager::SetBackendName(backend2));
   ASSERT_OK(MarkForClustering(&graph));
@@ -110,20 +110,23 @@ TEST(BackendManager, BackendAssignment) {
   ASSERT_EQ(bA, bB);
   ASSERT_EQ(bA, bR);
   ASSERT_EQ(bA, backend2);
+  
 }
+
+
 
 // Test Backend Clustering
 TEST(BackendManager, BackendClustering) {
-  Scope root = Scope::NewRootScope();
+Scope root = Scope::NewRootScope();
   auto A = ops::Const(root.WithOpName("A"), {1.0f, 1.0f});
   auto B = ops::Const(root.WithOpName("B"), {1.0f, 1.0f});
   auto R = ops::Add(root.WithOpName("R"), A, B);
 
   Graph graph(OpRegistry::Global());
   TF_CHECK_OK(root.ToGraph(&graph));
-
+  
   ASSERT_OK(MarkForClustering(&graph));
-
+  
   string backend1 = "INTERPRETER";
 
   std::map<std::string, Node*> node_map;
@@ -131,7 +134,7 @@ TEST(BackendManager, BackendClustering) {
     node_map[node->name()] = node;
   }
 
-  SetNodeBackend(node_map["B"], backend1);
+  SetNodeBackend(node_map["B"],backend1);
   ASSERT_OK(AssignClusters(&graph));
 
   int A_cluster, B_cluster, R_cluster;
@@ -139,8 +142,8 @@ TEST(BackendManager, BackendClustering) {
   ASSERT_OK(GetNodeCluster(node_map["B"], &B_cluster));
   ASSERT_OK(GetNodeCluster(node_map["R"], &R_cluster));
 
-  ASSERT_EQ(A_cluster, R_cluster);
-  ASSERT_NE(A_cluster, B_cluster);
+  ASSERT_EQ(A_cluster,R_cluster);
+  ASSERT_NE(A_cluster,B_cluster);
 }
 
 // Test Backend Run

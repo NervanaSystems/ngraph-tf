@@ -19,6 +19,10 @@
 #include "ngraph_utils.h"
 #include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
+<<<<<<< HEAD
+=======
+#include "ngraph_backend_manager.h"
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
 using namespace std;
 
 namespace tensorflow {
@@ -533,22 +537,38 @@ Status MarkForClustering(Graph* graph) {
   // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
   // 2. Set the backend for each op
   // 3. Set any other attributes as defined in set_attribute_map
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
   string current_backend = BackendManager::GetCurrentlySetBackendName();
   const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
   if (ng_backend_env_value != nullptr) {
     string backend_env = std::string(ng_backend_env_value);
+<<<<<<< HEAD
     if (!backend_env.empty() &&
         BackendManager::IsSupportedBackend(backend_env)) {
+=======
+    if (!backend_env.empty() && BackendManager::IsSupportedBackend(backend_env)) {
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
       current_backend = backend_env;
     }
   }
   NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
+<<<<<<< HEAD
+=======
+
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
 
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
     SetNodeBackend(node, current_backend);
     auto it = set_attributes_map.find(node->type_string());
     if (it != set_attributes_map.end()) {
@@ -582,6 +602,7 @@ bool InputIsStatic(const Node* node, int index) {
 
 Status GetNodeBackend(Node* node, string* backend_name) {
   // TODO(amprocte): move attr name to a constant
+<<<<<<< HEAD
   NGRAPH_VLOG(5) << "Getting backend " << node->name();
   TF_RETURN_IF_ERROR(
       GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
@@ -593,6 +614,17 @@ Status GetNodeBackend(Node* node, string* backend_name) {
 // and accordingly assign backend
 void SetNodeBackend(Node* node, string& backend_name) {
   NGRAPH_VLOG(5) << "Setting backend " << node->name() << " " << backend_name;
+=======
+  NGRAPH_VLOG(5)<<"Getting backend "<< node->name();
+  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
+  return Status::OK();
+}
+
+// Can be extended to check the TF Device placement and/or user specified backend
+// and accordingly assign backend
+void SetNodeBackend(Node* node, string& backend_name){
+  NGRAPH_VLOG(5)<<"Setting backend "<<node->name() << " "<<backend_name;
+>>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
   node->AddAttr("_ngraph_backend", backend_name);
 }
 
