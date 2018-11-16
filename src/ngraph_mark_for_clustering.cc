@@ -127,6 +127,25 @@ static ConfirmationFunction SimpleConfirmationFunction() {
   return cf;
 };
 
+static ConfirmationFunction ConfirmationFunctionForRejectingStaticInputNodesIfNotConst(vector<size_t> idx) {
+        auto cf = [idx](Node* n, bool* result) {
+          std::vector<const Edge*> inedges;
+          TF_RETURN_IF_ERROR(n->input_edges(&inedges));
+          *result = true;
+          for (int i = 0; i < inedges.size(); i++){
+            if (std::find(idx.begin(), idx.end(), i) != idx.end()){
+              if (inedges[i]->src()->type_string() != "Const"){
+                *result = false;
+                break;
+              }
+            }
+          }
+          //*result = true;
+          return Status::OK();
+        };
+        return cf;
+      };
+
 //
 // Main entry point for the marking pass.
 //
@@ -455,6 +474,14 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Transpose"]["T"] = NGraphDTypes();
       type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
       type_constraint_map["Unpack"]["T"] = NGraphDTypes();
+
+
+      confirmation_function_map["Reshape"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
+      confirmation_function_map["Slice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2});
+      confirmation_function_map["Split"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({0});
+      confirmation_function_map["SplitV"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1,2});
+      confirmation_function_map["StridedSlice"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1, 2, 3});
+      confirmation_function_map["Tile"] = ConfirmationFunctionForRejectingStaticInputNodesIfNotConst({1});
 
       // Set Additional Attributes (if any)
       set_attributes_map["Any"] = SetStaticInputs({1});
