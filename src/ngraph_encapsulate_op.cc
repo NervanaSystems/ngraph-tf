@@ -15,6 +15,7 @@
  *******************************************************************************/
 #include <cstdlib>
 #include <fstream>
+#include <mutex>
 #include <utility>
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
@@ -207,6 +208,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
+    std::lock_guard<std::mutex> lock{m_compute_lock};
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 

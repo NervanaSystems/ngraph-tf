@@ -336,19 +336,11 @@ Status AssignClusters(Graph* graph) {
     string backend;
     TF_RETURN_IF_ERROR(InitialiseNodeBackend(node, &backend));
 
-<<<<<<< HEAD
     cluster_map[node]->backend = backend;
     cluster_map[node]->nodes.insert(node);
     NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
                    << node->name() << "[" << node->type_string() << "]"
                    << " backend " << backend;
-=======
-    cluster_map[node]->backend = backend;
-    cluster_map[node]->nodes.insert(node);
-    NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
-                   << node->name() << "[" << node->type_string() << "]"
-                   << " backend " << backend;
->>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
 
     #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
         // get predicate string for the node
