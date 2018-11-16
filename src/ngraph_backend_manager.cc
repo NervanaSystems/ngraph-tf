@@ -65,12 +65,12 @@ ng::runtime::Backend* BackendManager::GetBackend(const string& backend_name) {
 }
 
 // LockBackend
-/*static*/ void BackendManager::LockBackend(const string& backend_name) {
+void BackendManager::LockBackend(const string& backend_name) {
   BackendManager::ng_backend_map_.at(backend_name)->backend_mutex.lock();
 }
 
 // UnlockBackend
-/*static*/ void BackendManager::UnlockBackend(const string& backend_name) {
+void BackendManager::UnlockBackend(const string& backend_name) {
   BackendManager::ng_backend_map_.at(backend_name)->backend_mutex.unlock();
 }
 
@@ -78,6 +78,14 @@ ng::runtime::Backend* BackendManager::GetBackend(const string& backend_name) {
 unordered_set<string> BackendManager::GetSupportedBackendNames() {
   return ng_supported_backends_;
 }
+
+bool BackendManager::IsSupportedBackend(string& backend_name) {
+  auto itr = BackendManager::ng_supported_backends_.find(backend_name);
+  if (itr == BackendManager::ng_supported_backends_.end()) {
+    return false;
+  }
+  return true;
+};
 
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

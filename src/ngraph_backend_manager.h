@@ -49,9 +49,15 @@ class BackendManager {
     return BackendManager::ng_backend_name_;
   };
 
-  static void CreateBackendIfDoesNotExist(const string& backend_name);
+  // Returns the nGraph supported backend names
+  static unordered_set<string> GetSupportedBackendNames();
+
+  static bool IsSupportedBackend(string& backend_name);
 
   static Status SetBackendName(const string& backend_name);
+
+  static void CreateBackendIfDoesNotExist(const string& backend_name);
+
   // Returns a backend pointer of the type specified by the backend name
   static ng::runtime::Backend* GetBackend(const string& backend_name);
 
@@ -60,9 +66,6 @@ class BackendManager {
 
   // UnlockBackend
   static void UnlockBackend(const string& backend_name);
-
-  // Returns the nGraph supported backend names
-  static unordered_set<string> GetSupportedBackendNames();
 
  private:
   static string ng_backend_name_;  // currently set backend name
