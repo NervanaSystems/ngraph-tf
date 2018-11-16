@@ -39,9 +39,9 @@
 #include "ngraph_encapsulate_clusters.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 #include "tf_graph_writer.h"
-#include "ngraph_mark_for_clustering.h"
 
 using namespace std;
 
@@ -227,9 +227,10 @@ Status EncapsulateClusters(Graph* graph) {
     // If the destination node lies within a cluster, we must create an input
     // for the source node to the destination cluster. For the moment we will
     // just store this fact in the input_remap_map.
-    if (dst_clustered && input_remap_map.find(std::make_tuple(
-                             dst_cluster_idx, src->id(), edge->src_output())) ==
-                             input_remap_map.end()) {
+    if (dst_clustered &&
+        input_remap_map.find(
+            std::make_tuple(dst_cluster_idx, src->id(), edge->src_output())) ==
+            input_remap_map.end()) {
       input_remap_map[std::make_tuple(dst_cluster_idx, src->id(),
                                       edge->src_output())] =
           cluster_input_map[dst_cluster_idx].size();

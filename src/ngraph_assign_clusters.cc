@@ -237,9 +237,8 @@ Status CheckNodeClusterAssignmentWRTDeadness(
   if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
       node_pred_string != cluster_pred_string) {
     return errors::Internal(
-        "Node ", node->name(), " [", node->type_string(), "]",
-        " Predicate : ", node_pred_string,
-        "should not be clustered in cluster with predicate ",
+        "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
+        node_pred_string, "should not be clustered in cluster with predicate ",
         cluster_pred_string);
   }
 
@@ -344,15 +343,16 @@ Status AssignClusters(Graph* graph) {
                    << node->name() << "[" << node->type_string() << "]"
                    << " backend " << backend;
 =======
-    cluster_map[node]->backend=backend;
+    cluster_map[node]->backend = backend;
     cluster_map[node]->nodes.insert(node);
     NGRAPH_VLOG(5) << "Creating graphcycle Node: " << new_index << " for "
-                   << node->name() << "[" << node->type_string() << "]" << " backend "<<backend;
+                   << node->name() << "[" << node->type_string() << "]"
+                   << " backend " << backend;
 >>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
 
-#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-    // get predicate string for the node
-    string pred_string;
+    #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
+        // get predicate string for the node
+        string pred_string;
     TF_RETURN_IF_ERROR(deadness_analyzer->GetNodePredicate(*node, pred_string));
     nodes_predicate_map[node] = pred_string;
     cluster_map[node]->predicate_string = pred_string;

@@ -550,7 +550,8 @@ Status MarkForClustering(Graph* graph) {
     if (!backend_env.empty() &&
         BackendManager::IsSupportedBackend(backend_env)) {
 =======
-    if (!backend_env.empty() && BackendManager::IsSupportedBackend(backend_env)) {
+    if (!backend_env.empty() &&
+        BackendManager::IsSupportedBackend(backend_env)) {
 >>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
       current_backend = backend_env;
     }
@@ -615,15 +616,17 @@ Status GetNodeBackend(Node* node, string* backend_name) {
 void SetNodeBackend(Node* node, string& backend_name) {
   NGRAPH_VLOG(5) << "Setting backend " << node->name() << " " << backend_name;
 =======
-  NGRAPH_VLOG(5)<<"Getting backend "<< node->name();
-  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
+  NGRAPH_VLOG(5) << "Getting backend " << node->name();
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
   return Status::OK();
 }
 
-// Can be extended to check the TF Device placement and/or user specified backend
+// Can be extended to check the TF Device placement and/or user specified
+// backend
 // and accordingly assign backend
-void SetNodeBackend(Node* node, string& backend_name){
-  NGRAPH_VLOG(5)<<"Setting backend "<<node->name() << " "<<backend_name;
+void SetNodeBackend(Node* node, string& backend_name) {
+  NGRAPH_VLOG(5) << "Setting backend " << node->name() << " " << backend_name;
 >>>>>>> bcc618372dc5881d6abeabdb0749456ce37987da
   node->AddAttr("_ngraph_backend", backend_name);
 }
