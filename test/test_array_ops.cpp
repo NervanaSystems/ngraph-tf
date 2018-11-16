@@ -718,9 +718,12 @@ TEST(ArrayOps, StridedSliceTest1) {
 }
 
 // Test op: StridedSlice
-// This test is disabled because it exhaustively tests all possibilities of begin and end index
-// While it was useful when developing the strided slice translation function, this exhaustive search is not needed in ci
-// however, keeping this test, in case we make changes to strided slice later and we want to test it locally
+// This test is disabled because it exhaustively tests all possibilities of
+// begin and end index
+// While it was useful when developing the strided slice translation function,
+// this exhaustive search is not needed in ci
+// however, keeping this test, in case we make changes to strided slice later
+// and we want to test it locally
 // Note this test has couts to help debugging
 TEST(ArrayOps, DISABLED_StridedSlice) {
   vector<int> static_input_indexes = {1, 2, 3};  // has static input
