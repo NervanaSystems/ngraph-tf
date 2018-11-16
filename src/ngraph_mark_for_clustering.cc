@@ -18,7 +18,7 @@
 #include "ngraph_utils.h"
 #include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
-
+#include "ngraph_backend_manager.h"
 using namespace std;
 
 namespace tensorflow {
@@ -533,13 +533,23 @@ Status MarkForClustering(Graph* graph) {
   // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
   // 2. Set the backend for each op
   // 3. Set any other attributes as defined in set_attribute_map
+  
   string current_backend = BackendManager::GetCurrentlySetBackendName();
+  const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
+  if (ng_backend_env_value != nullptr) {
+    string backend_env = std::string(ng_backend_env_value);
+    if (!backend_env.empty() && BackendManager::IsSupportedBackend(backend_env)) {
+      current_backend = backend_env;
+    }
+  }
+  NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
+
 
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
-    node->AddAttr("_ngraph_backend", current_backend);
-
+    
+    SetNodeBackend(node, current_backend);
     auto it = set_attributes_map.find(node->type_string());
     if (it != set_attributes_map.end()) {
       TF_RETURN_IF_ERROR(it->second(node));
@@ -570,13 +580,18 @@ bool InputIsStatic(const Node* node, int index) {
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
 }
 
-Status GetNodeBackend(const Node* node, string* backend_name) {
+Status GetNodeBackend(Node* node, string* backend_name) {
   // TODO(amprocte): move attr name to a constant
-  Status s = GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name);
-  if (s != Status::OK()) {
-    *backend_name = "NotSet";
-  }
-  return s;
+  NGRAPH_VLOG(5)<<"Getting backend "<< node->name();
+  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
+  return Status::OK();
+}
+
+// Can be extended to check the TF Device placement and/or user specified backend
+// and accordingly assign backend
+void SetNodeBackend(Node* node, string& backend_name){
+  NGRAPH_VLOG(5)<<"Setting backend "<<node->name() << " "<<backend_name;
+  node->AddAttr("_ngraph_backend", backend_name);
 }
 
 }  // namespace ngraph_bridge

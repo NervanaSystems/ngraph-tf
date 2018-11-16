@@ -124,16 +124,9 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     // Set the backend type for the op
-    op_backend_name = "CPU";
-    const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
-    if (ng_backend_env_value != nullptr) {
-      string backend_env = std::string(ng_backend_env_value);
-      if (!backend_env.empty()) {
-        op_backend_name = backend_env;
-      }
-    }
-
-    BackendManager::CreateBackendIfDoesNotExist(op_backend_name);
+    //m_op_backend_name = "CPU";
+    OP_REQUIRES_OK(ctx, ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
+    BackendManager::CreateBackendIfDoesNotExist(m_op_backend_name);
   }
 
   ~NGraphEncapsulateOp() override {
@@ -217,9 +210,9 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 
-    NGRAPH_VLOG(4) << "Get backend of type: " << op_backend_name;
+    NGRAPH_VLOG(4) << "Got backend of type: " << m_op_backend_name;
     ng::runtime::Backend* op_backend =
-        BackendManager::GetBackend(op_backend_name);
+        BackendManager::GetBackend(m_op_backend_name);
 
     // Get the inputs
     std::vector<TensorShape> input_shapes;
@@ -333,7 +326,7 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
       try {
-        if (op_backend_name == "CPU") {
+        if (m_op_backend_name == "CPU") {
           // We need to check last_tv != nullptr, since there are cases where at
           // the first call to the ng_function, both the current_src_ptr (when
           // the input is a 0-sized tensor) and last_src_ptr (uninitialized at
@@ -370,7 +363,7 @@ class NGraphEncapsulateOp : public OpKernel {
                 current_src_ptr, 0,
                 current_tv->get_element_count() * ng_element_type.size());
           }
-        }  // if (op_backend_name == "CPU")
+        }  // if (m_op_backend_name == "CPU")
       } catch (const std::exception& exp) {
         OP_REQUIRES(
             ctx, false,
@@ -427,7 +420,7 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
-      if (op_backend_name == "CPU") {
+      if (m_op_backend_name == "CPU") {
         // We need to check last_tv != nullptr, since there are cases where at
         // the first call to the ng_function, both the current_dst_ptr (when the
         // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
@@ -444,7 +437,7 @@ class NGraphEncapsulateOp : public OpKernel {
         } else {
           current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
         }
-      }  // if (op_backend_name == "CPU")
+      }  // if (m_op_backend_name == "CPU")
 
       current_tv->set_stale(true);
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
@@ -459,7 +452,7 @@ class NGraphEncapsulateOp : public OpKernel {
     {
       // mutex_lock l(s_ng_backend_mutex);
       // std::lock_guard<std::mutex> lock(backend_mutex_ptr);
-      BackendManager::LockBackend(op_backend_name);
+      BackendManager::LockBackend(m_op_backend_name);
       NGRAPH_VLOG(4)
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
@@ -475,14 +468,14 @@ class NGraphEncapsulateOp : public OpKernel {
             ctx, false,
             errors::Internal("Error in executing the nGraph computation\n"));
       }
-      BackendManager::UnlockBackend(op_backend_name);
+      BackendManager::UnlockBackend(m_op_backend_name);
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
     // Copy value to host if backend is not CPU
     try {
-      if (op_backend_name != "CPU") {
+      if (m_op_backend_name != "CPU") {
         for (size_t i = 0; i < output_caches.size(); ++i) {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::Tensor> dst_tv;
@@ -525,7 +518,7 @@ class NGraphEncapsulateOp : public OpKernel {
   int m_ngraph_cluster;
   std::vector<bool> m_input_is_static;
 
-  string op_backend_name;
+  string m_op_backend_name;
   // static std::weak_ptr<ng::runtime::Backend> s_ng_backend_wptr;
   // static std::string s_ng_backend_name;
   // static mutex s_ng_backend_mutex;
