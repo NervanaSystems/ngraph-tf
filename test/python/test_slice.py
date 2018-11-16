@@ -97,6 +97,9 @@ class TestSliceOperations(NgraphTest):
         # empty interval in every dimension
         slice_ts.append(x[-1:0, 2:3:-1])
         slice_ts.append(x[2:2, 2:3:-1])
+        # stride greater than range
+        slice_ts.append(x[1:3:7, :])
+        
 
         # Unsupported on ngraph currently
         # slice_ts.append(x[:, tf.newaxis])
@@ -139,6 +142,8 @@ class TestSliceOperations(NgraphTest):
         # empty interval in every dimension
         expected.append(inp[-1:0, 2:3:-1])
         expected.append(inp[2:2, 2:3:-1])
+        # stride greater than range
+        expected.append(inp[1:3:7, :])
 
         # Unsupported on ngraph currently
         #expected.append(inp[...])

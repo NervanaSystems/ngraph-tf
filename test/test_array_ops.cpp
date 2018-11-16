@@ -718,12 +718,16 @@ TEST(ArrayOps, StridedSliceTest1) {
 }
 
 // Test op: StridedSlice
-TEST(ArrayOps, StridedSlice) {
+// This test is disabled because it exhaustively tests all possibilities of begin and end index
+// While it was useful when developing the strided slice translation function, this exhaustive search is not needed in ci
+// however, keeping this test, in case we make changes to strided slice later and we want to test it locally
+// Note this test has couts to help debugging
+TEST(ArrayOps, DISABLED_StridedSlice) {
   vector<int> static_input_indexes = {1, 2, 3};  // has static input
-  // std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //, {5, 5, 5}};
-  std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}};  //{2}
+  std::vector<std::vector<int64>> input_sizes = {{2, 3, 4}, {2}};
   auto in_tensor_type = DT_FLOAT;
 
+  // A debugging print function
   auto print_vect = [](vector<int64> v) {
     for (auto i : v) cout << " | " << i << " ";
     cout << "\n";
@@ -841,7 +845,6 @@ TEST(ArrayOps, StridedSlice) {
         // TODO: strides[i] could be more than gap between start[i] and end[i]..
         // have a test for that too
 
-        cout << "=============\n";
         for (int vectorized_idx_for_stride = 0;
              vectorized_idx_for_stride <
              num_elems_in_non_negative_representation_of_diff;
@@ -865,10 +868,11 @@ TEST(ArrayOps, StridedSlice) {
           if (num_elems_in_tensor(cstride) == 0) {
             continue;
           }
-
+          cout << "=============\n";
           print_vect(cstart);
           print_vect(cend);
           print_vect(cstride);
+          cout << "=============\n";
 
           Scope root = Scope::NewRootScope();
 

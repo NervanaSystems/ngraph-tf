@@ -3434,13 +3434,7 @@ static Status TranslateSqueezeOp(
 static Status TranslateStridedSliceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  // TODO refactor StrideSlice with Slice op
   // TODO: implement new_axis_mask, ellipsis_mask
-  ////questions:
-  //  ellipsis mask:
-  //  what does dont care mean (x)... what values would we receive? <<< x is the
-  //  case for ellipses
-  // TODO assert ellipses is 2^n
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
@@ -3474,6 +3468,10 @@ static Status TranslateStridedSliceOp(
 
   auto& input_shape = ng_input->get_shape();
 
+  // Summary: Convert tf indexes (-inf, inf) to clamped_begin_idx [0, d] and clamped_end_idx [-1, d], which are then converted to ngraph indexes [0, d]
+  // tf->ng is done through tf_to_ng, which calls clamper, which converts tf->clamped
+
+  // Graph/function for tf->cmapled
   //           |    .......     <-- y = max_val (max_val = 5)
   //          .|   .
   //         . |  .
@@ -3482,6 +3480,7 @@ static Status TranslateStridedSliceOp(
   // -.-.-.----.------------    <-- y = 0 (for inclusive)
   //  * *      |                <-- y = -1 (for exclusive)
   //           |
+  // X axis: TF indexes. Y axis: Clamped indexes
 
   // clamper is a function that implements the graph above.
   // For inclusive, the graph is clamped at 0 and dim-1
@@ -3535,9 +3534,6 @@ static Status TranslateStridedSliceOp(
     int64 clamped_end_idx =
         clamper(shrink_mask ? clamped_begin_idx + 1 : tf_ignore_end_if_needed,
                 dim, false);
-
-    // TODO: assert if shrink_mask is True, then clamped_begin_idx is in range
-    // [0, d-1]
 
     // Now we have converted semantically non-monotonic and unbounded TF indexes
     // (-inf, inf) to bounded and monotonic clamped indexes [-1, d]
@@ -3623,8 +3619,6 @@ static Status TranslateStridedSliceOp(
       // Is that a valid config, as shrink_axis must get an axis with dim = 1,
       // right?
 
-      // TODO: use TF_STATUS instead of asserting
-      assert(clamped_end_idx - clamped_begin_idx == 1);
       ng_begin_idx = clamped_begin_idx;
       ng_end_idx = clamped_end_idx;
     }
@@ -3639,9 +3633,7 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
-  // TODO: assert begin, end and stride vectors are of equal length
-  // TODO: when ellipses mask is fully supported, this part can be done by
-  // setting ellipses bit at the end (1<<begin_vec.size())
+  // TODO/Note/Question: Are begin, end and stride vectors are of equal length
 
   // begin, end and stride vectors may not have same size as input rank, hence
   // initialize them with 0, dim and 1 respectively
@@ -3684,16 +3676,17 @@ static Status TranslateStridedSliceOp(
     int64 shrink_axis_mask = tf_shrink_axis_mask;
     vector<size_t> output_shape;
 
-    // TODO: use rank instead of ng_begin_vec.size()
-    // maybe not rank... since ng_begin_vec.size() can be less than rank. and
+    // Note: do not use rank instead of ng_begin_vec.size()
+    // since ng_begin_vec.size() can be less than rank, and
     // shrink_mask will have atmost ng_begin_vec.size() elements
     for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
         output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
       } else {
         // TODO: must it equal 1 or can it be 0 too?
-        // TODO: return TF status instead of plain assert
-        assert(ng_end_vec[i] - ng_begin_vec[i] <= 1);
+        if (ng_end_vec[i] - ng_begin_vec[i] > 1)
+        return errors::InvalidArgument(
+          "Trying to shrink specification ", i, "where tf begin, end, strides are: ", begin_vec[i], ":", end_vec[i], ":", stride_vec[i], ". nGraph begin, end, stride are: ", ng_begin_vec[i], ":", ng_end_vec[i]);
       }
       shrink_axis_mask >>= 1;
     }
