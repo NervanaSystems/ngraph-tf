@@ -3687,14 +3687,13 @@ static Status TranslateStridedSliceOp(
       } else {
         // TODO: must it equal 1 or can it be 0 too?
         if (ng_end_vec[i] - ng_begin_vec[i] > 1)
-          return errors::InvalidArgument("Trying to shrink specification ", i,
-                                         "where tf begin, end, strides are: ",
-                                         begin_vec[i], ":", end_vec[i], ":",
-                                         stride_vec[i],
-                                         ". nGraph begin, end, stride are: ",
-                                         ng_begin_vec[i], ":", ng_end_vec[i]),
-                 ":", ng_stride_vec[i],
-                 ". nGraph's begin and end have difference greater than 1";
+          return errors::InvalidArgument(
+              "Trying to shrink specification ", i,
+              "where tf begin, end, strides are: ", begin_vec[i], ":",
+              end_vec[i], ":", stride_vec[i],
+              ". nGraph begin, end, stride are: ", ng_begin_vec[i], ":",
+              ng_end_vec[i], ":", ng_stride_vec[i],
+              ". nGraph's begin and end have difference greater than 1");
       }
       shrink_axis_mask >>= 1;
     }

@@ -705,7 +705,6 @@ TEST(ArrayOps, StridedSliceTest1) {
   attrs.end_mask_ = 0;
   attrs.new_axis_mask_ = 0;
   attrs.shrink_axis_mask_ = 1;
-  // attrs.shrink_axis_mask_ = 0;
 
   auto R = ops::StridedSlice(root, input_data, begin, end, strides);
   vector<DataType> output_datatypes = {in_tensor_type};
