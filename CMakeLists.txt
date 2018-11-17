@@ -137,8 +137,8 @@ else()
 endif(APPLE)
 
 # Build options
-option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DIR" FALSE)
-option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
+option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_INSTALL_PREFIX" FALSE)
+option(NGRAPH_INSTALL_PREFIX "Where would nGraph be installed after build" FALSE)
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 option(UNIT_TEST_USE_TF_PREBUILT "Use pre-built libtensorflow_cc.so" FALSE)
 option(TF_PRE_BUILT_LOCATION "Location where TensorFlow CC library is located" FALSE)
@@ -148,7 +148,7 @@ option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
 message(STATUS "UNIT_TEST_ENABLE: "             ${UNIT_TEST_ENABLE})
 message(STATUS "UNIT_TEST_USE_TF_PREBUILT: "    ${UNIT_TEST_USE_TF_PREBUILT})
 
-message(STATUS "NGRAPH_ARTIFACTS_DIR: "        ${NGRAPH_ARTIFACTS_DIR})
+message(STATUS "NGRAPH_INSTALL_PREFIX: "        ${NGRAPH_INSTALL_PREFIX})
 message(STATUS "USE_PRE_BUILT_NGRAPH: "         ${USE_PRE_BUILT_NGRAPH})
 message(STATUS "NGRAPH_DISTRIBUTED_ENABLE: "    ${NGRAPH_DISTRIBUTED_ENABLE})
 message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
@@ -162,10 +162,10 @@ if (NGRAPH_PLAIDML_ENABLE)
 endif()
 
 if(USE_PRE_BUILT_NGRAPH)
-    if(NOT NGRAPH_ARTIFACTS_DIR)
+    if(NOT NGRAPH_INSTALL_PREFIX)
         message(
             FATAL_ERROR 
-            "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_ARTIFACTS_DIR is missing"
+            "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_INSTALL_PREFIX is missing"
         )
     endif()
 endif()
@@ -210,7 +210,7 @@ if (NOT DEFINED USE_PRE_BUILT_NGRAPH)
 
     set(NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 else()
-    set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
+    set(NGRAPH_INSTALL_DIR ${NGRAPH_INSTALL_PREFIX})
 endif() 
 
 
