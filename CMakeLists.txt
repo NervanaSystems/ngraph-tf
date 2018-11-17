@@ -20,6 +20,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 # set(CMAKE_CXX_COMPILER "clang++")
 include(ExternalProject)
+include(CMakeDependentOption)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare")
 
 # In order to compile ngraph-tf with memory leak detection, run `cmake` with `-DCMAKE_BUILD_TYPE=Sanitize`.
@@ -68,14 +70,20 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-execute_process(COMMAND cat /etc/os-release 
-    OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+if(NOT APPLE)    
+    # FIXME: Doesn't work for Ubuntu
+    execute_process(COMMAND cat /etc/os-release 
+        OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
-string(REGEX MATCH "ID=\"([a-z])+\"" OS_VERSION "${LSB_RELEASE_ID_SHORT}")
-string(REGEX MATCH "\"([a-z])+\"" OS_VERSION "${OS_VERSION}")
-message("OS version is ${OS_VERSION}")
+    string(REGEX MATCH "ID=\"([a-z])+\"" OS_VERSION "${LSB_RELEASE_ID_SHORT}")
+    string(REGEX MATCH "\"([a-z])+\"" OS_VERSION "${OS_VERSION}")
+    message("OS version is ${OS_VERSION}")
+else()
+    # Handle the case for MacOS
+    # TBD
+endif()
 
 # Default to four jobs if the command fails.
 if(NPROC_RESULT)
@@ -128,6 +136,24 @@ else()
     set(LIBNGRAPH_SO "libngraph.so")
 endif(APPLE)
 
+# Build options
+option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DIR" FALSE)
+option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
+option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
+option(UNIT_TEST_USE_TF_PREBUILT "Use pre-built libtensorflow_cc.so" FALSE)
+option(TF_PRE_BUILT_LOCATION "Location where TensorFlow CC library is located" FALSE)
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
+option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
+
+message(STATUS "UNIT_TEST_ENABLE: "             ${UNIT_TEST_ENABLE})
+message(STATUS "UNIT_TEST_USE_TF_PREBUILT: "    ${UNIT_TEST_USE_TF_PREBUILT})
+
+message(STATUS "NGRAPH_ARTIFACTS_DIR: "        ${NGRAPH_ARTIFACTS_DIR})
+message(STATUS "USE_PRE_BUILT_NGRAPH: "         ${USE_PRE_BUILT_NGRAPH})
+message(STATUS "NGRAPH_DISTRIBUTED_ENABLE: "    ${NGRAPH_DISTRIBUTED_ENABLE})
+message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
+
+# Validat the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT DEFINED PlaidML_DIR)
         message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
@@ -135,42 +161,57 @@ if (NGRAPH_PLAIDML_ENABLE)
     message(STATUS "nGraph/PlaidML enabled")
 endif()
 
-# Find and build ngraph
-option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
-if(NGRAPH_DISTRIBUTED_ENABLE)
-    find_package(MPI REQUIRED)
-    add_definitions(-DNGRAPH_DISTRIBUTED)
-    include_directories(SYSTEM ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
-    link_directories(${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+if(USE_PRE_BUILT_NGRAPH)
+    if(NOT NGRAPH_ARTIFACTS_DIR)
+        message(
+            FATAL_ERROR 
+            "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_ARTIFACTS_DIR is missing"
+        )
+    endif()
 endif()
-ExternalProject_Add(
-    ext_ngraph
-    GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG aac6ee2a2ba1d1a1aa82a9635389c593943ae91d
-    CMAKE_ARGS 
-        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
-        -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
-        -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
-        -DNGRAPH_UNIT_TEST_ENABLE=FALSE
-        -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
-        -DNGRAPH_DEX_ONLY=TRUE         
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
-        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
-        -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
-        -DPlaidML_DIR=${PlaidML_DIR}
-    TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
-    STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
-    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
-    SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
-    BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
-    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
-    UPDATE_COMMAND ""
-    INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
-)
 
-set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+if(UNIT_TEST_USE_TF_PREBUILT)
+    if(NOT TF_PRE_BUILT_LOCATION)
+        message(
+            FATAL_ERROR 
+            "UNIT_TEST_USE_TF_PREBUILT is ON but TF_PRE_BUILT_LOCATION is missing"
+        )
+    endif()
+endif()
 
+
+# Find and build ngraph - if not using pre-built one
+if (NOT DEFINED USE_PRE_BUILT_NGRAPH)
+    ExternalProject_Add(
+        ext_ngraph
+        GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
+        GIT_TAG aac6ee2a2ba1d1a1aa82a9635389c593943ae91d
+        CMAKE_ARGS 
+            -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
+            -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
+            -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
+            -DNGRAPH_UNIT_TEST_ENABLE=FALSE
+            -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
+            -DNGRAPH_DEX_ONLY=TRUE         
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+            -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
+            -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
+            -DPlaidML_DIR=${PlaidML_DIR}
+        TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
+        STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
+        DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
+        SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
+        BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
+        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
+        UPDATE_COMMAND ""
+        INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
+    )
+
+    set(NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+else()
+    set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
+endif() 
 
 
 if(OS_VERSION STREQUAL "\"centos\"")
@@ -187,8 +228,6 @@ set_target_properties(
 )
 
 add_dependencies(ngraph_lib ext_ngraph)
-
-option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 
 # Add the directories to be built
 add_subdirectory(third-party)

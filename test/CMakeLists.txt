@@ -85,16 +85,18 @@ if (APPLE)
     set(NGRAPH_TF_CXX11_ABI 0)
 endif()
 
-add_custom_target( 
-    build_tf_cc
-    COMMENT "Building TensorFlow C++ library"
-    COMMAND 
-        ${CMAKE_CURRENT_SOURCE_DIR}/build_tf_cc.sh 
-        ${TensorFlow_SRC_DIR} 
-        ${NGRAPH_TF_CXX11_ABI}
-)
+if (NOT UNIT_TEST_USE_TF_PREBUILT)
+    add_custom_target( 
+        build_tf_cc
+        COMMENT "Building TensorFlow C++ library"
+        COMMAND 
+            ${CMAKE_CURRENT_SOURCE_DIR}/build_tf_cc.sh 
+            ${TensorFlow_SRC_DIR} 
+            ${NGRAPH_TF_CXX11_ABI}
+    )
 
-add_dependencies(gtest_ngtf build_tf_cc)
+    add_dependencies(gtest_ngtf build_tf_cc)
+endif()
 
 target_link_libraries(
     gtest_ngtf 
