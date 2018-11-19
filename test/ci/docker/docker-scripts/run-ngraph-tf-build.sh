@@ -209,7 +209,9 @@ echo  ' '
 
 cd "${tf_dir}"
 
-bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package
+cmd="bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package"
+echo "Running bazel command: ${cmd}"
+${cmd}
 
 xtime="$(date)"
 echo  ' '
@@ -238,7 +240,9 @@ echo  "===== Starting Tensorflow C++ Library Build at ${xtime} ====="
 echo  ' '
 
 cd "${tf_dir}"
-bazel build --config=opt //tensorflow:libtensorflow_cc.so
+cmd="bazel build --config=opt //tensorflow:libtensorflow_cc.so"
+echo "Running bazel command: ${cmd}"
+${cmd}
 
 xtime="$(date)"
 echo  ' '
@@ -249,10 +253,21 @@ cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
-cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR="${tf_dir}" ..
-make -j16
-make install
-make -j16 gtest_ngtf
+cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} .."
+echo "Running cmake command: ${cmd}"
+${cmd}
+
+cmd="make -j16"
+echo "Running make command: ${cmd}"
+${cmd}
+
+cmd="make install"
+echo "Running make command: ${cmd}"
+${cmd}
+
+cmd="make -j16 gtest_ngtf"
+echo "Running make command: ${cmd}"
+${cmd}
 
 xtime="$(date)"
 echo  ' '
