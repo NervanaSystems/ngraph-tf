@@ -672,7 +672,7 @@ TEST(ArrayOps, SplitV) {
   std::vector<std::vector<int64>> input_shapes;
   input_shapes.push_back({1, 2, 6, 1});
 
-  std::vector<int64> size_splits = {2, 1, 2, 1};
+  std::vector<int64> size_splits = {2, -1, 2, 1};
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
