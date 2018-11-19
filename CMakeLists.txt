@@ -145,14 +145,6 @@ option(TF_PRE_BUILT_LOCATION "Location where TensorFlow CC library is located" F
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
 
-message(STATUS "UNIT_TEST_ENABLE: "             ${UNIT_TEST_ENABLE})
-message(STATUS "UNIT_TEST_USE_TF_PREBUILT: "    ${UNIT_TEST_USE_TF_PREBUILT})
-
-message(STATUS "NGRAPH_ARTIFACTS_DIR: "        ${NGRAPH_ARTIFACTS_DIR})
-message(STATUS "USE_PRE_BUILT_NGRAPH: "         ${USE_PRE_BUILT_NGRAPH})
-message(STATUS "NGRAPH_DISTRIBUTED_ENABLE: "    ${NGRAPH_DISTRIBUTED_ENABLE})
-message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
-
 # Validat the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT DEFINED PlaidML_DIR)
@@ -168,6 +160,16 @@ if(USE_PRE_BUILT_NGRAPH)
             "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_ARTIFACTS_DIR is missing"
         )
     endif()
+    # Create absolute path for the directory
+    get_filename_component(
+        NGRAPH_ARTIFACTS_DIR
+        "${NGRAPH_ARTIFACTS_DIR}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${NGRAPH_ARTIFACTS_DIR})
+        message(FATAL_ERROR 
+            "nGraph artifacts directory doesn't exist: " ${NGRAPH_ARTIFACTS_DIR} )
+    endif()    
 endif()
 
 if(UNIT_TEST_USE_TF_PREBUILT)
@@ -177,7 +179,26 @@ if(UNIT_TEST_USE_TF_PREBUILT)
             "UNIT_TEST_USE_TF_PREBUILT is ON but TF_PRE_BUILT_LOCATION is missing"
         )
     endif()
+    # Create absolute path for the directory
+    get_filename_component(
+        TF_PRE_BUILT_LOCATION
+        "${TF_PRE_BUILT_LOCATION}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${TF_PRE_BUILT_LOCATION})
+        message(FATAL_ERROR 
+            "TensorFlow pre-built directory doesn't exist: " ${TF_PRE_BUILT_LOCATION} )
+    endif()
+
 endif()
+
+message(STATUS "UNIT_TEST_ENABLE: "             ${UNIT_TEST_ENABLE})
+message(STATUS "UNIT_TEST_USE_TF_PREBUILT: "    ${UNIT_TEST_USE_TF_PREBUILT})
+
+message(STATUS "NGRAPH_ARTIFACTS_DIR: "        ${NGRAPH_ARTIFACTS_DIR})
+message(STATUS "USE_PRE_BUILT_NGRAPH: "         ${USE_PRE_BUILT_NGRAPH})
+message(STATUS "NGRAPH_DISTRIBUTED_ENABLE: "    ${NGRAPH_DISTRIBUTED_ENABLE})
+message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
 
 
 # Find and build ngraph - if not using pre-built one
