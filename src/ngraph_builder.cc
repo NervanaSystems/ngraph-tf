@@ -3270,8 +3270,7 @@ static Status TranslateSplitVOp(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
 
   int length = 0;
-  int shape_length = 0;
-  int idx;
+  int idx = -1;
   for (int i = 0; i < lengths.size(); ++i) {
     if (lengths[i] != -1) {
       length += lengths[i];
@@ -3282,13 +3281,6 @@ static Status TranslateSplitVOp(
 
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
-  for (int i = 0; i < shape.size(); ++i) {
-    shape_length += shape[i];
-  }
-  if (shape_length > length) {
-    lengths[idx] = shape_length - length;
-  }
-
   std::vector<size_t> lower(rank, 0);
   std::vector<size_t> upper(shape);
 
@@ -3298,12 +3290,17 @@ static Status TranslateSplitVOp(
 
   int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
+  // Size splits must sum to the dimension of value along split_dim
+  if (idx > 0) {
+    lengths[idx] = shape[split_dim] - length;
+  }
+
   int cursor = 0;
 
   if (lengths.size() != 1) {
     for (int i = 0; i < lengths.size(); ++i) {
-      cout << "Printing lengths vector:" << lengths[i] << endl;
       lower[split_dim] = cursor;
+      cursor += lengths[i];
       upper[split_dim] = cursor;
       SaveNgOp(ng_op_map, op->name(),
                make_shared<ng::op::Slice>(ng_input, lower, upper));
