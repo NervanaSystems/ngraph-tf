@@ -4,7 +4,7 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
 
 ## What can be tested
 
- - Python tests using nGraph built with TensorFlow (using Option 3 in the instructions [top level documentation page](../../../README.md#option-3-using-the-upstreamed-version). 
+ - Python tests using nGraph built with TensorFlow (using Option 3 in the instructions [top level documentation page](../../../README.md#option-3-using-the-upstreamed-version)). 
  - Python tests using Tensorflow (using Option 2 in the instructions in the [top level documentation page](../../../README.md#option-2-build-ngraph-bridge-from-source-using-tensorflow-source)) by patching 
    TensorFlow as follows:
    ```
