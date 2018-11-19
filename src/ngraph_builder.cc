@@ -1717,34 +1717,36 @@ static Status TranslateFusedBatchNormOp(
   std::shared_ptr<ng::Node> ng_batch_norm;
 
   if (tf_is_training) {
-    ng_batch_norm = make_shared<ng::op::BatchNormTraining>(ng_input, ng_scale,
-                                                           ng_offset, tf_epsilon);
+    ng_batch_norm = make_shared<ng::op::BatchNormTraining>(
+        ng_input, ng_scale, ng_offset, tf_epsilon);
 
-    shared_ptr<ngraph::Node> ng_y, ng_mean, ng_variance;
-    ng_y = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
-    ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
-    ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
+    shared_ptr<ngraph::Node> ng_y_out, ng_mean_out, ng_variance_out;
+    ng_y_out = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
+    ng_mean_out = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
+    ng_variance_out = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
 
-    BatchToTensorflow(is_nhwc, ng_y);
+    BatchToTensorflow(is_nhwc, ng_y_out);
 
-    SaveNgOp(ng_op_map, op->name(), ng_y);
-    SaveNgOp(ng_op_map, op->name(), ng_mean);
-    SaveNgOp(ng_op_map, op->name(), ng_variance);
+    SaveNgOp(ng_op_map, op->name(), ng_y_out);
+    SaveNgOp(ng_op_map, op->name(), ng_mean_out);
+    SaveNgOp(ng_op_map, op->name(), ng_variance_out);
     // Output reserve_space_1: A 1D Tensor for the computed batch mean, to be
     // reused in the gradient computation.
-    SaveNgOp(ng_op_map, op->name(), ng_mean);
+    SaveNgOp(ng_op_map, op->name(), ng_mean_out);
     // Output reserve_space_2: A 1D Tensor for the computed batch variance
     //(inverted variance in the cuDNN case), to be reused in the gradient
     // computation.
-    SaveNgOp(ng_op_map, op->name(), ng_variance);
+    SaveNgOp(ng_op_map, op->name(), ng_variance_out);
   } else {
     ng_batch_norm = make_shared<ng::op::BatchNormInference>(
         ng_input, ng_scale, ng_offset, ng_mean, ng_variance, tf_epsilon);
     BatchToTensorflow(is_nhwc, ng_batch_norm);
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
+    // When train=false, only one output is expected
+    // Note here: EXPECT_EQ(1, tensors_expected.size());
+    // https://github.com/tensorflow/tensorflow/blob/a767a02ca976d00b9e8e06042bdc2a2bb33b00eb/tensorflow/core/grappler/optimizers/remapper_test.cc#L47
   }
 
-  SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   return Status::OK();
 }
 
