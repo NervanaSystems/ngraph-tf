@@ -1397,7 +1397,7 @@ static Status TranslateDepthToSpaceOp(
   }
 
   ng::AxisVector ng_reshape_shape;
-  ng::AxisVector ng_transpose_shape;
+  ng::AxisVector ng_transpose_permutation;
   ng::AxisVector ng_output_shape;
 
   switch (format_to_int_map[tf_data_format]) {
@@ -1427,12 +1427,13 @@ static Status TranslateDepthToSpaceOp(
       //                       width,
       //                       block_size,
       //                       channel / (block_size * block_size)]
-      ng_transpose_shape.push_back(0);
+      ng_transpose_permutation.push_back(0);
       for (int i = 0; i < num_spatial_dimensions; i++) {
-        ng_transpose_shape.push_back(i + 1);
-        ng_transpose_shape.push_back(i + 1 + num_spatial_dimensions);
+        ng_transpose_permutation.push_back(i + 1);
+        ng_transpose_permutation.push_back(i + 1 + num_spatial_dimensions);
       }
-      ng_transpose_shape.push_back(channel_dimension + num_spatial_dimensions);
+      ng_transpose_permutation.push_back(channel_dimension +
+                                         num_spatial_dimensions);
 
       // ng_output_shape = [batch_size,
       //                    height * block_size,
@@ -1472,11 +1473,11 @@ static Status TranslateDepthToSpaceOp(
       //                       block_size,
       //                       width,
       //                       block_size]
-      ng_transpose_shape.push_back(0);
-      ng_transpose_shape.push_back(1 + num_spatial_dimensions);
+      ng_transpose_permutation.push_back(0);
+      ng_transpose_permutation.push_back(1 + num_spatial_dimensions);
       for (int i = 0; i < num_spatial_dimensions; i++) {
-        ng_transpose_shape.push_back(i + 2 + num_spatial_dimensions);
-        ng_transpose_shape.push_back(i + 1);
+        ng_transpose_permutation.push_back(i + 2 + num_spatial_dimensions);
+        ng_transpose_permutation.push_back(i + 1);
       }
 
       // ng_output_shape = [batch_size,
@@ -1497,14 +1498,9 @@ static Status TranslateDepthToSpaceOp(
   auto reshaped =
       make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_reshape_shape);
 
-  auto transposed = ng::builder::numpy_transpose(reshaped, ng_transpose_shape);
-
-  ng::AxisVector ng_axis_order_second_reshape(transposed->get_shape().size());
-  std::iota(ng_axis_order_second_reshape.begin(),
-            ng_axis_order_second_reshape.end(), 0);
-  auto final_reshape = make_shared<ng::op::Reshape>(
-      transposed, ng_axis_order_second_reshape, ng_output_shape);
-  SaveNgOp(ng_op_map, op->name(), final_reshape);
+  auto final_result = make_shared<ng::op::Reshape>(
+      reshaped, ng_transpose_permutation, ng_output_shape);
+  SaveNgOp(ng_op_map, op->name(), final_result);
 
   return Status::OK();
 }
@@ -2391,7 +2387,7 @@ Status QuantizeAndDequantizeV2Helper(
     const bool& range_given, const bool& signed_input, const int& num_bits,
     float* scale_out) {
   // TODO: currently handling only float, generalize later?
-  T min_range, max_range;
+  T min_range = 0, max_range = 0;
   if (range_given) {
     std::vector<T> input_min, input_max;
     TF_RETURN_IF_ERROR(
@@ -2436,7 +2432,8 @@ Status QuantizeAndDequantizeV2Helper(
                                     ? max_quantized / max_range
                                     : std::numeric_limits<T>::max();
   T scale, inverse_scale;
-  if (scale_from_min_side < scale_from_max_side) {
+  if (scale_from_min_side < scale_from_max_side && min_quantized != 0) {
+    // min_quantized != 0 is not really necessary but klocwork complains
     scale = scale_from_min_side;
     inverse_scale = min_range / min_quantized;
     // max_range = max_quantized * inverse_scale;
@@ -2502,7 +2499,7 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   auto ng_offset = std::make_shared<ng::op::Constant>(ng_q_et, ng::Shape(),
                                                       std::vector<int>({0}));
   ng::op::Quantize::RoundMode ng_round_mode =
-      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
   auto ng_quant = make_shared<ng::op::Quantize>(
       ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(), ng_round_mode);
   SaveNgOp(ng_op_map, op->name(),
@@ -2510,6 +2507,70 @@ static Status TranslateQuantizeAndDequantizeV2Op(
                                            ng_r_et, ng::AxisSet()));
 
   // TODO: what of clamping?
+  return Status::OK();
+}
+
+static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_filter, ng_bias;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_bias));
+  std::vector<std::shared_ptr<ng::op::Constant>> static_inps(6);
+  for (int i = 0; i < static_inps.size(); i++) {
+    std::vector<float> tmp_vect;
+    TF_RETURN_IF_ERROR(
+        GetStaticInputVector(op, 3 + i, static_input_map, &tmp_vect));
+    if (tmp_vect.size() != 1) {
+      return errors::InvalidArgument(
+          "QuantizedConv2DWithBiasAndReluAndRequantize Op: Input number ",
+          (3 + i), " must be scalar. Got a vector of size, ", tmp_vect.size());
+    }
+    static_inps[i] = std::make_shared<ng::op::Constant>(
+        ng::element::f32, ng::Shape({}), tmp_vect);
+  }
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_dilations;
+  std::string tf_padding_type;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  bool is_nhwc = true;  // TODO: Assuming this data format for now
+  ng::Strides ng_strides(2);
+  ng::Strides ng_dilations(2);
+  ng::Strides ng_data_dilations({1, 1});
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
+  BatchToNGraph(is_nhwc, ng_input);
+  auto& ng_filter_shape = ng_filter->get_shape();
+  ng_kernel_shape[0] = ng_filter_shape[0];
+  ng_kernel_shape[1] = ng_filter_shape[1];
+  Reshape<3, 2, 0, 1>(ng_filter);
+  ng::CoordinateDiff ng_padding_below{0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0};
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
+  // It is expected by ScaledQuantizedConvolutionBias that the min max inputs be
+  // constant nodes
+  // Hence declaring them static, reading their values and converting to
+  // constant nodes
+  std::shared_ptr<ng::Node> ng_quant_conv_bias =
+      ng::builder::ScaledQuantizedConvolutionBias(
+          ng_input, ng_filter, ng_bias, ng_strides, ng_dilations,
+          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
+          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
+          static_inps[5], true);
+  BatchToTensorflow(is_nhwc, ng_quant_conv_bias);
+  SaveNgOp(ng_op_map, op->name(), ng_quant_conv_bias);
+  // Forward the min_freezed_output input to output min
+  SaveNgOp(ng_op_map, op->name(), static_inps[4]);
+  // Forward the max_freezed_output input to output max
+  SaveNgOp(ng_op_map, op->name(), static_inps[5]);
   return Status::OK();
 }
 
@@ -2585,7 +2646,7 @@ static Status TranslateQuantizeV2Op(
   string mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
 
-  // TODO: Since, currently only ng::HALF_AWAY_FROM_ZERO is supported,
+  // TODO: Since, currently only ng::ROUND_NEAREST_TOWARD_INFINITY is supported,
   // just reading this value here, but not using it for now.
   string round_mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
@@ -2637,10 +2698,10 @@ static Status TranslateQuantizeV2Op(
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
-  // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
+  // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_INFINITY is supported, for now.
   // Support HALF_TO_EVEN later
   ng::op::Quantize::RoundMode ng_round_mode =
-      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
@@ -3025,14 +3086,12 @@ static Status TranslateSoftmaxOp(
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
   auto ng_input_shape = ng_input->get_shape();
-
   // We apply softmax on the 2nd dimension by following TF
   // And we restrict the softmax input argument to be 2D for now
   ng::AxisSet ng_axes_softmax;
   auto shape_size = ng_input_shape.size();
-
-  if (shape_size != 2) {
-    return errors::InvalidArgument("TF Softmax logits must be 2-dimensional");
+  if (shape_size < 1) {
+    return errors::InvalidArgument("TF Softmax logits must be >=1 dimension");
   }
 
   ng_axes_softmax.insert(1);
@@ -3762,6 +3821,8 @@ const static std::map<
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
+        {"QuantizedConv2DWithBiasAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},

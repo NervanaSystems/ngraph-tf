@@ -18,7 +18,6 @@
 #include "ngraph_utils.h"
 #include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
-#include "tf_deadness_analysis.h"
 
 using namespace std;
 
@@ -38,7 +37,7 @@ namespace ngraph_bridge {
 // associated with it. When the confirmation pass encounters a node of op "Op",
 // the confirmation function for "Op" first checks if this particular instance
 // of the op can be placed on nGraph, and returns "true" if placement is
-// allowed. This is followed by checks for deadness and input datatype of the
+// allowed. This is followed by checks for input datatype of the
 // op.
 
 // Each op that passes all the checks, has the attribute
@@ -61,18 +60,6 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
   placement_ok = true;
   return Status::OK();
 }
-
-#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-// Checks if the node's inputs have mismatching deadness
-static Status DeadnessOk(Node* node,
-                         std::unique_ptr<DeadnessAnalysis>* deadness_analyzer,
-                         bool& deadness_ok) {
-  deadness_ok =
-      !(node->IsMerge() ||
-        (*deadness_analyzer)->HasInputsWithMismatchingDeadness(*node));
-  return Status::OK();
-}
-#endif
 
 // Checks if the node's inputs meet all the type constraints
 static Status TypeConstraintOk(Node* node,
@@ -144,10 +131,6 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 // Main entry point for the marking pass.
 //
 Status MarkForClustering(Graph* graph) {
-  if (config::IsEnabled() == false) {
-    return Status::OK();
-  }
-
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:
@@ -263,8 +246,10 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
+#ifdef NGRAPH_DISTRIBUTED
       confirmation_function_map["HorovodAllreduce"] =
           SimpleConfirmationFunction();
+#endif
       confirmation_function_map["Identity"] = SimpleConfirmationFunction();
       confirmation_function_map["L2Loss"] = SimpleConfirmationFunction();
       confirmation_function_map["Less"] = SimpleConfirmationFunction();
@@ -299,6 +284,8 @@ Status MarkForClustering(Graph* graph) {
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
+      confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
@@ -390,7 +377,9 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+#ifdef NGRAPH_DISTRIBUTED
       type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
+#endif
       type_constraint_map["Identity"]["T"] = NGraphDTypes();
       type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Less"]["T"] = NGraphDTypes();
@@ -419,6 +408,12 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tbias"] = NGraphBiasDTypes();
       type_constraint_map["QuantizedMaxPool"]["T"] =
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -483,6 +478,8 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
+      set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
+          SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
@@ -497,11 +494,6 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
-#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-  std::unique_ptr<DeadnessAnalysis> deadness_analyzer;
-  TF_RETURN_IF_ERROR(DeadnessAnalysis::Run(*graph, &deadness_analyzer));
-#endif
-
   vector<Node*> nodes_marked_for_clustering;
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
@@ -514,18 +506,6 @@ Status MarkForClustering(Graph* graph) {
         NGRAPH_VLOG(5) << "Placement not requested: " << node->name();
         break;
       }
-
-#if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-      // check deadness
-      bool deadness_ok = false;
-      TF_RETURN_IF_ERROR(DeadnessOk(node, &deadness_analyzer, deadness_ok));
-      if (!deadness_ok) {
-        NGRAPH_VLOG(5) << "Node Inputs have mismatching deadness or Node is of "
-                          "type Merge: "
-                       << node->name();
-        break;
-      }
-#endif
 
       // check node's confirmation constraints
       bool confirmation_constraint_ok = false;
