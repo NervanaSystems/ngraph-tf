@@ -1717,8 +1717,8 @@ static Status TranslateFusedBatchNormOp(
   std::shared_ptr<ng::Node> ng_batch_norm;
 
   if (tf_is_training) {
-    ng_batch_norm = make_shared<ng::op::BatchNormTraining>(tf_epsilon, ng_scale,
-                                                           ng_offset, ng_input);
+    ng_batch_norm = make_shared<ng::op::BatchNormTraining>(ng_input, ng_scale,
+                                                           ng_offset, tf_epsilon);
 
     shared_ptr<ngraph::Node> ng_y, ng_mean, ng_variance;
     ng_y = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
@@ -1739,7 +1739,7 @@ static Status TranslateFusedBatchNormOp(
     SaveNgOp(ng_op_map, op->name(), ng_variance);
   } else {
     ng_batch_norm = make_shared<ng::op::BatchNormInference>(
-        tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean, ng_variance);
+        ng_input, ng_scale, ng_offset, ng_mean, ng_variance, tf_epsilon);
     BatchToTensorflow(is_nhwc, ng_batch_norm);
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
@@ -1807,7 +1807,7 @@ static Status TranslateFusedBatchNormGradOp(
   std::shared_ptr<ng::Node> ng_batch_norm_backprop;
 
   ng_batch_norm_backprop = make_shared<ng::op::BatchNormTrainingBackprop>(
-      tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance, ng_delta);
+      ng_input, ng_scale, ng_beta, ng_mean, ng_variance, ng_delta, tf_epsilon);
 
   shared_ptr<ngraph::Node> ng_input_delta_op =
       make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 0);

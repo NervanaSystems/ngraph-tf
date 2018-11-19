@@ -912,6 +912,85 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
   }
 }  // end of op Conv2DBackpropInputNHWCWithDilation
 
+
+// FusedBatchNorm : Forward pass, training = true
+TEST(NNOps, FusedBatchNormNHWCTrainTrue) {
+  Scope root = Scope::NewRootScope();
+
+  // 4D tensor for the gradient with respect to y
+  Tensor x(DT_FLOAT, TensorShape({5, 4, 3, 2}));
+  // 4D tensor for input data
+  Tensor scale(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for scaling the normalized x
+  Tensor offset(DT_FLOAT, TensorShape({2}));
+  // 1D (empty) tensor for population mean
+  Tensor mean(DT_FLOAT, TensorShape({0}));
+  // 1D (empty) tensor for population variance
+  Tensor variance(DT_FLOAT, TensorShape({0}));
+
+  AssignInputValuesRandom<float>(x, -10.0f, 5.0f);
+  AssignInputValuesRandom<float>(scale, -10.0f, 5.0f);
+  AssignInputValuesRandom<float>(offset, -2.0f, 2.0f);
+  // We will not fill mean and variance,
+  // since it is not used when training=true
+
+  auto attrs = ops::FusedBatchNorm::Attrs();
+  attrs.is_training_ = true;
+  attrs.epsilon_ = 0.0001f;
+  attrs.data_format_ = "NHWC";
+
+  // test grab all the outputs from the FusedBatchNorm op
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes(5, DT_FLOAT);
+  auto R = ops::FusedBatchNorm(root, x, scale, offset, mean, variance, attrs);
+  std::vector<Output> sess_run_fetchoutputs = {
+      R.y, R.batch_mean, R.batch_variance, R.reserve_space_1,
+      R.reserve_space_2};
+  OpExecuter opexecuter(root, "FusedBatchNorm",
+                                   static_input_indexes, output_datatypes,
+                                   sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
+// FusedBatchNorm : Forward pass, training = false
+TEST(NNOps, FusedBatchNormNHWCTrainFalse) {
+  Scope root = Scope::NewRootScope();
+
+  // 4D tensor for the gradient with respect to y
+  Tensor x(DT_FLOAT, TensorShape({5, 4, 3, 2}));
+  // 4D tensor for input data
+  Tensor scale(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for scaling the normalized x
+  Tensor offset(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for population mean
+  Tensor mean(DT_FLOAT, TensorShape({2}));
+  // 1D tensor for population variance
+  Tensor variance(DT_FLOAT, TensorShape({2}));
+
+  AssignInputValuesRandom<float>(x, -5.0f, 10.0f);
+  AssignInputValuesRandom<float>(scale, -10.0f, 10.0f);
+  AssignInputValuesRandom<float>(offset, -1.6f, 1.6f);
+  AssignInputValuesRandom<float>(mean, 1.1f, 1.5f);
+  AssignInputValuesRandom<float>(variance, 0.5f, 1.5f);
+
+  auto attrs = ops::FusedBatchNorm::Attrs();
+  attrs.is_training_ = false;
+  attrs.epsilon_ = 0.0001f;
+  attrs.data_format_ = "NHWC";
+
+  // test grab all the outputs from the FusedBatchNorm op
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes(5, DT_FLOAT);
+  auto R = ops::FusedBatchNorm(root, x, scale, offset, mean, variance, attrs);
+  std::vector<Output> sess_run_fetchoutputs = {
+      R.y, R.batch_mean, R.batch_variance, R.reserve_space_1,
+      R.reserve_space_2};
+  OpExecuter opexecuter(root, "FusedBatchNorm",
+                                   static_input_indexes, output_datatypes,
+                                   sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}
+
 // FusedBatchNormGrad : Gradient for batch normalization
 // On TF CPU: only supports NHWC
 TEST(NNOps, FusedBatchNormGradNHWC) {
