@@ -84,7 +84,8 @@ def get_test_list(tf_path, test_regex):
         module_list = regex_walk(tf_path, test_regex)
     except Exception as e:
         module_list = []
-        print( "Exception occured in regex_walk. " + str(e) +
+        print(
+            "Exception occured in regex_walk. " + str(e) +
             """\nInvalid module name. Use bazel query below to get list of tensorflow python test modules.
             bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label\n"""
         )
@@ -93,7 +94,8 @@ def get_test_list(tf_path, test_regex):
         test_list = list_tests(module_list, test_regex)
     except Exception as e:
         test_list = []
-        print("Exception occured in list_tests. " + str(e) +
+        print(
+            "Exception occured in list_tests. " + str(e) +
             "\nEnter a valid argument to --list_tests or --run_test.\n \nLIST OF ACCEPTED FORMATS:"
         )
         print('\n'.join(accepted_formats))
