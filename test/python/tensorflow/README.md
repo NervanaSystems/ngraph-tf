@@ -4,13 +4,16 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
 
 ## What can be tested
 
- - Python tests using nGraph embedded in Tensorflow (when Tensorflow is built using Option 3 in the link below). 
- - Python tests using Tensorflow (when built using Option 1 & 2 in the link below) by patching 
-   Tensorflow to allow running tests using nGraph. Apply the patch ```tf_unittest_ngraph.patch``` 
-   in your installed tensoflow file: "\<local virtualenv>/local/lib/\<python>/site-   packages/tensorflow/python/framework/test_util.py"
-	
-   https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md#linux-instructions
-	
+ - Python tests using nGraph built with TensorFlow (using Option 3 in the instructions here [../../../#linux-instructions]). 
+ - Python tests using Tensorflow (using Option 2 in the instructions here [../../../]) by patching 
+   TensorFlow as follows:
+   ```
+   cp tf_unittest_ngraph.patch <your_virtual_env/lib/python<VERSION>/site-packages>
+   cd <your_virtual_env/lib/python<VERSION>/site-packages>
+   git apply tf_unittest_ngraph.patch 
+   ```
+   
+   This will update the `tensorflow/python/framework/test_util.py` so that the TensorFlow Python unit tests use `nGraph` to execute the tests.
 
 ## Usage
 
