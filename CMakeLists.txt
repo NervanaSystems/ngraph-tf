@@ -159,6 +159,11 @@ if(USE_PRE_BUILT_NGRAPH)
             "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_ARTIFACTS_DIR is missing"
         )
     endif()
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${NGRAPH_ARTIFACTS_DIR})
+        set(NGRAPH_ARTIFACTS_DIR {CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
+    endif()
+
     # Create absolute path for the directory
     get_filename_component(
         NGRAPH_ARTIFACTS_DIR
@@ -172,6 +177,11 @@ if(USE_PRE_BUILT_NGRAPH)
 endif()
 
 if(UNIT_TEST_TF_CC_DIR)
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${UNIT_TEST_TF_CC_DIR})
+        set(UNIT_TEST_TF_CC_DIR {CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
+    endif()
+
     # Create absolute path for the directory
     get_filename_component(
         TF_PRE_BUILT_LOCATION
@@ -250,6 +260,12 @@ if (UNIT_TEST_ENABLE)
     if (NOT DEFINED TF_SRC_DIR)
         message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")
     endif()
+
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${TF_SRC_DIR})
+        set(TF_SRC_DIR {CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
+    endif()
+
     # Get the absolute file name for the source
     get_filename_component(
         TensorFlow_SRC_DIR
@@ -257,7 +273,7 @@ if (UNIT_TEST_ENABLE)
         ABSOLUTE
     )
     if (NOT EXISTS ${TensorFlow_SRC_DIR})
-    message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
+        message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
     endif()
 
     add_subdirectory(test)
