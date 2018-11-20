@@ -334,7 +334,7 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "aac6ee2a2ba1d1a1aa82a9635389c593943ae91d"
+    ngraph_version = "6e06cded1d30030136d5677e0b3851dd4cc04bee"
     tf_version = "v1.12.0"
 
     # Download TensorFlow
