@@ -202,7 +202,7 @@ message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
 
 
 # Find and build ngraph - if not using pre-built one
-if (NOT DEFINED USE_PRE_BUILT_NGRAPH)
+if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
