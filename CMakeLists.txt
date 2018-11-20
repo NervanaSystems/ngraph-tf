@@ -140,12 +140,11 @@ endif(APPLE)
 option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DIR" FALSE)
 option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
-option(UNIT_TEST_USE_TF_PREBUILT "Use pre-built libtensorflow_cc.so" FALSE)
-option(TF_PRE_BUILT_LOCATION "Location where TensorFlow CC library is located" FALSE)
+option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
 
-# Validat the options
+# Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT DEFINED PlaidML_DIR)
         message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
@@ -172,17 +171,11 @@ if(USE_PRE_BUILT_NGRAPH)
     endif()    
 endif()
 
-if(UNIT_TEST_USE_TF_PREBUILT)
-    if(NOT TF_PRE_BUILT_LOCATION)
-        message(
-            FATAL_ERROR 
-            "UNIT_TEST_USE_TF_PREBUILT is ON but TF_PRE_BUILT_LOCATION is missing"
-        )
-    endif()
+if(UNIT_TEST_TF_CC_DIR)
     # Create absolute path for the directory
     get_filename_component(
         TF_PRE_BUILT_LOCATION
-        "${TF_PRE_BUILT_LOCATION}"
+        "${UNIT_TEST_TF_CC_DIR}"
         ABSOLUTE
     )
     if (NOT EXISTS ${TF_PRE_BUILT_LOCATION})
@@ -192,14 +185,13 @@ if(UNIT_TEST_USE_TF_PREBUILT)
 
 endif()
 
-message(STATUS "UNIT_TEST_ENABLE: "             ${UNIT_TEST_ENABLE})
-message(STATUS "UNIT_TEST_USE_TF_PREBUILT: "    ${UNIT_TEST_USE_TF_PREBUILT})
+message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
+message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
 
-message(STATUS "NGRAPH_ARTIFACTS_DIR: "        ${NGRAPH_ARTIFACTS_DIR})
-message(STATUS "USE_PRE_BUILT_NGRAPH: "         ${USE_PRE_BUILT_NGRAPH})
-message(STATUS "NGRAPH_DISTRIBUTED_ENABLE: "    ${NGRAPH_DISTRIBUTED_ENABLE})
-message(STATUS "NGRAPH_PLAIDML_ENABLE: "        ${NGRAPH_PLAIDML_ENABLE})
-
+message(STATUS "NGRAPH_ARTIFACTS_DIR:       ${NGRAPH_ARTIFACTS_DIR}")
+message(STATUS "USE_PRE_BUILT_NGRAPH:       ${USE_PRE_BUILT_NGRAPH}")
+message(STATUS "NGRAPH_DISTRIBUTED_ENABLE:  ${NGRAPH_DISTRIBUTED_ENABLE}")
+message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
 
 # Find and build ngraph - if not using pre-built one
 if (NOT USE_PRE_BUILT_NGRAPH)
@@ -258,6 +250,16 @@ if (UNIT_TEST_ENABLE)
     if (NOT DEFINED TF_SRC_DIR)
         message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")
     endif()
+    # Get the absolute file name for the source
+    get_filename_component(
+        TensorFlow_SRC_DIR
+        "${TF_SRC_DIR}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${TensorFlow_SRC_DIR})
+    message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
+    endif()
+
     add_subdirectory(test)
     message(STATUS "unit tests enabled")
 endif()

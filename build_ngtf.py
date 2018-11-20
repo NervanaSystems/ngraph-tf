@@ -377,7 +377,7 @@ def main():
         "-DUSE_PRE_BUILT_NGRAPH=ON",
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON", "-DTF_SRC_DIR=" + tf_src_dir,
-        "-DUNIT_TEST_USE_TF_PREBUILT=ON", "-DTF_PRE_BUILT_LOCATION=" +
+        "-UNIT_TEST_TF_CC_DIR=" +
         os.path.join(artifacts_location, "tensorflow")
     ]
     if (arguments.debug_build):

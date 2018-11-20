@@ -26,15 +26,6 @@ if (NOT DEFINED TF_SRC_DIR)
     )
 endif()
 
-# Get the absolute file name for the source
-get_filename_component(
-    TensorFlow_SRC_DIR
-    "${TF_SRC_DIR}"
-    ABSOLUTE
-)
-if (NOT EXISTS ${TensorFlow_SRC_DIR})
-message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
-endif()
 
 include_directories(${TensorFlow_SRC_DIR})
 
@@ -85,7 +76,7 @@ if (APPLE)
     set(NGRAPH_TF_CXX11_ABI 0)
 endif()
 
-if (NOT UNIT_TEST_USE_TF_PREBUILT)
+if (NOT UNIT_TEST_TF_CC_DIR)
     add_custom_target( 
         build_tf_cc
         COMMENT "Building TensorFlow C++ library"
