@@ -10,7 +10,7 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
    ```
    cp tf_unittest_ngraph.patch <your_virtual_env/lib/python<VERSION>/site-packages>
    cd <your_virtual_env/lib/python<VERSION>/site-packages>
-   git apply tf_unittest_ngraph.patch 
+   patch -p1 < tf_unittest_ngraph.patch 
    ```
    
    This will update the `tensorflow/python/framework/test_util.py` so that the TensorFlow Python unit tests use `nGraph` to execute the tests.
@@ -60,7 +60,7 @@ tf_unittest_runner is primarily used to run tensorflow python unit tests using n
  - `--tensorflow_path` is a required argument and must be passed to
    specify the location of Tensorflow source code
  
- -  NGRAPH_TF_DISABLE_DEASSIGN_CLUSTER=1 should be set always, else ops might not land
+ -  NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1 should be set always, else ops might not land
     on ngraph due to reassignment of singleton clusters
     
  -  To get a list of test modules available in Tensorflow, use bazel query
