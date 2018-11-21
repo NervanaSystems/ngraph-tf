@@ -99,7 +99,7 @@ install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")
 
 # Next install all the other prerequisites
 # This flag is for when building nGraph as a standalone library
-if (NGRAPH_STANDALONE)
+if (NOT NGRAPH_STANDALONE)
     if(OS_VERSION STREQUAL "\"centos\"")
     	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
     else()

@@ -101,8 +101,8 @@ endif()
 set(CMAKE_MACOSX_RPATH 1)
 if(APPLE)
     set(CMAKE_INSTALL_RPATH "@loader_path/;@loader_path/../tensorflow;")
-elseif(DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
-    set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow:${PREBUILT_NGRAPH_INSTALL_PATH}/lib")
+elseif(DEFINED NGRAPH_TF_RPATH)
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow:${NGRAPH_TF_RPATH}")
 else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()
@@ -138,7 +138,7 @@ if (NOT DEFINED PREBUILT_NGRAPH_INSTALL_PATH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-        GIT_TAG v0.9.0
+        GIT_TAG v0.9.1
         CMAKE_ARGS 
             -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
             -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
