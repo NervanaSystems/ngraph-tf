@@ -492,7 +492,7 @@ static Status TranslateAnyOp(const Node* op,
   auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto ng_or = make_shared<ng::Function>(make_shared<ng::op::Or>(f_A, f_B),
-                                         ng::op::ParameterVector{f_A, f_B});
+                                         ng::ParameterVector{f_A, f_B});
 
   shared_ptr<ng::Node> ng_any =
       make_shared<ng::op::Reduce>(ng_input, arg_init, ng_or, ng_reduction_axes);
@@ -546,7 +546,7 @@ static Status TranslateAllOp(const Node* op,
   auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto ng_and = make_shared<ng::Function>(make_shared<ng::op::And>(f_A, f_B),
-                                          ng::op::ParameterVector{f_A, f_B});
+                                          ng::ParameterVector{f_A, f_B});
 
   shared_ptr<ng::Node> ng_all = make_shared<ng::op::Reduce>(
       ng_input, arg_init, ng_and, ng_reduction_axes);
@@ -2388,7 +2388,7 @@ Status QuantizeAndDequantizeV2Helper(
     const bool& range_given, const bool& signed_input, const int& num_bits,
     float* scale_out) {
   // TODO: currently handling only float, generalize later?
-  T min_range, max_range;
+  T min_range = 0, max_range = 0;
   if (range_given) {
     std::vector<T> input_min, input_max;
     TF_RETURN_IF_ERROR(
@@ -2433,7 +2433,8 @@ Status QuantizeAndDequantizeV2Helper(
                                     ? max_quantized / max_range
                                     : std::numeric_limits<T>::max();
   T scale, inverse_scale;
-  if (scale_from_min_side < scale_from_max_side) {
+  if (scale_from_min_side < scale_from_max_side && min_quantized != 0) {
+    // min_quantized != 0 is not really necessary but klocwork complains
     scale = scale_from_min_side;
     inverse_scale = min_range / min_quantized;
     // max_range = max_quantized * inverse_scale;

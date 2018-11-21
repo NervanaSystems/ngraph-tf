@@ -33,7 +33,7 @@ def main():
     required.add_argument(
         '--tensorflow_path',
         help=
-        "Specify the path where Tensorflow is installed. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n",
+        "Specify the path to Tensorflow source code. Eg:/localdisk/skantama/tf-ngraph/tensorflow \n",
         required=True)
     optional.add_argument(
         '--list_tests',
@@ -82,17 +82,20 @@ def get_test_list(tf_path, test_regex):
     ]
     try:
         module_list = regex_walk(tf_path, test_regex)
-    except:
+    except Exception as e:
         module_list = []
         print(
+            "Exception occured in regex_walk. " + str(e) +
             """\nInvalid module name. Use bazel query below to get list of tensorflow python test modules.
             bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label\n"""
         )
+    #import pdb; pdb.set_trace()
     try:
         test_list = list_tests(module_list, test_regex)
-    except:
+    except Exception as e:
         test_list = []
         print(
+            "Exception occured in list_tests. " + str(e) +
             "\nEnter a valid argument to --list_tests or --run_test.\n \nLIST OF ACCEPTED FORMATS:"
         )
         print('\n'.join(accepted_formats))
@@ -108,8 +111,8 @@ def regex_walk(dirname, regex_input):
     be able to import the modules.
     
     Args:
-    dirname: This is the tensorflow_path passed as an argument where 
-    tensorflow is installed.
+    dirname: This is the tensorflow_path passed as an argument is the path to 
+    tensorflow source code.
     
     regex_input: Regular expression input string to filter and list/run tests.
     Few examples of accepted regex_input are:

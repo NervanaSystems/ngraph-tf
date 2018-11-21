@@ -146,7 +146,7 @@ endif()
 ExternalProject_Add(
     ext_ngraph
     GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG cs/maxpool_bprop
+    GIT_TAG 6e06cded1d30030136d5677e0b3851dd4cc04bee
     CMAKE_ARGS 
         -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
         -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
