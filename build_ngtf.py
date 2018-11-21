@@ -109,7 +109,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
 
     print("PYTHON_BIN_PATH: " + python_executable)
 
-    # In order to build tensotflow, we need to be in the virtual environment
+    # In order to build TensorFlow, we need to be in the virtual environment
     pwd = os.getcwd()
 
     src_dir = os.path.abspath(src_dir)
@@ -144,12 +144,6 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "bazel",
         "build",
         "--config=opt",
-        #"--config=ngraph",
-        #"--config=noaws",
-        #"--config=nogcp",
-        #"--config=nohdfs",
-        #"--config=noignite",
-        #"--config=nokafka",
         "//tensorflow/tools/pip_package:build_pip_package",
     ])
 
@@ -169,7 +163,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
 
     tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
 
-    # Remove just in cace
+    # Remove just in case
     try:
         doomed_file = os.path.join(artifacts_dir, "libtensorflow_cc.so")
         os.remove(doomed_file)
@@ -286,14 +280,12 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     print(tf.__compiler_version__);
     import ngraph_config; print(ngraph_config.__version__)
 
-    pass
-
 def download_repo(target_name, repo, version):
 
     # First download to a temp folder
     call(["git", "clone", repo, target_name])
 
-    # Next goto this folder nd determone the name of the root folder
+    # Next goto this folder nd determine the name of the root folder
     pwd = os.getcwd()
 
     # Go to the tree
@@ -305,6 +297,9 @@ def download_repo(target_name, repo, version):
     os.chdir(pwd)
 
 def main():
+    '''
+    Builds TensorFlow, ngraph, and ngraph-tf for python 3
+    '''
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -351,7 +346,7 @@ def main():
     # Download nGraph
     download_repo(
         "ngraph", 
-        "git@github.com:NervanaSystems/ngraph.git", 
+        "https://github.com/NervanaSystems/ngraph.git", 
         ngraph_version)
 
     # Now build nGraph
@@ -360,7 +355,7 @@ def main():
     
     ngraph_cmake_flags = [
         "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
-        "-DNGRAPH_DISTRIBUTED_ENABLE=YES", "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
+        "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE", "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
         "-DNGRAPH_UNIT_TEST_ENABLE=NO", "-DNGRAPH_TOOLS_ENABLE=YES",
         "-DNGRAPH_DEX_ONLY=TRUE", "-DNGRAPH_GPU_ENABLE=NO",
         "-DNGRAPH_PLAIDML_ENABLE=NO", "-DNGRAPH_DEBUG_ENABLE=NO"
@@ -383,7 +378,7 @@ def main():
     if (arguments.debug_build):
         ngraph_tf_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-    # NOw build the bridge
+    # Now build the bridge
     ng_tf_whl = build_ngraph_tf(
         "./artifacts", "../", "./venv-tf-py3", ngraph_tf_cmake_flags)
 
