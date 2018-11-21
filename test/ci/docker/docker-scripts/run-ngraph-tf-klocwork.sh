@@ -127,37 +127,6 @@ if [ ! -d "${trained_resnet50_model}" ] ; then
     exit 1
 fi
 
-xtime="$(date)"
-echo  ' '
-echo  "===== Checking gcc and OS version at ${xtime} ====="
-echo  ' '
-
-echo 'gcc is being run from:'
-which gcc
-
-echo ' '
-echo 'gcc verison is:'
-gcc --version
-
-echo 'g++ is being run from:'
-which g++
-
-echo ' '
-echo 'g++ version is:'
-g++ --version
-
-echo ' '
-echo 'Ubuntu version is:'
-cat /etc/os-release
-
-xtime="$(date)"
-echo  ' '
-echo  "===== Starting nGraph TensorFlow Bridge Source Code Format Check at ${xtime} ====="
-echo  ' '
-
-cd "${bridge_dir}"
-maint/check-code-format.sh
-
 # Make sure the Bazel cache is in /tmp, as docker images have too little space
 # in the root filesystem, where /home (and $HOME/.cache) is.  Even though we
 # may not be using the Bazel cache in the builds (in docker), we do this anyway
@@ -166,6 +135,7 @@ echo "Adjusting bazel cache to be located in /tmp/bazel-cache"
 rm -fr "$HOME/.cache"
 mkdir /tmp/bazel-cache
 ln -s /tmp/bazel-cache "$HOME/.cache"
+
 
 xtime="$(date)"
 echo  ' '
@@ -179,70 +149,82 @@ PS2='prompt-more> '
 virtualenv --system-site-packages -p "${PYTHON_BIN_PATH}" "${venv_dir}"
 source "${venv_dir}/bin/activate"
 
+#DISABLED xtime="$(date)"
+#DISABLED echo  ' '
+#DISABLED echo  "===== Configuring Tensorflow Build at ${xtime} ====="
+#DISABLED echo  ' '
+#DISABLED 
+#DISABLED export CC_OPT_FLAGS="-march=native"
+#DISABLED export USE_DEFAULT_PYTHON_LIB_PATH=1
+#DISABLED export TF_ENABLE_XLA=0
+#DISABLED 
+#DISABLED export TF_NEED_MKL=0
+#DISABLED export TF_DOWNLOAD_MKL=0
+#DISABLED 
+#DISABLED export TF_NEED_JEMALLOC=1
+#DISABLED export TF_NEED_GCP=0
+#DISABLED export TF_NEED_HDFS=0
+#DISABLED export TF_NEED_VERBS=0
+#DISABLED export TF_NEED_OPENCL=0
+#DISABLED export TF_NEED_CUDA=0
+#DISABLED export TF_NEED_MPI=0
+#DISABLED 
+#DISABLED cd "${tf_dir}"
+#DISABLED ./configure
+#DISABLED 
+#DISABLED xtime="$(date)"
+#DISABLED echo  ' '
+#DISABLED echo  "===== Starting Tensorflow Binaries Build at ${xtime} ====="
+#DISABLED echo  ' '
+#DISABLED 
+#DISABLED cd "${tf_dir}"
+#DISABLED 
+#DISABLED bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package
+#DISABLED 
+#DISABLED xtime="$(date)"
+#DISABLED echo  ' '
+#DISABLED echo  "===== Starting Tensorflow Wheel Build at ${xtime} ====="
+#DISABLED echo  ' '
+#DISABLED 
+#DISABLED bazel-bin/tensorflow/tools/pip_package/build_pip_package "${WHEEL_BUILD_DIR}"
+#DISABLED 
+#DISABLED xtime="$(date)"
+#DISABLED echo  ' '
+#DISABLED echo  "===== Installing Tensorflow Wheel at ${xtime} ====="
+#DISABLED echo  ' '
+#DISABLED 
+#DISABLED set -x
+#DISABLED cd "${tf_dir}"
+#DISABLED declare WHEEL_FILE="$(find "${WHEEL_BUILD_DIR}" -name '*.whl')"
+#DISABLED # If installing into the OS, use:
+#DISABLED # sudo --preserve-env --set-home pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
+#DISABLED # Here we are installing into a virtual environment, so DO NOT USE SUDO!!!
+#DISABLED pip install -U "${WHEEL_FILE}"
+#DISABLED set +x
+#DISABLED 
+#DISABLED xtime="$(date)"
+#DISABLED echo  ' '
+#DISABLED echo  "===== Starting Tensorflow C++ Library Build at ${xtime} ====="
+#DISABLED echo  ' '
+#DISABLED 
+#DISABLED cd "${tf_dir}"
+#DISABLED bazel build --config=opt //tensorflow:libtensorflow_cc.so
+
 xtime="$(date)"
 echo  ' '
-echo  "===== Configuring Tensorflow Build at ${xtime} ====="
+echo  "===== Installing the TensorFlow wheel from the Internet at ${xtime} ====="
 echo  ' '
 
-export CC_OPT_FLAGS="-march=native"
-export USE_DEFAULT_PYTHON_LIB_PATH=1
-export TF_ENABLE_XLA=0
+if [ "${PYTHON_VERSION_NUMBER}" = '3' ] ; then
+    pip3 install tensorflow=1.11.0rc2
+else
+    ( >&2 echo '***** Error: *****' )
+    ( >&2 echo "Python version ${PYTHON_VERSION_NUMBER} is currently not supported in run-ngraph-tf-klocwork.sh" )
+    exit 1
+fi    
 
-export TF_NEED_MKL=0
-export TF_DOWNLOAD_MKL=0
-
-export TF_NEED_JEMALLOC=1
-export TF_NEED_GCP=0
-export TF_NEED_HDFS=0
-export TF_NEED_VERBS=0
-export TF_NEED_OPENCL=0
-export TF_NEED_CUDA=0
-export TF_NEED_MPI=0
-
-cd "${tf_dir}"
-./configure
-
-xtime="$(date)"
-echo  ' '
-echo  "===== Starting Tensorflow Binaries Build at ${xtime} ====="
-echo  ' '
-
-cd "${tf_dir}"
-
-cmd="bazel build --config=opt --verbose_failures //tensorflow/tools/pip_package:build_pip_package"
-echo "Running bazel command: ${cmd}"
-${cmd}
-
-xtime="$(date)"
-echo  ' '
-echo  "===== Starting Tensorflow Wheel Build at ${xtime} ====="
-echo  ' '
-
-bazel-bin/tensorflow/tools/pip_package/build_pip_package "${WHEEL_BUILD_DIR}"
-
-xtime="$(date)"
-echo  ' '
-echo  "===== Installing Tensorflow Wheel at ${xtime} ====="
-echo  ' '
-
-set -x
-cd "${tf_dir}"
-declare WHEEL_FILE="$(find "${WHEEL_BUILD_DIR}" -name '*.whl')"
-# If installing into the OS, use:
-# sudo --preserve-env --set-home pip install --ignore-installed ${PIP_INSTALL_EXTRA_ARGS:-} "${WHEEL_FILE}"
-# Here we are installing into a virtual environment, so DO NOT USE SUDO!!!
-pip install -U "${WHEEL_FILE}"
-set +x
-
-xtime="$(date)"
-echo  ' '
-echo  "===== Starting Tensorflow C++ Library Build at ${xtime} ====="
-echo  ' '
-
-cd "${tf_dir}"
-cmd="bazel build --config=opt //tensorflow:libtensorflow_cc.so"
-echo "Running bazel command: ${cmd}"
-${cmd}
+# XXXXX
+exit 0
 
 xtime="$(date)"
 echo  ' '
@@ -253,21 +235,10 @@ cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
-cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} .."
-echo "Running cmake command: ${cmd}"
-${cmd}
-
-cmd="make -j16"
-echo "Running make command: ${cmd}"
-${cmd}
-
-cmd="make install"
-echo "Running make command: ${cmd}"
-${cmd}
-
-cmd="make -j16 gtest_ngtf"
-echo "Running make command: ${cmd}"
-${cmd}
+cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR="${tf_dir}" ..
+make -j16
+make install
+make -j16 gtest_ngtf
 
 xtime="$(date)"
 echo  ' '
@@ -315,10 +286,6 @@ xtime="$(date)"
 echo  ' '
 echo  "===== Installing nGraph Wheel at ${xtime} ====="
 echo  ' '
-
-echo 'md5sum of wheel that was built above, and will be installed:'
-cd "${bridge_dir}"
-md5sum ngraph*.whl
 
 cd "${bridge_dir}"
 pip install ngraph*.whl
