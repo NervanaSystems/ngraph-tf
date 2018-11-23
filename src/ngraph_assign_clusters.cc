@@ -87,13 +87,13 @@ namespace ngraph_bridge {
 // TODO(amprocte): Say more about the algorithm.
 //
 
-namespace {
+// namespace {
 struct Cluster {
   int index;
   std::set<tensorflow::Node*> nodes;
   std::string backend;
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-  std::string predicate_string;
+  AndPredicate* pred;
   std::set<const Edge*> outgoing_edges;
 #endif
 };
@@ -132,87 +132,88 @@ Status CanContractEdgeBackendCheck(
 // If Src Predicate is TRUE then merged cluster gets the dst predicate
 // WARNING : This function does not do any checks
 // Use this function when ready to merge
-inline string GetMergedClusterPred(const string& src_predicate,
-                                   const string& dst_predicate) {
-  return DeadnessAnalysis::IsTruePredString(src_predicate) ? dst_predicate
+/*
+inline AndPredicate* GetMergedClusterPred(const AndPredicate* src_predicate,
+                                   const AndPredicate* dst_predicate) {
+
+  return AndPredicate()
+  DeadnessAnalysis::IsTruePredString(src_predicate) ? dst_predicate
                                                            : src_predicate;
-}
+}*/
 
 // Checks whether it's ok to contract the edge as far as deadness is concerned
 // Source and Dst Predicates of the edge should match
 Status CanContractEdgeDeadnessCheck(
     Edge* edge, const std::map<Node*, std::shared_ptr<Cluster>>& cluster_map,
+    std::unique_ptr<DeadnessAnalysis>* deadness_analyzer,
     bool& is_deadness_ok) {
+  // This function operates under the assumption taht it will never be sent
+  // nodes that are not marked for clustering
   Node* src = edge->src();
   Node* dst = edge->dst();
 
-  string src_predicate = cluster_map.at(src)->predicate_string;
-  string dst_predicate = cluster_map.at(dst)->predicate_string;
+  auto src_pred = cluster_map.at(src)->pred;
+  auto dst_pred = cluster_map.at(dst)->pred;
 
-  // If the node marked for clustering has CONTROL_FLOW_PRED_STRING, it
-  // breaks our assumption that all supported ops are data flow ops
-  if (DeadnessAnalysis::IsControlFlowPredString(src_predicate) ||
-      DeadnessAnalysis::IsControlFlowPredString(dst_predicate)) {
+  // Check if the src and dst nodes have non dataflow ops. In that case they are
+  // nullptrs
+  if (!src_pred) {
     return errors::Internal(
-        "Attempting to contract edge with control flow ops : ",
+        "Attempting to contract edge with source which is a non dataflow op : ",
         edge->DebugString());
   }
 
-  // Case src X , dst Y , X!=Y // cannot be contracted
-  if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
-      !DeadnessAnalysis::IsTruePredString(dst_predicate) &&
-      src_predicate != dst_predicate) {
-    is_deadness_ok = false;
-    return Status::OK();
+  if (!dst_pred) {
+    return errors::Internal(
+        "Attempting to contract edge with destination which is a non dataflow "
+        "op : ",
+        edge->DebugString());
   }
 
-  // Case src X , dst True // invalid scenario
-  // If src has Non-True Predicate and dst has True Predicate, it implies that
-  // the dst node is control flow
-  if (!DeadnessAnalysis::IsTruePredString(src_predicate) &&
-      DeadnessAnalysis::IsTruePredString(dst_predicate)) {
-    return errors::Internal("Attempting to cluster control-flow node ",
-                            dst->name(), "[", dst->type_string(), "]");
-  }
+  // Consider the following subgraph, where the edge between P1 and P2 are under
+  // consideration for merge
+  // P2---->P1
+  // |\
+  // | \
+  // v  v
+  // Px Py
+  // S1: (P1 < P2) <=> (P1&P2 = P1) (Easy to prove)
+  // S2: (There exists a path from N1(P1) to N2(P2)) => (P1 < P2) (Easy to
+  // prove)
+  // S3: After merge, dataflow ops become: P1&P2
+  // Given:
+  // G1: P1 and P2 are dataflow ops
+  // G2: Px, Py are predicates of non-merging output edges. No dataflow
+  // assumption
+  // Conclusions:
+  // C1: P1 < P2 (by S2)
+  // C2: Px < P2 (by S2)
+  // C3: Py < P2 (by S2)
+  // C4: After merge, the cluster will have predicate P1&P2 = P1 (by C1 + S1)
+  // So we need to check, if after merge, we still have:
+  // Px < P1
+  // Py < P1
+  // Using S1, the condition for merge is:
+  // Merge if Px&P1 = Px && Py&P1 = Py
 
-  // Case src True, dst Y
-  // If this edge is contracted, all the outputs of the merged cluster will
-  // have the predicate Y (True & Y = Y). Hence contraction is possible only
-  // when, all outputs of the src cluster (other than the current edge) have the
-  // predicate Y
-  if (DeadnessAnalysis::IsTruePredString(src_predicate)) {
-    auto src_cluster_out_edges = cluster_map.at(src)->outgoing_edges;
-    bool found_same_out_preds = true;
-    std::string pred_check = dst_predicate;
-
-    for (const Edge* src_cluster_edge : src_cluster_out_edges) {
-      if (src_cluster_edge == edge) {
-        continue;
-      }
-      Node* src_cluster_dst = src_cluster_edge->dst();
-      std::string src_cluster_dst_pred =
-          cluster_map.at(src_cluster_dst)->predicate_string;
-      if (pred_check != src_cluster_dst_pred) {
-        found_same_out_preds = false;
+  is_deadness_ok = true;
+  Predicate* edge_pred = nullptr;
+  for (const Edge* src_cluster_out_edge : cluster_map.at(src)->outgoing_edges) {
+    if (src_cluster_out_edge != edge) {  // Ignore the edge under merge
+      edge_pred = nullptr;
+      (*deadness_analyzer)->GetEdgePredicate(src_cluster_out_edge, &edge_pred);
+      auto p_out = AndPredicate({edge_pred, dst_pred});  // Px&P1
+      if (p_out != *edge_pred) {  // TODO: is != overloaded? in that case use ==
+        is_deadness_ok = false;
         break;
       }
     }
-    // Cannot contract this edge
-    if (!found_same_out_preds) {
-      is_deadness_ok = false;
-      return Status::OK();
-    }
   }
-
-  // Case src X, dst Y, X==Y
-  // Case src True, dst Y(Y can be True), all other output edges from src
-  // cluster have pred Y
-  // Ok to contract
-  is_deadness_ok = true;
   return Status::OK();
 }
 
 // Some sanity checks for Node's cluster assignment wrt Deadness
+/*
 Status CheckNodeClusterAssignmentWRTDeadness(
     Node* node, const std::map<Node*, string>& nodes_predicate_map,
     const std::map<Node*, std::shared_ptr<Cluster>>& cluster_map) {
@@ -229,17 +230,18 @@ Status CheckNodeClusterAssignmentWRTDeadness(
         " should not be clustered as it is a control flow op");
   }
 
-  std::string cluster_pred_string = cluster_map.at(node)->predicate_string;
+  auto cluster_pred = cluster_map.at(node)->pred;
+  //std::string cluster_pred_string = cluster_map.at(node)->predicate_string;
   int node_cluster_index = cluster_map.at(node)->index;
 
   // If the node has Non-True Pred (P1) it can only be placed in a cluster with
   // the same pred
   if (!DeadnessAnalysis::IsTruePredString(node_pred_string) &&
-      node_pred_string != cluster_pred_string) {
+      node_pred_string != cluster_pred) {
     return errors::Internal(
         "Node ", node->name(), " [", node->type_string(), "]", " Predicate : ",
         node_pred_string, "should not be clustered in cluster with predicate ",
-        cluster_pred_string);
+        cluster_pred);
   }
 
   // If the node has True Pred (T1) and its cluster pred is non-true (P1)
@@ -250,15 +252,16 @@ Status CheckNodeClusterAssignmentWRTDeadness(
     for (auto e : node->out_edges()) {
       Node* e_dst = e->dst();
       if (cluster_map.at(e_dst)->index != node_cluster_index) {
-        string e_dst_cluster_pred = cluster_map.at(e_dst)->predicate_string;
-        if (e_dst_cluster_pred != cluster_pred_string) {
+        string e_dst_cluster_pred = cluster_map.at(e_dst)->pred;
+        if (e_dst_cluster_pred != cluster_pred) {
           return errors::Internal(
               "Node ", node->name(), " [", node->type_string(), "]",
               " Predicate : ", node_pred_string,
               " cannot not be clustered in cluster with predicate ",
-              cluster_pred_string,
+              cluster_pred->ToString(),
               " as it has outgoing edge to a cluster with predicate ",
-              e_dst_cluster_pred);
+              e_dst_cluster_pred->ToString());
+              // TODO: check if nullptr, before calling ToString()
         }
       }
     }
@@ -266,6 +269,7 @@ Status CheckNodeClusterAssignmentWRTDeadness(
 
   return Status::OK();
 }
+*/
 #endif
 
 // Merges src and dst clusters of the edge
@@ -286,14 +290,17 @@ void MergeClusters(Edge* edge,
                  << edge->dst_input() << "]@" << dst_index;
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-  string src_predicate = cluster_map[src]->predicate_string;
-  string dst_predicate = cluster_map[dst]->predicate_string;
+  // TODO remove all commented out "predicate_string" lines
+  auto src_predicate = cluster_map[src]->pred;
+  auto dst_predicate = cluster_map[dst]->pred;
   NGRAPH_VLOG(5) << "Src pred: " << src_predicate
                  << ", Dst pred: " << dst_predicate;
 
-  std::string cluster_pred = GetMergedClusterPred(src_predicate, dst_predicate);
+  // TODO: cluster_pred = dst_predicate: this is right, right?
+  auto cluster_pred =
+      dst_predicate;  // GetMergedClusterPred(src_predicate, dst_predicate);
 
-  cluster_map[src]->predicate_string = cluster_pred;
+  cluster_map[src]->pred = cluster_pred;
   // Update outgoing edges of the merged cluster
   cluster_map[src]->outgoing_edges.insert(
       cluster_map[dst]->outgoing_edges.begin(),
@@ -311,7 +318,7 @@ void MergeClusters(Edge* edge,
   }
 }
 
-}  // namespace
+// }  // namespace
 
 // Main Entry point for Cluster Assignment to the Node
 // Adds an attribute "_ngraph_cluster" (cluster_id) to each Node that can be
@@ -343,16 +350,15 @@ Status AssignClusters(Graph* graph) {
                    << " backend " << backend;
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-    // get predicate string for the node
-    string pred_string;
-    TF_RETURN_IF_ERROR(deadness_analyzer->GetNodePredicate(*node, pred_string));
-    nodes_predicate_map[node] = pred_string;
-    cluster_map[node]->predicate_string = pred_string;
+    TF_RETURN_IF_ERROR(
+        deadness_analyzer->GetNodePredicate(*node, &(cluster_map[node]->pred)));
 
     cluster_map[node]->outgoing_edges = std::set<const Edge*>(
         node->out_edges().begin(), node->out_edges().end());
     NGRAPH_VLOG(5) << node->name() << "[" << node->type_string() << "]"
-                   << "  : Predicate " << pred_string;
+                   << "  : Predicate " << cluster_map[node]->pred
+        ? cluster_map[node]->pred->ToString()
+        : "Non-dataflow op predicate";
 #endif
   }
 
@@ -456,8 +462,8 @@ Status AssignClusters(Graph* graph) {
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
       // check if the edge can be contracted with respect to deadness
       bool is_deadness_ok = false;
-      TF_RETURN_IF_ERROR(
-          CanContractEdgeDeadnessCheck(edge, cluster_map, is_deadness_ok));
+      TF_RETURN_IF_ERROR(CanContractEdgeDeadnessCheck(
+          edge, cluster_map, &deadness_analyzer, is_deadness_ok));
       if (!is_deadness_ok) {
         // do not contract, src and dst node cannot be in the same cluster
         NGRAPH_VLOG(5) << "Skipping (deadness not ok): " << src->name() << "["
@@ -511,8 +517,9 @@ Status AssignClusters(Graph* graph) {
 
 // Some sanity checks for deadness
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-        TF_RETURN_IF_ERROR(CheckNodeClusterAssignmentWRTDeadness(
-            node, nodes_predicate_map, cluster_map));
+// TODO: enable this check later
+// TF_RETURN_IF_ERROR(CheckNodeClusterAssignmentWRTDeadness(
+//    node, nodes_predicate_map, cluster_map));
 #endif
       } else {
         has_non_ngraph_ops = true;

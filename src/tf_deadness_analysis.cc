@@ -62,35 +62,8 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-namespace {
-// Represents a logical predicate, used as described in the algorithm overview
-// above.
-class Predicate {
- public:
-  enum class Kind { kAnd, kOr, kNot, kSymbol };
-  virtual string ToString() const = 0;
-  virtual bool operator==(const Predicate& other) const = 0;
-  virtual bool operator!=(const Predicate& other) const {
-    return !(*this == other);
-  }
-  int64 hash() const { return hash_; }
-  virtual Kind kind() const = 0;
-  virtual ~Predicate() {}
+// namespace {
 
- protected:
-  explicit Predicate(int64 hash) : hash_(hash) {}
-
- private:
-  const int64 hash_;
-};
-int64 HashPredicateSequence(Predicate::Kind kind,
-                            gtl::ArraySlice<Predicate*> preds) {
-  int64 hash = ::tensorflow::hash<Predicate::Kind>()(kind);
-  for (Predicate* pred : preds) {
-    hash = Hash64Combine(hash, pred->hash());
-  }
-  return hash;
-}
 bool PredicateSequenceEqual(gtl::ArraySlice<Predicate*> lhs,
                             gtl::ArraySlice<Predicate*> rhs) {
   if (lhs.size() != rhs.size()) {
@@ -103,35 +76,16 @@ bool PredicateSequenceEqual(gtl::ArraySlice<Predicate*> lhs,
   }
   return true;
 }
-// Represents a logical conjunction of a set of predicates.
-class AndPredicate : public Predicate {
- public:
-  explicit AndPredicate(std::vector<Predicate*> operands)
-      : Predicate(HashPredicateSequence(Kind::kAnd, operands)),
-        operands_(std::move(operands)) {}
-  string ToString() const override {
-    if (operands().empty()) {
-      return "#true";
-    }
-    std::vector<string> operands_str;
-    std::transform(operands().begin(), operands().end(),
-                   std::back_inserter(operands_str),
-                   [](Predicate* pred) { return pred->ToString(); });
-    return strings::StrCat("(", str_util::Join(operands_str, " & "), ")");
-  }
-  bool operator==(const Predicate& other) const override {
-    return other.kind() == Kind::kAnd &&
-           PredicateSequenceEqual(
-               dynamic_cast<const AndPredicate&>(other).operands(), operands());
-  }
-  Kind kind() const override { return Kind::kAnd; }
-  const tensorflow::gtl::ArraySlice<Predicate*> operands() const {
-    return operands_;
-  }
 
- private:
-  std::vector<Predicate*> operands_;
-};
+int64 HashPredicateSequence(Predicate::Kind kind,
+                            gtl::ArraySlice<Predicate*> preds) {
+  int64 hash = ::tensorflow::hash<Predicate::Kind>()(kind);
+  for (Predicate* pred : preds) {
+    hash = Hash64Combine(hash, pred->hash());
+  }
+  return hash;
+}
+
 // Represents a logical disjunction of a set of predicates.
 class OrPredicate : public Predicate {
  public:
@@ -311,7 +265,10 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   Status Populate();
   bool HasInputsWithMismatchingDeadness(const Node& node) override;
   void Print() const override;
-  Status GetNodePredicate(const Node& node, string& pred_string);
+  // This returns an AndPredicate, otherwise it returns nullptr
+  Status GetNodePredicate(const Node& node, AndPredicate** pred);
+
+  Status GetEdgePredicate(const Edge* edge, Predicate** pred);
 
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
@@ -469,28 +426,34 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
 }
 
 Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
-                                              string& pred_string) {
+                                              AndPredicate** pred) {
+  *pred = nullptr;
   if (node.IsSource() || node.IsSink() || node.IsControlFlow()) {
-    DeadnessAnalysis::GetControlFlowPredString(pred_string);
     return Status::OK();
   }
 
-  Predicate* pred = nullptr;
   for (const Edge* edge : node.out_edges()) {
     auto it = predicate_map_.find(InputEdgeToTensorId(edge));
     CHECK(it != predicate_map_.end()) << edge->DebugString();
 
     // This node is not control flow but has different output predicates
-    if (pred != nullptr && *pred != *it->second) {
+    if (*pred != nullptr && **pred != *it->second) {
       return errors::Internal(node.name(), "[", node.type_string(), "]",
                               " is a non control flow op. But its outputs have "
                               "different predicates");
+    } else {
+      // TODO: assert it->second has kind = and
+      *pred = static_cast<AndPredicate*>(it->second);
     }
-    pred = it->second;
   }
+  return Status::OK();
+}
 
-  // All outputs have the same predicate
-  pred_string = pred->ToString();
+Status DeadnessAnalysisImpl::GetEdgePredicate(const Edge* edge,
+                                              Predicate** pred) {
+  auto it = predicate_map_.find(InputEdgeToTensorId(edge));
+  CHECK(it != predicate_map_.end()) << edge->DebugString();
+  *pred = it->second;
   return Status::OK();
 }
 
@@ -506,7 +469,7 @@ void DeadnessAnalysisImpl::Print() const {
     NGRAPH_VLOG(5) << tensor_id.ToString() << " -> " << it->second->ToString();
   }
 }
-}  // namespace
+//}  // namespace
 DeadnessAnalysis::~DeadnessAnalysis() {}
 
 /*static*/ Status DeadnessAnalysis::Run(
@@ -521,11 +484,6 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
   *result = std::move(analysis);
   return Status::OK();
 }
-
-/*static*/ const std::string DeadnessAnalysis::CONTROL_FLOW_PRED_STRING =
-    "#control_flow";
-// Same as the True predicate used in AndPredicate
-/*static*/ const std::string DeadnessAnalysis::TRUE_PRED_STRING = "#true";
 
 }  // namespace ngraph_bridge
 
