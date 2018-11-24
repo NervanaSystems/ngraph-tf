@@ -38,6 +38,8 @@ File: tensorflow/tensorflow/compiler/jit/deadness_analysis.h
  *******************************************************************************/
 
 #include "ngraph_utils.h"
+#include "tensorflow/core/graph/tensor_id.h"
+#include "tensorflow/core/lib/gtl/flatset.h"
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
 #ifndef NGRAPH_TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
@@ -48,8 +50,75 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-class Predicate;
 class AndPredicate;
+class OrPredicate;
+class NotPredicate;
+class SymbolPredicate;
+
+// namespace {
+// Represents a logical predicate, used as described in the algorithm overview
+// above.
+class Predicate {
+ public:
+  enum class Kind { kAnd, kOr, kNot, kSymbol };
+  virtual string ToString() const = 0;
+  virtual bool operator==(const Predicate& other) const = 0;
+  virtual bool operator!=(const Predicate& other) const {
+    return !(*this == other);
+  }
+  int64 hash() const { return hash_; }
+  virtual Kind kind() const = 0;
+  virtual ~Predicate() {}
+
+ protected:
+  explicit Predicate(int64 hash) : hash_(hash) {}
+
+ private:
+  const int64 hash_;
+};
+
+
+// Creates and owns Predicate instances.  Simplifies predicates as it creates
+// them.
+class PredicateFactory {
+ public:
+  Predicate* MakeAndPredicate(gtl::ArraySlice<Predicate*> operands) {
+    std::cout << "-----MakeAndPredicate\n";
+    return MakeAndOrImpl(operands, /*is_and=*/true);
+  }
+  Predicate* MakeOrPredicate(gtl::ArraySlice<Predicate*> operands) {
+    return MakeAndOrImpl(operands, /*is_and=*/false);
+  }
+  Predicate* MakeNotPredicate(Predicate* pred) {
+    return Make<NotPredicate>(pred);
+  }
+  Predicate* MakeSymbolPredicate(TensorId tensor_id, bool must_be_true) {
+    return Make<SymbolPredicate>(tensor_id, must_be_true);
+  }
+  Predicate* MakeTrue() { return MakeAndPredicate({}); }
+  Predicate* MakeFalse() { return MakeOrPredicate({}); }
+
+ private:
+  template <typename PredicateT, typename... Args>
+  Predicate* Make(Args... args) {
+    std::unique_ptr<PredicateT> pred(
+        new PredicateT(std::forward<Args>(args)...));
+    predicate_storage_.emplace_back(std::move(pred));
+    return predicate_storage_.back().get();
+  }
+  Predicate* MakeAndOrImpl(gtl::ArraySlice<Predicate*> operands, bool is_and);
+  struct PredicatePtrHash {
+    size_t operator()(const Predicate* pred) const { return pred->hash(); }
+  };
+  struct PredicatePtrEq {
+    size_t operator()(const Predicate* a, const Predicate* b) const {
+      return *a == *b;
+    }
+  };
+  using PredicateSet =
+      gtl::FlatSet<Predicate*, PredicatePtrHash, PredicatePtrEq>;
+  std::vector<std::unique_ptr<Predicate>> predicate_storage_;
+};
 
 // This analyzes a TensorFlow graph to identify nodes which may have partially
 // dead inputs (i.e. these nodes may have some dead inputs and some alive
@@ -94,29 +163,46 @@ class DeadnessAnalysis {
 
   // This returns an AndPredicate, otherwise it returns nullptr
   virtual Status GetNodePredicate(const Node& node, AndPredicate** pred) = 0;
+
+  virtual Predicate* CreateTestAndPredicate(std::vector<Predicate*> input_preds) = 0;
 };
 
-// namespace {
-// Represents a logical predicate, used as described in the algorithm overview
-// above.
-class Predicate {
+class DeadnessAnalysisImpl : public DeadnessAnalysis {
  public:
-  enum class Kind { kAnd, kOr, kNot, kSymbol };
-  virtual string ToString() const = 0;
-  virtual bool operator==(const Predicate& other) const = 0;
-  virtual bool operator!=(const Predicate& other) const {
-    return !(*this == other);
+  explicit DeadnessAnalysisImpl(const Graph* graph)
+      : graph_(*graph), vlog_(VLOG_IS_ON(2)) {}
+  Status Populate();
+  bool HasInputsWithMismatchingDeadness(const Node& node) override;
+  void Print() const override;
+  // This returns an AndPredicate, otherwise it returns nullptr
+  Status GetNodePredicate(const Node& node, AndPredicate** pred);
+  // This function is used for creating test predicates when considering merges
+  Predicate* CreateTestAndPredicate(std::vector<Predicate*> input_preds){
+    return predicate_factory_.MakeAndPredicate(input_preds);
   }
-  int64 hash() const { return hash_; }
-  virtual Kind kind() const = 0;
-  virtual ~Predicate() {}
-
- protected:
-  explicit Predicate(int64 hash) : hash_(hash) {}
 
  private:
-  const int64 hash_;
+  enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
+  std::vector<Predicate*> GetIncomingPreds(Node* n, EdgeKind edge_kind);
+  void SetPred(Node* n, int output_idx, Predicate* pred) {
+    CHECK(
+        predicate_map_.insert({TensorId(n->name(), output_idx), pred}).second);
+  }
+  void SetPred(Node* n, gtl::ArraySlice<int> output_idxs, Predicate* pred) {
+    for (int output_idx : output_idxs) {
+      SetPred(n, output_idx, pred);
+    }
+  }
+  Status HandleSwitch(Node* n);
+  Status HandleMerge(Node* n);
+  Status HandleRecv(Node* n);
+  Status HandleGeneric(Node* n);
+  const Graph& graph_;
+  gtl::FlatMap<TensorId, Predicate*, TensorId::Hasher> predicate_map_;
+  PredicateFactory predicate_factory_;
+  bool vlog_;
 };
+
 
 bool PredicateSequenceEqual(gtl::ArraySlice<Predicate*> lhs,
                             gtl::ArraySlice<Predicate*> rhs);
@@ -153,6 +239,94 @@ class AndPredicate : public Predicate {
   std::vector<Predicate*> operands_;
 };
 //}
+
+
+// Represents a logical disjunction of a set of predicates.
+class OrPredicate : public Predicate {
+ public:
+  explicit OrPredicate(std::vector<Predicate*> operands)
+      : Predicate(HashPredicateSequence(Kind::kOr, operands)),
+        operands_(std::move(operands)) {}
+  string ToString() const override {
+    if (operands().empty()) {
+      return "#false";
+    }
+    std::vector<string> operands_str;
+    std::transform(operands().begin(), operands().end(),
+                   std::back_inserter(operands_str),
+                   [](Predicate* pred) { return pred->ToString(); });
+    return strings::StrCat("(", str_util::Join(operands_str, " | "), ")");
+  }
+  bool operator==(const Predicate& other) const override {
+    return other.kind() == Kind::kOr &&
+           PredicateSequenceEqual(
+               dynamic_cast<const OrPredicate&>(other).operands(), operands());
+  }
+  Kind kind() const override { return Kind::kOr; }
+  const tensorflow::gtl::ArraySlice<Predicate*> operands() const {
+    return operands_;
+  }
+
+ private:
+  std::vector<Predicate*> operands_;
+};
+// Represents a logical negation of a set of predicates.
+class NotPredicate : public Predicate {
+ public:
+  explicit NotPredicate(Predicate* operand)
+      : Predicate(HashPredicateSequence(Kind::kNot, {operand})),
+        operand_(operand) {}
+  string ToString() const override {
+    return strings::StrCat("~", operand()->ToString());
+  }
+  bool operator==(const Predicate& other) const override {
+    return other.kind() == Kind::kNot &&
+           *dynamic_cast<const NotPredicate&>(other).operand() == *operand();
+  }
+  Kind kind() const override { return Kind::kNot; }
+  Predicate* operand() const { return operand_; }
+
+ private:
+  Predicate* operand_;
+};
+
+// Represents an uninterpreted symbol in a logical predicate.
+//
+// Two predicates are equivalent iff they are equivalent for all assignments to
+// the symbols contained in them.
+class SymbolPredicate : public Predicate {
+ public:
+  explicit SymbolPredicate(TensorId tensor_id, bool must_be_true)
+      : Predicate(Hash(tensor_id, must_be_true)),
+        tensor_id_(std::move(tensor_id)),
+        must_be_true_(must_be_true) {}
+  string ToString() const override { return tensor_id_.ToString(); }
+  bool operator==(const Predicate& other) const override {
+    return other.kind() == Kind::kSymbol &&
+           must_be_true() ==
+               dynamic_cast<const SymbolPredicate&>(other).must_be_true() &&
+           dynamic_cast<const SymbolPredicate&>(other).tensor_id() ==
+               tensor_id();
+  }
+  Kind kind() const override { return Kind::kSymbol; }
+  // If `must_be_true()` is true this SymbolPredicate represents the proposition
+  // "tensor_id() is live and evaluates to true".
+  //
+  // If `must_be_true()` is false then this SymbolPredicate represents the
+  // proposition "tensor_id() is live (and may evalutate to any value)"
+  TensorId tensor_id() const { return tensor_id_; }
+  bool must_be_true() const { return must_be_true_; }
+
+ private:
+  TensorId tensor_id_;
+  bool must_be_true_;
+  static int64 Hash(const TensorId tensor_id, bool must_be_true) {
+    return Hash64Combine(
+        ::tensorflow::hash<bool>()(must_be_true),
+        Hash64Combine(::tensorflow::hash<Predicate::Kind>()(Kind::kSymbol),
+                      TensorId::Hasher{}(tensor_id)));
+  }
+};
 
 }  // namespace ngraph_bridge
 

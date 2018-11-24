@@ -202,7 +202,7 @@ Status CanContractEdgeDeadnessCheck(
   // In this case, Px0 is (one of the) input predicate to Ny.
   // Note that if Nx is a dataflow op, then Fx is simply "and" for all outputs
   // Therefore, in case of dataflow op a sufficient condition is: Px < P1&P2, or Px < P1
-  // TODO: Is this condition necessary?
+  // TODO: It is sufficient, but is this condition necessary?
   //
   // Using S2, the condition for merge is:
   // Merge if Px&P1 = Px && Py&P1 = Py, in case x is a data flow op
@@ -219,20 +219,26 @@ Status CanContractEdgeDeadnessCheck(
     if (src_cluster_out_edge != edge) {  // Ignore the edge under merge
 
       // This is a neighbouring node of src (which is currently not under consideration for merge)
-      Node* non_merging_neighbour = edge->dst();
+      Node* non_merging_neighbour = src_cluster_out_edge->dst();
       if (NodeIsMarkedForClustering(non_merging_neighbour)){
         // This is surely an 'and' type data flow op, so full check not needed
         AndPredicate* dataflow_neighbour_pred;
         TF_RETURN_IF_ERROR((*deadness_analyzer)->GetNodePredicate(*non_merging_neighbour, &dataflow_neighbour_pred));
         // Px&P1 (since P1&P2 = P1)
-        auto check_and_pred_after_change = AndPredicate({dataflow_neighbour_pred, dst_pred});
-        if (check_and_pred_after_change != *dataflow_neighbour_pred) {  // TODO: is != overloaded? in that case use ==
+        auto check_and_pred_after_change = (*deadness_analyzer)->CreateTestAndPredicate({dataflow_neighbour_pred, dst_pred});
+        cout << "Merging this edge: " << edge->DebugString() << "\n";
+        cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << " Non merging neighbour node: " << non_merging_neighbour->name() << "[" << dataflow_neighbour_pred->ToString() << "]\n";
+        cout << "check_and_pred_after_change: " << check_and_pred_after_change->ToString() << "\n";
+        if (*check_and_pred_after_change != *dataflow_neighbour_pred) {
           is_deadness_ok = false;
           break;
         }
       } else {
-        //TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(non_merging_neighbour, &is_deadness_ok));
         // TODO implement this part
+
+        //TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(non_merging_neighbour, &is_deadness_ok));
+        //cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << "\n";
+        cout << "oops!\n";
         is_deadness_ok = false;
         break;
       }
@@ -241,6 +247,8 @@ Status CanContractEdgeDeadnessCheck(
       break;
     }
   }
+  cout << "EXIT:: Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << "\n";
+  cout << "is_deadness_ok: " << is_deadness_ok << "\n";
   return Status::OK();
 }
 
@@ -322,7 +330,6 @@ void MergeClusters(Edge* edge,
                  << edge->dst_input() << "]@" << dst_index;
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
-  // TODO remove all commented out "predicate_string" lines
   auto src_predicate = cluster_map[src]->pred;
   auto dst_predicate = cluster_map[dst]->pred;
   NGRAPH_VLOG(5) << "Src pred: " << src_predicate
