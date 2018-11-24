@@ -268,8 +268,6 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   // This returns an AndPredicate, otherwise it returns nullptr
   Status GetNodePredicate(const Node& node, AndPredicate** pred);
 
-  Status GetEdgePredicate(const Edge* edge, Predicate** pred);
-
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
   std::vector<Predicate*> GetIncomingPreds(Node* n, EdgeKind edge_kind);
@@ -425,6 +423,8 @@ bool DeadnessAnalysisImpl::HasInputsWithMismatchingDeadness(const Node& node) {
   return false;
 }
 
+// We call this function only when we are sure it is a kAnd type node
+// TODO: have a faster, non-asserting verison of this function
 Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
                                               AndPredicate** pred) {
   *pred = nullptr;
@@ -449,13 +449,6 @@ Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
   return Status::OK();
 }
 
-Status DeadnessAnalysisImpl::GetEdgePredicate(const Edge* edge,
-                                              Predicate** pred) {
-  auto it = predicate_map_.find(InputEdgeToTensorId(edge));
-  CHECK(it != predicate_map_.end()) << edge->DebugString();
-  *pred = it->second;
-  return Status::OK();
-}
 
 void DeadnessAnalysisImpl::Print() const {
   std::vector<TensorId> tensor_ids;

@@ -172,41 +172,73 @@ Status CanContractEdgeDeadnessCheck(
 
   // Consider the following subgraph, where the edge between P1 and P2 are under
   // consideration for merge
-  // P2---->P1
-  // |\
-  // | \
-  // v  v
-  // Px Py
+  // N2---->N1
+  // |
+  // |
+  // v
+  // Nx-->Ny
+  //
+  // Given:
+  // G1: jth output of Node Ni has predicate Pij
+  // G2: N1 and N2 are dataflow ops (We make this assumption, since we only merge dataflow ops)
+  // G3: Px0 is predicate of non-merging output edges's output. No dataflow assumption
+  // G4: The abstract interpret function of node Ni is Fi
+  //
+  // We know:
+  // S1: For dataflow ops, for all j, Pij = Pi (since all outputs have same and predicate)
   // S1: (P1 < P2) <=> (P1&P2 = P1) (Easy to prove)
   // S2: (There exists a path from N1(P1) to N2(P2)) => (P1 < P2) (Easy to
   // prove)
-  // S3: After merge, dataflow ops become: P1&P2
-  // Given:
-  // G1: P1 and P2 are dataflow ops
-  // G2: Px, Py are predicates of non-merging output edges. No dataflow
-  // assumption
+  // S3: After merge, dataflow ops become with predicates P1, P2 become P1&P2
+  //
   // Conclusions:
   // C1: P1 < P2 (by S2)
   // C2: Px < P2 (by S2)
-  // C3: Py < P2 (by S2)
-  // C4: After merge, the cluster will have predicate P1&P2 = P1 (by C1 + S1)
-  // So we need to check, if after merge, we still have:
-  // Px < P1
-  // Py < P1
-  // Using S1, the condition for merge is:
-  // Merge if Px&P1 = Px && Py&P1 = Py
+  // C3: After merge, the cluster will have predicate P1&P2 = P1 (by C1 + S1)
+  //
+  // Merge Conditions:
+  // So we need to check, if after merge, we still have the following:
+  // Px0, ... = Fx(P(N1 merge N2), ...) produces same output predicates (... means other outputs, inputs if present)
+  // In this case, Px0 is (one of the) input predicate to Ny.
+  // Note that if Nx is a dataflow op, then Fx is simply "and" for all outputs
+  // Therefore, in case of dataflow op a sufficient condition is: Px < P1&P2, or Px < P1
+  // TODO: Is this condition necessary?
+  //
+  // Using S2, the condition for merge is:
+  // Merge if Px&P1 = Px && Py&P1 = Py, in case x is a data flow op
+  //
+  // We do not even have to know/implement the abstract interpret function
+  // All we need to do is:
+  // X = old predicate
+  // Y = new predicate which we get by using same kind as old predicate, and all preds are same, except the 1 that is changing
+  // Check if X==Y
+  // This is a general solution. If marked_for_clustering, we can speed things up, since we know it is a dataflow op, hence we do not have to check all outputs, compute new predicates etc
 
   is_deadness_ok = true;
-  Predicate* edge_pred = nullptr;
   for (const Edge* src_cluster_out_edge : cluster_map.at(src)->outgoing_edges) {
     if (src_cluster_out_edge != edge) {  // Ignore the edge under merge
-      edge_pred = nullptr;
-      (*deadness_analyzer)->GetEdgePredicate(src_cluster_out_edge, &edge_pred);
-      auto p_out = AndPredicate({edge_pred, dst_pred});  // Px&P1
-      if (p_out != *edge_pred) {  // TODO: is != overloaded? in that case use ==
+
+      // This is a neighbouring node of src (which is currently not under consideration for merge)
+      Node* non_merging_neighbour = edge->dst();
+      if (NodeIsMarkedForClustering(non_merging_neighbour)){
+        // This is surely an 'and' type data flow op, so full check not needed
+        AndPredicate* dataflow_neighbour_pred;
+        TF_RETURN_IF_ERROR((*deadness_analyzer)->GetNodePredicate(*non_merging_neighbour, &dataflow_neighbour_pred));
+        // Px&P1 (since P1&P2 = P1)
+        auto check_and_pred_after_change = AndPredicate({dataflow_neighbour_pred, dst_pred});
+        if (check_and_pred_after_change != *dataflow_neighbour_pred) {  // TODO: is != overloaded? in that case use ==
+          is_deadness_ok = false;
+          break;
+        }
+      } else {
+        //TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(non_merging_neighbour, &is_deadness_ok));
+        // TODO implement this part
         is_deadness_ok = false;
         break;
       }
+    }
+    if (!is_deadness_ok){
+      break;
     }
   }
   return Status::OK();
@@ -466,10 +498,10 @@ Status AssignClusters(Graph* graph) {
           edge, cluster_map, &deadness_analyzer, is_deadness_ok));
       if (!is_deadness_ok) {
         // do not contract, src and dst node cannot be in the same cluster
-        NGRAPH_VLOG(5) << "Skipping (deadness not ok): " << src->name() << "["
+        cout << "Skipping (deadness not ok): " << src->name() << "["
                        << edge->src_output() << "]@" << src_index << " -> "
                        << dst->name() << "[" << edge->dst_input() << "]@"
-                       << dst_index;
+                       << dst_index << "\n";
         continue;
       }
 #endif

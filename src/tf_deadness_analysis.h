@@ -94,8 +94,6 @@ class DeadnessAnalysis {
 
   // This returns an AndPredicate, otherwise it returns nullptr
   virtual Status GetNodePredicate(const Node& node, AndPredicate** pred) = 0;
-
-  virtual Status GetEdgePredicate(const Edge* edge, Predicate** pred) = 0;
 };
 
 // namespace {
