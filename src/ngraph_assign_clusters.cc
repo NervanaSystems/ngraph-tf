@@ -216,7 +216,7 @@ Status CanContractEdgeDeadnessCheck(
 
   is_deadness_ok = true;
   cout << "edge tobemerged: " << edge->DebugString() << "\n";
-  for (const Edge* src_cluster_out_edge : src->out_edges()) {
+  for (const Edge* src_cluster_out_edge : cluster_map.at(src)->outgoing_edges) {
     if (src_cluster_out_edge != edge) {  // Ignore the edge under merge
 
     cout << "src_cluster_out_edge: " << src_cluster_out_edge->DebugString() << "\n";
@@ -236,6 +236,10 @@ Status CanContractEdgeDeadnessCheck(
         if (*check_and_pred_after_change != *dataflow_neighbour_pred) {
           is_deadness_ok = false;
         }
+      } else if (non_merging_neighbour->IsSink()) {
+        // RunFullCheckForChanges (which calls HandleSingleNode) does not handle Sink.
+        // Ignore sink
+        is_deadness_ok = true;
       } else {
         cout << "Is not dataflow\n";
         // TODO: implement this part
