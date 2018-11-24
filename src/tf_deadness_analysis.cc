@@ -144,12 +144,15 @@ TensorId InputEdgeToTensorId(const Edge* e) {
 Status DeadnessAnalysisImpl::RunFullCheckForChanges(const Edge* neighbour_edge, Predicate* new_pred, bool* is_deadness_ok){
     InputPredicateReplacementInfo replace_struct{neighbour_edge, new_pred};
     std::vector<Predicate*> new_preds;
+    std::cout << "XXXXXXXXX  RunFullCheckForChanges  XXXXXXXXX\n";
+    std::cout << "neighbour_edge: " << neighbour_edge->DebugString() << "\n";
     TF_RETURN_IF_ERROR(HandleSingleNode(neighbour_edge->dst(), &replace_struct, &new_preds));
     // TODO: assert num old = num new predicates
     *is_deadness_ok = true;
     auto edge_dst_node = neighbour_edge->dst();
 
     for (auto out_edge_of_neighbour : edge_dst_node->out_edges()){
+      std::cout << "out_edge_of_neighbour: " << out_edge_of_neighbour->DebugString() << "\n";
       auto it = predicate_map_.find(InputEdgeToTensorId(out_edge_of_neighbour));
       int neighbour_node_out_idx = out_edge_of_neighbour->src_output();
       // TODO: in case of CHECK failure what happens? set is_deadness_ok to false?
@@ -278,15 +281,23 @@ Status DeadnessAnalysisImpl::HandleGeneric(Node* n, InputPredicateReplacementInf
 
 Status DeadnessAnalysisImpl::HandleSingleNode(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates){
   if (n->IsSwitch()) {
+      std::cout << "-->Switch\n";
       TF_RETURN_IF_ERROR(HandleSwitch(n, replace, assigned_predicates));
     } else if (n->IsMerge()) {
+      std::cout << "-->Merge\n";
       TF_RETURN_IF_ERROR(HandleMerge(n, replace, assigned_predicates));
     } else if (n->IsControlTrigger()) {
       // TODO:
-      SetPred(n, Graph::kControlSlot, predicate_factory_.MakeTrue());
+      std::cout << "-->CTRL\n";
+      auto pred = predicate_factory_.MakeTrue();
+      bool set = replace==nullptr;
+      SetPredOrPushToVector(n, set, Graph::kControlSlot, pred, assigned_predicates);
+      //SetPred(n, Graph::kControlSlot, predicate_factory_.MakeTrue());
     } else if (n->IsRecv() || n->IsHostRecv()) {
+      std::cout << "-->Recv\n";
       TF_RETURN_IF_ERROR(HandleRecv(n, replace, assigned_predicates));
     } else {
+      std::cout << "-->Generic\n";
       TF_RETURN_IF_ERROR(HandleGeneric(n, replace, assigned_predicates));
     }
     return Status::OK();

@@ -215,12 +215,16 @@ Status CanContractEdgeDeadnessCheck(
   // This is a general solution. If marked_for_clustering, we can speed things up, since we know it is a dataflow op, hence we do not have to check all outputs, compute new predicates etc
 
   is_deadness_ok = true;
-  for (const Edge* src_cluster_out_edge : cluster_map.at(src)->outgoing_edges) {
+  cout << "edge tobemerged: " << edge->DebugString() << "\n";
+  for (const Edge* src_cluster_out_edge : src->out_edges()) {
     if (src_cluster_out_edge != edge) {  // Ignore the edge under merge
+
+    cout << "src_cluster_out_edge: " << src_cluster_out_edge->DebugString() << "\n";
 
       // This is a neighbouring node of src (which is currently not under consideration for merge)
       Node* non_merging_neighbour = src_cluster_out_edge->dst();
       if (NodeIsMarkedForClustering(non_merging_neighbour)){
+        cout << "Is dataflow\n";
         // This is surely an 'and' type data flow op, so full check not needed
         AndPredicate* dataflow_neighbour_pred;
         TF_RETURN_IF_ERROR((*deadness_analyzer)->GetNodePredicate(*non_merging_neighbour, &dataflow_neighbour_pred));
@@ -231,9 +235,9 @@ Status CanContractEdgeDeadnessCheck(
         //cout << "check_and_pred_after_change: " << check_and_pred_after_change->ToString() << "\n";
         if (*check_and_pred_after_change != *dataflow_neighbour_pred) {
           is_deadness_ok = false;
-          break;
         }
       } else {
+        cout << "Is not dataflow\n";
         // TODO: implement this part
         // RunFullCheckForChanges: needs edge src_cluster_out_edge, the dst_pred (changed pred),
         TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(src_cluster_out_edge, dst_pred, &is_deadness_ok));
@@ -248,7 +252,6 @@ Status CanContractEdgeDeadnessCheck(
         //cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << "\n";
         cout << "oops!\n";
         is_deadness_ok = false;
-        break;
       }
     }
     if (!is_deadness_ok){
@@ -257,6 +260,7 @@ Status CanContractEdgeDeadnessCheck(
   }
   cout << "EXIT:: Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << "\n";
   cout << "is_deadness_ok: " << is_deadness_ok << "\n";
+  cout << "\n\n";
   return Status::OK();
 }
 
