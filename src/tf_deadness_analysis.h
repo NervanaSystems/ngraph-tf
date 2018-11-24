@@ -165,6 +165,14 @@ class DeadnessAnalysis {
   virtual Status GetNodePredicate(const Node& node, AndPredicate** pred) = 0;
 
   virtual Predicate* CreateTestAndPredicate(std::vector<Predicate*> input_preds) = 0;
+
+  // This function iterates over all outputs of neighbouring node of the src node of the edge under merge. It checks if any of the output predicates of the neighbour node changes
+  virtual Status RunFullCheckForChanges(const Edge* neighbour_edge, Predicate* new_pred, bool* is_deadness_ok) = 0;
+};
+
+struct InputPredicateReplacementInfo {
+  const Edge* e;
+  Predicate* new_predicate;
 };
 
 class DeadnessAnalysisImpl : public DeadnessAnalysis {
@@ -181,9 +189,11 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
     return predicate_factory_.MakeAndPredicate(input_preds);
   }
 
+  Status RunFullCheckForChanges(const Edge* neighbour_edge, Predicate* new_pred, bool* is_deadness_ok);
+
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };
-  std::vector<Predicate*> GetIncomingPreds(Node* n, EdgeKind edge_kind);
+  std::vector<Predicate*> GetIncomingPreds(Node* n, EdgeKind edge_kind, InputPredicateReplacementInfo* replace);
   void SetPred(Node* n, int output_idx, Predicate* pred) {
     CHECK(
         predicate_map_.insert({TensorId(n->name(), output_idx), pred}).second);
@@ -193,10 +203,19 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
       SetPred(n, output_idx, pred);
     }
   }
-  Status HandleSwitch(Node* n);
-  Status HandleMerge(Node* n);
-  Status HandleRecv(Node* n);
-  Status HandleGeneric(Node* n);
+  // This function dispatches the appropriate HandleX function
+  // The arguments are pretty overloaded here. if replace is nullptr, then assigned_predicates is not populated.
+  // If replace has a value, then one of the input predicates is replaced with the information in replace and assigned_predicates is populated, but now node predicates are not set.
+  // The last element of assigned_predicates (if assigned, which it is, when replace is non-null) is the predicate for kControlSlot
+  Status HandleSingleNode(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates);
+  // TODO: Ideally these HandleX functions should be broken into: get predicates, calculate predicates and set predicates
+  Status HandleSwitch(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates);
+  Status HandleMerge(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates);
+  Status HandleRecv(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates);
+  Status HandleGeneric(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates);
+  void SetPredOrPushToVector(Node* n, bool set, int idx, Predicate* p, std::vector<Predicate*>* pred_vec);
+  void SetPredOrPushToVector(Node* n, bool set, gtl::ArraySlice<int> idxs, Predicate* p, std::vector<Predicate*>* pred_vec);
+
   const Graph& graph_;
   gtl::FlatMap<TensorId, Predicate*, TensorId::Hasher> predicate_map_;
   PredicateFactory predicate_factory_;

@@ -226,17 +226,25 @@ Status CanContractEdgeDeadnessCheck(
         TF_RETURN_IF_ERROR((*deadness_analyzer)->GetNodePredicate(*non_merging_neighbour, &dataflow_neighbour_pred));
         // Px&P1 (since P1&P2 = P1)
         auto check_and_pred_after_change = (*deadness_analyzer)->CreateTestAndPredicate({dataflow_neighbour_pred, dst_pred});
-        cout << "Merging this edge: " << edge->DebugString() << "\n";
-        cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << " Non merging neighbour node: " << non_merging_neighbour->name() << "[" << dataflow_neighbour_pred->ToString() << "]\n";
-        cout << "check_and_pred_after_change: " << check_and_pred_after_change->ToString() << "\n";
+        //cout << "Merging this edge: " << edge->DebugString() << "\n";
+        //cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << " Non merging neighbour node: " << non_merging_neighbour->name() << "[" << dataflow_neighbour_pred->ToString() << "]\n";
+        //cout << "check_and_pred_after_change: " << check_and_pred_after_change->ToString() << "\n";
         if (*check_and_pred_after_change != *dataflow_neighbour_pred) {
           is_deadness_ok = false;
           break;
         }
       } else {
-        // TODO implement this part
+        // TODO: implement this part
+        // RunFullCheckForChanges: needs edge src_cluster_out_edge, the dst_pred (changed pred),
+        TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(src_cluster_out_edge, dst_pred, &is_deadness_ok));
 
-        //TF_RETURN_IF_ERROR((*deadness_analyzer)->RunFullCheckForChanges(non_merging_neighbour, &is_deadness_ok));
+        // Lets say we use HandleX function:
+        // Currently: Status HandleX(Node* n)
+        // suppose we make it:
+        // Status HandleX(Node* n, vector<Predicate*> outpreds, int replace_one_inp, Predicate* replace_with)
+        // GetIncomingPreds also gets replace_one_inp, replace_with
+
+
         //cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << "\n";
         cout << "oops!\n";
         is_deadness_ok = false;
