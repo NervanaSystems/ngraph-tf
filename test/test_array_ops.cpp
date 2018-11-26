@@ -751,27 +751,27 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
     return std::accumulate(begin(shape_vect), end(shape_vect), 1,
                            std::multiplies<int64>());
   };
-  auto vectorized_idx_to_coordinate =
-      [num_elems_in_tensor](int vectorized_idx, std::vector<int64> shape_vect,
-                            std::vector<int64>* coord) {
-        auto num_elems = num_elems_in_tensor(shape_vect);
-        ASSERT_TRUE(std::accumulate(
-            begin(shape_vect), end(shape_vect), true,
-            [](bool acc, int64 item) { return (item >= 0) && acc; }))
-            << "Expected all elements of shape_vect to be >= 0, but found some "
-               "negative ones";
-        ASSERT_TRUE(vectorized_idx < num_elems)
-            << "Vectorized idx(" << vectorized_idx
-            << ") should have been less than number of elements in the tensor("
-            << num_elems << ")";
-        ASSERT_TRUE(vectorized_idx >= 0) << "Vectorized idx(" << vectorized_idx
-                                         << ") should have been greater than 0";
-        coord->resize(shape_vect.size());
-        for (int i = shape_vect.size() - 1; i >= 0; i--) {
-          (*coord)[i] = vectorized_idx % shape_vect[i];
-          vectorized_idx = vectorized_idx / shape_vect[i];
-        }
-      };
+  auto vectorized_idx_to_coordinate = [num_elems_in_tensor](
+      int vectorized_idx, std::vector<int64> shape_vect,
+      std::vector<int64>* coord) {
+    auto num_elems = num_elems_in_tensor(shape_vect);
+    ASSERT_TRUE(std::accumulate(
+        begin(shape_vect), end(shape_vect), true,
+        [](bool acc, int64 item) { return (item >= 0) && acc; }))
+        << "Expected all elements of shape_vect to be >= 0, but found some "
+           "negative ones";
+    ASSERT_TRUE(vectorized_idx < num_elems)
+        << "Vectorized idx(" << vectorized_idx
+        << ") should have been less than number of elements in the tensor("
+        << num_elems << ")";
+    ASSERT_TRUE(vectorized_idx >= 0) << "Vectorized idx(" << vectorized_idx
+                                     << ") should have been greater than 0";
+    coord->resize(shape_vect.size());
+    for (int i = shape_vect.size() - 1; i >= 0; i--) {
+      (*coord)[i] = vectorized_idx % shape_vect[i];
+      vectorized_idx = vectorized_idx / shape_vect[i];
+    }
+  };
 
   // r-rank index to vector index
   auto coordinate_to_vectorized_idx = [](std::vector<int64> coord,
