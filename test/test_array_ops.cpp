@@ -692,11 +692,11 @@ TEST(ArrayOps, StridedSliceTest1) {
   std::vector<int64> cend = {0, 2};
   std::vector<int64> cstride = {1, 1};
 
-  Tensor begin(DT_INT64, TensorShape({cstart.size()}));
+  Tensor begin(DT_INT64, TensorShape({static_cast<int>(cstart.size())}));
   AssignInputValues<int64>(begin, cstart);
-  Tensor end(DT_INT64, TensorShape({cend.size()}));
+  Tensor end(DT_INT64, TensorShape({static_cast<int>(cend.size())}));
   AssignInputValues<int64>(end, cend);
-  Tensor strides(DT_INT64, TensorShape({cstride.size()}));
+  Tensor strides(DT_INT64, TensorShape({static_cast<int>(cstride.size())}));
   AssignInputValues<int64>(strides, cstride);
 
   ops::StridedSlice::Attrs attrs;
@@ -751,27 +751,27 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
     return std::accumulate(begin(shape_vect), end(shape_vect), 1,
                            std::multiplies<int64>());
   };
-  auto vectorized_idx_to_coordinate = [num_elems_in_tensor](
-      int vectorized_idx, std::vector<int64> shape_vect,
-      std::vector<int64>* coord) {
-    auto num_elems = num_elems_in_tensor(shape_vect);
-    ASSERT_TRUE(std::accumulate(
-        begin(shape_vect), end(shape_vect), true,
-        [](bool acc, int64 item) { return (item >= 0) && acc; }))
-        << "Expected all elements of shape_vect to be >= 0, but found some "
-           "negative ones";
-    ASSERT_TRUE(vectorized_idx < num_elems)
-        << "Vectorized idx(" << vectorized_idx
-        << ") should have been less than number of elements in the tensor("
-        << num_elems << ")";
-    ASSERT_TRUE(vectorized_idx >= 0) << "Vectorized idx(" << vectorized_idx
-                                     << ") should have been greater than 0";
-    coord->resize(shape_vect.size());
-    for (int i = shape_vect.size() - 1; i >= 0; i--) {
-      (*coord)[i] = vectorized_idx % shape_vect[i];
-      vectorized_idx = vectorized_idx / shape_vect[i];
-    }
-  };
+  auto vectorized_idx_to_coordinate =
+      [num_elems_in_tensor](int vectorized_idx, std::vector<int64> shape_vect,
+                            std::vector<int64>* coord) {
+        auto num_elems = num_elems_in_tensor(shape_vect);
+        ASSERT_TRUE(std::accumulate(
+            begin(shape_vect), end(shape_vect), true,
+            [](bool acc, int64 item) { return (item >= 0) && acc; }))
+            << "Expected all elements of shape_vect to be >= 0, but found some "
+               "negative ones";
+        ASSERT_TRUE(vectorized_idx < num_elems)
+            << "Vectorized idx(" << vectorized_idx
+            << ") should have been less than number of elements in the tensor("
+            << num_elems << ")";
+        ASSERT_TRUE(vectorized_idx >= 0) << "Vectorized idx(" << vectorized_idx
+                                         << ") should have been greater than 0";
+        coord->resize(shape_vect.size());
+        for (int i = shape_vect.size() - 1; i >= 0; i--) {
+          (*coord)[i] = vectorized_idx % shape_vect[i];
+          vectorized_idx = vectorized_idx / shape_vect[i];
+        }
+      };
 
   // r-rank index to vector index
   auto coordinate_to_vectorized_idx = [](std::vector<int64> coord,
@@ -883,11 +883,11 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
           std::iota(data_vect.begin(), data_vect.end(), 0.0f);
           AssignInputValues<float>(input_data, data_vect);
 
-          Tensor begin(DT_INT64, TensorShape({rank}));
+          Tensor begin(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(begin, cstart);
-          Tensor end(DT_INT64, TensorShape({rank}));
+          Tensor end(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(end, cend);
-          Tensor strides(DT_INT64, TensorShape({rank}));
+          Tensor strides(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(strides, cstride);
 
           auto R = ops::StridedSlice(root, input_data, begin, end, strides);
