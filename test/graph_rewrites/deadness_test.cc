@@ -277,7 +277,7 @@ TEST(DeadnessCheck, DTestG3) {
 // A1(#True)[Const]   B1(#True)[Const]
 //     \              /    \ 
 //      \            /      \ 
-//       \          /         \ 
+//       \          /        \ 
 //     N1(#True)[Add]  N4(#P2)[Sub]
 //            /   \ 
 //           /     \ 

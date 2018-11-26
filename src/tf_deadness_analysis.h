@@ -83,7 +83,6 @@ class Predicate {
 class PredicateFactory {
  public:
   Predicate* MakeAndPredicate(gtl::ArraySlice<Predicate*> operands) {
-    std::cout << "-----MakeAndPredicate\n";
     return MakeAndOrImpl(operands, /*is_and=*/true);
   }
   Predicate* MakeOrPredicate(gtl::ArraySlice<Predicate*> operands) {
@@ -168,6 +167,9 @@ class DeadnessAnalysis {
 
   // This function iterates over all outputs of neighbouring node of the src node of the edge under merge. It checks if any of the output predicates of the neighbour node changes
   virtual Status RunFullCheckForChanges(const Edge* neighbour_edge, Predicate* new_pred, bool* is_deadness_ok) = 0;
+
+  enum class NodeType { nSwitch, nMerge, nControlTrigger, nRecv, nGeneric };
+  virtual NodeType GetNodeType(Node* n) = 0;
 };
 
 struct InputPredicateReplacementInfo {
@@ -190,6 +192,21 @@ class DeadnessAnalysisImpl : public DeadnessAnalysis {
   }
 
   Status RunFullCheckForChanges(const Edge* neighbour_edge, Predicate* new_pred, bool* is_deadness_ok);
+
+  //NodeType GetNodeType(Node* n);
+  NodeType GetNodeType(Node* n){
+  if (n->IsSwitch()) {
+    return NodeType::nSwitch;
+  } else if (n->IsMerge()) {
+    return NodeType::nMerge;
+  } else if (n->IsControlTrigger()) {
+    return NodeType::nControlTrigger;
+  } else if (n->IsRecv() || n->IsHostRecv()) {
+    return NodeType::nRecv;
+  } else {
+    return NodeType::nGeneric;
+  }
+}
 
  private:
   enum class EdgeKind { kDataAndControl, kDataOnly, kControlOnly };

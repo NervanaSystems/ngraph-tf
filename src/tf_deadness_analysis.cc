@@ -279,7 +279,39 @@ Status DeadnessAnalysisImpl::HandleGeneric(Node* n, InputPredicateReplacementInf
   return Status::OK();
 }
 
+
+
 Status DeadnessAnalysisImpl::HandleSingleNode(Node* n, InputPredicateReplacementInfo* replace, std::vector<Predicate*>* assigned_predicates){
+  auto node_type = GetNodeType(n);
+  switch (node_type){
+    case NodeType::nSwitch: {
+      TF_RETURN_IF_ERROR(HandleSwitch(n, replace, assigned_predicates));
+      break;
+    }
+    case NodeType::nMerge: {
+      TF_RETURN_IF_ERROR(HandleMerge(n, replace, assigned_predicates));
+      break;
+    }
+    case NodeType::nControlTrigger: {
+      auto pred = predicate_factory_.MakeTrue();
+      bool set = replace==nullptr;
+      SetPredOrPushToVector(n, set, Graph::kControlSlot, pred, assigned_predicates);
+      break;
+    }
+    case NodeType::nRecv: {
+      TF_RETURN_IF_ERROR(HandleRecv(n, replace, assigned_predicates));
+      break;
+    }
+    case NodeType::nGeneric: {
+      TF_RETURN_IF_ERROR(HandleGeneric(n, replace, assigned_predicates));
+      break;
+    }
+    default: {
+      return errors::Internal("Got invalid/unhandled nodetype");
+    }
+  }
+  
+  /*
   if (n->IsSwitch()) {
       std::cout << "-->Switch\n";
       TF_RETURN_IF_ERROR(HandleSwitch(n, replace, assigned_predicates));
@@ -300,6 +332,7 @@ Status DeadnessAnalysisImpl::HandleSingleNode(Node* n, InputPredicateReplacement
       std::cout << "-->Generic\n";
       TF_RETURN_IF_ERROR(HandleGeneric(n, replace, assigned_predicates));
     }
+    */
     return Status::OK();
 }
 

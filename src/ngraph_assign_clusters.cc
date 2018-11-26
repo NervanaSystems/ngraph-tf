@@ -223,24 +223,40 @@ Status CanContractEdgeDeadnessCheck(
 
       // This is a neighbouring node of src (which is currently not under consideration for merge)
       Node* non_merging_neighbour = src_cluster_out_edge->dst();
-      if (NodeIsMarkedForClustering(non_merging_neighbour)){
+
+      // Accepted by ngraph
+      bool marked = NodeIsMarkedForClustering(non_merging_neighbour);
+      // To handle nodes that are not accepted by ngraph, but are dataflow nodes
+      bool generictype = (*deadness_analyzer)->GetNodeType(non_merging_neighbour)==(*deadness_analyzer)->NodeType::nGeneric;
+      bool issink = non_merging_neighbour->IsSink();
+      if ((marked || generictype) && !issink){
+        
         cout << "Is dataflow\n";
         // This is surely an 'and' type data flow op, so full check not needed
         AndPredicate* dataflow_neighbour_pred;
+        cout << "here1\n";
         TF_RETURN_IF_ERROR((*deadness_analyzer)->GetNodePredicate(*non_merging_neighbour, &dataflow_neighbour_pred));
+        cout << "here2\n";
         // Px&P1 (since P1&P2 = P1)
+        cout << dataflow_neighbour_pred->ToString() << "\n";
+        cout << dst_pred->ToString() << "\n";
         auto check_and_pred_after_change = (*deadness_analyzer)->CreateTestAndPredicate({dataflow_neighbour_pred, dst_pred});
+        cout << "here3\n";
         //cout << "Merging this edge: " << edge->DebugString() << "\n";
         //cout << "Src node: " << src->name() << "[" << src_pred->ToString() << "]" << ". Dst node: " << dst->name() << "[" << dst_pred->ToString() << "]" << " Non merging neighbour node: " << non_merging_neighbour->name() << "[" << dataflow_neighbour_pred->ToString() << "]\n";
         //cout << "check_and_pred_after_change: " << check_and_pred_after_change->ToString() << "\n";
         if (*check_and_pred_after_change != *dataflow_neighbour_pred) {
           is_deadness_ok = false;
         }
-      } else if (non_merging_neighbour->IsSink()) {
+        cout << "here4\n";
+      } 
+      else if (non_merging_neighbour->IsSink()) {
         // RunFullCheckForChanges (which calls HandleSingleNode) does not handle Sink.
         // Ignore sink
+        // TODO: this is the right way to handle sink?
         is_deadness_ok = true;
-      } else {
+      } 
+      else {
         cout << "Is not dataflow\n";
         // TODO: implement this part
         // RunFullCheckForChanges: needs edge src_cluster_out_edge, the dst_pred (changed pred),
