@@ -163,7 +163,7 @@ if(USE_PRE_BUILT_NGRAPH)
     endif()
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${NGRAPH_ARTIFACTS_DIR})
-        set(NGRAPH_ARTIFACTS_DIR {CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
+        set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
     endif()
 
     # Create absolute path for the directory
@@ -181,7 +181,7 @@ endif()
 if(UNIT_TEST_TF_CC_DIR)
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${UNIT_TEST_TF_CC_DIR})
-        set(UNIT_TEST_TF_CC_DIR {CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
+        set(UNIT_TEST_TF_CC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
     endif()
 
     # Create absolute path for the directory
@@ -265,7 +265,7 @@ if (UNIT_TEST_ENABLE)
 
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${TF_SRC_DIR})
-        set(TF_SRC_DIR {CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
+        set(TF_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
     endif()
 
     # Get the absolute file name for the source
