@@ -54,23 +54,21 @@ def main():
     if (arguments.list_tests):
         test_list = get_test_list(arguments.tensorflow_path,
                                   arguments.list_tests)
-        print('\n'.join(test_list))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
-        print('\n'.join(test_list))
-        status_list = run_test(test_list)
-        print_results(status_list)
+        status_list = run_test(test_list[0])
+        print_results(status_list, test_list[1])
     if (arguments.run_tests_from_file):
         all_test_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
         for test in list_of_tests:
             test_list = get_test_list(arguments.tensorflow_path, test)
-            test_list = list(set(test_list))
+            invalid_list = test_list[1]
+            test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
-            print('\n'.join(all_test_list))
         status_list = run_test(all_test_list)
-        print_results(status_list)
+        print_results(status_list, invalid_list)
 
 
 def get_test_list(tf_path, test_regex):
@@ -89,11 +87,10 @@ def get_test_list(tf_path, test_regex):
             """\nInvalid module name. Use bazel query below to get list of tensorflow python test modules.
             bazel query 'kind(".*_test rule", //tensorflow/python:nn_test)' --output label\n"""
         )
-    #import pdb; pdb.set_trace()
     try:
         test_list = list_tests(module_list, test_regex)
     except Exception as e:
-        test_list = []
+        test_list = [[], []]
         print(
             "Exception occured in list_tests. " + str(e) +
             "\nEnter a valid argument to --list_tests or --run_test.\n \nLIST OF ACCEPTED FORMATS:"
@@ -177,17 +174,17 @@ def list_tests(module_list, regex_input):
                 alltests.append(i.id())
 
     if (re.search("\.", regex_input) is None):
-        return alltests
+        return alltests, []
     else:
         test_name = (re.split("\*", regex_input))[0]
         listtests = []
+        invalidtests = []
         for test in alltests:
             if test_name in test:
                 listtests.append(test)
         if not listtests:
-            print("\nTest is not a part of this test suite\n")
-            sys.exit()
-        return listtests
+            invalidtests.append(test)
+        return listtests, invalidtests
 
 
 def read_tests_from_file(filename):
@@ -216,6 +213,7 @@ def run_test(test_list, verbosity=2):
     failures = []
     errors = []
     for test in test_list:
+        currtest = test
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(
             loader.loadTestsFromName(test))
         if test_result.wasSuccessful():
@@ -228,7 +226,7 @@ def run_test(test_list, verbosity=2):
     return summary
 
 
-def print_results(status_list):
+def print_results(status_list, invalid_list):
     print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
         test_name = status_list[key]
@@ -239,6 +237,9 @@ def print_results(status_list):
                 print(test + '\033[91m' + ' ..FAIL' + '\033[0m')
             if key is "ERRORS":
                 print(test + '\033[33m' + ' ..ERROR' + '\033[0m')
+
+    print("\nInvalid tests that did not run")
+    print('\n'.join(invalid_list))
 
     print('\033[1m' + '\n==STATS==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
