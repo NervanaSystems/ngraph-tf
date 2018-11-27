@@ -40,7 +40,25 @@ RUN apt-get update &&  apt-get install -y \
     locate curl \
     clang-format-3.9
 
-# Report which gcc and g++ versions are present
+# Install gcc 4.8 and configure it to be the preferred gcc XXXXX
+
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
+
+RUN apt-get install -y gcc-4.8 g++-4.8
+
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
+
+# Setup gcc-4.8 compiler per https://github.com/NervanaSystems/ngraph/blob/master/INSTALL
+# If you are using gcc-4.8, it may be necessary to add symlinksfrom `gcc` to
+# `gcc-4.8`, and from `g++` to `g++-4.8`, in your PATH, even if you have
+# specify CMAKE_C_COMPILER and CMAKE_CXX_COMPILER when building. (You should
+# NOT supply the `-DNGRAPH_USE_PREBUILT_LLVM` flag in this case, because the
+# prebuilt tarball supplied on llvm.org is not compatible with a gcc-4.8
+# based build.)
+RUN ln -f -s /usr/bin/gcc-4.8 /usr/bin/gcc || true
+RUN ln -f -s /usr/bin/g++-4.8 /usr/bin/g++ || true
 RUN which gcc && gcc --version || true
 RUN which c++ && c++ --version || true
 
