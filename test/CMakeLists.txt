@@ -26,15 +26,6 @@ if (NOT DEFINED TF_SRC_DIR)
     )
 endif()
 
-# Get the absolute file name for the source
-get_filename_component(
-    TensorFlow_SRC_DIR
-    "${TF_SRC_DIR}"
-    ABSOLUTE
-)
-if (NOT EXISTS ${TensorFlow_SRC_DIR})
-message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
-endif()
 
 include_directories(${TensorFlow_SRC_DIR})
 
@@ -56,6 +47,7 @@ set(SRC
     conversions.cpp
     graph_rewrites/assign_clusters.cc
     graph_rewrites/deadness_test.cc
+    graph_rewrites/backend_manager_test.cc
     test_utilities.cpp
     test_math_ops.cpp
     test_nn_ops.cpp
@@ -85,16 +77,18 @@ if (APPLE)
     set(NGRAPH_TF_CXX11_ABI 0)
 endif()
 
-add_custom_target( 
-    build_tf_cc
-    COMMENT "Building TensorFlow C++ library"
-    COMMAND 
-        ${CMAKE_CURRENT_SOURCE_DIR}/build_tf_cc.sh 
-        ${TensorFlow_SRC_DIR} 
-        ${NGRAPH_TF_CXX11_ABI}
-)
+if (NOT UNIT_TEST_TF_CC_DIR)
+    add_custom_target( 
+        build_tf_cc
+        COMMENT "Building TensorFlow C++ library"
+        COMMAND 
+            ${CMAKE_CURRENT_SOURCE_DIR}/build_tf_cc.sh 
+            ${TensorFlow_SRC_DIR} 
+            ${NGRAPH_TF_CXX11_ABI}
+    )
 
-add_dependencies(gtest_ngtf build_tf_cc)
+    add_dependencies(gtest_ngtf build_tf_cc)
+endif()
 
 target_link_libraries(
     gtest_ngtf 
