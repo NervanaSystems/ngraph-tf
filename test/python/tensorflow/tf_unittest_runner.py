@@ -60,10 +60,13 @@ def main():
         print_results(status_list, test_list[1])
     if (arguments.run_tests_from_file):
         all_test_list = []
+        invalid_list = []
         list_of_tests = read_tests_from_file(arguments.run_tests_from_file)
         for test in list_of_tests:
             test_list = get_test_list(arguments.tensorflow_path, test)
-            invalid_list = test_list[1]
+            for test in test_list[1]:
+                if test is not None:
+                    invalid_list.append(test_list[1])
             test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
@@ -183,7 +186,7 @@ def list_tests(module_list, regex_input):
             if test_name in test:
                 listtests.append(test)
         if not listtests:
-            invalidtests.append(test)
+            invalidtests.append(regex_input)
         return listtests, invalidtests
 
 
@@ -238,8 +241,9 @@ def print_results(status_list, invalid_list):
             if key is "ERRORS":
                 print(test + '\033[33m' + ' ..ERROR' + '\033[0m')
 
-    print("\nInvalid tests that did not run")
-    print('\n'.join(invalid_list))
+    if (len(invalid_list) != 0):
+        print('\033[1m' + '\nInvalid Tests' + '\033[0m')
+        print('\n'.join(' '.join(map(str, test)) for test in invalid_list))
 
     print('\033[1m' + '\n==STATS==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
