@@ -195,7 +195,7 @@ def read_tests_from_file(filename):
         return [
             line.split('#')[0].rstrip('\n').strip(' ')
             for line in list_of_tests.readlines()
-            if line[0] != '#'
+            if line[0] != '#' and line != '\n'
         ]
 
 
@@ -216,7 +216,6 @@ def run_test(test_list, verbosity=2):
     failures = []
     errors = []
     for test in test_list:
-        currtest = test
         test_result = unittest.TextTestRunner(verbosity=verbosity).run(
             loader.loadTestsFromName(test))
         if test_result.wasSuccessful():
@@ -230,6 +229,16 @@ def run_test(test_list, verbosity=2):
 
 
 def print_results(status_list, invalid_list):
+    """
+    Prints the results of the tests run and the stats.
+    Prints the list of invalid tests if any.
+
+    Args:
+    status_list: This is a list of test cases that ran along with their 
+    status Pass, Fail or Error. 
+    invalid_list: When tests are run from file, if there is an invalid test 
+    name this list is printed along with summary.
+    """
     print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
         test_name = status_list[key]
