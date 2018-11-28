@@ -45,14 +45,16 @@ class BackendManager {
  public:
   // Returns the backend name currently set
   static string GetCurrentlySetBackendName() {
-    NGRAPH_VLOG(5) << "Getting backend";
     return BackendManager::ng_backend_name_;
   };
 
   // Returns the nGraph supported backend names
   static unordered_set<string> GetSupportedBackendNames();
 
-  static bool IsSupportedBackend(string& backend_name);
+  static size_t GetNumOfSupportedBackends(){
+    return ng_supported_backends_.size();
+  } 
+  static bool IsSupportedBackend(const string& backend_name);
 
   static Status SetBackendName(const string& backend_name);
 

@@ -36,7 +36,7 @@ import ctypes
 
 
 __all__ = ['enable', 'disable', 'is_enabled', 'backends_len', 'list_backends',
-    'set_backend', 'start_logging_placement', 'stop_logging_placement',
+    'set_backend', 'is_supported_backend', 'start_logging_placement', 'stop_logging_placement',
     'is_logging_placement', '__version__']
 
 
@@ -103,6 +103,7 @@ def requested():
 ngraph_bridge_lib.ngraph_is_enabled.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_list_backends.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_set_backend.restype = ctypes.c_bool
+ngraph_bridge_lib.ngraph_is_supported_backend.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_is_logging_placement.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_tf_version.restype = ctypes.c_char_p
 
@@ -131,9 +132,13 @@ def list_backends():
 
 
 def set_backend(backend):
+  print ("Set " +backend)
   if not ngraph_bridge_lib.ngraph_set_backend(backend):
     raise Exception("Backend " + backend + " unavailable.")
 
+def is_supported_backend(backend):
+  print ("Check backend support " +backend)
+  return ngraph_bridge_lib.ngraph_is_supported_backend(backend)
 
 def start_logging_placement():
   ngraph_bridge_lib.ngraph_start_logging_placement()
