@@ -153,10 +153,11 @@ if (PYTHON)
                 message(FATAL_ERROR "Cannot update @loader_path")
             endif()
 
+            message("Library: libplaidml.dylib")
             execute_process(COMMAND
                 install_name_tool -change
-                libplaidml.dylib
-                @loader_path/libplaidml.dylib
+                @rpath/libplaidml.dylib
+                @loader_path/../plaidml/libplaidml.so
                 ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
@@ -165,23 +166,6 @@ if (PYTHON)
             if(${result})
                 message(FATAL_ERROR "Cannot update @loader_path")
             endif()
-
-            set(plaidml_lib_list
-                libplaidml.dylib
-            )
-
-            FOREACH(lib_file ${plaidml_lib_list})
-                message("Library: " ${lib_file})
-                execute_process(COMMAND
-                    install_name_tool -change
-                    @rpath/${lib_file}
-                    @loader_path/${lib_file}
-                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
-                    RESULT_VARIABLE result
-                    ERROR_VARIABLE ERR
-                    ERROR_STRIP_TRAILING_WHITESPACE
-                )
-            ENDFOREACH()
         endif()
 
     endif()
