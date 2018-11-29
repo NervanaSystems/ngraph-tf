@@ -553,7 +553,7 @@ Status MarkForClustering(Graph* graph) {
     if (backend_env.empty() ||
         !BackendManager::IsSupportedBackend(backend_env)) {
       return errors::Internal("NGRAPH_TF_BACKEND: ", backend_env,
-                              "is not supported");
+                              " is not supported");
     }
     current_backend = backend_env;
   }
