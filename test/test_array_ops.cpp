@@ -906,6 +906,69 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
   cout << "Ran a total of " << tot_num_tests_run << " tests\n";
 }  // end of test op Tile
 
+// Test SplitNegativeAxis op
+TEST(ArrayOps, SplitNegativeAxis) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 8, 1});
+
+  int64_t num_splits = 4;
+
+  vector<int> static_input_indexes = {0};
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, -2);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::Split(root, axis, input_data, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2], R[3]};
+    OpExecuter opexecuter(root, "Split", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitNegativeAxis
+
+// Test SplitPositiveAxis op
+TEST(ArrayOps, SplitPositiveAxis) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 1, 6});
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
+  int64_t num_splits = 3;
+
+  vector<int> static_input_indexes = {0};
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 3);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::Split(root, axis, input_data, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2], R[3]};
+    OpExecuter opexecuter(root, "Split", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitPositiveAxis
+
 // Test SplitVNegSizeSplit op
 TEST(ArrayOps, SplitVNegSizeSplit) {
   std::vector<std::vector<int64>> input_shapes;
