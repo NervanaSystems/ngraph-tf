@@ -40,7 +40,7 @@ To get a **full** dump use the following set of flags
 *  View the original network with encapsulate information by running tensorboard, using the files created in ```./vis```.
 
 ### Disable NGRAPH in python
-* In your script, import ngraph_bridge by having: ```import ngraph_bridge_config```
+* In your script, import ngraph_bridge by using: ```import ngraph_bridge```
 * Disable ngraph by calling: ```ngraph_bridge.disable()```
 * Enable ngraph by calling: ```ngraph_bridge.enable()```
 * Checking whether ngraph is enabled by calling: ```ngraph.is_enabled()```
