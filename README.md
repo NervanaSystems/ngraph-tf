@@ -15,6 +15,8 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
 *   [How to Contribute](#how-to-contribute)
 
 
+:warning: :warning: 
+## Please note that the documentation is undergping changes in preperation for our next release. Expect errors in the documentaion while we are updating.
 
 ## Linux instructions
 
