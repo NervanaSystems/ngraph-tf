@@ -3290,7 +3290,8 @@ static Status TranslateSplitOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_input));
-
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
   int32 num_split;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_split", &num_split));
 

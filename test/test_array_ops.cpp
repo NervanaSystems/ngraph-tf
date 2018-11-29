@@ -910,7 +910,8 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
 TEST(ArrayOps, SplitNegativeAxis) {
   std::vector<std::vector<int64>> input_shapes;
   input_shapes.push_back({1, 2, 8, 1});
-
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {0};
