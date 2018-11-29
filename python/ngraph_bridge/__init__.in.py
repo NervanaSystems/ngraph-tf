@@ -106,7 +106,6 @@ ngraph_bridge_lib.ngraph_set_backend.argtypes = [ctypes.c_char_p]
 ngraph_bridge_lib.ngraph_set_backend.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_is_supported_backend.argtypes = [ctypes.c_char_p]
 ngraph_bridge_lib.ngraph_is_supported_backend.restype = ctypes.c_bool
-#ngraph_bridge_lib.ngraph_get_currently_set_backend_name.argtypes = [ctypes.create_string_buffer]
 ngraph_bridge_lib.ngraph_get_currently_set_backend_name.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_is_logging_placement.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_tf_version.restype = ctypes.c_char_p
@@ -133,6 +132,7 @@ def list_backends():
   if not ngraph_bridge_lib.ngraph_list_backends(result, len_backends):
     raise Exception("Expected " + str(len_backends) + " backends, but got some  other number of backends")
   list_result = list(result)
+  # convert bytes to string required for py3
   backend_list = []
   for backend in list_result:
     backend_list.append(backend.decode("utf-8"))
@@ -140,11 +140,11 @@ def list_backends():
 
 
 def set_backend(backend):
-  if not ngraph_bridge_lib.ngraph_set_backend(backend.encode()):
+  if not ngraph_bridge_lib.ngraph_set_backend(backend.encode("utf-8")):
     raise Exception("Backend " + backend + " unavailable.")
 
 def is_supported_backend(backend):
-  return ngraph_bridge_lib.ngraph_is_supported_backend(backend.encode())
+  return ngraph_bridge_lib.ngraph_is_supported_backend(backend.encode("utf-8"))
 
 def get_currently_set_backend_name():
   result = (ctypes.c_char_p * 1)()

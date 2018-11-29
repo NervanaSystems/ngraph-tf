@@ -43,14 +43,14 @@ bool ngraph_list_backends(char** backends, int backends_len) {
 }
 
 bool ngraph_set_backend(const char* backend) {
-  if (SetBackend(backend) != tensorflow::Status::OK()) {
+  if (SetBackend(string(backend)) != tensorflow::Status::OK()) {
     return false;
   }
   return true;
 }
 
 extern bool ngraph_is_supported_backend(const char* backend) {
-  return IsSupportedBackend(backend);
+  return IsSupportedBackend(string(backend));
 }
 
 extern bool ngraph_get_currently_set_backend_name(char** backend) {
