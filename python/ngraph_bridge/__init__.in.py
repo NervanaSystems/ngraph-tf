@@ -132,7 +132,7 @@ def list_backends():
   if not ngraph_bridge_lib.ngraph_list_backends(result, len_backends):
     raise Exception("Expected " + str(len_backends) + " backends, but got some  other number of backends")
   list_result = list(result)
-  # convert bytes to string required for py3
+  # convert bytes to string required for py3 (encode/decode bytes)
   backend_list = []
   for backend in list_result:
     backend_list.append(backend.decode("utf-8"))
