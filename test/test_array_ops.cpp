@@ -947,7 +947,7 @@ TEST(ArrayOps, SplitPositiveAxis) {
   int64_t num_splits = 3;
 
   vector<int> static_input_indexes = {0};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT};
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -962,7 +962,7 @@ TEST(ArrayOps, SplitPositiveAxis) {
 
     auto R = ops::Split(root, axis, input_data, num_splits);
 
-    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2], R[3]};
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2]};
     OpExecuter opexecuter(root, "Split", static_input_indexes, output_datatypes,
                           sess_run_fetchoutputs);
 
