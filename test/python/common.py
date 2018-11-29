@@ -22,11 +22,11 @@ import tensorflow as tf
 
 import ngraph_bridge
 
-#__all__ = ['LIBNGRAPH_BRIDGE', 'NgraphTest']
+__all__ = ['LIBNGRAPH_BRIDGE', 'NgraphTest']
 
-#_ext = 'dylib' if platform.system() == 'Darwin' else 'so'
+_ext = 'dylib' if platform.system() == 'Darwin' else 'so'
 
-#LIBNGRAPH_BRIDGE = 'libngraph_bridge.' + _ext
+LIBNGRAPH_BRIDGE = 'libngraph_bridge.' + _ext
 
 
 class NgraphTest(object):
