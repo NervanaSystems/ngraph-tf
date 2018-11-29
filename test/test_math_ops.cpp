@@ -671,6 +671,57 @@ TEST(MathOps, FloorModBroadcasting) {
   opexecuter.RunTest();
 }  // end of test op FloorModBroadcasting
 
+
+// Test op: FloorDivNegInt
+// Error found when running tensorflow python test
+// should enable when NGraph fix the issue
+TEST(MathOps, DISABLED_FloorDivNegInt) {
+  Scope root = Scope::NewRootScope();
+
+  Tensor A(DT_INT32, TensorShape({1}));
+  Tensor B(DT_INT32, TensorShape({1}));
+
+  vector<int> A_vect{-1}; 
+  vector<int> B_vect{3}; 
+
+  AssignInputValues(A, A_vect);
+  AssignInputValues(B, B_vect);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::FloorDiv(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_INT32};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "FloorDiv", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op FloorDivNegInt
+
+TEST(MathOps, FloorDivNegFloat) {
+  Scope root = Scope::NewRootScope();
+
+  Tensor A(DT_FLOAT, TensorShape({1}));
+  Tensor B(DT_FLOAT, TensorShape({1}));
+
+  vector<float> A_vect{-1.f}; 
+  vector<float> B_vect{3.f}; 
+
+  AssignInputValues(A, A_vect);
+  AssignInputValues(B, B_vect);
+
+  vector<int> static_input_indexes = {};
+  auto R = ops::FloorDiv(root, A, B);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "FloorDiv", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+  opexecuter.RunTest();
+}  // end of test op FloorDiv
+
 // Test op: Log
 TEST(MathOps, Log1D) {
   Scope root = Scope::NewRootScope();
