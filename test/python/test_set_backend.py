@@ -19,28 +19,25 @@ import pytest
 import tensorflow as tf
 import ngraph_bridge
 
-ngraph_bridge.enable()
 
-print("Number of supported backends ", ngraph_bridge.backends_len())
+# Test ngraph_bridge config options
+def test_set_backend():
+    print("Number of supported backends ", ngraph_bridge.backends_len())
+    supported_backends = ngraph_bridge.list_backends()
+    print(" ****** Supported Backends ****** ")
+    for backend_name in supported_backends:
+        print (backend_name)
+    print(" ******************************** ")
 
-supported_backends = ngraph_bridge.list_backends()
-print(" ****** Supported Backends ****** ")
-for backend_name in supported_backends:
-    print (backend_name)
-print(" ******************************** ")
+    backend_cpu = 'CPU'
+    backend_interpreter = 'INTERPRETER'
 
-backend_cpu = 'CPU'
-backend_interpreter = 'INTERPRETER'
+    if ngraph_bridge.is_supported_backend(backend_cpu):
+        ngraph_bridge.set_backend(backend_cpu)
+        currently_set_backend = ngraph_bridge.get_currently_set_backend_name()
+        assert currently_set_backend == backend_cpu
 
-if ngraph_bridge.is_supported_backend(backend_cpu):
-    print("Backend" + backend_cpu + " is supported")
-    print("Try Set Backend")
-    ngraph_bridge.set_backend(backend_cpu)
-    print ("Backend Set To ", ngraph_bridge.get_currently_set_backend_name())
-
-if ngraph_bridge.is_supported_backend(backend_interpreter):
-    print("Backend" + backend_interpreter + " is supported")
-    print("Try Set Backend")
-    ngraph_bridge.set_backend(backend_interpreter)
-    print ("Backend Set To ", ngraph_bridge.get_currently_set_backend_name())
-
+    if ngraph_bridge.is_supported_backend(backend_interpreter):
+        ngraph_bridge.set_backend(backend_interpreter)
+        currently_set_backend = ngraph_bridge.get_currently_set_backend_name()
+        assert currently_set_backend == backend_interpreter
