@@ -24,9 +24,11 @@ static bool _is_enabled = true;
 static bool _is_logging_placement = false;
 
 extern "C" {
-void ngraph_enable() { 
-  std:cout<< "in ngraph_enable "<<std::endl;
-  Enable(); }
+void ngraph_enable() {
+std:
+  cout << "in ngraph_enable " << std::endl;
+  Enable();
+}
 void ngraph_disable() { Disable(); }
 bool ngraph_is_enabled() { return IsEnabled(); }
 
@@ -45,26 +47,25 @@ bool ngraph_list_backends(char** backends, int backends_len) {
 }
 
 bool ngraph_set_backend(const char* backend) {
-  printf("char %c ", backend);
-  printf("string %s ", backend);
-  std:cout<< "in ngraph _ set backend "<<string(backend) <<std::endl;
-  std::string str_backend = backend;
-  std::cout<<"str backend  "<<str_backend<<std::endl;
-  if (SetBackend(str_backend) != tensorflow::Status::OK()) {
+std:
+  cout << "in ngraph set backend " << string(backend) << std::endl;
+  if (SetBackend(backend) != tensorflow::Status::OK()) {
     return false;
   }
   return true;
 }
 
-extern bool ngraph_is_supported_backend(const char* backend){
-  printf("char %c ", backend);
-  printf("string %s ", backend);
-  std:cout<< "in ngraph _ is supported backend "<<string(backend) <<std::endl;
-  std::string str_backend =backend;
-  std::cout<<"str backend  "<<str_backend<<std::endl;
-  return IsSupportedBackend(string(str_backend));
+extern bool ngraph_is_supported_backend(const char* backend) {
+std:
+  cout << "in ngraph _ is supported backend " << string(backend) << std::endl;
+  return IsSupportedBackend(backend);
 }
 
+extern bool ngraph_get_currently_set_backend_name(char** backend) {
+  *backend = strdup(GetCurrentlySetBackendName().c_str());
+  // cout << "Got ngraph backend " << string(*backend) << endl;
+  return true;
+}
 
 void ngraph_start_logging_placement() { StartLoggingPlacement(); }
 void ngraph_stop_logging_placement() { StopLoggingPlacement(); }
@@ -73,29 +74,40 @@ bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 
 // note that TensorFlow always uses camel case for the C++ API, but not for
 // Python
-void Enable() { std:cout<< "in enable "<<std::endl; _is_enabled = true; }
+void Enable() {
+std:
+  cout << "in enable " << std::endl;
+  _is_enabled = true;
+}
 void Disable() { _is_enabled = false; }
 bool IsEnabled() { return _is_enabled; }
 
 size_t BackendsLen() { return BackendManager::GetNumOfSupportedBackends(); }
 
 vector<string> ListBackends() {
-  auto supported_backends= BackendManager::GetSupportedBackendNames();
-  vector<string> backend_list(supported_backends.begin(), supported_backends.end());
+  auto supported_backends = BackendManager::GetSupportedBackendNames();
+  vector<string> backend_list(supported_backends.begin(),
+                              supported_backends.end());
   return backend_list;
 }
 
-
 tensorflow::Status SetBackend(const string& type) {
+  std::cout << "Set Backend " << type << std::endl;
   return BackendManager::SetBackendName(type);
 }
 
-extern bool IsSupportedBackend(const string& type){
-  std::cout<<"Checking Backend "<<type <<std::endl;
-  std:cout<< "in is supperted backend "<< (BackendManager::IsSupportedBackend(type)? "got true ": "got false" ) <<std::endl;
+bool IsSupportedBackend(const string& type) {
+  std::cout << "Checking Backend " << type << std::endl;
+std:
+  cout << "in is supperted backend "
+       << (BackendManager::IsSupportedBackend(type) ? "got true " : "got false")
+       << std::endl;
   return BackendManager::IsSupportedBackend(type);
 }
 
+string GetCurrentlySetBackendName() {
+  return BackendManager::GetCurrentlySetBackendName();
+}
 
 void StartLoggingPlacement() { _is_logging_placement = true; }
 void StopLoggingPlacement() { _is_logging_placement = false; }
