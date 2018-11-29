@@ -13,30 +13,34 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge cast operation test
 
-"""
 from __future__ import print_function 
 import pytest
-
 import tensorflow as tf
-
 import ngraph_config
 
-
-backend_cpu = "CPU"
-backend_interpreter = "INTERPRETER"
-print ("Check")
 ngraph_config.enable()
 
-print("Try Is Supported")
+print("Number of supported backends ", ngraph_config.backends_len())
+
+supported_backends = ngraph_config.list_backends()
+print(" ****** Supported Backends ****** ")
+for backend_name in supported_backends:
+    print (backend_name)
+print(" ******************************** ")
+
+backend_cpu = 'CPU'
+backend_interpreter = 'INTERPRETER'
 
 if ngraph_config.is_supported_backend(backend_cpu):
     print("Backend" + backend_cpu + " is supported")
     print("Try Set Backend")
     ngraph_config.set_backend(backend_cpu)
+    print ("Backend Set To ", ngraph_config.get_currently_set_backend_name())
 
 if ngraph_config.is_supported_backend(backend_interpreter):
     print("Backend" + backend_interpreter + " is supported")
     print("Try Set Backend")
     ngraph_config.set_backend(backend_interpreter)
+    print ("Backend Set To ", ngraph_config.get_currently_set_backend_name())
+
