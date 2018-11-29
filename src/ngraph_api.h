@@ -35,7 +35,7 @@ extern size_t ngraph_backends_len();
 extern bool ngraph_list_backends(char** backends, int backends_len);
 extern bool ngraph_set_backend(const char* backend);
 extern bool ngraph_is_supported_backend(const char* backend);
-extern bool ngraph_get_currently_set_backend_name(char* backend);
+extern bool ngraph_get_currently_set_backend_name(char** backend);
 
 extern void ngraph_start_logging_placement();
 extern void ngraph_stop_logging_placement();

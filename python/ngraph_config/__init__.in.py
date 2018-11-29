@@ -132,26 +132,26 @@ def list_backends():
   result = (ctypes.c_char_p * len_backends)()
   if not ngraph_bridge_lib.ngraph_list_backends(result, len_backends):
     raise Exception("Expected " + str(len_backends) + " backends, but got some  other number of backends")
-  return list(result)
+  list_result = list(result)
+  backend_list = []
+  for backend in list_result:
+    backend_list.append(backend.decode("utf-8"))
+  return backend_list
 
 
 def set_backend(backend):
-  print ("Set " +backend)
   if not ngraph_bridge_lib.ngraph_set_backend(backend.encode()):
     raise Exception("Backend " + backend + " unavailable.")
 
 def is_supported_backend(backend):
-  print("Check backend support " + backend)
   return ngraph_bridge_lib.ngraph_is_supported_backend(backend.encode())
 
 def get_currently_set_backend_name():
-  #result = ctypes.create_string_buffer(''.encode())
-  #result = ctypes.cast(result, ctypes.c_char_p)
-  result = ctypes.c_char_p()
+  result = (ctypes.c_char_p * 1)()
   if not ngraph_bridge_lib.ngraph_get_currently_set_backend_name(result):
     raise Exception("Cannot get currently set backend")
-  print("nGraph _init_ backend ", result)
-  return result
+  list_result = list(result)
+  return list_result[0].decode("utf-8")
 
 def start_logging_placement():
   ngraph_bridge_lib.ngraph_start_logging_placement()

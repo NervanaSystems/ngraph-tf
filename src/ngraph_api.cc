@@ -24,11 +24,7 @@ static bool _is_enabled = true;
 static bool _is_logging_placement = false;
 
 extern "C" {
-void ngraph_enable() {
-std:
-  cout << "in ngraph_enable " << std::endl;
-  Enable();
-}
+void ngraph_enable() { Enable(); }
 void ngraph_disable() { Disable(); }
 bool ngraph_is_enabled() { return IsEnabled(); }
 
@@ -47,8 +43,6 @@ bool ngraph_list_backends(char** backends, int backends_len) {
 }
 
 bool ngraph_set_backend(const char* backend) {
-std:
-  cout << "in ngraph set backend " << string(backend) << std::endl;
   if (SetBackend(backend) != tensorflow::Status::OK()) {
     return false;
   }
@@ -56,13 +50,11 @@ std:
 }
 
 extern bool ngraph_is_supported_backend(const char* backend) {
-cout << "in ngraph _ is supported backend " << string(backend) << endl;
   return IsSupportedBackend(backend);
 }
 
-extern bool ngraph_get_currently_set_backend_name(char* backend) {
-  backend = strdup(GetCurrentlySetBackendName().c_str());
-  cout << "Got ngraph backend " << string(backend) << endl;
+extern bool ngraph_get_currently_set_backend_name(char** backend) {
+  backend[0] = strdup(GetCurrentlySetBackendName().c_str());
   return true;
 }
 
@@ -73,11 +65,7 @@ bool ngraph_is_logging_placement() { return IsLoggingPlacement(); }
 
 // note that TensorFlow always uses camel case for the C++ API, but not for
 // Python
-void Enable() {
-std:
-  cout << "in enable " << std::endl;
-  _is_enabled = true;
-}
+void Enable() { _is_enabled = true; }
 void Disable() { _is_enabled = false; }
 bool IsEnabled() { return _is_enabled; }
 
@@ -91,16 +79,10 @@ vector<string> ListBackends() {
 }
 
 tensorflow::Status SetBackend(const string& type) {
-  std::cout << "Set Backend " << type << std::endl;
   return BackendManager::SetBackendName(type);
 }
 
 bool IsSupportedBackend(const string& type) {
-  std::cout << "Checking Backend " << type << std::endl;
-std:
-  cout << "in is supperted backend "
-       << (BackendManager::IsSupportedBackend(type) ? "got true " : "got false")
-       << std::endl;
   return BackendManager::IsSupportedBackend(type);
 }
 
