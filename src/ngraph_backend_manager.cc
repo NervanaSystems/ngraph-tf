@@ -81,12 +81,11 @@ unordered_set<string> BackendManager::GetSupportedBackendNames() {
 
 bool BackendManager::IsSupportedBackend(string& backend_name) {
   // strip off attributes, IE:CPU becomes IE
-       auto colon = backend_name.find(":");
-       std::string backend = "";
-      if (colon != backend_name.npos)
-      {
-          backend = backend_name.substr(0, colon);
-      }
+  auto colon = backend_name.find(":");
+  std::string backend = "";
+  if (colon != backend_name.npos) {
+    backend = backend_name.substr(0, colon);
+  }
   auto itr = BackendManager::ng_supported_backends_.find(backend);
   if (itr == BackendManager::ng_supported_backends_.end()) {
     return false;
