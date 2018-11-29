@@ -106,7 +106,6 @@ ngraph_bridge_lib.ngraph_set_backend.argtypes = [ctypes.c_char_p]
 ngraph_bridge_lib.ngraph_set_backend.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_is_supported_backend.argtypes = [ctypes.c_char_p]
 ngraph_bridge_lib.ngraph_is_supported_backend.restype = ctypes.c_bool
-#ngraph_bridge_lib.ngraph_get_currently_set_backend_name.argtypes = [ctypes.create_string_buffer]
 ngraph_bridge_lib.ngraph_get_currently_set_backend_name.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_is_logging_placement.restype = ctypes.c_bool
 ngraph_bridge_lib.ngraph_tf_version.restype = ctypes.c_char_p
