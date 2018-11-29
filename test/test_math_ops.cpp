@@ -671,7 +671,6 @@ TEST(MathOps, FloorModBroadcasting) {
   opexecuter.RunTest();
 }  // end of test op FloorModBroadcasting
 
-
 // Test op: FloorDivNegInt
 // Error found when running tensorflow python test
 // should enable when NGraph fix the issue
@@ -681,8 +680,8 @@ TEST(MathOps, DISABLED_FloorDivNegInt) {
   Tensor A(DT_INT32, TensorShape({1}));
   Tensor B(DT_INT32, TensorShape({1}));
 
-  vector<int> A_vect{-1}; 
-  vector<int> B_vect{3}; 
+  vector<int> A_vect{-1};
+  vector<int> B_vect{3};
 
   AssignInputValues(A, A_vect);
   AssignInputValues(B, B_vect);
@@ -705,8 +704,8 @@ TEST(MathOps, FloorDivNegFloat) {
   Tensor A(DT_FLOAT, TensorShape({1}));
   Tensor B(DT_FLOAT, TensorShape({1}));
 
-  vector<float> A_vect{-1.f}; 
-  vector<float> B_vect{3.f}; 
+  vector<float> A_vect{-1.f};
+  vector<float> B_vect{3.f};
 
   AssignInputValues(A, A_vect);
   AssignInputValues(B, B_vect);
