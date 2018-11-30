@@ -3453,6 +3453,7 @@ static Status TranslateStridedSliceOp(
   // TODO: implement new_axis_mask, ellipsis_mask
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+  cerr << "Starting Strided Slice Translation\n";
 
   int tf_shrink_axis_mask;
   TF_RETURN_IF_ERROR(
@@ -3545,7 +3546,6 @@ static Status TranslateStridedSliceOp(
     // take care to convert dim from sixze_t to int
     int tf_ignore_end_if_needed =
         end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
-
     // using size_t for clamped_begin_idx because: clamped_begin_idx is
     // inclusive, so it must lie in [0, dim-1]
     size_t clamped_begin_idx = clamper(tf_ignore_begin_if_needed, dim, true);
@@ -3651,6 +3651,8 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
+  cerr << "Still translating Strided Slice-1\n";
+
   // TODO/Note/Question: Are begin, end and stride vectors are of equal length
 
   // begin, end and stride vectors may not have same size as input rank, hence
@@ -3662,14 +3664,26 @@ static Status TranslateStridedSliceOp(
                                                  // optimized, so tie won't
                                                  // work. Hence using size_t
   for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
+    cerr << "Still Translating Strided Slice-beginloop\n";
+
+    cerr << "ng_begin_vec[dim_idx]" << ng_begin_vec[dim_idx]
+         << "ng_end_vec[dim_idx]" << ng_end_vec[dim_idx]
+         << "ng_stride_vec[dim_idx]" << ng_stride_vec[dim_idx]
+         << "ng_needs_reversal[dim_idx]" << ng_needs_reversal[dim_idx];
+    cerr << "begin_vec[dim_idx]" << begin_vec[dim_idx] << "end_vec[dim_idx]"
+         << end_vec[dim_idx] << "stride_vec[dim_idx]" << stride_vec[dim_idx]
+         << "dim_vec[dim_idx]" << dim_vec[dim_idx];
+
     std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx], ng_stride_vec[dim_idx],
              ng_needs_reversal[dim_idx]) =
         tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
                  dim_vec[dim_idx], extract_bit(tf_begin_mask, dim_idx),
                  extract_bit(tf_end_mask, dim_idx),
                  extract_bit(tf_shrink_axis_mask, dim_idx));
+    cerr << "Still translating Strided Slice-endloop\n";
   }
 
+  cerr << "Still translating Strided Slice-2\n";
   // filter out negative stride dimensions
   vector<size_t> neg_strides;
   for (int dim_idx = 0; dim_idx < in_rank; dim_idx++) {
@@ -3681,7 +3695,6 @@ static Status TranslateStridedSliceOp(
   // atleast one stride was negative, in which case reverse the input
   if (neg_strides.size() > 0)
     ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
-
   NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
   NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
   NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
@@ -3689,6 +3702,8 @@ static Status TranslateStridedSliceOp(
 
   std::shared_ptr<ng::Node> ng_strided_slice = make_shared<ng::op::Slice>(
       ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
+
+  cerr << "Still translating Strided Slice-3\n";
 
   if (tf_shrink_axis_mask) {
     int64 shrink_axis_mask = tf_shrink_axis_mask;
@@ -3714,14 +3729,17 @@ static Status TranslateStridedSliceOp(
       shrink_axis_mask >>= 1;
     }
 
-    NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
+    cerr << "Still translating Strided Slice-4\n";
 
+    NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
     ng::Shape ng_final_shape(output_shape);
     ng::AxisVector ng_axis_order(input_shape.size());
     std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
 
     NGRAPH_VLOG(3) << " Output  shape " << ng::join(output_shape);
     NGRAPH_VLOG(3) << " NG  axis order " << ng::join(ng_axis_order);
+
+    cerr << "Still translating Strided Slice-5\n";
 
     ng_strided_slice = make_shared<ng::op::Reshape>(
         ng_strided_slice, ng_axis_order, ng_final_shape);
@@ -3733,6 +3751,7 @@ static Status TranslateStridedSliceOp(
   // TODO: tf_new_axis_mask can exceed rank
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
+  cerr << "Exiting Strided Slice Translation";
   return Status::OK();
 }
 
