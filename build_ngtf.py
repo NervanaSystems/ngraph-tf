@@ -375,8 +375,8 @@ def main():
         "-DNGRAPH_UNIT_TEST_ENABLE=NO", "-DNGRAPH_TOOLS_ENABLE=YES",
         "-DNGRAPH_DEX_ONLY=TRUE", "-DNGRAPH_GPU_ENABLE=NO",
         "-DNGRAPH_PLAIDML_ENABLE=NO", "-DNGRAPH_DEBUG_ENABLE=NO",
-        "-DNGRAPH_TARGET_ARCH=core-avx2 ",
-        "-DNGRAPH_TUNE_ARCH=core-avx2 ",
+        "-DNGRAPH_TARGET_ARCH=native",
+        "-DNGRAPH_TUNE_ARCH=native",
     ]
     if (arguments.debug_build):
         ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
@@ -388,8 +388,8 @@ def main():
 
     ngraph_tf_cmake_flags = [
         "-DUSE_PRE_BUILT_NGRAPH=ON",
-        "-DNGRAPH_TARGET_ARCH=core-avx2 ",
-        "-DNGRAPH_TUNE_ARCH=core-avx2 ",
+        "-DNGRAPH_TARGET_ARCH=native",
+        "-DNGRAPH_TUNE_ARCH=native",
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON", "-DTF_SRC_DIR=" + tf_src_dir,
         "-DUNIT_TEST_TF_CC_DIR=" +
