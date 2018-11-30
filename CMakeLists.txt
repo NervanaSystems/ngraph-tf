@@ -203,14 +203,14 @@ endif()
 # Enable build target CPU features
 set(
     NGRAPH_TARGET_ARCH 
-    native 
-    CACHE STRING "Target CPU architecture to build for. Defaults to the haswell CPU architecture")
-
+    haswell 
+    CACHE STRING "Target CPU architecture to build for.")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${NGRAPH_TARGET_ARCH}")
 
-if (DEFINED NGRAPH_TUNE_ARCH)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=${NGRAPH_TUNE_ARCH}")
-endif()
+set(
+    NGRAPH_TUNE_ARCH 
+    haswell 
+    CACHE STRING "Target CPU architecture to tune for")
 
 message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
 message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
@@ -241,7 +241,7 @@ if (NOT USE_PRE_BUILT_NGRAPH)
             -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
             -DPlaidML_DIR=${PlaidML_DIR}
             -DNGRAPH_TARGET_ARCH=${NGRAPH_TARGET_ARCH}
-            -DNGRAPH_TUNE_ARCH=${NGRAPH_TUNE_ARCH},
+            -DNGRAPH_TUNE_ARCH=${NGRAPH_TUNE_ARCH}
         TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
         STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
         DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
