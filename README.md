@@ -15,6 +15,8 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
 *   [How to Contribute](#how-to-contribute)
 
 
+:warning: :warning: 
+## Please note that the documentation is undergping changes in preperation for our next release. Expect errors in the documentaion while we are updating.
 
 ## Linux instructions
 
@@ -29,7 +31,7 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
         virtualenv --system-site-packages -p /usr/bin/python2 your_virtualenv  
         source your_virtualenv/bin/activate # bash, sh, ksh, or zsh
     
-2. Install TensorFlow v1.12.0-rc2. Note that this is a pre-release so you need 
+2. Install TensorFlow v1.12.0. Note that this is a pre-release so you need 
    to use the following steps to install this:
 
         pip install tensorflow==1.12.0rc2
@@ -38,22 +40,22 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
 
         pip install -U tensorflow
 
-3. Checkout `v0.7.0-rc0` from the `ngraph-tf` repo and build the bridge
+3. Checkout `v0.8.0` from the `ngraph-tf` repo and build the bridge
    as follows: 
    
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.7.0-rc0
+        git checkout v0.8.0
         mkdir build
         cd build
         cmake ..
         make -j <number_of_processor_cores_on_system>
         make install 
-        pip install -U python/dist/ngraph-0.7.0-py2.py3-none-linux_x86_64.whl
+        pip install -U python/dist/ngraph_tensorflow_bridge-0.8-py2.py3-none-manylinux1_x86_64.whl
 
 4. Test the installation by running the following command:
 
-        python -c "import tensorflow as tf; print('TensorFlow version: r',tf.__version__);import ngraph_config; print(ngraph_config.__version__)"
+        python -c "import tensorflow as tf; print('TensorFlow version: r',tf.__version__);import ngraph_bridge; print(ngraph_bridge.__version__)"
 
 ### Option 2: Build nGraph bridge from source using TensorFlow source
 
@@ -83,13 +85,13 @@ The installation prerequisites are the same as described in the TensorFlow
 1. Once TensorFlow's dependencies are installed, clone the source of the 
    [tensorflow] repo to your machine. 
 
-     :warning: You need the following version of TensorFlow: `v1.12.0-rc2`
+     :warning: You need the following version of TensorFlow: `v1.12.0`
 
         git clone https://github.com/tensorflow/tensorflow.git
         cd tensorflow
-        git checkout v1.12.0-rc2
+        git checkout v1.12.0
         git status
-        HEAD detached at v1.12.0-rc2
+        HEAD detached at v1.12.0
    
 2. You must instantiate a specific kind of `virtualenv`  to be able to proceed 
    with the `ngraph-tf` bridge installation. For systems with Python 3.n or 
@@ -141,7 +143,7 @@ The installation prerequisites are the same as described in the TensorFlow
         cd ..
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.7.0
+        git checkout v0.8.0
 
 
 7. Next, build and install nGraph bridge. 
@@ -152,19 +154,19 @@ The installation prerequisites are the same as described in the TensorFlow
         cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=<path to TensorFlow source directory> ..
         make -j <your_processor_cores>
         make install 
-        pip install -U python/dist/<ngraph-0.7.0-py2.py3-none-linux_x86_64.whl>
+        pip install -U python/dist/<ngraph_tensorflow_bridge-0.8.0-py2.py3-none-manylinux1_x86_64.whl>
 
 This final step automatically downloads the necessary version of `ngraph` and 
 the dependencies.
 
 8. Test the installation by running the following command:
 
-        python -c "import tensorflow as tf; print('TensorFlow version: r',tf.__version__);import ngraph_config; print(ngraph_config.__version__)"
+        python -c "import tensorflow as tf; print('TensorFlow version: r',tf.__version__);import ngraph_bridge; print(ngraph_bridge.__version__)"
 
 Once the build and installation steps are complete, you can start using TensorFlow 
 with nGraph backends. 
 
-Please add the following line to enable nGraph: `import ngraph_config`
+Please add the following line to enable nGraph: `import ngraph_bridge`
 
 Note: The actual filename for the pip package may be different as it's version 
 dependent. Please check the `build/python/dist` directory for the actual pip wheel.
@@ -178,7 +180,7 @@ In order to build that version of nGraph, download the source tree as mentioned
 above and use the following option for building with nGraph:
 
         cd tensorflow
-        git checkout v1.12.0-rc2
+        git checkout v1.12.0
         bazel build --config=opt --config=mkl --config=ngraph //tensorflow/tools/pip_package:build_pip_package 
         bazel-bin/tensorflow/tools/pip_package/build_pip_package ./
 

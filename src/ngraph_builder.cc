@@ -3290,7 +3290,8 @@ static Status TranslateSplitOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_input));
-
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
   int32 num_split;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_split", &num_split));
 
@@ -3305,7 +3306,7 @@ static Status TranslateSplitOp(
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 0, static_input_map, &split_dim_vec));
-  int split_dim = split_dim_vec[0];
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   int size = shape[split_dim] / num_split;
   int cursor = 0;
@@ -3514,20 +3515,26 @@ static Status TranslateStridedSliceOp(
     // if idx is in [-(d-1), d-1], then its same for both inclusive and
     // exclusive
     // The first 2 cases breaks down this range
-    if (idx >= 0 && idx <= (dim - 1)) {
+    if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 && idx + dim >= 0) {  // careful not to do idx >= -dim
-                                             // (since dim is unsigned)
-      return idx + (int)dim;  // Type casting to int to enable unambiguous auto
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
+      return idx + static_cast<int>(
+                       dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
-    } else if (idx > dim - 1) {
-      return (int)dim;
-    }  // The next case handles the clamping (differently for inclusive and
-       // exclusive cases)
-    else if (idx + dim <
-             0) {  // careful not to do idx < -dim (since dim is unsigned)
+    } else if (idx > static_cast<int>(dim) - 1) {
+      return static_cast<int>(dim);
+    } else if (idx + static_cast<int>(dim) < 0) {
+      // The next case handles the clamping (differently for inclusive and
+      // exclusive cases)
+
+      // careful not to do idx < -dim (since dim is unsigned)
       return 0 - (inclusive ? 0 : 1);
     }
+    // Default case
+    return 0;
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
