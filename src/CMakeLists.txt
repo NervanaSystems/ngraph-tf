@@ -24,6 +24,9 @@ set(NGRAPH_DEVICE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 # (There must be some dependency on it in the struct/class definitions.)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 
+message(STATUS "Compile Flags: ${CMAKE_CXX_FLAGS}")
+message(STATUS "Shared Link Flags: ${CMAKE_SHARED_LINKER_FLAGS}")
+
 #-----------------------------------------------------------------------------------------------
 # Compiler-specific logic...
 #-----------------------------------------------------------------------------------------------
@@ -99,8 +102,11 @@ if(DEFINED NGRAPH_TOOLS_ENABLE)
 endif()
 
 
-# Now create the Python pip package
-install(CODE "set(NGTF_INSTALL_DIR \"${NGTF_INSTALL_LIB_DIR}\")")
+# Now create the Python pip package. The following variables are passed to the 
+# CreatePipWhl.cmake
+install(CODE "set(NGRAPH_INSTALL_DIR \"${NGRAPH_INSTALL_DIR}\")")
+install(CODE "set(NGTF_SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/../\")")
+install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
 install(CODE "set(TensorFlow_VERSION \"${TensorFlow_VERSION}\")")
 install(SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../python/CreatePipWhl.cmake")

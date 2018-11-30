@@ -21,6 +21,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 # set(CMAKE_CXX_COMPILER "clang++")
 include(ExternalProject)
 include(CMakeDependentOption)
+include(cmake/sdl.cmake)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare")
 
@@ -163,7 +164,7 @@ if(USE_PRE_BUILT_NGRAPH)
     endif()
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${NGRAPH_ARTIFACTS_DIR})
-        set(NGRAPH_ARTIFACTS_DIR {CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
+        set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
     endif()
 
     # Create absolute path for the directory
@@ -175,13 +176,15 @@ if(USE_PRE_BUILT_NGRAPH)
     if (NOT EXISTS ${NGRAPH_ARTIFACTS_DIR})
         message(FATAL_ERROR 
             "nGraph artifacts directory doesn't exist: " ${NGRAPH_ARTIFACTS_DIR} )
-    endif()    
+    endif() 
+else()
+    set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 endif()
 
 if(UNIT_TEST_TF_CC_DIR)
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${UNIT_TEST_TF_CC_DIR})
-        set(UNIT_TEST_TF_CC_DIR {CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
+        set(UNIT_TEST_TF_CC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
     endif()
 
     # Create absolute path for the directory
@@ -210,10 +213,10 @@ if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-        GIT_TAG 6e06cded1d30030136d5677e0b3851dd4cc04bee
+        GIT_TAG v0.10.0-rc.6
         CMAKE_ARGS 
             -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
-            -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
+            -DNGRAPH_INSTALL_PREFIX=${NGRAPH_ARTIFACTS_DIR} 
             -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
             -DNGRAPH_UNIT_TEST_ENABLE=FALSE
             -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
@@ -232,11 +235,8 @@ if (NOT USE_PRE_BUILT_NGRAPH)
         UPDATE_COMMAND ""
         INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
     )
-
-    set(NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
-else()
-    set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
 endif() 
+set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
 
 
 if(OS_VERSION STREQUAL "\"centos\"")
@@ -265,7 +265,7 @@ if (UNIT_TEST_ENABLE)
 
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${TF_SRC_DIR})
-        set(TF_SRC_DIR {CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
+        set(TF_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
     endif()
 
     # Get the absolute file name for the source
