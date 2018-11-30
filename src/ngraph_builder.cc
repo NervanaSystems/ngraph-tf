@@ -3343,19 +3343,18 @@ static Status TranslateSplitVOp(
   int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   bool has_one_neg = false;
-  
+
   // length: Length of size_splits
   int length = 0;
   int idx = -1;
 
-  // Find out the total length of the splits and locate it's index
+  // Find out the total length of the splits and locate -1 's index, if any
   for (int i = 0; i < lengths.size(); ++i) {
     if (lengths[i] != -1) {
       length += lengths[i];
     } else {
-      if(has_one_neg) {
-        return errors::InvalidArgument(
-          "size_splits can only have one -1");
+      if (has_one_neg) {
+        return errors::InvalidArgument("size_splits can only have one -1");
       } else {
         idx = i;
         has_one_neg = true;
@@ -3363,13 +3362,15 @@ static Status TranslateSplitVOp(
     }
   }
 
-  if(idx > 0) {
+  if (idx > 0) {
     lengths[idx] = shape[split_dim] - length;
   }
 
-  if((idx == -1 && length != shape[split_dim]) || (idx > 0 && lengths[idx] <= 0)) {
-          return errors::InvalidArgument(
-          "The length of size_splits must sum to the dimension of value along split_dim");
+  if ((!has_one_neg && length != shape[split_dim]) ||
+      (has_one_neg && lengths[idx] < 0)) {
+    return errors::InvalidArgument(
+        "The length of size_splits must sum to the value of the dimension "
+        "along split_dim");
   }
 
   int cursor = 0;
