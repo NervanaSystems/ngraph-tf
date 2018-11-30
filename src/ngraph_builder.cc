@@ -3362,18 +3362,13 @@ static Status TranslateSplitVOp(
     }
   }
 
-  // Size splits must sum to the dimension of value along split_dim
-  if(idx == -1) { // there is no size_splits with -1
-    if(length != shape[split_dim]) {
-        return errors::InvalidArgument(
-          "The length of size_splits must sum to the dimension of value along split_dim");
-    }
-  } else { // there is a size_splits with -1
+  if(idx > 0) {
     lengths[idx] = shape[split_dim] - length;
-    if(!(lengths[idx] > 0)) {
-        return errors::InvalidArgument(
+  }
+
+  if(length != shape[split_dim] || length != shape[split_dim] - lengths[idx]) {
+          return errors::InvalidArgument(
           "The length of size_splits must sum to the dimension of value along split_dim");
-    }
   }
 
   int cursor = 0;
