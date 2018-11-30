@@ -71,7 +71,7 @@ if (PYTHON)
     endforeach()            
 
     # Copy the LICENSE at the toplevel
-    file(COPY ${CMAKE_SOURCE_DIR}/../LICENSE 
+    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE 
         DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge")        
     set(
         licence_top_level 
