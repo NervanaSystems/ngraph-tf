@@ -3517,9 +3517,12 @@ static Status TranslateStridedSliceOp(
     // The first 2 cases breaks down this range
     if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 && idx + static_cast<int>(dim) >= 0) {  // careful not to do idx >= -dim
-                                             // (since dim is unsigned)
-      return idx + (int)dim;  // Type casting to int to enable unambiguous auto
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
+      return idx + static_cast<int>(
+                       dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
     } else if (idx > static_cast<int>(dim) - 1) {
       return static_cast<int>(dim);
