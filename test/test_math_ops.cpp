@@ -720,7 +720,7 @@ TEST(MathOps, FloorModNegFloat) {
                         output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
-}  // end of test op FloorModNegInt
+}  // end of test op FloorModNegFloat
 
 // Test op: Log
 TEST(MathOps, Log1D) {
