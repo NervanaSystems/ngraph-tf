@@ -36,7 +36,7 @@ ext = 'dylib' if system() == 'Darwin' else 'so'
 
 setup( 
     name='ngraph_tensorflow_bridge',
-    version='0.8.0-rc0',
+    version='0.8.0',
     description='Intel nGraph compiler and runtime for TensorFlow',
     url='https://ai.intel.com/intel-ngraph/',
     packages=['ngraph_bridge'], 
