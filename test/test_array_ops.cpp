@@ -915,7 +915,7 @@ TEST(ArrayOps, SplitNegativeAxis) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {0};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -947,7 +947,7 @@ TEST(ArrayOps, SplitPositiveAxis) {
   int64_t num_splits = 3;
 
   vector<int> static_input_indexes = {0};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -979,7 +979,7 @@ TEST(ArrayOps, SplitVNegSizeSplit) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -1013,7 +1013,7 @@ TEST(ArrayOps, SplitVNegativeAxis) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -1047,7 +1047,7 @@ TEST(ArrayOps, SplitVPositiveSizeSplits) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
