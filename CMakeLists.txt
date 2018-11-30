@@ -203,13 +203,13 @@ endif()
 # Enable build target CPU features
 set(
     NGRAPH_TARGET_ARCH 
-    haswell 
+    core-avx2  
     CACHE STRING "Target CPU architecture to build for.")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${NGRAPH_TARGET_ARCH}")
 
 set(
     NGRAPH_TUNE_ARCH 
-    haswell 
+    core-avx2  
     CACHE STRING "Target CPU architecture to tune for")
 
 message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
