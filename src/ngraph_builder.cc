@@ -3358,6 +3358,7 @@ static Status TranslateSplitVOp(
           "size_splits can only have one -1");
       } else {
         idx = i;
+        has_one_neg = true;
       }
     }
   }
@@ -3366,7 +3367,7 @@ static Status TranslateSplitVOp(
     lengths[idx] = shape[split_dim] - length;
   }
 
-  if(length != shape[split_dim] || length != shape[split_dim] - lengths[idx]) {
+  if((idx == -1 && length != shape[split_dim]) || length != shape[split_dim] - lengths[idx]) {
           return errors::InvalidArgument(
           "The length of size_splits must sum to the dimension of value along split_dim");
   }
