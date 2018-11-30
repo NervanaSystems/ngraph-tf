@@ -14,7 +14,7 @@
 #  limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function 
+from __future__ import print_function
 import pytest
 import tensorflow as tf
 import ngraph_bridge
