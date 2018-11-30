@@ -3332,30 +3332,48 @@ static Status TranslateSplitVOp(
   std::vector<int> lengths;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
 
-  int length = 0;
-  int idx = -1;
-  for (int i = 0; i < lengths.size(); ++i) {
-    if (lengths[i] != -1) {
-      length += lengths[i];
-    } else {
-      idx = i;
-    }
-  }
-
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
   std::vector<size_t> lower(rank, 0);
   std::vector<size_t> upper(shape);
-
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
 
   int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
+  bool has_one_neg = false;
+  
+  // length: Length of size_splits
+  int length = 0;
+  int idx = -1;
+
+  // Find out the total length of the splits
+  for (int i = 0; i < lengths.size(); ++i) {
+    if (lengths[i] != -1) {
+      length += lengths[i];
+    } else {
+      if(has_one_neg) {
+        return errors::InvalidArgument(
+          "size_splits can only have one -1");
+      } else {
+        idx = i;
+      }
+    }
+  }
+
   // Size splits must sum to the dimension of value along split_dim
-  if (idx > 0) {
+  if(idx == -1) { // there is no size_splits with -1
+    if(length != shape[split_dim]) {
+        return errors::InvalidArgument(
+          "The length of size_splits must sum to the dimension of value along split_dim");
+    }
+  } else { // there is a size_splits with -1
     lengths[idx] = shape[split_dim] - length;
+    if(!(lengths[idx] > 0)) {
+        return errors::InvalidArgument(
+          "The length of size_splits must sum to the dimension of value along split_dim");
+    }
   }
 
   int cursor = 0;
