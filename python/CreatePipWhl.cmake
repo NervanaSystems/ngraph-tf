@@ -34,7 +34,7 @@ if (PYTHON)
     # If we are building on CentOS then it's lib64 - else lib
     set(LIB_SUFFIX lib)
     if(NOT APPLE)
-        if(${OS_VERSION} STREQUAL "centos")
+        if(OS_VERSION STREQUAL "centos")
             set(LIB_SUFFIX lib64)
         endif()
     endif()
