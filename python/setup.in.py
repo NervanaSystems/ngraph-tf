@@ -27,22 +27,28 @@ class BinaryBdistWheel(bdist_wheel):
 
     def get_tag(self):
         _, _, plat = bdist_wheel.get_tag(self)
+        if system() == 'Linux':
+           plat = 'manylinux1_x86_64'
+
         return ('py2.py3', 'none', plat)
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
 
 setup( 
-    name='ngraph_config',
+    name='ngraph_tensorflow_bridge',
     version='0.8.0',
-    description='Intel nGraph compiler and runtime',
+    description='Intel nGraph compiler and runtime for TensorFlow',
     url='https://ai.intel.com/intel-ngraph/',
-    packages=['ngraph_config'], 
+    packages=['ngraph_bridge'], 
     author='Intel Nervana', 
     license='Apache License, Version 2.0',
     platforms='Ubuntu 16.04, macOS Sierra',
     include_package_data=True,
-    package_data={
-        'ngraph_config': [@ngraph_libraries@],
-                 },
+    package_data=
+    {
+        'ngraph_bridge': [
+            @ngraph_libraries@ @license_files@ @licence_top_level@
+        ],
+    },
     cmdclass={'bdist_wheel': BinaryBdistWheel},
 )
