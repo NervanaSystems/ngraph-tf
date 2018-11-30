@@ -201,12 +201,11 @@ if __name__ == '__main__':
 
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
-    i = 0
-    for (dim, name) in zip(input_dimension, input_tensor_name):
+    for (dim, name, val_range) in zip(input_dimension, input_tensor_name,
+                                      rand_val_range):
         random_input = np.random.randint(
-            rand_val_range[i], size=[bs] + dim).astype('float32')
+            val_range, size=[bs] + dim).astype('float32')
         input_tensor_dim_map[name] = random_input
-        i = i + 1
 
     # Run the model on reference backend
     result_tf_graph_arrs, out_tensor_names_cpu = calculate_output(
