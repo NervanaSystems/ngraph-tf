@@ -197,7 +197,7 @@ if __name__ == '__main__':
 
     assert len(input_tensor_name) == len(
         rand_val_range
-    ), "number of random_val_range should match input_tensor_name in json file"
+    ), "Length of random_val_range should match input_tensor_name in json file"
 
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
