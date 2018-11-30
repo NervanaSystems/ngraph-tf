@@ -3348,7 +3348,7 @@ static Status TranslateSplitVOp(
   int length = 0;
   int idx = -1;
 
-  // Find out the total length of the splits
+  // Find out the total length of the splits and locate it's index
   for (int i = 0; i < lengths.size(); ++i) {
     if (lengths[i] != -1) {
       length += lengths[i];
@@ -3367,7 +3367,7 @@ static Status TranslateSplitVOp(
     lengths[idx] = shape[split_dim] - length;
   }
 
-  if((idx == -1 && length != shape[split_dim]) || length != shape[split_dim] - lengths[idx]) {
+  if((idx == -1 && length != shape[split_dim]) || (idx > 0 && lengths[idx] <= 0)) {
           return errors::InvalidArgument(
           "The length of size_splits must sum to the dimension of value along split_dim");
   }
