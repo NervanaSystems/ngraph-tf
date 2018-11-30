@@ -3515,16 +3515,14 @@ static Status TranslateStridedSliceOp(
     // if idx is in [-(d-1), d-1], then its same for both inclusive and
     // exclusive
     // The first 2 cases breaks down this range
-    if (idx >= 0 && idx <= (dim - 1)) {
+    if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 &&
-               idx + static_cast<int>(dim) >=
-                   0) {       // careful not to do idx >= -dim
-                              // (since dim is unsigned)
+    } else if (idx < 0 && idx + static_cast<int>(dim) >= 0) {  // careful not to do idx >= -dim
+                                             // (since dim is unsigned)
       return idx + (int)dim;  // Type casting to int to enable unambiguous auto
                               // type inference of return type
-    } else if (idx > dim - 1) {
-      return (int)dim;
+    } else if (idx > static_cast<int>(dim) - 1) {
+      return static_cast<int>(dim);
     } else if (idx + static_cast<int>(dim) < 0) {
       // The next case handles the clamping (differently for inclusive and
       // exclusive cases)
