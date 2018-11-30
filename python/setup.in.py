@@ -27,6 +27,9 @@ class BinaryBdistWheel(bdist_wheel):
 
     def get_tag(self):
         _, _, plat = bdist_wheel.get_tag(self)
+        if system() == 'Linux':
+           plat = 'manylinux1_x86_64'
+
         return ('py2.py3', 'none', plat)
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
