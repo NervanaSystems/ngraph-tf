@@ -14,7 +14,7 @@
 #  limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function 
+from __future__ import print_function
 import pytest
 import tensorflow as tf
 import ngraph_bridge
@@ -28,7 +28,7 @@ def test_set_backend():
     supported_backends = ngraph_bridge.list_backends()
     print(" ****** Supported Backends ****** ")
     for backend_name in supported_backends:
-        print (backend_name)
+        print(backend_name)
     print(" ******************************** ")
 
     # Create Graph
@@ -38,7 +38,7 @@ def test_set_backend():
 
     # set INTERPRETER backend
     backend_interpreter = 'INTERPRETER'
-    assert ngraph_bridge.is_supported_backend(backend_interpreter) == True 
+    assert ngraph_bridge.is_supported_backend(backend_interpreter) == True
     ngraph_bridge.set_backend(backend_interpreter)
     currently_set_backend = ngraph_bridge.get_currently_set_backend_name()
     assert currently_set_backend == backend_interpreter
@@ -53,7 +53,7 @@ def test_set_backend():
 
     # set CPU backend
     backend_cpu = 'CPU'
-    assert ngraph_bridge.is_supported_backend(backend_interpreter) == True 
+    assert ngraph_bridge.is_supported_backend(backend_interpreter) == True
     ngraph_bridge.set_backend(backend_cpu)
     currently_set_backend = ngraph_bridge.get_currently_set_backend_name()
     assert currently_set_backend == backend_cpu
