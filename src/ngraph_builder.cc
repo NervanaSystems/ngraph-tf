@@ -3523,12 +3523,15 @@ static Status TranslateStridedSliceOp(
                               // type inference of return type
     } else if (idx > dim - 1) {
       return (int)dim;
-    }  // The next case handles the clamping (differently for inclusive and
-       // exclusive cases)
-    else if (idx + dim <
-             0) {  // careful not to do idx < -dim (since dim is unsigned)
+    } else if (static_cast<int>(idx + dim) < 0) {
+      // The next case handles the clamping (differently for inclusive and
+      // exclusive cases)
+
+      // careful not to do idx < -dim (since dim is unsigned)
       return 0 - (inclusive ? 0 : 1);
     }
+    // Default case
+    return 0;
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
