@@ -108,7 +108,7 @@ Please add the following line to enable nGraph: `import ngraph_bridge`
 
 nGraph is updated in the TensorFlow source tree using pull requests from time to time. 
 
-In order to build that version of nGraph, follow the below steps
+In order to build that version of nGraph, follow the below steps, which involves building TensorFlow from source with certain settings.
 
 1. Install bazel.
 
