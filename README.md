@@ -89,8 +89,9 @@ The installation prerequisites are the same as described in the TensorFlow
 
         python3 build_ngtf.py
 
-3. At the end of the build a new virtualenv directory is created in the `build/venv-tf-py3`.
-Activate this virtual environment to start using nGraph with TensorFlow. 
+At the end of the build a new virtualenv directory is created in the `build/venv-tf-py3`.
+
+3. Activate this virtual environment to start using nGraph with TensorFlow. 
 
         source build/venv-tf-py3/bin/activate
 
