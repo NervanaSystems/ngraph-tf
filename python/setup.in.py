@@ -36,7 +36,6 @@ ext = 'dylib' if system() == 'Darwin' else 'so'
 
 with open(@README_DOC@, "r") as fh:
     long_description = fh.read()
-    print(long_description)
 
 setup( 
     name='ngraph_tensorflow_bridge',
