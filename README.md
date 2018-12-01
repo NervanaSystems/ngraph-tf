@@ -103,8 +103,7 @@ Please add the following line to enable nGraph: `import ngraph_bridge`
 
 ## Option 3: Using the upstreamed version
 
-nGraph is being added to the TensorFlow source tree the using pull requests from 
-time to time. 
+nGraph is updated in the TensorFlow source tree using pull requests from time to time. 
 
 In order to build that version of nGraph, download the source tree as mentioned
 above and use the following option for building with nGraph:
@@ -120,8 +119,7 @@ Once the pip package is built, install replacing the `tensorflow-1.*` with your
         pip install -U ./tensorflow-1.*whl
 
 For this final option, there is **no need to separately build `ngraph-tf` or to 
-use `pip` to install the ngraph module**. With this configuration, your TensorFlow 
-model scripts will work without any changes. 
+use `pip` to install the nGraph module**. With this configuration, your TensorFlow model scripts will work without any changes, ie, you do not need to add import ngraph_bridge, like option 1 and 2. 
 
 Note: The version that is available in the upstreamed version of TensorFlow usually
 lags the features and bug fixes available in the `master` branch of this repository.
@@ -130,17 +128,17 @@ lags the features and bug fixes available in the `master` branch of this reposit
 
 To run the C++ unit tests you need to choose option 2 method to build. 
 
-* Go to the build directory and run the following commands:
+Go to the build directory and run the following commands:
 
-    cd test
-    ./gtest_ngtf
+        cd test
+        ./gtest_ngtf
 
 You can run a few of your own DL models to validate the end-to-end 
 functionality. Also, you can use the `ngraph-tf/examples` directory and try to 
-run the following model with some MNIST data on your local machine: 
+run the following model: 
 
-        cd examples/mnist
-        python mnist_fprop_only.py --data_dir <input_data_location> 
+        cd examples
+        python3 keras_sample.py 
 
 ## Using OS X 
 
