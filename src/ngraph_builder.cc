@@ -3870,6 +3870,20 @@ static Status TranslateTransposeOp(
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 1, static_input_map, &permutation));
 
+  auto ng_input_rank = ng_input->get_shape().size();
+  std::unordered_set<int> axes;
+  for (auto p : permutation)
+  {
+      if (p < ng_input_rank && !axes.count(p))
+      {
+          axes.insert(p);
+      }
+      else
+      {
+          return errors::InvalidArgument("2 is missing from {0, 1, 1}.");
+      }
+  }
+  
   ng::AxisVector ng_axis_order;
   ng_axis_order.reserve(permutation.size());
 
