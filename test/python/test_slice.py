@@ -177,3 +177,19 @@ class TestSliceOperations(NgraphTest):
 
         for v, e in zip(slice_vals, expected):
             np.testing.assert_array_equal(v, e)
+
+    def test_strided_slice_fail(self):
+        inp = 0
+        slice_ts = []
+
+        x = tf.placeholder(dtype=dtypes.float32)
+
+        #(slicing an empty dim by empty slice)
+        slice_ts.append(x[1:1])
+
+        def run_test(sess):
+            return sess.run(slice_ts, feed_dict={x: inp})
+
+        with pytest.raises(Exception) as excinfo:
+            slice_vals = self.with_ngraph(run_test)
+            assert str(excinfo.value) == str(excinfo)
