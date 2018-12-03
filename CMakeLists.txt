@@ -146,6 +146,7 @@ option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
+option(NGRAPH_INSTALL_TF_BRIDGE_ONLY "Install TF Bridge only" FALSE)
 
 # Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
@@ -297,3 +298,5 @@ if (UNIT_TEST_ENABLE)
     add_subdirectory(test)
     message(STATUS "unit tests enabled")
 endif()
+
+message ("NGRAPH_INSTALL_TF_BRIDGE_ONLY" ${NGRAPH_INSTALL_TF_BRIDGE_ONLY}})

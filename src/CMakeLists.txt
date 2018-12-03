@@ -89,6 +89,7 @@ endif()
 # First install the libngraph_bridge.so
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
 
+if(NOT ${NGRAPH_INSTALL_TF_BRIDGE_ONLY})
 # Next install all the other prerequisites
 if(OS_VERSION STREQUAL "\"centos\"")
 	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
@@ -96,6 +97,7 @@ else()
 	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
 endif()
 
+endif()
 #Install nbench if we built
 if(DEFINED NGRAPH_TOOLS_ENABLE)
 	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/bin/ DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" )
@@ -104,7 +106,7 @@ endif()
 # Now create the Python pip package. The following variables are passed to the 
 # CreatePipWhl.cmake
 install(CODE "set(OS_VERSION ${OS_VERSION})")
-install(CODE "set(NGRAPH_INSTALL_DIR \"${NGRAPH_INSTALL_DIR}\")")
+  install(CODE "set(NGRAPH_INSTALL_DIR \"${NGRAPH_INSTALL_DIR}\")")
 install(CODE "set(NGTF_SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/../\")")
 install(CODE "set(NGTF_INSTALL_DIR \"${CMAKE_INSTALL_PREFIX}\")")
 install(CODE "set(TensorFlow_GIT_VERSION \"${TensorFlow_GIT_VERSION}\")")
