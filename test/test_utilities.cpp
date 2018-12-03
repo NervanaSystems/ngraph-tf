@@ -153,7 +153,8 @@ bool Compare(float arg0, float arg1) {
   if (arg0 == 0 && arg1 == 0) {
     return true;
   } else {
-    return (abs(arg0 - arg1) / max(abs(arg0), abs(arg1)) <= 0.001);
+    // Use absolute difference instead of relative difference
+    return ((abs(arg0 - arg1)) <= 0.0001);
   }
 }
 
