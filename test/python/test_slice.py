@@ -178,7 +178,7 @@ class TestSliceOperations(NgraphTest):
         for v, e in zip(slice_vals, expected):
             np.testing.assert_array_equal(v, e)
 
-    def test_strided_slice_fail(self):
+    def test_incorrect_strided_slice(self):
         inp = 0
         slice_ts = []
 
