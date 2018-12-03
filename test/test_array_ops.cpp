@@ -1116,7 +1116,7 @@ TEST(ArrayOps, Transpose) {
   Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
   Tensor perm(DT_INT32, TensorShape({3}));
   AssignInputValues(A, 7.5f);
-  AssignInputValues(perm, vector<int>{2,1,0});
+  AssignInputValues(perm, vector<int>{2, 1, 0});
 
   vector<int> static_input_indexes = {1};
   auto R = ops::Transpose(root, A, perm);
