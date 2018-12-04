@@ -2033,9 +2033,9 @@ static Status TranslateMaxPoolOp(
 static Status TranslateMaxPoolGradOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_grad;
+  shared_ptr<ng::Node> ng_input, ng_grad, ng_fwd;
   TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, nullptr, &ng_grad));
+      GetInputNodes(ng_op_map, op, &ng_input, &ng_fwd, &ng_grad));
 
   std::vector<int32> tf_strides;
   std::vector<int32> tf_ksize;
@@ -2065,6 +2065,7 @@ static Status TranslateMaxPoolGradOp(
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
   BatchToNGraph(is_nhwc, ng_input);
   BatchToNGraph(is_nhwc, ng_grad);
+  BatchToNGraph(is_nhwc, ng_fwd);
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -2077,9 +2078,9 @@ static Status TranslateMaxPoolGradOp(
                        ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_maxpool_backprop =
-      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
-                                           ng_strides, ng_padding_below,
-                                           ng_padding_above);
+      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_fwd,
+                                           ng_kernel_shape, ng_strides,
+                                           ng_padding_below, ng_padding_above);
   BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
   NGRAPH_VLOG(3) << "maxpoolbackprop outshape: {"
                  << ng::join(ng_maxpool_backprop->get_shape()) << "}";
@@ -3313,7 +3314,8 @@ static Status TranslateSplitOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_input));
-
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
   int32 num_split;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_split", &num_split));
 
@@ -3328,7 +3330,7 @@ static Status TranslateSplitOp(
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 0, static_input_map, &split_dim_vec));
-  int split_dim = split_dim_vec[0];
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   int size = shape[split_dim] / num_split;
   int cursor = 0;
@@ -3537,20 +3539,26 @@ static Status TranslateStridedSliceOp(
     // if idx is in [-(d-1), d-1], then its same for both inclusive and
     // exclusive
     // The first 2 cases breaks down this range
-    if (idx >= 0 && idx <= (dim - 1)) {
+    if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 && idx + dim >= 0) {  // careful not to do idx >= -dim
-                                             // (since dim is unsigned)
-      return idx + (int)dim;  // Type casting to int to enable unambiguous auto
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
+      return idx + static_cast<int>(
+                       dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
-    } else if (idx > dim - 1) {
-      return (int)dim;
-    }  // The next case handles the clamping (differently for inclusive and
-       // exclusive cases)
-    else if (idx + dim <
-             0) {  // careful not to do idx < -dim (since dim is unsigned)
+    } else if (idx > static_cast<int>(dim) - 1) {
+      return static_cast<int>(dim);
+    } else if (idx + static_cast<int>(dim) < 0) {
+      // The next case handles the clamping (differently for inclusive and
+      // exclusive cases)
+
+      // careful not to do idx < -dim (since dim is unsigned)
       return 0 - (inclusive ? 0 : 1);
     }
+    // Default case
+    return 0;
   };
 
   auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,

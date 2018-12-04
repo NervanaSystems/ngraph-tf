@@ -21,7 +21,7 @@ from subprocess import check_output, call
 import sys
 import shutil
 import glob
-
+import platform
 
 def build_ngraph(src_location, cmake_flags):
     pwd = os.getcwd()
@@ -82,6 +82,16 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
     install_virtual_env(venv_dir)
     load_venv(venv_dir)
 
+    # Patch the MacOS pip to avoid the TLS issue
+    if (platform.system() == 'Darwin'):
+        get_pip = open("get-pip.py", "wb")
+        call([
+            "curl",
+            "https://bootstrap.pypa.io/get-pip.py",
+        ],
+             stdout=get_pip)
+        call(["python3", "./get-pip.py"])
+
     # Install the pip packages
     call([
         "pip",
@@ -125,7 +135,10 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
     os.environ["PYTHON_BIN_PATH"] = python_executable
     os.environ["PYTHON_LIB_PATH"] = python_lib_path
     os.environ["TF_NEED_IGNITE"] = "0"
-    os.environ["TF_ENABLE_XLA"] = "1"
+    if (platform.system() == 'Darwin'):
+        os.environ["TF_ENABLE_XLA"] = "0"
+    else:
+        os.environ["TF_ENABLE_XLA"] = "1"
     os.environ["TF_NEED_OPENCL_SYCL"] = "0"
     os.environ["TF_NEED_COMPUTECPP"] = "0"
     os.environ["TF_NEED_ROCM"] = "0"
@@ -199,10 +212,13 @@ def install_tensorflow(venv_dir, artifacts_dir):
 
     call(["pip", "install", "-U", tf_wheel_files[0]])
 
-    import tensorflow as tf
-    cxx_abi = tf.__cxx11_abi_flag__
-    print("LIB: %s" % tf.sysconfig.get_lib())
-    print("CXX_ABI: %d" % cxx_abi)
+
+    cxx_abi = "0"
+    if (platform.system() == 'Linux'):
+        import tensorflow as tf
+        cxx_abi = tf.__cxx11_abi_flag__
+        print("LIB: %s" % tf.sysconfig.get_lib())
+        print("CXX_ABI: %d" % cxx_abi)
 
     # popd
     os.chdir(pwd)
@@ -245,7 +261,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags):
         raise Exception("Error running make command ")
 
     os.chdir(os.path.join("python", "dist"))
-    ngtf_wheel_files = glob.glob("ngraph_config-*.whl")
+    ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
     if (len(ngtf_wheel_files) != 1):
         raise Exception(
             "Error getting the ngraph-tf wheel file"
@@ -278,7 +294,7 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     import tensorflow as tf; 
     print('TensorFlow version: r',tf.__version__); 
     print(tf.__compiler_version__);
-    import ngraph_config; print(ngraph_config.__version__)
+    import ngraph_bridge; print(ngraph_bridge.__version__)
 
 def download_repo(target_name, repo, version):
 
@@ -329,7 +345,7 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "6e06cded1d30030136d5677e0b3851dd4cc04bee"
+    ngraph_version = "v0.10.1"
     tf_version = "v1.12.0"
 
     # Download TensorFlow
@@ -358,7 +374,9 @@ def main():
         "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE", "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
         "-DNGRAPH_UNIT_TEST_ENABLE=NO", "-DNGRAPH_TOOLS_ENABLE=YES",
         "-DNGRAPH_DEX_ONLY=TRUE", "-DNGRAPH_GPU_ENABLE=NO",
-        "-DNGRAPH_PLAIDML_ENABLE=NO", "-DNGRAPH_DEBUG_ENABLE=NO"
+        "-DNGRAPH_PLAIDML_ENABLE=NO", "-DNGRAPH_DEBUG_ENABLE=NO",
+        "-DNGRAPH_TARGET_ARCH=native",
+        "-DNGRAPH_TUNE_ARCH=native",
     ]
     if (arguments.debug_build):
         ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
@@ -370,6 +388,8 @@ def main():
 
     ngraph_tf_cmake_flags = [
         "-DUSE_PRE_BUILT_NGRAPH=ON",
+        "-DNGRAPH_TARGET_ARCH=native",
+        "-DNGRAPH_TUNE_ARCH=native",
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON", "-DTF_SRC_DIR=" + tf_src_dir,
         "-DUNIT_TEST_TF_CC_DIR=" +

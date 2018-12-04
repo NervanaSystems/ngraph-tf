@@ -23,41 +23,81 @@ message( STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_BINARY_DIR}")
 if (PYTHON)
     set(SETUP_PY_IN "${CMAKE_CURRENT_LIST_DIR}/setup.in.py")
     set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/python/setup.py")
-    set(INIT_PY_IN  "${CMAKE_CURRENT_LIST_DIR}/ngraph_config/__init__.in.py")
-    set(INIT_PY     "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/__init__.py")
+    set(INIT_PY_IN  "${CMAKE_CURRENT_LIST_DIR}/ngraph_bridge/__init__.in.py")
+    set(INIT_PY     "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/__init__.py")
     set(PIP_PACKAGE "${CMAKE_CURRENT_BINARY_DIR}/build_pip")
 
-    # Create the python/ngraph_config directory
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/ngraph_config)
+    # Set the readme document location
+    get_filename_component(
+        readme_file_path ${CMAKE_CURRENT_LIST_DIR}/../README.md ABSOLUTE)
+    set(README_DOC \"${readme_file_path}\")
+
+    # Create the python/ngraph_bridge directory
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/ngraph_bridge)
 
     # Get the list of libraries we need for the Python pip package
-    file(GLOB NGRAPH_LIB_FILES "${NGTF_INSTALL_DIR}/lib*")
+    # If we are building on CentOS then it's lib64 - else lib
+    set(LIB_SUFFIX lib)
+    if(NOT APPLE)
+        if(OS_VERSION STREQUAL "centos")
+            set(LIB_SUFFIX lib64)
+        endif()
+    endif()
+    message(STATUS "LIB_SUFFIX: ${NGTF_INSTALL_DIR}/${LIB_SUFFIX}")
+    file(GLOB NGRAPH_LIB_FILES "${NGTF_INSTALL_DIR}/${LIB_SUFFIX}/lib*")
     
-    # Copy the ngraph_config libraries from install
+    # Copy the ngraph_bridge libraries from install
     foreach(DEP_FILE ${NGRAPH_LIB_FILES})
         get_filename_component(lib_file_real_path ${DEP_FILE} ABSOLUTE)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)
-        set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n")
+        set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n\t")
         file(COPY ${lib_file_real_path} 
-            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config")        
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge")        
     endforeach()            
+
+    # Get the list of license files 
+    file(GLOB NGRAPH_TF_LICENCE_FILES "${NGTF_SRC_DIR}/third-party/licenses/*")
+    
+    # Copy the licenses for ngraph-tf
+    foreach(DEP_FILE ${NGRAPH_TF_LICENCE_FILES})
+        get_filename_component(lic_file_real_path ${DEP_FILE} ABSOLUTE)
+        get_filename_component(lic_file_name ${DEP_FILE} NAME)
+        set(
+            license_files 
+            "${license_files}\"licenses/${lic_file_name}\",\n\t")
+        file(COPY ${lic_file_real_path} 
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/licenses")        
+    endforeach()            
+
+    # Get the list of license files for ngraph
+    file(GLOB NGRAPH_LICENCE_FILES "${NGRAPH_INSTALL_DIR}/licenses/*")
+    
+    # Copy the licenses for ngraph-tf
+    foreach(DEP_FILE ${NGRAPH_LICENCE_FILES})
+        get_filename_component(lic_file_real_path ${DEP_FILE} ABSOLUTE)
+        get_filename_component(lic_file_name ${DEP_FILE} NAME)
+        set(
+            license_files 
+            "${license_files}\"licenses/${lic_file_name}\",\n\t")
+        file(COPY ${lic_file_real_path} 
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/licenses")        
+    endforeach()            
+
+    # Copy the LICENSE at the toplevel
+    file(COPY ${CMAKE_SOURCE_DIR}/../LICENSE 
+        DESTINATION "${CMAKE_CURRENT_LIST_DIR}/python/ngraph_bridge")        
+    set(
+        licence_top_level 
+        "\"LICENSE\"")
 
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
     configure_file(${INIT_PY_IN} ${INIT_PY})
     if (APPLE)
-        set(NGRAPH_VERSION 0.9)
-        # Note: Currently the ngraph version number (i.e., libngraph.0.9.dylib)
-        # is hardcoded as there is no way to get this from the nGraph library.
-        # Once we figure that out, we will replace this.
-        # Possible solutions:
-        # 1. Get the NGRAPH_VERSION exported from nGraph CMake
-        # 2. If #1 isn't possible, then determine this by looking at the 
-        # dependency list?
         execute_process(COMMAND 
             install_name_tool -change 
-            libngraph.${NGRAPH_VERSION}.dylib 
-            @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
-            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libngraph_bridge.dylib
+            libngraph.dylib 
+            @loader_path/libngraph.dylib 
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libngraph_bridge.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
             ERROR_STRIP_TRAILING_WHITESPACE
@@ -68,9 +108,9 @@ if (PYTHON)
 
         execute_process(COMMAND 
             install_name_tool -change 
-            libngraph.${NGRAPH_VERSION}.dylib 
-            @loader_path/libngraph.${NGRAPH_VERSION}.dylib 
-            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libcpu_backend.dylib
+            libngraph.dylib 
+            @loader_path/libngraph.dylib 
+            ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libcpu_backend.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
             ERROR_STRIP_TRAILING_WHITESPACE
@@ -92,7 +132,7 @@ if (PYTHON)
                 install_name_tool -change 
                 @rpath/${lib_file} 
                 @loader_path/${lib_file} 
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libcpu_backend.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libcpu_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
@@ -102,9 +142,9 @@ if (PYTHON)
         if ("${NGRAPH_LIB_FILES};" MATCHES "/libplaidml_backend.dylib;")
             execute_process(COMMAND
                 install_name_tool -change
-                libngraph.${NGRAPH_VERSION}.dylib
-                @loader_path/libngraph.${NGRAPH_VERSION}.dylib
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
+                libngraph.dylib
+                @loader_path/libngraph.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
@@ -117,7 +157,7 @@ if (PYTHON)
                 install_name_tool -change
                 libplaidml.dylib
                 @loader_path/libplaidml.dylib
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
+                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
                 ERROR_STRIP_TRAILING_WHITESPACE
@@ -136,7 +176,7 @@ if (PYTHON)
                     install_name_tool -change
                     @rpath/${lib_file}
                     @loader_path/${lib_file}
-                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_config/libplaidml_backend.dylib
+                    ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
                     RESULT_VARIABLE result
                     ERROR_VARIABLE ERR
                     ERROR_STRIP_TRAILING_WHITESPACE
