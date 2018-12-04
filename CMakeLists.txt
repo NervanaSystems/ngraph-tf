@@ -20,6 +20,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 # set(CMAKE_CXX_COMPILER "clang++")
 include(ExternalProject)
+include(CMakeDependentOption)
+include(cmake/sdl.cmake)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-comment -Wno-sign-compare")
 
 # In order to compile ngraph-tf with memory leak detection, run `cmake` with `-DCMAKE_BUILD_TYPE=Sanitize`.
@@ -68,14 +71,20 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-execute_process(COMMAND cat /etc/os-release 
-    OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+if(NOT APPLE)    
+    # FIXME: Doesn't work for Ubuntu
+    execute_process(COMMAND cat /etc/os-release 
+        OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
-string(REGEX MATCH "ID=\"([a-z])+\"" OS_VERSION "${LSB_RELEASE_ID_SHORT}")
-string(REGEX MATCH "\"([a-z])+\"" OS_VERSION "${OS_VERSION}")
-message("OS version is ${OS_VERSION}")
+    string(REGEX MATCH "ID=\"([a-z])+\"" OS_VERSION "${LSB_RELEASE_ID_SHORT}")
+    string(REGEX MATCH "\"([a-z])+\"" OS_VERSION "${OS_VERSION}")
+    message("OS version is ${OS_VERSION}")
+else()
+    # Handle the case for MacOS
+    # TBD
+endif()
 
 # Default to four jobs if the command fails.
 if(NPROC_RESULT)
@@ -101,6 +110,8 @@ endif()
 set(CMAKE_MACOSX_RPATH 1)
 if(APPLE)
     set(CMAKE_INSTALL_RPATH "@loader_path/;@loader_path/../tensorflow;")
+elseif(DEFINED NGRAPH_TF_RPATH)
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow:${NGRAPH_TF_RPATH}")
 else()
     set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/../tensorflow")
 endif()
@@ -128,6 +139,15 @@ else()
     set(LIBNGRAPH_SO "libngraph.so")
 endif(APPLE)
 
+# Build options
+option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DIR" FALSE)
+option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
+option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
+option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
+option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
+
+# Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT DEFINED PlaidML_DIR)
         message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
@@ -135,36 +155,104 @@ if (NGRAPH_PLAIDML_ENABLE)
     message(STATUS "nGraph/PlaidML enabled")
 endif()
 
-# Find and build ngraph
-option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
-ExternalProject_Add(
-    ext_ngraph
-    GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-    GIT_TAG nishant_sayantan_resnet
-    CMAKE_ARGS 
-        -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
-        -DNGRAPH_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist 
-        -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
-        -DNGRAPH_UNIT_TEST_ENABLE=FALSE
-        -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
-        -DNGRAPH_DEX_ONLY=TRUE         
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
-        -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
-        -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
-        -DPlaidML_DIR=${PlaidML_DIR}
-    TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
-    STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
-    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
-    SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
-    BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
-    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
-    UPDATE_COMMAND ""
-    INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
-)
+if(USE_PRE_BUILT_NGRAPH)
+    if(NOT NGRAPH_ARTIFACTS_DIR)
+        message(
+            FATAL_ERROR 
+            "USE_PRE_BUILT_NGRAPH is ON but NGRAPH_ARTIFACTS_DIR is missing"
+        )
+    endif()
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${NGRAPH_ARTIFACTS_DIR})
+        set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/${NGRAPH_ARTIFACTS_DIR})
+    endif()
 
-set( NGRAPH_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+    # Create absolute path for the directory
+    get_filename_component(
+        NGRAPH_ARTIFACTS_DIR
+        "${NGRAPH_ARTIFACTS_DIR}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${NGRAPH_ARTIFACTS_DIR})
+        message(FATAL_ERROR 
+            "nGraph artifacts directory doesn't exist: " ${NGRAPH_ARTIFACTS_DIR} )
+    endif() 
+else()
+    set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
+endif()
 
+if(UNIT_TEST_TF_CC_DIR)
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${UNIT_TEST_TF_CC_DIR})
+        set(UNIT_TEST_TF_CC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${UNIT_TEST_TF_CC_DIR})
+    endif()
+
+    # Create absolute path for the directory
+    get_filename_component(
+        TF_PRE_BUILT_LOCATION
+        "${UNIT_TEST_TF_CC_DIR}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${TF_PRE_BUILT_LOCATION})
+        message(FATAL_ERROR 
+            "TensorFlow pre-built directory doesn't exist: " ${TF_PRE_BUILT_LOCATION} )
+    endif()
+
+endif()
+
+# Enable build target CPU features
+set(
+    NGRAPH_TARGET_ARCH 
+    native  
+    CACHE STRING "Target CPU architecture to build for.")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${NGRAPH_TARGET_ARCH}")
+
+set(
+    NGRAPH_TUNE_ARCH 
+    native  
+    CACHE STRING "Target CPU architecture to tune for")
+
+message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
+message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
+
+message(STATUS "NGRAPH_ARTIFACTS_DIR:       ${NGRAPH_ARTIFACTS_DIR}")
+message(STATUS "USE_PRE_BUILT_NGRAPH:       ${USE_PRE_BUILT_NGRAPH}")
+message(STATUS "NGRAPH_DISTRIBUTED_ENABLE:  ${NGRAPH_DISTRIBUTED_ENABLE}")
+message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
+message(STATUS "NGRAPH_TARGET_ARCH:         ${NGRAPH_TARGET_ARCH}")
+message(STATUS "NGRAPH_TUNE_ARCH:           ${NGRAPH_TUNE_ARCH}")
+
+# Find and build ngraph - if not using pre-built one
+if (NOT USE_PRE_BUILT_NGRAPH)
+    ExternalProject_Add(
+        ext_ngraph
+        GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
+        GIT_TAG v0.10.1
+        CMAKE_ARGS 
+            -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
+            -DNGRAPH_INSTALL_PREFIX=${NGRAPH_ARTIFACTS_DIR} 
+            -DNGRAPH_USE_CXX_ABI=${TensorFlow_CXX_ABI}
+            -DNGRAPH_UNIT_TEST_ENABLE=FALSE
+            -DNGRAPH_TOOLS_ENABLE=${NGRAPH_TOOLS_ENABLE}
+            -DNGRAPH_DEX_ONLY=TRUE         
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+            -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
+            -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
+            -DPlaidML_DIR=${PlaidML_DIR}
+            -DNGRAPH_TARGET_ARCH=${NGRAPH_TARGET_ARCH}
+            -DNGRAPH_TUNE_ARCH=${NGRAPH_TUNE_ARCH}
+        TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
+        STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
+        DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
+        SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/src"
+        BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/build"
+        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j ${NUM_MAKE_PROCESSES} ngraph
+        UPDATE_COMMAND ""
+        INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
+    )
+endif() 
+set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
 
 
 if(OS_VERSION STREQUAL "\"centos\"")
@@ -182,8 +270,6 @@ set_target_properties(
 
 add_dependencies(ngraph_lib ext_ngraph)
 
-option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
-
 # Add the directories to be built
 add_subdirectory(third-party)
 add_subdirectory(logging)
@@ -192,6 +278,22 @@ if (UNIT_TEST_ENABLE)
     if (NOT DEFINED TF_SRC_DIR)
         message(FATAL_ERROR "Provide TensorFlow source directory: -DTF_SRC_DIR=<directory>")
     endif()
+
+    # Check if the path specified is ABSOLUTE or RELATVE
+    if (NOT IS_ABSOLUTE ${TF_SRC_DIR})
+        set(TF_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${TF_SRC_DIR})
+    endif()
+
+    # Get the absolute file name for the source
+    get_filename_component(
+        TensorFlow_SRC_DIR
+        "${TF_SRC_DIR}"
+        ABSOLUTE
+    )
+    if (NOT EXISTS ${TensorFlow_SRC_DIR})
+        message(FATAL_ERROR "TensorFlow source directory doesn't exist: " ${TensorFlow_SRC_DIR} )
+    endif()
+
     add_subdirectory(test)
     message(STATUS "unit tests enabled")
 endif()

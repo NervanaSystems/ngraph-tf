@@ -16,15 +16,6 @@ declare THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Relative to ngraph-tf/build-dir/test, where this script is run
 declare BUILD_DIR="$( realpath .. )"  
 
-if [ -z ${TF_ROOT+x} ]; then
-    TF_ROOT="$THIS_SCRIPT_DIR"/../../../tensorflow
-fi
-
-if [ ! -e $TF_ROOT ]; then
-    echo "TensorFlow installation directory not found: " $TF_ROOT
-    exit 1
-fi
-
 # Wrapper to produce JUnit XML result output
 declare JUNIT="${THIS_SCRIPT_DIR}/junit-wrap.sh"
 
@@ -71,7 +62,7 @@ rm -rf benchmarks
 git clone https://github.com/tensorflow/benchmarks.git
 pushd benchmarks/scripts/tf_cnn_benchmarks/
 git checkout 4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed
-echo "import ngraph_config" >> convnet_builder.py
+echo "import ngraph_bridge" >> convnet_builder.py
 export JUNIT_WRAP_FILE="${BUILD_DIR}/junit_resnet50_imagenet_inference.xml"
 export JUNIT_WRAP_SUITE='inference_validation'
 export JUNIT_WRAP_TEST='tf_cnn_benchmarks_resnet50'

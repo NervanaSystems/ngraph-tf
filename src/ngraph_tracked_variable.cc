@@ -39,6 +39,8 @@ namespace ngraph_bridge {
 //
 // (Changes: Renamed from LegacyVar, modified to take a TensorShape in
 // constructor.)
+
+// THIS CLASS IS NOT BEING USED ANYWHERE
 class NGraphVar : public ResourceBase {
  public:
   explicit NGraphVar(DataType dtype, TensorShape shape)
@@ -82,11 +84,13 @@ class NGraphVariableOp : public OpKernel {
 };
 
 NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
-    : OpKernel(context), tracker_(nullptr) {
+    : OpKernel(context),
+      tracker_(nullptr),
+      just_looking_(false),
+      dtype_(RemoveRefType(context->output_type(0))) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  dtype_ = RemoveRefType(context->output_type(0));
 }
 
 NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }

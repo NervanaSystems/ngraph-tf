@@ -15,10 +15,10 @@
  *******************************************************************************/
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_api.h"
+#include "ngraph_backend_manager.h"
 #include "ngraph_utils.h"
 #include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
-
 using namespace std;
 
 namespace tensorflow {
@@ -246,8 +246,10 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
+#ifdef NGRAPH_DISTRIBUTED
       confirmation_function_map["HorovodAllreduce"] =
           SimpleConfirmationFunction();
+#endif
       confirmation_function_map["Identity"] = SimpleConfirmationFunction();
       confirmation_function_map["L2Loss"] = SimpleConfirmationFunction();
       confirmation_function_map["Less"] = SimpleConfirmationFunction();
@@ -282,6 +284,8 @@ Status MarkForClustering(Graph* graph) {
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
+      confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
@@ -319,11 +323,10 @@ Status MarkForClustering(Graph* graph) {
         int tf_new_axis_mask;
         TF_RETURN_IF_ERROR(
             GetNodeAttr(n->attrs(), "new_axis_mask", &tf_new_axis_mask));
-        if (tf_new_axis_mask != 0) {
-          *result = false;
-        } else {
-          *result = true;
-        }
+        int tf_ellipsis_mask;
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(n->attrs(), "ellipsis_mask", &tf_ellipsis_mask));
+        *result = (tf_new_axis_mask == 0) && (tf_ellipsis_mask == 0);
         return Status::OK();
       };
       confirmation_function_map["Pack"] = SimpleConfirmationFunction();
@@ -373,7 +376,9 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
+#ifdef NGRAPH_DISTRIBUTED
       type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
+#endif
       type_constraint_map["Identity"]["T"] = NGraphDTypes();
       type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Less"]["T"] = NGraphDTypes();
@@ -402,6 +407,12 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
+                         ["Tbias"] = NGraphBiasDTypes();
       type_constraint_map["QuantizedMaxPool"]["T"] =
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -466,6 +477,8 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
+      set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
+          SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
@@ -531,11 +544,25 @@ Status MarkForClustering(Graph* graph) {
 
   // Set Attributes for nodes marked for clustering
   // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
-  // 2. Set any other attributes as defined in set_attribute_map
+  // 2. Set the backend for each op
+  // 3. Set any other attributes as defined in set_attribute_map
+  string current_backend = BackendManager::GetCurrentlySetBackendName();
+  const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
+  if (ng_backend_env_value != nullptr) {
+    string backend_env = std::string(ng_backend_env_value);
+    if (backend_env.empty() ||
+        !BackendManager::IsSupportedBackend(backend_env)) {
+      return errors::Internal("NGRAPH_TF_BACKEND: ", backend_env,
+                              " is not supported");
+    }
+    current_backend = backend_env;
+  }
+  NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
+
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
-
+    SetNodeBackend(node, current_backend);
     auto it = set_attributes_map.find(node->type_string());
     if (it != set_attributes_map.end()) {
       TF_RETURN_IF_ERROR(it->second(node));
@@ -564,6 +591,22 @@ bool InputIsStatic(const Node* node, int index) {
   std::vector<int32> inputs;
   GetStaticInputs(node, &inputs);
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
+}
+
+Status GetNodeBackend(Node* node, string* backend_name) {
+  // TODO(amprocte): move attr name to a constant
+  NGRAPH_VLOG(5) << "Getting backend " << node->name();
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(node->attrs(), "_ngraph_backend", backend_name));
+  return Status::OK();
+}
+
+// Can be extended to check the TF Device placement and/or user specified
+// backend
+// and accordingly assign backend
+void SetNodeBackend(Node* node, string& backend_name) {
+  NGRAPH_VLOG(5) << "Setting backend " << node->name() << " " << backend_name;
+  node->AddAttr("_ngraph_backend", backend_name);
 }
 
 }  // namespace ngraph_bridge

@@ -492,7 +492,7 @@ static Status TranslateAnyOp(const Node* op,
   auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto ng_or = make_shared<ng::Function>(make_shared<ng::op::Or>(f_A, f_B),
-                                         ng::op::ParameterVector{f_A, f_B});
+                                         ng::ParameterVector{f_A, f_B});
 
   shared_ptr<ng::Node> ng_any =
       make_shared<ng::op::Reduce>(ng_input, arg_init, ng_or, ng_reduction_axes);
@@ -546,7 +546,7 @@ static Status TranslateAllOp(const Node* op,
   auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
   auto ng_and = make_shared<ng::Function>(make_shared<ng::op::And>(f_A, f_B),
-                                          ng::op::ParameterVector{f_A, f_B});
+                                          ng::ParameterVector{f_A, f_B});
 
   shared_ptr<ng::Node> ng_all = make_shared<ng::op::Reduce>(
       ng_input, arg_init, ng_and, ng_reduction_axes);
@@ -2009,9 +2009,9 @@ static Status TranslateMaxPoolOp(
 static Status TranslateMaxPoolGradOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_grad;
+  shared_ptr<ng::Node> ng_input, ng_grad, ng_fwd;
   TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, nullptr, &ng_grad));
+      GetInputNodes(ng_op_map, op, &ng_input, &ng_fwd, &ng_grad));
 
   std::vector<int32> tf_strides;
   std::vector<int32> tf_ksize;
@@ -2041,6 +2041,7 @@ static Status TranslateMaxPoolGradOp(
   BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
   BatchToNGraph(is_nhwc, ng_input);
   BatchToNGraph(is_nhwc, ng_grad);
+  BatchToNGraph(is_nhwc, ng_fwd);
 
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
@@ -2053,9 +2054,9 @@ static Status TranslateMaxPoolGradOp(
                        ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_maxpool_backprop =
-      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_kernel_shape,
-                                           ng_strides, ng_padding_below,
-                                           ng_padding_above);
+      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_fwd,
+                                           ng_kernel_shape, ng_strides,
+                                           ng_padding_below, ng_padding_above);
   BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
   NGRAPH_VLOG(3) << "maxpoolbackprop outshape: {"
                  << ng::join(ng_maxpool_backprop->get_shape()) << "}";
@@ -2387,7 +2388,7 @@ Status QuantizeAndDequantizeV2Helper(
     const bool& range_given, const bool& signed_input, const int& num_bits,
     float* scale_out) {
   // TODO: currently handling only float, generalize later?
-  T min_range, max_range;
+  T min_range = 0, max_range = 0;
   if (range_given) {
     std::vector<T> input_min, input_max;
     TF_RETURN_IF_ERROR(
@@ -2432,7 +2433,8 @@ Status QuantizeAndDequantizeV2Helper(
                                     ? max_quantized / max_range
                                     : std::numeric_limits<T>::max();
   T scale, inverse_scale;
-  if (scale_from_min_side < scale_from_max_side) {
+  if (scale_from_min_side < scale_from_max_side && min_quantized != 0) {
+    // min_quantized != 0 is not really necessary but klocwork complains
     scale = scale_from_min_side;
     inverse_scale = min_range / min_quantized;
     // max_range = max_quantized * inverse_scale;
@@ -2498,7 +2500,7 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   auto ng_offset = std::make_shared<ng::op::Constant>(ng_q_et, ng::Shape(),
                                                       std::vector<int>({0}));
   ng::op::Quantize::RoundMode ng_round_mode =
-      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
   auto ng_quant = make_shared<ng::op::Quantize>(
       ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(), ng_round_mode);
   SaveNgOp(ng_op_map, op->name(),
@@ -2506,6 +2508,70 @@ static Status TranslateQuantizeAndDequantizeV2Op(
                                            ng_r_et, ng::AxisSet()));
 
   // TODO: what of clamping?
+  return Status::OK();
+}
+
+static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_filter, ng_bias;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_bias));
+  std::vector<std::shared_ptr<ng::op::Constant>> static_inps(6);
+  for (int i = 0; i < static_inps.size(); i++) {
+    std::vector<float> tmp_vect;
+    TF_RETURN_IF_ERROR(
+        GetStaticInputVector(op, 3 + i, static_input_map, &tmp_vect));
+    if (tmp_vect.size() != 1) {
+      return errors::InvalidArgument(
+          "QuantizedConv2DWithBiasAndReluAndRequantize Op: Input number ",
+          (3 + i), " must be scalar. Got a vector of size, ", tmp_vect.size());
+    }
+    static_inps[i] = std::make_shared<ng::op::Constant>(
+        ng::element::f32, ng::Shape({}), tmp_vect);
+  }
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_dilations;
+  std::string tf_padding_type;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  bool is_nhwc = true;  // TODO: Assuming this data format for now
+  ng::Strides ng_strides(2);
+  ng::Strides ng_dilations(2);
+  ng::Strides ng_data_dilations({1, 1});
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
+  BatchToNGraph(is_nhwc, ng_input);
+  auto& ng_filter_shape = ng_filter->get_shape();
+  ng_kernel_shape[0] = ng_filter_shape[0];
+  ng_kernel_shape[1] = ng_filter_shape[1];
+  Reshape<3, 2, 0, 1>(ng_filter);
+  ng::CoordinateDiff ng_padding_below{0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0};
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_dilations, ng_padding_below,
+                       ng_padding_above);
+  // It is expected by ScaledQuantizedConvolutionBias that the min max inputs be
+  // constant nodes
+  // Hence declaring them static, reading their values and converting to
+  // constant nodes
+  std::shared_ptr<ng::Node> ng_quant_conv_bias =
+      ng::builder::ScaledQuantizedConvolutionBias(
+          ng_input, ng_filter, ng_bias, ng_strides, ng_dilations,
+          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
+          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
+          static_inps[5], true);
+  BatchToTensorflow(is_nhwc, ng_quant_conv_bias);
+  SaveNgOp(ng_op_map, op->name(), ng_quant_conv_bias);
+  // Forward the min_freezed_output input to output min
+  SaveNgOp(ng_op_map, op->name(), static_inps[4]);
+  // Forward the max_freezed_output input to output max
+  SaveNgOp(ng_op_map, op->name(), static_inps[5]);
   return Status::OK();
 }
 
@@ -2581,7 +2647,7 @@ static Status TranslateQuantizeV2Op(
   string mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
 
-  // TODO: Since, currently only ng::HALF_AWAY_FROM_ZERO is supported,
+  // TODO: Since, currently only ng::ROUND_NEAREST_TOWARD_INFINITY is supported,
   // just reading this value here, but not using it for now.
   string round_mode;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
@@ -2633,10 +2699,10 @@ static Status TranslateQuantizeV2Op(
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
-  // TODO: Only RoundMode = HALF_AWAY_FROM_ZERO is supported, for now.
+  // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_INFINITY is supported, for now.
   // Support HALF_TO_EVEN later
   ng::op::Quantize::RoundMode ng_round_mode =
-      ng::op::Quantize::RoundMode::HALF_AWAY_FROM_ZERO;
+      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
@@ -3021,14 +3087,10 @@ static Status TranslateSoftmaxOp(
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
   auto ng_input_shape = ng_input->get_shape();
-
-  // We apply softmax on the 2nd dimension by following TF
-  // And we restrict the softmax input argument to be 2D for now
   ng::AxisSet ng_axes_softmax;
   auto shape_size = ng_input_shape.size();
-
-  if (shape_size != 2) {
-    return errors::InvalidArgument("TF Softmax logits must be 2-dimensional");
+  if (shape_size < 1) {
+    return errors::InvalidArgument("TF Softmax logits must be >=1 dimension");
   }
 
   ng_axes_softmax.insert(1);
@@ -3228,7 +3290,8 @@ static Status TranslateSplitOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, nullptr, &ng_input));
-
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
   int32 num_split;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_split", &num_split));
 
@@ -3243,7 +3306,7 @@ static Status TranslateSplitOp(
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 0, static_input_map, &split_dim_vec));
-  int split_dim = split_dim_vec[0];
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   int size = shape[split_dim] / num_split;
   int cursor = 0;
@@ -3264,35 +3327,51 @@ static Status TranslateSplitVOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_length, ng_split_dim;
-  TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_length, &ng_split_dim));
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   std::vector<int> lengths;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
 
+  int length = 0;
+  int idx = -1;
+  for (int i = 0; i < lengths.size(); ++i) {
+    if (lengths[i] != -1) {
+      length += lengths[i];
+    } else {
+      idx = i;
+    }
+  }
+
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
-  std::vector<size_t> lower;
-  std::vector<size_t> upper;
-
-  for (int i = 0; i < rank; ++i) {
-    lower.push_back(0);
-    upper.push_back(shape[i]);
-  }
+  std::vector<size_t> lower(rank, 0);
+  std::vector<size_t> upper(shape);
 
   std::vector<int> split_dim_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
-  int split_dim = split_dim_vec[0];
+
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
+  // Size splits must sum to the dimension of value along split_dim
+  if (idx > 0) {
+    lengths[idx] = shape[split_dim] - length;
+  }
+
   int cursor = 0;
 
-  for (int i = 0; i < lengths.size(); ++i) {
-    lower[split_dim] = cursor;
-    cursor += lengths[i];
-    upper[split_dim] = cursor;
-    SaveNgOp(ng_op_map, op->name(),
-             make_shared<ng::op::Slice>(ng_input, lower, upper));
+  if (lengths.size() != 1) {
+    for (int i = 0; i < lengths.size(); ++i) {
+      lower[split_dim] = cursor;
+      cursor += lengths[i];
+      upper[split_dim] = cursor;
+      SaveNgOp(ng_op_map, op->name(),
+               make_shared<ng::op::Slice>(ng_input, lower, upper));
+    }
+  } else {
+    SaveNgOp(ng_op_map, op->name(), ng_input);
   }
+
   return Status::OK();
 }
 
@@ -3372,17 +3451,30 @@ static Status TranslateSqueezeOp(
 static Status TranslateStridedSliceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  // TODO refactor StrideSlice with Slice op
-  shared_ptr<ng::Node> ng_input, ng_begin, ng_size, ng_stride;
-  TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_input, &ng_begin, &ng_size, &ng_stride));
+  // TODO: implement new_axis_mask, ellipsis_mask
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   int tf_shrink_axis_mask;
   TF_RETURN_IF_ERROR(
       GetNodeAttr(op->attrs(), "shrink_axis_mask", &tf_shrink_axis_mask));
 
-  std::vector<int64> lower_vec;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lower_vec));
+  int tf_end_mask;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "end_mask", &tf_end_mask));
+
+  int tf_begin_mask;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "begin_mask", &tf_begin_mask));
+
+  int tf_new_axis_mask;
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(op->attrs(), "new_axis_mask", &tf_new_axis_mask));
+
+  int tf_ellipsis_mask;
+  TF_RETURN_IF_ERROR(
+      GetNodeAttr(op->attrs(), "ellipsis_mask", &tf_ellipsis_mask));
+
+  std::vector<int64> begin_vec;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &begin_vec));
 
   std::vector<int64> end_vec;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &end_vec));
@@ -3391,74 +3483,240 @@ static Status TranslateStridedSliceOp(
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 3, static_input_map, &stride_vec));
 
-  NGRAPH_VLOG(3) << "Begin input for StridedSlice: " << ng::join(lower_vec);
-  NGRAPH_VLOG(3) << "End input for StridedSlice: " << ng::join(end_vec);
-
   auto& input_shape = ng_input->get_shape();
-  NGRAPH_VLOG(3) << "Input shape for StridedSlice: " << ng::join(input_shape);
 
-  if (lower_vec.size() == end_vec.size() && end_vec.size() == 1) {
-    for (size_t i = end_vec.size(); i < input_shape.size(); ++i) {
-      lower_vec.push_back(0);
-      end_vec.push_back(0);
+  // Summary: Convert tf indexes (-inf, inf) to clamped_begin_idx [0, d] and
+  // clamped_end_idx [-1, d], which are then converted to ngraph indexes [0, d]
+  // tf->ng is done through tf_to_ng, which calls clamper, which converts
+  // tf->clamped
+
+  // Graph/function for tf->cmapled
+  //           |    .......     <-- y = max_val (max_val = 5)
+  //          .|   .
+  //         . |  .
+  //        .  | .              <-- y = x>=0 ? x : x+max_val
+  //       .   |.
+  // -.-.-.----.------------    <-- y = 0 (for inclusive)
+  //  * *      |                <-- y = -1 (for exclusive)
+  //           |
+  // X axis: TF indexes. Y axis: Clamped indexes
+
+  // clamper is a function that implements the graph above.
+  // For inclusive, the graph is clamped at 0 and dim-1
+  // Given dimension d, [0, d-1] are valid locations.
+  // -1 represents std::rend(). d represents std::end().
+  // These two are useful for representing exclusive boundaries for end-ranges
+  // Example for dim = 3:
+  // ranges:                 (-inf,-d)|   [-d,0)    |[0,d-1]|(d-1,inf)
+  // TF index:                  -5 -4 |-3  -2 -1    | 0 1 2 | 3 4 5
+  // clamped begin (inclusive):  0  0 | 0   1  2    | 0 1 2 | 3 3 3
+  // clamped end (exclusive):   -1 -1 | 0   1  2    | 0 1 2 | 3 3 3
+  auto clamper = [](int idx, size_t dim, bool inclusive) {
+    // if idx is in [-(d-1), d-1], then its same for both inclusive and
+    // exclusive
+    // The first 2 cases breaks down this range
+    if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
+      return idx;
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
+      return idx + static_cast<int>(
+                       dim);  // Type casting to int to enable unambiguous auto
+                              // type inference of return type
+    } else if (idx > static_cast<int>(dim) - 1) {
+      return static_cast<int>(dim);
+    } else if (idx + static_cast<int>(dim) < 0) {
+      // The next case handles the clamping (differently for inclusive and
+      // exclusive cases)
+
+      // careful not to do idx < -dim (since dim is unsigned)
+      return 0 - (inclusive ? 0 : 1);
+    }
+    // Default case
+    return 0;
+  };
+
+  auto tf_to_ng = [clamper](int tf_begin_idx, int tf_end_idx, int tf_stride,
+                            size_t dim, bool begin_mask, bool end_mask,
+                            bool shrink_mask) {
+    // if begin mask is present, depending on stride sign use 0 (std::begin) or
+    // dim-1 (std::rbegin)
+    // clamped_end_idx could line in [-1, d]
+    int tf_ignore_begin_if_needed =
+        begin_mask ? (tf_stride > 0 ? 0 : dim - 1) : tf_begin_idx;
+    // if end mask is present, depending on stride sign use -1 (std::rend) or
+    // dim (std::end).
+    // However note, we cannot set to -1, since it has another meaning, hence
+    // setting to -(dim+1), which would translate to -1 in clamped coordinates
+    // take care to convert dim from sixze_t to int
+    int tf_ignore_end_if_needed =
+        end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
+
+    // using size_t for clamped_begin_idx because: clamped_begin_idx is
+    // inclusive, so it must lie in [0, dim-1]
+    size_t clamped_begin_idx = clamper(tf_ignore_begin_if_needed, dim, true);
+    int64 clamped_end_idx =
+        clamper(shrink_mask ? clamped_begin_idx + 1 : tf_ignore_end_if_needed,
+                dim, false);
+
+    // Now we have converted semantically non-monotonic and unbounded TF indexes
+    // (-inf, inf) to bounded and monotonic clamped indexes [-1, d]
+    // Now we need to convert clamped indexes [-1, d] to ngraph indexes [0, d]
+    // (taking care of reversal in case of negative strides)
+
+    size_t needs_reverse = 0;
+    size_t ng_begin_idx, ng_end_idx;
+
+    if (!shrink_mask) {
+      if (clamped_begin_idx == clamped_end_idx) {
+        // Empty due to matching indexes
+        ng_begin_idx = clamped_begin_idx;
+        // Type safety: clamped_begin_idx == clamped_end_idx implies,
+        // clamped_end_idx!=-1 (since clamped_begin_idx cannot be -1), hence end
+        // index assignment is type safe
+        ng_end_idx = clamped_end_idx;
+      } else {  // In the whole of this else: clamped_begin_idx !=
+                // clamped_end_idx, so !(a < b) iff a > b and vice versa when
+                // comparing the indexes
+        // take care to use (int) typecase when comparing int and size_t
+        if (((int)clamped_begin_idx < clamped_end_idx) != (tf_stride > 0)) {
+          // Empty due to mismatching directions
+          ng_begin_idx = clamped_begin_idx;
+          // Type safe: since clamped_begin_idx is size_t (>0)
+          // [0:-4:1] in TF would convert to [0:-1:1] in clamped domain. hence
+          // we do not assign ng_end_idx = clamped_end_idx (which would not be
+          // type safe due to the -1)
+          ng_end_idx = clamped_begin_idx;
+          // Any assignment where ng_begin_idx = ng_end_idx = x (where 0 <= x <=
+          // d-1) would have worked for the 2 empty cases above
+        }
+        // Anything after this is non-empty. Anything before this has dealt with
+        // empty cases
+        else {
+          // in this case either (clamped_begin_idx < clamped_end_idx &&
+          // tf_stride > 0) or (clamped_begin_idx > clamped_end_idx && tf_stride
+          // < 0)
+          // that is clamped_begin_idx < clamped_end_idx <==> tf_stride > 0.
+          // hence using only 1 of the clauses is enough
+          if (tf_stride > 0) {
+            ng_begin_idx = clamped_begin_idx;
+            // Type safety: tf_stride > 0 ==> clamped_begin_idx <
+            // clamped_end_idx. clamped_begin_idx could be 0,
+            // which means clamped_end_idx > 0. Hence type-safe
+            ng_end_idx = clamped_end_idx;
+          } else {  // clamped_begin_idx > clamped_end_idx, tf_stride < 0
+
+            // clamped_begin_idx is [0, d] && clamped_begin_idx >
+            // clamped_end_idx,
+            // which implies clamped_end_idx is [-1,d-1]
+            // Type safety: With clamped_end_idx in [-1,d-1],
+            // dim - 1 - clamped_end_idx is in [0, dim]. Hence type safe
+            ng_end_idx = dim - 1 - clamped_end_idx;
+
+            if (clamped_begin_idx == dim) {
+              clamped_begin_idx = dim - 1;
+            }
+            // Note clamped_begin_idx != dim here.
+            // If clamped_begin_idx==dim && clamped_end_idx==dim, then "Empty
+            // due to matching indexes" handles it
+            // If clamped_begin_idx==dim && clamped_end_idx<dim, then 2 cases:
+            //   tf_stride > 0: then "Empty due to mismatching directions"
+            //   handles it
+            //   tf_stride < 0: Then we set it to dim-1 above
+            // Consider the case of dim=3, where in tf notation we have:
+            // [4:1:-1], in clampe notation, we get [3:1:-1], which really means
+            // [2:1:-1]
+
+            // Type safety: Since clamped_begin_idx is [0, d-1] here, it is type
+            // safe
+            ng_begin_idx = dim - 1 - clamped_begin_idx;
+            needs_reverse = 1;
+          }
+        }
+      }
+    } else {
+      // cases when clamped indexes are in [0,d] and hence can be directly
+      // copied
+      // TODO: what about tf_begin=d, shrink=T, then clamped_end_idx = d, so a
+      // 0-d axis.
+      // But since shrink is on, that is reshaped and the 0-d axis is removed?
+      // Is that a valid config, as shrink_axis must get an axis with dim = 1,
+      // right?
+
+      ng_begin_idx = clamped_begin_idx;
+      ng_end_idx = clamped_end_idx;
+    }
+    return std::make_tuple(ng_begin_idx, ng_end_idx, std::abs(tf_stride),
+                           needs_reverse);
+  };
+
+  auto extract_bit = [](int bit_mask, int bit_location) {
+    return (bit_mask & (1 << bit_location)) != 0;
+  };
+
+  auto dim_vec = ng_input->get_shape();
+  auto in_rank = dim_vec.size();
+
+  // TODO/Note/Question: Are begin, end and stride vectors are of equal length
+
+  // begin, end and stride vectors may not have same size as input rank, hence
+  // initialize them with 0, dim and 1 respectively
+  vector<size_t> ng_begin_vec(in_rank, 0), ng_stride_vec(in_rank, 1);
+  vector<size_t> ng_end_vec(dim_vec);
+  vector<size_t> ng_needs_reversal(in_rank, 0);  // should have been a
+                                                 // vector<bool>, but it is
+                                                 // optimized, so tie won't
+                                                 // work. Hence using size_t
+  for (int dim_idx = 0; dim_idx < begin_vec.size(); dim_idx++) {
+    std::tie(ng_begin_vec[dim_idx], ng_end_vec[dim_idx], ng_stride_vec[dim_idx],
+             ng_needs_reversal[dim_idx]) =
+        tf_to_ng(begin_vec[dim_idx], end_vec[dim_idx], stride_vec[dim_idx],
+                 dim_vec[dim_idx], extract_bit(tf_begin_mask, dim_idx),
+                 extract_bit(tf_end_mask, dim_idx),
+                 extract_bit(tf_shrink_axis_mask, dim_idx));
+  }
+
+  // filter out negative stride dimensions
+  vector<size_t> neg_strides;
+  for (int dim_idx = 0; dim_idx < in_rank; dim_idx++) {
+    if (ng_needs_reversal[dim_idx]) {
+      neg_strides.push_back(dim_idx);
     }
   }
-  NGRAPH_VLOG(3) << "extended Begin input for StridedSlice: "
-                 << ng::join(lower_vec);
-  NGRAPH_VLOG(3) << "extended End input for StridedSlice: "
-                 << ng::join(end_vec);
 
-  if (std::any_of(lower_vec.begin(), lower_vec.end(),
-                  [](int i) { return i < 0; })) {
-    std::transform(lower_vec.begin(), lower_vec.end(), input_shape.begin(),
-                   lower_vec.begin(), [](int first, int second) {
-                     if (first < 0) {
-                       return second + first;
-                     } else {
-                       return first;
-                     }
-                   });
-  }
-  if (std::any_of(end_vec.begin(), end_vec.end(),
-                  [](int i) { return i <= 0; })) {
-    std::transform(end_vec.begin(), end_vec.end(), input_shape.begin(),
-                   end_vec.begin(), [](int first, int second) {
-                     if (first < 0) {
-                       return second + first;
-                     } else if (first == 0) {
-                       return second;
-                     } else {
-                       return first;
-                     }
-                   });
-    NGRAPH_VLOG(3) << "Transform end input for StridedSlice: "
-                   << ng::join(end_vec);
-  }
+  // atleast one stride was negative, in which case reverse the input
+  if (neg_strides.size() > 0)
+    ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
 
-  for (size_t i = stride_vec.size(); i < end_vec.size(); ++i) {
-    stride_vec.push_back(1);
-  }
-  NGRAPH_VLOG(3) << "stride input for StridedSlice: " << ng::join(stride_vec);
+  NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
+  NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
+  NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
+  NGRAPH_VLOG(3) << "NG Needs Reversal: " << ng::join(ng_needs_reversal);
 
-  std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
-  std::vector<size_t> u(end_vec.begin(), end_vec.end());
-  std::vector<size_t> s(stride_vec.begin(), stride_vec.end());
+  std::shared_ptr<ng::Node> ng_strided_slice = make_shared<ng::op::Slice>(
+      ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
 
-  std::shared_ptr<ng::Node> ng_strided_slice =
-      make_shared<ng::op::Slice>(ng_input, l, u, s);
-
-  NGRAPH_VLOG(3) << " NG Lower Vector " << ng::join(lower_vec);
-  NGRAPH_VLOG(3) << " NG End Vector " << ng::join(end_vec);
-  NGRAPH_VLOG(3) << " NG Stride Vector " << ng::join(stride_vec);
-
-  vector<size_t> output_shape;
   if (tf_shrink_axis_mask) {
     int64 shrink_axis_mask = tf_shrink_axis_mask;
     vector<size_t> output_shape;
 
-    for (int i = 0; i < lower_vec.size(); i++) {
+    // Note: do not use rank instead of ng_begin_vec.size()
+    // since ng_begin_vec.size() can be less than rank, and
+    // shrink_mask will have atmost ng_begin_vec.size() elements
+    for (int i = 0; i < ng_begin_vec.size(); i++) {
       if ((shrink_axis_mask & 1) != 1) {
-        output_shape.push_back(end_vec[i] - lower_vec[i]);
+        output_shape.push_back(ng_end_vec[i] - ng_begin_vec[i]);
+      } else {
+        // TODO: must it equal 1 or can it be 0 too?
+        if (ng_end_vec[i] - ng_begin_vec[i] > 1)
+          return errors::InvalidArgument(
+              "Trying to shrink specification ", i,
+              "where tf begin, end, strides are: ", begin_vec[i], ":",
+              end_vec[i], ":", stride_vec[i],
+              ". nGraph begin, end, stride are: ", ng_begin_vec[i], ":",
+              ng_end_vec[i], ":", ng_stride_vec[i],
+              ". nGraph's begin and end have difference greater than 1");
       }
       shrink_axis_mask >>= 1;
     }
@@ -3475,6 +3733,11 @@ static Status TranslateStridedSliceOp(
     ng_strided_slice = make_shared<ng::op::Reshape>(
         ng_strided_slice, ng_axis_order, ng_final_shape);
   }
+
+  // TODO: assert size in this dim was 1
+  // TODO: assert new_axis_mask and tf_shrink_axis_mask are not set at the same
+  // time?
+  // TODO: tf_new_axis_mask can exceed rank
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
   return Status::OK();
@@ -3758,6 +4021,8 @@ const static std::map<
         {"PreventGradient", TranslateIdentityOp},
         {"Prod", TranslateProdOp},
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
+        {"QuantizedConv2DWithBiasAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},

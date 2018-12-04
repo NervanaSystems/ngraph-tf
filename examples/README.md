@@ -1,6 +1,6 @@
 # How to use ngraph
 
-Simple! Just add `import ngraph_config` after [building](https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md) it
+Simple! Just add `import ngraph_bridge` after [building](https://github.com/NervanaSystems/ngraph-tf/blob/master/README.md) it
 
 The simplest hello-world example can be found in [```axpy.py```](https://github.com/NervanaSystems/ngraph-tf/blob/master/examples/axpy.py). For real world examples checkout the instructions below to run tf_cnn_benchmarks and models from Tensorflow Hub
 
@@ -25,13 +25,28 @@ Models](https://github.com/tensorflow/models/tree/master/official).
 
 ## Running examples from tf_cnn_benchmarks
 
-* First download benchmarks: ```git clone https://github.com/tensorflow/benchmarks.git```
-* Move into the TF scripts folder: ```cd benchmarks/scripts/tf_cnn_benchmarks/```
-* Edit ```convnet_builder.py``` by adding ```import ngraph_config```
-* Train for a few iterations:
-```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --data_format NCHW --num_inter_threads 2 --train_dir=./modelsavepath/ --model=resnet50 --num_batches 10 --batch_size=128```
-* Evaluate the model (Inference pass):
-```KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 python tf_cnn_benchmarks.py --data_format NCHW --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath --eval --model=resnet50 --batch_size=128```
+### Use the following instructions
+
+    git clone https://github.com/tensorflow/benchmarks.git
+    git checkout 4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed
+    cd benchmarks/scripts/tf_cnn_benchmarks/
+
+Next enable nGraph by editing the `convnet_builder.py` by adding `import ngraph_bridge` right after
+the `import tensorflow` line.
+
+### Train for a few iterations:
+
+    KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 \
+        python tf_cnn_benchmarks.py --data_format NCHW \
+        --num_inter_threads 2 --train_dir=./modelsavepath/ \
+        --model=resnet50 --num_batches 10 --batch_size=128
+
+### Evaluate the model (Inference pass):
+
+    KMP_BLOCKTIME=0  OMP_NUM_THREADS=56 KMP_AFFINITY=granularity=fine,compact,1,0 \
+        python tf_cnn_benchmarks.py --data_format NCHW \
+        --num_inter_threads 1 --train_dir=$(pwd)/modelsavepath \
+        --eval --model=resnet50 --batch_size=128```
 
 
 ### Tips
@@ -67,4 +82,4 @@ KMP_BLOCKTIME=0 OMP_NUM_THREADS=28  KMP_AFFINITY=granularity=fine,proclist=[0-27
 Tensorflow Hub models should also work. For example, you can try out network retraining by following instructions from [here](https://www.tensorflow.org/hub/tutorials/image_retraining) on, lets say, inceptionv3
 
 # Keras models:
-Keras (with Tensorflow backend) too should also work out of the box with ngraph, once one adds ```import ngraph_config``` to the script. [Here](https://github.com/NervanaSystems/ngraph-tf/blob/master/examples/keras_sample.py) is an example.
+Keras (with Tensorflow backend) too should also work out of the box with ngraph, once one adds ```import ngraph_bridge``` to the script. [Here](https://github.com/NervanaSystems/ngraph-tf/blob/master/examples/keras_sample.py) is an example.
