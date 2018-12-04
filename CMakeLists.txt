@@ -144,7 +144,7 @@ option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DI
 option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
 option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
-option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
+option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" TRUE)
 option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
 
 # Validate the options
@@ -222,6 +222,12 @@ message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
 message(STATUS "NGRAPH_TARGET_ARCH:         ${NGRAPH_TARGET_ARCH}")
 message(STATUS "NGRAPH_TUNE_ARCH:           ${NGRAPH_TUNE_ARCH}")
 
+if(NGRAPH_DISTRIBUTED_ENABLE)
+    find_package(MPI REQUIRED)
+    add_definitions(-DNGRAPH_DISTRIBUTED)
+    include_directories(SYSTEM ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
+    link_directories(${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+endif()
 # Find and build ngraph - if not using pre-built one
 if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
