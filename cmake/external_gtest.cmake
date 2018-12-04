@@ -36,6 +36,7 @@ if (${CMAKE_VERSION} VERSION_LESS 3.2)
         INSTALL_COMMAND ""
         UPDATE_COMMAND ""
         CMAKE_ARGS ${CXX_FLAGS}
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         TMP_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/tmp"
         STAMP_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/stamp"
         DOWNLOAD_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/download"
@@ -52,6 +53,7 @@ else()
         INSTALL_COMMAND ""
         UPDATE_COMMAND ""
         CMAKE_ARGS ${CXX_FLAGS}
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         TMP_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/tmp"
         STAMP_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/stamp"
         DOWNLOAD_DIR "${EXTERNAL_PROJECTS_ROOT}/gtest/download"
