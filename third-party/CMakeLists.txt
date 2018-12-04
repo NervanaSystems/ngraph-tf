@@ -18,8 +18,6 @@ if(NOT DEFINED EXTERNAL_PROJECTS_ROOT)
 endif()
 include( ../cmake/external_gtest.cmake )
 
-message("Abseil CXX COmpiler ${CMAKE_CXX_COMPILER}")
-
 ExternalProject_Add(
     ext_abseil
     GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git

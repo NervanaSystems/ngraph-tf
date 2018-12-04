@@ -224,8 +224,6 @@ message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
 message(STATUS "NGRAPH_TARGET_ARCH:         ${NGRAPH_TARGET_ARCH}")
 message(STATUS "NGRAPH_TUNE_ARCH:           ${NGRAPH_TUNE_ARCH}")
 
-message(STATUS "INSTALL_DIR ${CMAKE_INSTALL_PREFIX}")
-
 # Find and build ngraph - if not using pre-built one
 if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
@@ -248,6 +246,7 @@ if (NOT USE_PRE_BUILT_NGRAPH)
             -DPlaidML_DIR=${PlaidML_DIR}
             -DNGRAPH_TARGET_ARCH=${NGRAPH_TARGET_ARCH}
             -DNGRAPH_TUNE_ARCH=${NGRAPH_TUNE_ARCH}
+            -DNGRAPH_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
         TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"
         STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/stamp"
         DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/download"
