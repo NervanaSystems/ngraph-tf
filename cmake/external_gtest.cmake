@@ -33,8 +33,6 @@ endif()
 
 set(CXX_FLAGS "${CXX_FLAGS} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 
-message("ng-tf gtest cxx flags: ${CXX_FLAGS}")
-
 # The 'BUILD_BYPRODUCTS' argument was introduced in CMake 3.2.
 if (${CMAKE_VERSION} VERSION_LESS 3.2)
 ExternalProject_Add(
