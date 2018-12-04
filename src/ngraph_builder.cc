@@ -1725,23 +1725,17 @@ static Status TranslateFusedBatchNormOp(
     ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
     ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
     // This is for Bessel's correction in ng_variance:
-    size_t ng_input_size = 1.0;
-    size_t ng_scale_size = 1.0;
-    for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
-      ng_input_size *= ng_input->get_shape()[i];
-    }
-    for (size_t i = 0; i < ng_scale->get_shape().size(); i++) {
-      ng_scale_size *= ng_scale->get_shape()[i];
-    }
-    size_t sample_size = ng_input_size / ng_scale_size;
-    size_t sample_size_minus_one =
+    float ng_input_size = ng::shape_size(ng_input->get_shape());
+    float ng_scale_size = ng::shape_size(ng_scale->get_shape());
+    float sample_size = ng_input_size / ng_scale_size;
+    float sample_size_minus_one =
         sample_size > 1.0 ? (sample_size - 1.0) : 1.0;
-    std::vector<size_t> sample_values(ng::shape_size(ng_variance->get_shape()),
+    std::vector<float> sample_values(ng::shape_size(ng_variance->get_shape()),
                                       sample_size);
     auto sample = std::make_shared<ng::op::Constant>(
         ng_variance->get_element_type(), ng_variance->get_shape(),
         sample_values);
-    std::vector<size_t> minus_values(ng::shape_size(ng_variance->get_shape()),
+    std::vector<float> minus_values(ng::shape_size(ng_variance->get_shape()),
                                      sample_size_minus_one);
     auto minus_one = std::make_shared<ng::op::Constant>(
         ng_variance->get_element_type(), ng_variance->get_shape(),
