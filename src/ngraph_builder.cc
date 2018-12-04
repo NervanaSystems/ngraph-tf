@@ -3870,31 +3870,22 @@ static Status TranslateTransposeOp(
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 1, static_input_map, &permutation));
 
+  // Check to make sure that the permutation requested for transpose
+  // is valid for example:
+  // - it should not have duplicates,
+  // - it should have all the dimensions.
+
   auto ng_input_rank = ng_input->get_shape().size();
-  std::unordered_set<int> axes;
+  vector<bool> count(ng_input_rank, false);
   for (auto p : permutation) {
-    if (p < ng_input_rank && !axes.count(p)) {
-      axes.insert(p);
-    } else {
-      auto missing_axes = 0;
-      for (int i = 0; i < ng_input_rank; i++) {
-        if (std::find(permutation.begin(), permutation.end(), i) ==
-            permutation.end()) {
-          missing_axes = i;
-          break;
-        }
-      }
-
-      std::ostringstream oss;
-      // Convert all but the last element to avoid a trailing ","
-      std::copy(permutation.begin(), permutation.end() - 1,
-                std::ostream_iterator<int>(oss, ", "));
-
-      // Now add the last element with no delimiter
-      oss << permutation.back();
-
-      return errors::InvalidArgument(missing_axes, " is missing from {",
-                                     oss.str(), "}.");
+    if (0 <= p && p < ng_input_rank) {
+      count[p] = true;
+    }
+  }
+  for (int i = 0; i < ng_input_rank; i++) {
+    if (!count[i]) {
+      return errors::InvalidArgument(i, " is missing from {",
+                                     ng::join(permutation), "}.");
     }
   }
 
