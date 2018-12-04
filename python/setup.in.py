@@ -27,15 +27,23 @@ class BinaryBdistWheel(bdist_wheel):
 
     def get_tag(self):
         _, _, plat = bdist_wheel.get_tag(self)
+        if system() == 'Linux':
+           plat = 'manylinux1_x86_64'
+
         return ('py2.py3', 'none', plat)
 
 ext = 'dylib' if system() == 'Darwin' else 'so'
 
+with open(@README_DOC@, "r") as fh:
+    long_description = fh.read()
+
 setup( 
     name='ngraph_tensorflow_bridge',
-    version='0.8.0-rc0',
+    version='0.8.0',
     description='Intel nGraph compiler and runtime for TensorFlow',
-    url='https://ai.intel.com/intel-ngraph/',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url='https://github.com/NervanaSystems/ngraph-tf/',
     packages=['ngraph_bridge'], 
     author='Intel Nervana', 
     license='Apache License, Version 2.0',
