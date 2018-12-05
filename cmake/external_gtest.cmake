@@ -24,7 +24,7 @@ include(ExternalProject)
 SET(GTEST_GIT_REPO_URL https://github.com/google/googletest.git)
 SET(GTEST_GIT_LABEL release-1.8.0)
 
-set(CXX_FLAGS -fPIC)
+set(CXX_FLAGS "-fPIC")
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if (DEFINED NGRAPH_USE_CXX_ABI)
         set(CXX_FLAGS "${CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${NGRAPH_USE_CXX_ABI}")
@@ -32,6 +32,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 set(CXX_FLAGS "${CXX_FLAGS} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+
+message("CXX FLAGS ng-gtest ${CXX_FLAGS}")
 
 # The 'BUILD_BYPRODUCTS' argument was introduced in CMake 3.2.
 if (${CMAKE_VERSION} VERSION_LESS 3.2)
