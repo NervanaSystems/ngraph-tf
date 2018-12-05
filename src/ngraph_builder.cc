@@ -3350,15 +3350,16 @@ static Status TranslateSplitVOp(
 
   std::vector<int64> split_dim_vec;
 
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
-
-  // there should be atleast one element specified as axis and not more than one
+  // there should be at least one element specified as axis and not more than
+  // one
   // as axis is 0-D
   if (split_dim_vec.size() != 1) {
     return errors::InvalidArgument(
         "split_dim_tensor must have "
         "exactly one element.");
   }
+
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
 
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
