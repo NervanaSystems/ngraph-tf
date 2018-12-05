@@ -15,11 +15,18 @@
 # ==============================================================================
 """nGraph TensorFlow bridge conv2D runtime tests for 'arguments check'
 
-They replicate the tf python test 'testOpEdgeCases' defined in tensorflow/tensorflow/python/kernel_tests/conv_ops_test.py in principle.
-With nGraph,the tf python test fails in kernel computation of the placeholder as placholder values are missing and it does not reach the kernel computation for Conv2D (now encapsulated).
-Tf tests these input parameters in kernel construction while we can only test them during kernel computation. Hence, TF test can get away with not specifying the placeholder values
+They replicate the tf python test 'testOpEdgeCases' defined in
+tensorflow/tensorflow/python/kernel_tests/conv_ops_test.py in principle.
+With nGraph,the tf python test fails in kernel computation of the 
+placeholder as placholder values are missing and it does not reach the 
+kernel computation for Conv2D (now encapsulated).
+Tf tests these input parameters in kernel construction while we can only 
+test them during kernel computation. Hence, TF test can get away with not
+specifying the placeholder values
 
-The 3rd and 4th test(under # Filter larger than input/ "Negative dimension size") in testOpEdgeCases are construction time errors and do not reach nGraph.
+The 3rd and 4th test(under # Filter larger than input/ "Negative dimension
+size") in testOpEdgeCases are construction time errors and do not reach
+nGraph.
 
 """
 from __future__ import absolute_import
@@ -39,7 +46,7 @@ import numpy as np
 
 
 class TestConv2DBackpropInput(NgraphTest):
-    INPUT_SIZES_NCHW = [1, 2, 7, 6]
+    INPUT_SIZES_NHWC = [1, 7, 6, 2]
     FILTER_IN_SIZES = [3, 3, 2, 2]
 
     def make_filter_and_backprop_args(self):
