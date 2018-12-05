@@ -70,11 +70,11 @@ add_custom_command(
     PRE_BUILD
     COMMAND ${CMAKE_COMMAND} ${CMAKE_CXX_FLAGS}
         -E create_symlink
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy.pbtxt
+        ${CMAKE_CURRENT_SOURCE_DIR}/../test_axpy.pbtxt
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy.pbtxt
     COMMAND ${CMAKE_COMMAND} ${CMAKE_CXX_FLAGS}
         -E create_symlink
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy_launchop.pbtxt
+        ${CMAKE_CURRENT_SOURCE_DIR}/../test_axpy_launchop.pbtxt
         ${CMAKE_CURRENT_BINARY_DIR}/test_axpy_launchop.pbtxt
 )
 
