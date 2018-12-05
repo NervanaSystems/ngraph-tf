@@ -1662,9 +1662,8 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
+                                      ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2700,10 +2699,10 @@ static Status TranslateQuantizeV2Op(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal(
-        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
-        op->type_string(), ")\n", op->def().DebugString(), "\n",
-        "what(): ", e.what());
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -2792,10 +2791,10 @@ static Status TranslateDequantizeOp(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal(
-        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
-        op->type_string(), ")\n", op->def().DebugString(), "\n",
-        "what(): ", e.what());
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -3190,9 +3189,8 @@ static Status TranslateSpaceToDepthOp(
     }
   }
 
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ngraph::op::Concat>(strided_slice_result, channel_index));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(
+                                      strided_slice_result, channel_index));
   return Status::OK();
 }
 
@@ -3535,9 +3533,10 @@ static Status TranslateStridedSliceOp(
     // The first 2 cases breaks down this range
     if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 && idx + static_cast<int>(dim) >=
-                              0) {  // careful not to do idx >= -dim
-                                    // (since dim is unsigned)
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
       return idx + static_cast<int>(
                        dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
@@ -4175,8 +4174,8 @@ Status Builder::TranslateGraph(
     } catch (const std::exception& e) {
       return errors::Internal("Unhandled exception in op handler: ", op->name(),
                               " (", op->type_string(), ")\n",
-                              op->def().DebugString(), "\n",
-                              "what(): ", e.what());
+                              op->def().DebugString(), "\n", "what(): ",
+                              e.what());
     }
   }
 
