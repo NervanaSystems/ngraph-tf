@@ -192,4 +192,4 @@ class TestSliceOperations(NgraphTest):
 
         with pytest.raises(Exception) as excinfo:
             slice_vals = self.with_ngraph(run_test)
-            assert str(excinfo.value) == str(excinfo)
+        assert "Index out of range using input dim ; input has only 0 dims" in excinfo.value.message
