@@ -47,8 +47,6 @@ if (PYTHON)
     file(GLOB NGRAPH_LIB_FILES "${NGTF_INSTALL_DIR}/${LIB_SUFFIX}/lib*")
 
     # Copy the ngraph_bridge libraries from install
-
-    message("NGRAPH_LIB_FILES ${NGRAPH_LIB_FILES}")
     foreach(DEP_FILE ${NGRAPH_LIB_FILES})
         get_filename_component(lib_file_real_path ${DEP_FILE} ABSOLUTE)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)

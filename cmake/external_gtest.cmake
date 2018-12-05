@@ -30,7 +30,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         set(CXX_FLAGS "${CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${NGRAPH_USE_CXX_ABI}")
     endif()
 endif()
-message("CXX FLAGS ng-gtest ${CXX_FLAGS}")
 
 # The 'BUILD_BYPRODUCTS' argument was introduced in CMake 3.2.
 if (${CMAKE_VERSION} VERSION_LESS 3.2)
