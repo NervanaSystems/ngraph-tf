@@ -959,13 +959,13 @@ TEST(NNOps, FusedBatchNormV2NHWCTraining) {
   Scope root = Scope::NewRootScope();
 
   // 4D tensor for input data
-  //Tensor x(DT_FLOAT, TensorShape({10, 128, 128, 3}));
-  Tensor x(DT_FLOAT, TensorShape({27, 131, 127, 6}));
+  Tensor x(DT_FLOAT, TensorShape({10, 128, 128, 3}));
+  //Tensor x(DT_FLOAT, TensorShape({27, 131, 127, 6}));
   //Tensor x(DT_FLOAT, TensorShape({0, 131, 127, 6}));
   // 1D tensor for scaling the normalized x
-  Tensor scale(DT_FLOAT, TensorShape({6}));
+  Tensor scale(DT_FLOAT, TensorShape({3}));
   // 1D tensor for offset, to shift to the normalized x
-  Tensor offset(DT_FLOAT, TensorShape({6}));
+  Tensor offset(DT_FLOAT, TensorShape({3}));
   // 1D tensor for population mean
   // used for inference only, must be empty for training
   Tensor mean(DT_FLOAT, TensorShape({0}));
@@ -973,9 +973,9 @@ TEST(NNOps, FusedBatchNormV2NHWCTraining) {
   // used for inference only, must be empty for training
   Tensor variance(DT_FLOAT, TensorShape({0}));
 
-  AssignInputValuesRandom<float>(x, -30.0f, 50.0f);
-  AssignInputValuesRandom<float>(scale, 0.2f, 3.f);
-  AssignInputValuesRandom<float>(offset, 1.1f, 1.5f);
+  AssignInputValuesRandom<float>(x, -30.f, 50.f);
+  AssignInputValuesRandom<float>(scale, 0.f, 1.f);
+  AssignInputValuesRandom<float>(offset, 0.f, 1.f);
 
   auto attrs = ops::FusedBatchNormV2::Attrs();
   attrs.is_training_ = true;  // default
