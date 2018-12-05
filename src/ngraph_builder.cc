@@ -1073,6 +1073,7 @@ static Status TranslateConstOp(
 static Status TranslateConv2DOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+  NGRAPH_VLOG(5) << "In op Conv2D ";
   shared_ptr<ng::Node> ng_input, ng_filter;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter));
 
@@ -1091,6 +1092,22 @@ static Status TranslateConv2DOp(
   }
 
   bool is_nhwc = (tf_data_format == "NHWC");
+
+  // TF Kernel Test Checks
+  // Strides in the batch and depth dimension is not supported
+  if (is_nhwc) {
+    if (tf_strides[0] != 1 || tf_strides[3] != 1) {
+      return errors::InvalidArgument(
+          "Strides in batch and depth dimensions is not supported: ",
+          op->type_string());
+    }
+  } else {
+    if (tf_strides[0] != 1 || tf_strides[1] != 1) {
+      return errors::InvalidArgument(
+          "Strides in batch and depth dimensions is not supported: ",
+          op->type_string());
+    }
+  }
 
   NGRAPH_VLOG(3) << ng::join(tf_strides);
   NGRAPH_VLOG(3) << ng::join(tf_dilations);
@@ -1646,8 +1663,9 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
-                                      ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(
+      ng_op_map, op->name(),
+      make_shared<ng::op::Broadcast>(ng_value, ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
@@ -2683,10 +2701,10 @@ static Status TranslateQuantizeV2Op(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
+    return errors::Internal(
+        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
+        op->type_string(), ")\n", op->def().DebugString(), "\n",
+        "what(): ", e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -2775,10 +2793,10 @@ static Status TranslateDequantizeOp(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
+    return errors::Internal(
+        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
+        op->type_string(), ")\n", op->def().DebugString(), "\n",
+        "what(): ", e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -3173,8 +3191,9 @@ static Status TranslateSpaceToDepthOp(
     }
   }
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(
-                                      strided_slice_result, channel_index));
+  SaveNgOp(
+      ng_op_map, op->name(),
+      make_shared<ngraph::op::Concat>(strided_slice_result, channel_index));
   return Status::OK();
 }
 
@@ -3517,10 +3536,9 @@ static Status TranslateStridedSliceOp(
     // The first 2 cases breaks down this range
     if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 &&
-               idx + static_cast<int>(dim) >=
-                   0) {  // careful not to do idx >= -dim
-                         // (since dim is unsigned)
+    } else if (idx < 0 && idx + static_cast<int>(dim) >=
+                              0) {  // careful not to do idx >= -dim
+                                    // (since dim is unsigned)
       return idx + static_cast<int>(
                        dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
@@ -4158,8 +4176,8 @@ Status Builder::TranslateGraph(
     } catch (const std::exception& e) {
       return errors::Internal("Unhandled exception in op handler: ", op->name(),
                               " (", op->type_string(), ")\n",
-                              op->def().DebugString(), "\n", "what(): ",
-                              e.what());
+                              op->def().DebugString(), "\n",
+                              "what(): ", e.what());
     }
   }
 
