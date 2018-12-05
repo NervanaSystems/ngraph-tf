@@ -70,6 +70,10 @@ def install_virtual_env(venv_dir):
 
 
 def load_venv(venv_dir):
+    # Check if we are already inside the virtual environment
+    return (hasattr(sys, 'real_prefix')
+            or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
+
     venv_dir = os.path.abspath(venv_dir)
     old_os_path = os.environ.get('PATH', '')
     os.environ['PATH'] = os.path.join(venv_dir,
@@ -82,8 +86,6 @@ def load_venv(venv_dir):
         site_packages = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
                                      'site-packages')
     prev_sys_path = list(sys.path)
-
-    print('Site Packages: %s' % site_packages)
 
     import site
     site.addsitedir(site_packages)
@@ -98,10 +100,11 @@ def load_venv(venv_dir):
     sys.path[:0] = new_sys_path
 
 
-def build_tensorflow(venv_dir, src_dir, artifacts_dir):
-
-    install_virtual_env(venv_dir)
+def setup_venv(venv_dir):
     load_venv(venv_dir)
+
+    print("PIP location")
+    call(['which', 'pip'])
 
     # Patch the MacOS pip to avoid the TLS issue
     if (platform.system() == 'Darwin'):
@@ -119,6 +122,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "install",
         "-U",
         "pip",
+        "setuptools",
         "six",
         "numpy",
         "wheel",
@@ -132,6 +136,9 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
 
     # Print the current packages
     call(["pip", "list"])
+
+
+def build_tensorflow(venv_dir, src_dir, artifacts_dir):
 
     base = sys.prefix
     python_lib_path = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
@@ -382,6 +389,11 @@ def main():
     # Download TensorFlow
     download_repo("tensorflow", "https://github.com/tensorflow/tensorflow.git",
                   tf_version)
+
+    # setup the virtial env directory
+    install_virtual_env(venv_dir)
+    setup_venv(venv_dir)
+
     # Build TensorFlow
     build_tensorflow(venv_dir, "tensorflow", "artifacts")
 
