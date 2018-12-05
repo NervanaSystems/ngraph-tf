@@ -253,7 +253,7 @@ cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
-cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} .."
+cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} -DCMAKE_INSTALL_PREFIX=${ngraph_dist_dir} .."
 echo "Running cmake command: ${cmd}"
 ${cmd}
 
@@ -278,7 +278,7 @@ cd "${bridge_dir}"
 
 if [ ! -d "${ngraph_dist_dir}" ] ; then
     ( >&2 echo '***** Error: *****' )
-    ( >&2 echo "ngraph_dist directory does not exist -- this likely indicatesa build failure: ${ngraph_dist_dir}" )
+    ( >&2 echo "ngraph_dist directory does not exist -- this likely indicates a build failure: ${ngraph_dist_dir}" )
     exit 1
 fi
 
