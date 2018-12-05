@@ -3349,6 +3349,11 @@ static Status TranslateSplitVOp(
 
   std::vector<int64> split_dim_vec;
 
+  TF_RETURN_IF_ERROR(
+      GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
+
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
   // there should be at least one element specified as axis and not more than
   // one
   // as axis is 0-D
@@ -3359,11 +3364,6 @@ static Status TranslateSplitVOp(
   }
 
   TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
-
-  TF_RETURN_IF_ERROR(
-      GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
-
-  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   // Size splits must sum to the dimension of value along split_dim
   if (idx > 0) {
