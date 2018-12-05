@@ -42,7 +42,6 @@ class TestConv2DBackpropInput(NgraphTest):
     INPUT_SIZES_NCHW = [1, 2, 7, 6]
     INPUT_SIZES_NHWC = [1, 7, 6, 2]
     FILTER_IN_SIZES = [3, 3, 2, 2]
-    #OUT_BACKPROP_IN_SIZES = {"VALID": [1, 2, 3, 2], "SAME": [1, 2, 4, 3]}
 
     def make_filter_and_backprop_args(self):
         total_size_1 = 1

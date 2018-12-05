@@ -1073,7 +1073,6 @@ static Status TranslateConstOp(
 static Status TranslateConv2DOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  NGRAPH_VLOG(5) << "In op Conv2D ";
   shared_ptr<ng::Node> ng_input, ng_filter;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter));
 
