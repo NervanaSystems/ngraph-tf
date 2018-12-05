@@ -253,7 +253,7 @@ cd "${bridge_dir}"
 
 mkdir "${bbuild_dir}"
 cd "${bbuild_dir}"
-cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} -DCMAKE_INSTALL_PREFIX=${ngraph_dist_dir} .."
+cmd="cmake -DUNIT_TEST_ENABLE=TRUE -DTF_SRC_DIR=${tf_dir} .."
 echo "Running cmake command: ${cmd}"
 ${cmd}
 
