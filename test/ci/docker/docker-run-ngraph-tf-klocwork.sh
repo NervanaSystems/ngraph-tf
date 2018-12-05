@@ -19,21 +19,16 @@
 # Script parameters:
 #
 # $1 ImageID    Required: ID of the ngtf_bridge_ci docker image to use
-# $2 KWTools    Required: directory with kw-server tools
-# DISABLED: $2 TFdir      Required: tensorflow directory to build
 #
 # Script environment variable parameters:
 #
-# NG_TF_PY_VERSION   Optional: Set python major version ("2" or "3", default=2)
-# NG_TF_TRAINED      Optional: Directory that pretrained models are in
+# NG_TF_KW_SERVER      Required: KW server to use
+# NG_TF_KW_LTOKEN_DIR  Required: ltoken file containing KW authorization
+# NG_TF_KW_TOOLS       Required: directory of Klocwork tools to use
+# NG_TF_TF_VERSION     Optional: which TF version to download
+# NG_TF_PY_VERSION     Optional: Set python major version ("2" or "3", default=2)
 
 set -e  # Fail on any command with non-zero exit
-
-kwtools_dir="${2}"
-if [ ! -d "${kwtools_dir}" ] ; then
-    echo 'Please provide the name of the Klocwork tools directory you want to use, as the 2nd parameter'
-    exit 1
-fi
 
 #DISABLED tf_dir="${2}"
 #DISABLED if [ ! -d "${tf_dir}" ] ; then
@@ -43,8 +38,27 @@ fi
 
 # Set defaults
 
+if [ -z "${NG_TF_KW_SERVER}" ] ; then
+    echo 'NG_TF_KW_SERVER must be set to the URL of the KW server for this scan'
+    exit 1
+fi
+
+if [ -z "${NG_TF_KW_LTOKEN_DIR}" ] ; then
+    echo 'NG_TF_KW_LTOKEN_DIR must be set to the path of the Klocwork ltoken authorization file'
+    exit 1
+fi
+
+if [ -z "${NG_TF_KW_TOOLS}" ] ; then
+    echo 'NG_TF_KW_TOOLS must be set to the name of the Klocwork tools directory you want to use'
+    exit 1
+fi
+
+if [ -z "${NG_TF_TF_VERSION}" ] ; then
+    NG_TF_TF_VERSION=''  # Use latest TF wheel from the internet
+fi
+
 if [ -z "${NG_TF_PY_VERSION}" ] ; then
-    NG_TF_PY_VERSION='2'  # Default is Python 2
+    NG_TF_PY_VERSION='3'  # Default is Python 3
 fi
 
 # Note that the docker image must have been previously built using the
@@ -70,6 +84,21 @@ if [ -z "${IMAGE_ID}" ] ; then
     exit 1
 fi
 
+# Check if we have a docker ID of image:ID, or just ID
+# Use || true to make sure the exit code is always zero, so that the script is
+# not killed if ':' is not found
+long_ID=`echo ${IMAGE_ID} | grep ':' || true`
+
+# If we have just ID, then IMAGE_CLASS AND IMAGE_ID have
+# already been set above
+#
+# Handle case where we have image:ID
+if [ ! -z "${long_ID}" ] ; then
+    IMAGE_CLASS=` echo ${IMAGE_ID} | sed -e 's/:[^:]*$//' `
+    IMAGE_ID=` echo ${IMAGE_ID} | sed -e 's/^[^:]*://' `
+    # TODO: set python version here based on presence of _py3
+fi
+
 # Find the top-level bridge directory, so we can mount it into the docker
 # container
 bridge_dir="$(realpath ../../..)"
@@ -82,25 +111,32 @@ kwtools_mountpoint='/home/dockuser/kwtools'
 volume_mounts='-v /dataset:/dataset'
 volume_mounts="${volume_mounts} -v ${bridge_dir}:${bridge_mountpoint}"
 volume_mounts="${volume_mounts} -v ${kwtools_dir}:${kwtools_mountpoint}"
-#DISABLED volume_mounts="${volume_mounts} -v ${tf_dir}:${tf_mountpoint}"
-if [ -z "${NG_TF_TRAINED}" ] ; then
-  volume_mounts="${volume_mounts} -v /trained_dataset:/trained_dataset"
-else
-  trained_abspath="$(realpath ${NG_TF_TRAINED})"
-  volume_mounts="${volume_mounts} -v ${trained_abspath}:/trained_dataset"
-fi
+volume_mounts="${volume_mounts} -v ${NG_TF_KW_TOOLS}:/home/dockuser/kwtools"
+volume_mounts="${volume_mounts} -v ${NG_TF_KW_LTOKEN_DIR}:/home/dockuser/ltoken-dir"
 
 # Set up optional environment variables
-optional_env=''
+env_vars=''
+if [ ! -z "${NG_TF_KW_SERVER}" ] ; then
+  env_vars="${env_vars} --env NG_TF_KW_SERVER=${NG_TF_KW_SERVER}"
+fi
+if [ ! -z "${NG_TF_KW_LTOKEN_DIR}" ] ; then
+  env_vars="${env_vars} --env NG_TF_KW_LTOKEN_DIR=${NG_TF_KW_LTOKEN_DIR}"
+fi
+if [ ! -z "${NG_TF_KW_TOOLS}" ] ; then
+  env_vars="${env_vars} --env NG_TF_KW_TOOLS=${NG_TF_KW_TOOLS}"
+fi
+if [ ! -z "${NG_TF_TF_VERSION}" ] ; then
+  env_vars="${env_vars} --env NG_TF_TF_VERSION=${NG_TF_TF_VERSION}"
+fi
 if [ ! -z "${NG_TF_PY_VERSION}" ] ; then
-  optional_env="${optional_env} --env NG_TF_PY_VERSION=${NG_TF_PY_VERSION}"
+  env_vars="${env_vars} --env NG_TF_PY_VERSION=${NG_TF_PY_VERSION}"
 fi
 
 set -u  # No unset variables after this point
 
 RUNASUSER_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-as-user.sh"
-#XXXXX BUILD_KW_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-ngraph-tf-klocwork.sh"
-BUILD_KW_SCRIPT="/bin/bash"
+BUILD_KW_SCRIPT="${bridge_mountpoint}/test/ci/docker/docker-scripts/run-ngraph-tf-klocwork.sh"
+# FOR DEBUGGING: BUILD_KW_SCRIPT="/bin/bash"
 
 # If proxy settings are detected in the environment, make sure they are
 # included on the docker-build command-line.  This mirrors a similar system
@@ -118,13 +154,11 @@ else
     DOCKER_HTTPS_PROXY=' '
 fi
 
-# docker run --rm \
-docker run --rm -ti \
+set -x
+docker run --rm \
        --env RUN_UID="$(id -u)" \
        --env RUN_CMD="${BUILD_KW_SCRIPT}" \
-       ${optional_env} \
+       ${env_vars} \
        ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
        ${volume_mounts} \
        "${IMAGE_CLASS}:${IMAGE_ID}" "${RUNASUSER_SCRIPT}"
-
-
