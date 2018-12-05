@@ -40,7 +40,6 @@ import numpy as np
 
 class TestConv2DBackpropInput(NgraphTest):
     INPUT_SIZES_NCHW = [1, 2, 7, 6]
-    INPUT_SIZES_NHWC = [1, 7, 6, 2]
     FILTER_IN_SIZES = [3, 3, 2, 2]
 
     def make_filter_and_backprop_args(self):
