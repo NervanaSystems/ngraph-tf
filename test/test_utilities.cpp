@@ -158,7 +158,10 @@ bool Compare(float arg0, float arg1) {
     return true;
   } else {
     // Use absolute difference instead of relative difference
-    return ((abs(arg0 - arg1)) <= 0.0001);
+    //return ((abs(arg0 - arg1)) <= 0.0001) || (abs(arg0 - arg1) / max(abs(arg0), abs(arg1)) <= 0.001);
+    //return (abs(arg0 - arg1) / max(abs(arg0), abs(arg1)) <= 0.001);
+    return std::abs(arg0 - arg1) < (1e-3+ 1e-3 * std::abs(arg1));
+    //return ((abs(arg0 - arg1)) <= 0.0001);
   }
 }
 
