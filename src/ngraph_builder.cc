@@ -1728,15 +1728,14 @@ static Status TranslateFusedBatchNormOp(
     float ng_input_size = ng::shape_size(ng_input->get_shape());
     float ng_scale_size = ng::shape_size(ng_scale->get_shape());
     float sample_size = ng_input_size / ng_scale_size;
-    float sample_size_minus_one =
-        sample_size > 1.0 ? (sample_size - 1.0) : 1.0;
+    float sample_size_minus_one = sample_size > 1.0 ? (sample_size - 1.0) : 1.0;
     std::vector<float> sample_values(ng::shape_size(ng_variance->get_shape()),
-                                      sample_size);
+                                     sample_size);
     auto sample = std::make_shared<ng::op::Constant>(
         ng_variance->get_element_type(), ng_variance->get_shape(),
         sample_values);
     std::vector<float> minus_values(ng::shape_size(ng_variance->get_shape()),
-                                     sample_size_minus_one);
+                                    sample_size_minus_one);
     auto minus_one = std::make_shared<ng::op::Constant>(
         ng_variance->get_element_type(), ng_variance->get_shape(),
         minus_values);

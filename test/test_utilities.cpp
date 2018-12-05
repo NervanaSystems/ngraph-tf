@@ -112,6 +112,8 @@ void Compare(Tensor& T1, Tensor& T2, float tol) {
 void Compare(const vector<Tensor>& v1, const vector<Tensor>& v2) {
   ASSERT_EQ(v1.size(), v2.size()) << "Length of 2 tensor vectors do not match.";
   for (int i = 0; i < v1.size(); i++) {
+    LOG(INFO) << "Comparing output at index " << i << endl;
+    //cout << "Comparing output at index " << i << endl;
     auto expected_dtype = v1[i].dtype();
     switch (expected_dtype) {
       case DT_FLOAT:
@@ -154,7 +156,7 @@ bool Compare(float arg0, float arg1) {
     return true;
   } else {
     // Use absolute difference instead of relative difference
-    return ((abs(arg0 - arg1)) <= 0.0001);
+    return ((abs(arg0 - arg1)) <= 0.001);
   }
 }
 
