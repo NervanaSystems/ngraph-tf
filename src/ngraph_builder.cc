@@ -2511,9 +2511,9 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   return Status::OK();
 }
 
-static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
+static Status helper(const Node* op,
+                     const std::vector<const Tensor*>& static_input_map,
+                     Builder::OpMap& ng_op_map, bool isrelu) {
   shared_ptr<ng::Node> ng_input, ng_filter, ng_bias;
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
@@ -2525,8 +2525,10 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
         GetStaticInputVector(op, 3 + i, static_input_map, &tmp_vect));
     if (tmp_vect.size() != 1) {
       return errors::InvalidArgument(
-          "QuantizedConv2DWithBiasAndReluAndRequantize Op: Input number ",
-          (3 + i), " must be scalar. Got a vector of size, ", tmp_vect.size());
+          (isrelu ? "QuantizedConv2DWithBiasAndReluAndRequantize"
+                  : "QuantizedConv2DWithBiasAndRequantize"),
+          " Op: Input number ", (3 + i),
+          " must be scalar. Got a vector of size, ", tmp_vect.size());
     }
     static_inps[i] = std::make_shared<ng::op::Constant>(
         ng::element::f32, ng::Shape({}), tmp_vect);
@@ -2565,7 +2567,7 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
           ng_input, ng_filter, ng_bias, ng_strides, ng_dilations,
           ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
           static_inps[1], static_inps[2], static_inps[3], static_inps[4],
-          static_inps[5], true);
+          static_inps[5], isrelu);
   BatchToTensorflow(is_nhwc, ng_quant_conv_bias);
   SaveNgOp(ng_op_map, op->name(), ng_quant_conv_bias);
   // Forward the min_freezed_output input to output min
@@ -2573,6 +2575,18 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
   // Forward the max_freezed_output input to output max
   SaveNgOp(ng_op_map, op->name(), static_inps[5]);
   return Status::OK();
+}
+
+static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return helper(op, static_input_map, ng_op_map, true);
+}
+
+static Status TranslateQuantizedConv2DWithBiasAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return helper(op, static_input_map, ng_op_map, false);
 }
 
 static Status TranslateQuantizedMaxPoolOp(
@@ -4023,6 +4037,8 @@ const static std::map<
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
         {"QuantizedConv2DWithBiasAndReluAndRequantize",
          TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasAndRequantize",
+         TranslateQuantizedConv2DWithBiasAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
