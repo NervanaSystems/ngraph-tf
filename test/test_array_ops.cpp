@@ -1130,6 +1130,23 @@ TEST(ArrayOps, Transpose) {
   opexecuter.RunTest();
 }  // end of test op Transpose
 
+// Test op: Transpose With Constant input and empty permuation vector
+TEST(ArrayOps, TransposeConstant) {
+  Scope root = Scope::NewRootScope();
+
+  auto A = ops::Const(root, 12.0f);
+  auto perm = ops::Const(root, std::initializer_list<int>{});
+  auto R = ops::Transpose(root, A, perm);
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Transpose", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Transpose
+
 // Unpacks the given dimension of a rank R tensor into a (R-1) tensor
 TEST(ArrayOps, Unpack) {
   std::vector<std::vector<int64>> input_sizes;
