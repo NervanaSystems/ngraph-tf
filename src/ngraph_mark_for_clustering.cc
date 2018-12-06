@@ -286,6 +286,10 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
@@ -415,6 +419,19 @@ Status MarkForClustering(Graph* graph) {
                          ["Tfilter"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tbias"] = NGraphBiasDTypes();
+      // TODO: check if any other type constraint is required
+      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
+                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
+                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
+                         ["Tbias"] = NGraphBiasDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tbias"] = NGraphBiasDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndRequantize"]["Tinput"] =
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndRequantize"]["Tfilter"] =
@@ -487,7 +504,11 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
-      set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =
+      // TODO: check static inputs
+      // This has 11 inputs
+      set_attributes_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+          SetStaticInputs({3, 4, 5, 6, 7, 8});
+      set_attributes_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});

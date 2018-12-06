@@ -2577,6 +2577,18 @@ static Status helper(const Node* op,
   return Status::OK();
 }
 
+static Status TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return Status::OK();
+}
+
+static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return Status::OK();
+}
+
 static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -4037,6 +4049,10 @@ const static std::map<
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
         {"QuantizedConv2DWithBiasAndReluAndRequantize",
          TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp},
         {"QuantizedConv2DWithBiasAndRequantize",
          TranslateQuantizedConv2DWithBiasAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
