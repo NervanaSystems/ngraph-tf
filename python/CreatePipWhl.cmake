@@ -55,6 +55,7 @@ if (PYTHON)
             DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge")        
     endforeach()            
 
+    if(NOT NGRAPH_INSTALL_TF_BRIDGE_ONLY)
     # Get the list of license files 
     file(GLOB NGRAPH_TF_LICENCE_FILES "${NGTF_SRC_DIR}/third-party/licenses/*")
     
@@ -89,7 +90,7 @@ if (PYTHON)
     set(
         licence_top_level 
         "\"LICENSE\"")
-
+    endif()
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
     configure_file(${INIT_PY_IN} ${INIT_PY})
     if (APPLE)
