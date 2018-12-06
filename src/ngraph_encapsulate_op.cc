@@ -39,6 +39,10 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
+#ifdef NGRAPH_DISTRIBUTED
+#include <mpi.h>>
+#endif
+
 using namespace std;
 namespace ng = ngraph;
 
@@ -265,6 +269,12 @@ class NGraphEncapsulateOp : public OpKernel {
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
+#ifdef NGRAPH_DISTRIBUTED
+        int Rank_ID;
+        MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+        file_name = 
+            "tf_function_" + ctx->op_kernel().name() + "_" + to_string(Rank_ID) +  ".json";
+#endif
         NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
         std::string js = ngraph::serialize(ng_function, 4);
         std::ofstream f;
