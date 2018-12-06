@@ -773,10 +773,8 @@ TEST(MathOps, Log1D) {
   Tensor A(DT_FLOAT, TensorShape({dim1}));
 
   AssignInputValues(A, 1.4f);
-  ƒ
 
-      vector<int>
-          static_input_indexes = {};
+  vector<int> static_input_indexes = {};
   auto R = ops::Log(root, A);
 
   vector<DataType> output_datatypes = {DT_FLOAT};
