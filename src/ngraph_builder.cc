@@ -3092,9 +3092,8 @@ static Status TranslateSoftmaxOp(
   if (shape_size < 1) {
     return errors::InvalidArgument("TF Softmax logits must be >=1 dimension");
   }
-
-  ng_axes_softmax.insert(1);
-
+  auto rank = ng_input->get_shape().size();
+  ng_axes_softmax.insert(rank - 1);
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax));
   return Status::OK();
@@ -3327,6 +3326,7 @@ static Status TranslateSplitVOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_length, ng_split_dim;
+
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   std::vector<int> lengths;
@@ -3347,11 +3347,23 @@ static Status TranslateSplitVOp(
   std::vector<size_t> lower(rank, 0);
   std::vector<size_t> upper(shape);
 
-  std::vector<int> split_dim_vec;
+  std::vector<int64> split_dim_vec;
+
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
 
   int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
+  // there should be at least one element specified as axis and not more than
+  // one
+  // as axis is 0-D
+  if (split_dim_vec.size() != 1) {
+    return errors::InvalidArgument(
+        "split_dim_tensor must have "
+        "exactly one element.");
+  }
+
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
 
   // Size splits must sum to the dimension of value along split_dim
   if (idx > 0) {
@@ -4158,6 +4170,7 @@ Status Builder::TranslateGraph(
 
     const function<Status(const Node*, const std::vector<const Tensor*>&,
                           Builder::OpMap&)>* op_fun;
+
     try {
       op_fun = &(TRANSLATE_OP_MAP.at(op->type_string()));
     } catch (const std::out_of_range&) {
