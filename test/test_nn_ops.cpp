@@ -588,7 +588,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWSame) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  Compare(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs, 1e-05, 1e-05);
 }  // end of op Conv2DBackpropInputNCHWSame
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
@@ -718,7 +718,7 @@ TEST(NNOps, Conv2DBackpropInputNCHWValid) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  Compare(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs, 1e-05, 1e-05);
 }  // end of op Conv2DBackpropInputNCHWValid
 
 // Conv2DBackpropInput op : compute the graidents of conv with respects to input
@@ -825,7 +825,7 @@ TEST(NNOps, Conv2DBackpropInputNHWC) {
     OpExecuter opexecuter(root, "Conv2DBackpropInput", static_input_indexes,
                           output_datatypes, sess_run_fetchoutputs);
 
-    opexecuter.RunTest();
+    opexecuter.RunTest(1e-05, 1e-05);
   }
 }  // end of op Conv2DBackpropInputNHWC
 
@@ -951,7 +951,7 @@ TEST(NNOps, FusedBatchNormV2NHWCInference) {
   OpExecuter opexecuter(root, "FusedBatchNormV2", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
-  opexecuter.RunTest();
+  opexecuter.RunTest(1e-05, 1e-06);
 }  // end of FusedBatchNormV2NHWCInference
 
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
@@ -960,8 +960,8 @@ TEST(NNOps, FusedBatchNormV2NHWCTraining) {
 
   // 4D tensor for input data
   Tensor x(DT_FLOAT, TensorShape({10, 128, 128, 3}));
-  //Tensor x(DT_FLOAT, TensorShape({27, 131, 127, 6}));
-  //Tensor x(DT_FLOAT, TensorShape({0, 131, 127, 6}));
+  // Tensor x(DT_FLOAT, TensorShape({27, 131, 127, 6}));
+  // Tensor x(DT_FLOAT, TensorShape({0, 131, 127, 6}));
   // 1D tensor for scaling the normalized x
   Tensor scale(DT_FLOAT, TensorShape({3}));
   // 1D tensor for offset, to shift to the normalized x
@@ -985,7 +985,8 @@ TEST(NNOps, FusedBatchNormV2NHWCTraining) {
   // test grab the first three outputs from the FusedBatchNormGrad op
   vector<int> static_input_indexes = {};
 
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT,
+                                       DT_FLOAT};
   auto R = ops::FusedBatchNormV2(root, x, scale, offset, mean, variance, attrs);
 
   std::vector<Output> sess_run_fetchoutputs = {
@@ -993,7 +994,8 @@ TEST(NNOps, FusedBatchNormV2NHWCTraining) {
       R.reserve_space_2};
   OpExecuter opexecuter(root, "FusedBatchNormV2", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
-  opexecuter.RunTest();
+  opexecuter.RunTest("CPU", static_cast<float>(1e-03),
+                     static_cast<float>(1e-03));
 }  // end of FusedBatchNormV2NHWCTraining
 
 // FusedBatchNormGrad : Gradient for batch normalization
@@ -1049,7 +1051,7 @@ TEST(NNOps, FusedBatchNormGradNHWC) {
   OpExecuter opexecuter_all_output(all_output_test, "FusedBatchNormGrad",
                                    static_input_indexes, output_datatypes_all,
                                    sess_run_fetchoutputs_all);
-  opexecuter_all_output.RunTest();
+  opexecuter_all_output.RunTest(1e-05, 1e-06);
 }
 
 // Test Op :"L2Loss"
