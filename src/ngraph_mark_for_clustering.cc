@@ -420,6 +420,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tbias"] = NGraphBiasDTypes();
       // TODO: check if any other type constraint is required
+      // https://github.com/tensorflow/tensorflow/blob/c95ca05536144451ef78ca6e2c15f0f65ebaaf95/tensorflow/core/ops/nn_ops.cc#L2780
       type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
