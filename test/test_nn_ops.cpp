@@ -932,7 +932,7 @@ TEST(NNOps, FusedBatchNormV2NHWCInference) {
   AssignInputValuesRandom<float>(x, -30.0f, 50.0f);
   AssignInputValuesRandom<float>(scale, 0.2f, 3.f);
   AssignInputValuesRandom<float>(offset, 1.1f, 1.5f);
-  AssignInputValuesRandom<float>(mean, 0.5f, 3.5f);
+  AssignInputValuesRandom<float>(mean, -3.5f, 3.5f);
   AssignInputValuesRandom<float>(variance, 0.5f, 3.5f);
 
   auto attrs = ops::FusedBatchNormV2::Attrs();
@@ -1036,7 +1036,7 @@ TEST(NNOps, FusedBatchNormGradNHWC) {
                                                R.offset_backprop};
   OpExecuter opexecuter(root, "FusedBatchNormGrad", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
-  opexecuter.RunTest();
+  opexecuter.RunTest(1e-05, 1e-06);
 
   // test grab all the outputs from the FusedBatchNormGrad op
   Scope all_output_test = Scope::NewRootScope();
