@@ -286,11 +286,11 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
-          SimpleConfirmationFunction();
-      confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
@@ -503,6 +503,8 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
+      set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =
+          SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       // TODO: check static inputs
