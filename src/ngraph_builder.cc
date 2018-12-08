@@ -3326,35 +3326,64 @@ static Status TranslateSplitVOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_length, ng_split_dim;
+
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
   std::vector<int> lengths;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
-
-  int length = 0;
-  int idx = -1;
-  for (int i = 0; i < lengths.size(); ++i) {
-    if (lengths[i] != -1) {
-      length += lengths[i];
-    } else {
-      idx = i;
-    }
-  }
 
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
   std::vector<size_t> lower(rank, 0);
   std::vector<size_t> upper(shape);
 
-  std::vector<int> split_dim_vec;
+  std::vector<int64> split_dim_vec;
+
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
 
+  // there should be at least one element specified as axis and not more than
+  // one
+  // as axis is 0-D
+  if (split_dim_vec.size() != 1) {
+    return errors::InvalidArgument(
+        "split_dim_tensor must have "
+        "exactly one element.");
+  }
+
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
+
   int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
+  // length: Length of size_splits
+  int length = 0;
+  int idx = -1;
+
+  // Find out the total length of the splits and locate -1 's index, if any
+  bool has_one_neg = false;
+  for (int i = 0; i < lengths.size(); ++i) {
+    if (lengths[i] != -1) {
+      length += lengths[i];
+    } else {
+      if (has_one_neg) {
+        return errors::InvalidArgument("size_splits can only have one -1");
+      } else {
+        idx = i;
+        has_one_neg = true;
+      }
+    }
+  }
 
   // Size splits must sum to the dimension of value along split_dim
   if (idx > 0) {
     lengths[idx] = shape[split_dim] - length;
+  }
+
+  if ((!has_one_neg && length != shape[split_dim]) ||
+      (has_one_neg && lengths[idx] < 0)) {
+    return errors::InvalidArgument(
+        "The length of size_splits must sum to the value of the dimension "
+        "along split_dim");
   }
 
   int cursor = 0;
@@ -3551,7 +3580,6 @@ static Status TranslateStridedSliceOp(
     // take care to convert dim from sixze_t to int
     int tf_ignore_end_if_needed =
         end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
-
     // using size_t for clamped_begin_idx because: clamped_begin_idx is
     // inclusive, so it must lie in [0, dim-1]
     size_t clamped_begin_idx = clamper(tf_ignore_begin_if_needed, dim, true);
@@ -3657,6 +3685,11 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
+  if (in_rank == 0) {
+    return errors::InvalidArgument("Index out of range using input dim ",
+                                   "; input has only ", in_rank, " dims");
+  }
+
   // TODO/Note/Question: Are begin, end and stride vectors are of equal length
 
   // begin, end and stride vectors may not have same size as input rank, hence
@@ -3687,7 +3720,6 @@ static Status TranslateStridedSliceOp(
   // atleast one stride was negative, in which case reverse the input
   if (neg_strides.size() > 0)
     ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
-
   NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
   NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
   NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
@@ -3721,7 +3753,6 @@ static Status TranslateStridedSliceOp(
     }
 
     NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
-
     ng::Shape ng_final_shape(output_shape);
     ng::AxisVector ng_axis_order(input_shape.size());
     std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
@@ -4138,6 +4169,7 @@ Status Builder::TranslateGraph(
 
     const function<Status(const Node*, const std::vector<const Tensor*>&,
                           Builder::OpMap&)>* op_fun;
+
     try {
       op_fun = &(TRANSLATE_OP_MAP.at(op->type_string()));
     } catch (const std::out_of_range&) {
