@@ -66,10 +66,29 @@ def install_virtual_env(venv_dir):
     venv_dir = os.path.abspath(venv_dir)
     # Note: We assume that we are using Python 3 (as this script is also being
     # executed under Python 3 as marked in line 1)
-    call(["python3", "-m", "venv", venv_dir])
+    #call(["python3", "-m", "venv", venv_dir])
+    call(["virtualenv", "-p", "python3", venv_dir])
 
 
 def load_venv(venv_dir):
+    venv_dir = os.path.abspath(venv_dir)
+
+    # Check if we are already inside the virtual environment
+    # return (hasattr(sys, 'real_prefix')
+    #         or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
+    print("Loading virtual environment from: %s" % venv_dir)
+
+    activate_this_file = venv_dir + "/bin/activate_this.py"
+    # The execfile API is for Python 2. We keep here just in case you are on an
+    # obscure system without Python 3
+    # execfile(activate_this_file, dict(__file__=activate_this_file))
+    exec(
+        compile(
+            open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
+        dict(__file__=activate_this_file), dict(__file__=activate_this_file))
+
+
+def load_venv2(venv_dir):
     # Check if we are already inside the virtual environment
     return (hasattr(sys, 'real_prefix')
             or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
@@ -360,6 +379,11 @@ def main():
         help="Builds a debug version of the nGraph components\n",
         action="store_true")
 
+    parser.add_argument(
+        '--skip_tf_build',
+        help="Don't build TensorFlow - use existing one\n",
+        action="store_true")
+
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
@@ -382,30 +406,40 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "master"
+    ngraph_version = "ayzhuang/in-place-concat-r1"
     tf_version = "v1.12.0"
     venv_dir = 'venv-tf-py3'
+    artifacts_location = 'artifacts'
 
-    # Download TensorFlow
-    download_repo("tensorflow", "https://github.com/tensorflow/tensorflow.git",
-                  tf_version)
+    #install virtualenv
+    #install_virtual_env(venv_dir)
 
-    # setup the virtial env directory
-    install_virtual_env(venv_dir)
+    # Load the virtual env
+    load_venv(venv_dir)
+
+    # Setup the virtual env
     setup_venv(venv_dir)
 
-    # Build TensorFlow
-    build_tensorflow(venv_dir, "tensorflow", "artifacts")
+    if (not arguments.skip_tf_build):
+        # Download TensorFlow
+        download_repo("tensorflow",
+                      "https://github.com/tensorflow/tensorflow.git",
+                      tf_version)
+
+        # Build TensorFlow
+        build_tensorflow(venv_dir, "tensorflow", artifacts_location)
+    else:
+        print("Skipping the TensorFlow build")
 
     # Install tensorflow
-    cxx_abi = install_tensorflow(venv_dir, "artifacts")
+    cxx_abi = install_tensorflow(venv_dir, artifacts_location)
 
     # Download nGraph
     download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
                   ngraph_version)
 
     # Now build nGraph
-    artifacts_location = os.path.abspath("artifacts")
+    artifacts_location = os.path.abspath(artifacts_location)
     print("ARTIFACTS location: " + artifacts_location)
 
     ngraph_cmake_flags = [
@@ -445,13 +479,13 @@ def main():
         ngraph_tf_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
     # Now build the bridge
-    ng_tf_whl = build_ngraph_tf("./artifacts", "../", venv_dir,
+    ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
                                 ngraph_tf_cmake_flags)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
 
     # Run a quick test
-    install_ngraph_tf(venv_dir, os.path.join("./artifacts", ng_tf_whl))
+    install_ngraph_tf(venv_dir, os.path.join(artifacts_location, ng_tf_whl))
 
     os.chdir(pwd)
 
