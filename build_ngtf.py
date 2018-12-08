@@ -412,7 +412,7 @@ def main():
     artifacts_location = 'artifacts'
 
     #install virtualenv
-    #install_virtual_env(venv_dir)
+    install_virtual_env(venv_dir)
 
     # Load the virtual env
     load_venv(venv_dir)
