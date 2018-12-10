@@ -1092,6 +1092,14 @@ static Status TranslateConv2DOp(
 
   bool is_nhwc = (tf_data_format == "NHWC");
 
+  // TF Kernel Test Checks
+  // Strides in the batch and depth dimension is not supported
+  if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+    return errors::InvalidArgument(
+        "Strides in batch and depth dimensions is not supported: ",
+        op->type_string());
+  }
+
   NGRAPH_VLOG(3) << ng::join(tf_strides);
   NGRAPH_VLOG(3) << ng::join(tf_dilations);
   NGRAPH_VLOG(3) << tf_padding_type;
@@ -1160,18 +1168,10 @@ static Status TranslateConv2DBackpropFilterOp(
   bool is_nhwc = (tf_data_format == "NHWC");
 
   // Dilations in batch and depth dimensions must be 1
-  if (is_nhwc) {
-    if (tf_dilations[0] != 1 || tf_dilations[3] != 1) {
-      return errors::InvalidArgument(
-          "Dilations in batch and depth dimensions must be 1: ",
-          op->type_string());
-    }
-  } else {
-    if (tf_dilations[0] != 1 || tf_dilations[1] != 1) {
-      return errors::InvalidArgument(
-          "Dilations in batch and depth dimensions must be 1: ",
-          op->type_string());
-    }
+  if (tf_dilations[0] != 1 || tf_dilations[is_nhwc ? 3 : 1] != 1) {
+    return errors::InvalidArgument(
+        "Dilations in batch and depth dimensions must be 1: ",
+        op->type_string());
   }
 
   std::vector<int64> tf_filter_sizes;
@@ -1725,22 +1725,16 @@ static Status TranslateFusedBatchNormOp(
     ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
     ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
     // This is for Bessel's correction in ng_variance:
-    float ng_input_size = ng::shape_size(ng_input->get_shape());
-    float ng_scale_size = ng::shape_size(ng_scale->get_shape());
-    float sample_size = ng_input_size / ng_scale_size;
-    float sample_size_minus_one = sample_size > 1.0 ? (sample_size - 1.0) : 1.0;
-    std::vector<float> sample_values(ng::shape_size(ng_variance->get_shape()),
-                                     sample_size);
-    auto sample = std::make_shared<ng::op::Constant>(
+    int ng_input_size = ng::shape_size(ng_input->get_shape());
+    int num_channels = ng::shape_size(ng_variance->get_shape());
+    int sample_size = ng_input_size / num_channels;
+    int sample_size_minus_one = sample_size > 1 ? (sample_size - 1) : 1;
+    float factor = float(sample_size) / float(sample_size_minus_one);
+    std::vector<float> Bessel_factor(num_channels, factor);
+    auto Bessel_scale = std::make_shared<ng::op::Constant>(
         ng_variance->get_element_type(), ng_variance->get_shape(),
-        sample_values);
-    std::vector<float> minus_values(ng::shape_size(ng_variance->get_shape()),
-                                    sample_size_minus_one);
-    auto minus_one = std::make_shared<ng::op::Constant>(
-        ng_variance->get_element_type(), ng_variance->get_shape(),
-        minus_values);
-    auto Bess_scale = sample / minus_one;
-    auto variance = ng_variance * Bess_scale;
+        Bessel_factor);
+    auto variance = ng_variance * Bessel_scale;
 
     BatchToTensorflow(is_nhwc, ng_y);
 
@@ -1761,7 +1755,6 @@ static Status TranslateFusedBatchNormOp(
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
 
-  // SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   return Status::OK();
 }
 
@@ -3349,16 +3342,6 @@ static Status TranslateSplitVOp(
   std::vector<int> lengths;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &lengths));
 
-  int length = 0;
-  int idx = -1;
-  for (int i = 0; i < lengths.size(); ++i) {
-    if (lengths[i] != -1) {
-      length += lengths[i];
-    } else {
-      idx = i;
-    }
-  }
-
   ng::Shape shape = ng_input->get_shape();
   int rank = shape.size();
   std::vector<size_t> lower(rank, 0);
@@ -3368,8 +3351,6 @@ static Status TranslateSplitVOp(
 
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 2, static_input_map, &split_dim_vec));
-
-  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
 
   // there should be at least one element specified as axis and not more than
   // one
@@ -3382,9 +3363,37 @@ static Status TranslateSplitVOp(
 
   TF_RETURN_IF_ERROR(CheckAxisDimInRange(split_dim_vec, rank));
 
+  int split_dim = split_dim_vec[0] + (split_dim_vec[0] < 0 ? (int64)rank : 0);
+
+  // length: Length of size_splits
+  int length = 0;
+  int idx = -1;
+
+  // Find out the total length of the splits and locate -1 's index, if any
+  bool has_one_neg = false;
+  for (int i = 0; i < lengths.size(); ++i) {
+    if (lengths[i] != -1) {
+      length += lengths[i];
+    } else {
+      if (has_one_neg) {
+        return errors::InvalidArgument("size_splits can only have one -1");
+      } else {
+        idx = i;
+        has_one_neg = true;
+      }
+    }
+  }
+
   // Size splits must sum to the dimension of value along split_dim
   if (idx > 0) {
     lengths[idx] = shape[split_dim] - length;
+  }
+
+  if ((!has_one_neg && length != shape[split_dim]) ||
+      (has_one_neg && lengths[idx] < 0)) {
+    return errors::InvalidArgument(
+        "The length of size_splits must sum to the value of the dimension "
+        "along split_dim");
   }
 
   int cursor = 0;
@@ -3581,7 +3590,6 @@ static Status TranslateStridedSliceOp(
     // take care to convert dim from sixze_t to int
     int tf_ignore_end_if_needed =
         end_mask ? (tf_stride > 0 ? dim : (-((int)dim + 1))) : tf_end_idx;
-
     // using size_t for clamped_begin_idx because: clamped_begin_idx is
     // inclusive, so it must lie in [0, dim-1]
     size_t clamped_begin_idx = clamper(tf_ignore_begin_if_needed, dim, true);
@@ -3687,6 +3695,11 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
+  if (in_rank == 0) {
+    return errors::InvalidArgument("Index out of range using input dim ",
+                                   "; input has only ", in_rank, " dims");
+  }
+
   // TODO/Note/Question: Are begin, end and stride vectors are of equal length
 
   // begin, end and stride vectors may not have same size as input rank, hence
@@ -3717,7 +3730,6 @@ static Status TranslateStridedSliceOp(
   // atleast one stride was negative, in which case reverse the input
   if (neg_strides.size() > 0)
     ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
-
   NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
   NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
   NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
@@ -3751,7 +3763,6 @@ static Status TranslateStridedSliceOp(
     }
 
     NGRAPH_VLOG(3) << "Shrink axis mask " << tf_shrink_axis_mask;
-
     ng::Shape ng_final_shape(output_shape);
     ng::AxisVector ng_axis_order(input_shape.size());
     std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
@@ -3898,6 +3909,25 @@ static Status TranslateTransposeOp(
   std::vector<int64> permutation;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 1, static_input_map, &permutation));
+
+  // Check to make sure that the permutation requested for transpose
+  // is valid for example:
+  // - it should not have duplicates,
+  // - it should have all the dimensions.
+
+  auto ng_input_rank = ng_input->get_shape().size();
+  vector<bool> count(ng_input_rank, false);
+  for (auto p : permutation) {
+    if (0 <= p && p < ng_input_rank) {
+      count[p] = true;
+    }
+  }
+  for (int i = 0; i < ng_input_rank; i++) {
+    if (!count[i]) {
+      return errors::InvalidArgument(i, " is missing from {",
+                                     ng::join(permutation), "}.");
+    }
+  }
 
   ng::AxisVector ng_axis_order;
   ng_axis_order.reserve(permutation.size());
