@@ -27,18 +27,18 @@
 #include "tensorflow/core/graph/graph_constructor.h"
 #include "tensorflow/core/platform/env.h"
 
+#include "ngraph/ngraph.hpp"
+#include "ngraph_backend_manager.h"
+#include "ngraph_builder.h"
+#include "ngraph_utils.h"
 #include "tensorflow/cc/client/client_session.h"
 #include "tensorflow/cc/ops/standard_ops.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
-
-#include "ngraph/ngraph.hpp"
-#include "ngraph/serializer.hpp"
-#include "ngraph_backend_manager.h"
-#include "ngraph_builder.h"
-#include "ngraph_utils.h"
 #include "test_utilities.h"
 #include "tf_graph_writer.h"
+
+#include "ngraph/serializer.hpp"
 
 using namespace std;
 namespace ng = ngraph;
