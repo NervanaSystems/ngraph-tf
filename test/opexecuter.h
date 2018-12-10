@@ -18,13 +18,6 @@
 
 #include <fstream>
 
-#include "ngraph/ngraph.hpp"
-#include "ngraph_backend_manager.h"
-#include "ngraph_builder.h"
-#include "ngraph_utils.h"
-#include "test_utilities.h"
-#include "tf_graph_writer.h"
-
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/op.h"
@@ -39,7 +32,13 @@
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
 
+#include "ngraph/ngraph.hpp"
 #include "ngraph/serializer.hpp"
+#include "ngraph_backend_manager.h"
+#include "ngraph_builder.h"
+#include "ngraph_utils.h"
+#include "test_utilities.h"
+#include "tf_graph_writer.h"
 
 using namespace std;
 namespace ng = ngraph;
