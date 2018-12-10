@@ -1072,6 +1072,74 @@ TEST(ArrayOps, SplitVPositiveSizeSplits) {
   }
 }  // end of op SplitVPositiveSizeSplits
 
+// Test SplitVZeroSizeSplit op
+TEST(ArrayOps, SplitVZeroSizeSplit) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 10});
+
+  std::vector<int64> size_splits = {10, 0};
+  int64_t num_splits = 2;
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 1);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    Tensor size_tensor(DT_INT64, TensorShape({2}));
+    AssignInputValues(size_tensor, size_splits);
+
+    auto R = ops::SplitV(root, input_data, size_tensor, axis, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1]};
+    OpExecuter opexecuter(root, "SplitV", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitVZeroSizeSplit
+
+// Test SplitVZeroSizeNegSplit op
+TEST(ArrayOps, SplitVZeroSizeNegSplit) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 10});
+
+  std::vector<int64> size_splits = {10, -1};
+  int64_t num_splits = 2;
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 1);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    Tensor size_tensor(DT_INT64, TensorShape({2}));
+    AssignInputValues(size_tensor, size_splits);
+
+    auto R = ops::SplitV(root, input_data, size_tensor, axis, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1]};
+    OpExecuter opexecuter(root, "SplitV", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitVZeroSizeNegSplit
+
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
   std::vector<std::vector<int64>> input_sizes;  // 1-D or higher
@@ -1105,6 +1173,47 @@ TEST(ArrayOps, Tile) {
     opexecuter.RunTest();
   }
 }  // end of test op Tile
+
+// Test op: Transpose
+TEST(ArrayOps, Transpose) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  int dim3 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+  Tensor perm(DT_INT32, TensorShape({3}));
+  AssignInputValues(A, 7.5f);
+  AssignInputValues(perm, vector<int>{2, 1, 0});
+
+  vector<int> static_input_indexes = {1};
+  auto R = ops::Transpose(root, A, perm);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Transpose", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Transpose
+
+// Test op: Transpose With Constant input and empty permuation vector
+TEST(ArrayOps, TransposeConstant) {
+  Scope root = Scope::NewRootScope();
+
+  auto A = ops::Const(root, 12.0f);
+  auto perm = ops::Const(root, std::initializer_list<int>{});
+  auto R = ops::Transpose(root, A, perm);
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Transpose", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Transpose
 
 // Unpacks the given dimension of a rank R tensor into a (R-1) tensor
 TEST(ArrayOps, Unpack) {
