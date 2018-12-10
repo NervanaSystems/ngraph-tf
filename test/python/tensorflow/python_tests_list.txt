@@ -305,9 +305,9 @@ slice_op_test.SliceTest.testEmpty
 slice_op_test.SliceTest.testGradientsAll
 slice_op_test.SliceTest.testInt32
 slice_op_test.SliceTest.testInt64Slicing
-#slice_op_test.SliceTest.testInvalidIndex
+slice_op_test.SliceTest.testInvalidIndex
 slice_op_test.SliceTest.testRandom
-#slice_op_test.SliceTest.testScalarInput
+slice_op_test.SliceTest.testScalarInput
 slice_op_test.SliceTest.testSelectAll
 slice_op_test.SliceTest.testSimple
 slice_op_test.SliceTest.testSingleDimension
@@ -348,9 +348,9 @@ split_op_test.SplitOpTest.testExplicitNum
 split_op_test.SplitOpTest.testGradientsAll
 split_op_test.SplitOpTest.testIdentity
 split_op_test.SplitOpTest.testListOfScalarTensors
-#split_op_test.SplitOpTest.testNonexistentDimTensor
+split_op_test.SplitOpTest.testNonexistentDimTensor
 split_op_test.SplitOpTest.testRandom
-#split_op_test.SplitOpTest.testShapeInference
+split_op_test.SplitOpTest.testShapeInference
 #split_op_test.SplitOpTest.testSpecialCasesVariable
 split_op_test.SplitOpTest.testSplitCols
 split_op_test.SplitOpTest.testSplitDim0
@@ -373,4 +373,4 @@ transpose_op_test.TransposeTest.testSingletonDims
 transpose_op_test.TransposeTest.testTranspose2DAuto 
 #transpose_op_test.TransposeTest.testInt16 
 #transpose_op_test.TransposeTest.testInt8 
-#transpose_op_test.TransposeTest.testError 
+transpose_op_test.TransposeTest.testError 
