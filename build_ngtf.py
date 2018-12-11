@@ -66,8 +66,10 @@ def install_virtual_env(venv_dir):
     venv_dir = os.path.abspath(venv_dir)
     # Note: We assume that we are using Python 3 (as this script is also being
     # executed under Python 3 as marked in line 1)
-    #call(["python3", "-m", "venv", venv_dir])
-    call(["virtualenv", "-p", "python3", venv_dir])
+    result = call(["virtualenv", "-p", "python3", venv_dir])
+    if (result != 0):
+        raise Exception("Error running command: virtualenv -p python3 " + venv_dir)
+
 
 
 def load_venv(venv_dir):
@@ -136,7 +138,7 @@ def setup_venv(venv_dir):
         call(["python3", "./get-pip.py"])
 
     # Install the pip packages
-    call([
+    if call([
         "pip",
         "install",
         "-U",
@@ -151,7 +153,9 @@ def setup_venv(venv_dir):
         "--no-deps",
         "keras_preprocessing==1.0.3",
         "--no-deps",
-    ])
+    ]) != 0:
+        raise Exception("Error running command: pip install ")
+
 
     # Print the current packages
     call(["pip", "list"])
@@ -207,13 +211,17 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "//tensorflow/tools/pip_package:build_pip_package",
     ]
     print("Running CMD: " + str(cmd))
-    call(cmd)
+    result = call(cmd)
+    if (result != 0):
+        raise Exception("Error running command: " + str(cmd))
 
     # Make the pip wheel
-    call([
+    result = call([
         "bazel-bin/tensorflow/tools/pip_package/build_pip_package",
         artifacts_dir
     ])
+    if (result != 0):
+        raise Exception("Error running command: build_pip_package: " + artifacts_dir)
 
     # Get the name of the TensorFlow pip package
     tf_wheel_files = glob.glob(os.path.join(artifacts_dir, "tensorflow-*.whl"))
@@ -224,8 +232,10 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
     ]
 
-    call(cmd)
     print("Running CMD: " + str(cmd))
+    result = call(cmd)
+    if (result != 0):
+        raise Exception("Error running command: " + str(cmd))
 
     tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
 
@@ -263,7 +273,9 @@ def install_tensorflow(venv_dir, artifacts_dir):
             "artifacts directory contains more than 1 version of tensorflow wheel"
         )
 
-    call(["pip", "install", "-U", tf_wheel_files[0]])
+    result = call(["pip", "install", "-U", tf_wheel_files[0]])
+    if (result != 0):
+        raise Exception("Error running command: " + str(cmd))
 
     cxx_abi = "0"
     if (platform.system() == 'Linux'):
@@ -406,7 +418,7 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "v0.11.0-rc.0"
+    ngraph_version = "v0.11.0-rc.1"
     tf_version = "v1.12.0"
     venv_dir = 'venv-tf-py3'
     artifacts_location = 'artifacts'
