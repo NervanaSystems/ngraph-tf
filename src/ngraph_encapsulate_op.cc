@@ -278,7 +278,7 @@ class NGraphEncapsulateOp : public OpKernel {
           std::cerr << e.what() << endl;
         }
       }
-
+      op_backend->compile(ng_function);
       m_ng_functions[signature] = ng_function;
     } else {
       ng_function = it->second;
