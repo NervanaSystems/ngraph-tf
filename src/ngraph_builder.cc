@@ -1092,6 +1092,14 @@ static Status TranslateConv2DOp(
 
   bool is_nhwc = (tf_data_format == "NHWC");
 
+  // TF Kernel Test Checks
+  // Strides in the batch and depth dimension is not supported
+  if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+    return errors::InvalidArgument(
+        "Strides in batch and depth dimensions is not supported: ",
+        op->type_string());
+  }
+
   NGRAPH_VLOG(3) << ng::join(tf_strides);
   NGRAPH_VLOG(3) << ng::join(tf_dilations);
   NGRAPH_VLOG(3) << tf_padding_type;
@@ -1160,18 +1168,10 @@ static Status TranslateConv2DBackpropFilterOp(
   bool is_nhwc = (tf_data_format == "NHWC");
 
   // Dilations in batch and depth dimensions must be 1
-  if (is_nhwc) {
-    if (tf_dilations[0] != 1 || tf_dilations[3] != 1) {
-      return errors::InvalidArgument(
-          "Dilations in batch and depth dimensions must be 1: ",
-          op->type_string());
-    }
-  } else {
-    if (tf_dilations[0] != 1 || tf_dilations[1] != 1) {
-      return errors::InvalidArgument(
-          "Dilations in batch and depth dimensions must be 1: ",
-          op->type_string());
-    }
+  if (tf_dilations[0] != 1 || tf_dilations[is_nhwc ? 3 : 1] != 1) {
+    return errors::InvalidArgument(
+        "Dilations in batch and depth dimensions must be 1: ",
+        op->type_string());
   }
 
   std::vector<int64> tf_filter_sizes;
@@ -1724,12 +1724,23 @@ static Status TranslateFusedBatchNormOp(
     ng_y = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
     ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
     ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
+    // This is for Bessel's correction in ng_variance:
+    int ng_input_size = ng::shape_size(ng_input->get_shape());
+    int num_channels = ng::shape_size(ng_variance->get_shape());
+    int sample_size = ng_input_size / num_channels;
+    int sample_size_minus_one = sample_size > 1 ? (sample_size - 1) : 1;
+    float factor = float(sample_size) / float(sample_size_minus_one);
+    std::vector<float> Bessel_factor(num_channels, factor);
+    auto Bessel_scale = std::make_shared<ng::op::Constant>(
+        ng_variance->get_element_type(), ng_variance->get_shape(),
+        Bessel_factor);
+    auto variance = ng_variance * Bessel_scale;
 
     BatchToTensorflow(is_nhwc, ng_y);
 
     SaveNgOp(ng_op_map, op->name(), ng_y);
     SaveNgOp(ng_op_map, op->name(), ng_mean);
-    SaveNgOp(ng_op_map, op->name(), ng_variance);
+    SaveNgOp(ng_op_map, op->name(), variance);
     // Output reserve_space_1: A 1D Tensor for the computed batch mean, to be
     // reused in the gradient computation.
     SaveNgOp(ng_op_map, op->name(), ng_mean);
@@ -1744,7 +1755,6 @@ static Status TranslateFusedBatchNormOp(
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
 
-  SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   return Status::OK();
 }
 
@@ -3899,6 +3909,25 @@ static Status TranslateTransposeOp(
   std::vector<int64> permutation;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 1, static_input_map, &permutation));
+
+  // Check to make sure that the permutation requested for transpose
+  // is valid for example:
+  // - it should not have duplicates,
+  // - it should have all the dimensions.
+
+  auto ng_input_rank = ng_input->get_shape().size();
+  vector<bool> count(ng_input_rank, false);
+  for (auto p : permutation) {
+    if (0 <= p && p < ng_input_rank) {
+      count[p] = true;
+    }
+  }
+  for (int i = 0; i < ng_input_rank; i++) {
+    if (!count[i]) {
+      return errors::InvalidArgument(i, " is missing from {",
+                                     ng::join(permutation), "}.");
+    }
+  }
 
   ng::AxisVector ng_axis_order;
   ng_axis_order.reserve(permutation.size());
