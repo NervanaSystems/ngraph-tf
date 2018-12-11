@@ -310,7 +310,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
           {DataType::DT_QINT8, make_pair(MakeConstOp<qint8>, ng::element::i8)},
           {DataType::DT_QUINT16,
            make_pair(MakeConstOp<quint8>, ng::element::u8)},
-          //{DataType::DT_QINT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
+           // Using qint32 in the template arg causes compile errors.
+          {DataType::DT_QINT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -1066,7 +1067,6 @@ static Status TranslateConstOp(
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                  DataType_Name(dtype));
   }
-
   SaveNgOp(ng_op_map, op->name(), ng_node);
   return Status::OK();
 }
