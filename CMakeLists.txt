@@ -129,9 +129,6 @@ set_target_properties(
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(NGRAPH_TF_CXX11_ABI "${TensorFlow_CXX_ABI}")
     message( STATUS "nGraph-TensorFlow using CXX11 ABI:  ${NGRAPH_TF_CXX11_ABI}" )
-endif()
-
-if(DEFINED ${NGRAPH_TF_CX11_ABI})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${NGRAPH_TF_CXX11_ABI}")
 endif()
 
