@@ -311,7 +311,8 @@ Builder::TF_NGRAPH_CONST_MAP() {
           {DataType::DT_QUINT16,
            make_pair(MakeConstOp<quint8>, ng::element::u8)},
            // Using qint32 in the template arg causes compile errors.
-          {DataType::DT_QINT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
+           // TODO: this needs debugging. For now not accepting QINT32
+          //{DataType::DT_QINT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT32, make_pair(MakeConstOp<int32>, ng::element::i32)},
           {DataType::DT_INT64, make_pair(MakeConstOp<int64>, ng::element::i64)},
           {DataType::DT_UINT8, make_pair(MakeConstOp<uint8>, ng::element::u8)},
@@ -2604,7 +2605,7 @@ static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_bias));
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 9, &ng_sum_input));
   vector<size_t> static_inps_idxs = {3, 4, 5, 6, 7, 8, 10, 11};
-  std::vector<std::shared_ptr<ng::op::Constant>> static_inps(static_inps.size());
+  std::vector<std::shared_ptr<ng::op::Constant>> static_inps(static_inps_idxs.size());
   for (int i = 0; i < static_inps.size(); i++) {
     std::vector<float> tmp_vect;
     TF_RETURN_IF_ERROR(
@@ -2643,7 +2644,7 @@ static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_dilations, ng_padding_below,
                        ng_padding_above);
-  // It is expected by ScaledQuantizedConvolutionBias that the min max inputs be
+  // It is expected by ScaledQuantizedConvolutionBiasSignedAdd that the min max inputs be
   // constant nodes
   // Hence declaring them static, reading their values and converting to
   // constant nodes
