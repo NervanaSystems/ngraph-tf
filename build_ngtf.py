@@ -346,7 +346,7 @@ def main():
 
     # Component versions
     ngraph_version = "90aa7336dfbf21d3ecab1b50aa8676c2fe1bd75d"
-    tf_version = "v1.12.0"
+    tf_version = "54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
     download_repo(
