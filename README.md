@@ -123,7 +123,7 @@ In order to build that version of nGraph, follow the steps below, which involves
         cd tensorflow
         git checkout v1.12.0
 
-Note: To get the latest version of nGraph, use the tip of `master` branch of TensorFlow. The exact version of `bazel` changes for a spscific version of TensorFlow. Please consult the build instructions from TensorFlow web site for specific bazel requirements.
+Note: To get the latest version of nGraph, use the tip of `master` branch of TensorFlow. The exact version of `bazel` changes for a specific version of TensorFlow. Please consult the build instructions from TensorFlow web site for specific bazel requirements.
 
 4. Now run `./configure` and choose `no` for the following when prompted to build TensorFlow.
 
