@@ -347,12 +347,12 @@ def main():
 
     # Component versions
     ngraph_version = "90aa7336dfbf21d3ecab1b50aa8676c2fe1bd75d"
-    tf_version = "54b110ae4369f86518f3950f11be749df2507c29"
+    tf_version = "int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
     download_repo(
         "tensorflow", 
-        "https://github.com/tensorflow/tensorflow.git", 
+        "https://github.com/NervanaSystems/private-tensorflow.git", 
         tf_version)
     # Build TensorFlow
     build_tensorflow("venv-tf-py3", "tensorflow", "artifacts")
