@@ -157,6 +157,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "bazel",
         "build",
         "--config=opt",
+        "--config=mkl",
         "//tensorflow/tools/pip_package:build_pip_package",
     ])
 
