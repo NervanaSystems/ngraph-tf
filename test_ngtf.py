@@ -26,6 +26,7 @@ from distutils.sysconfig import get_python_lib
 
 from build_ngtf import load_venv
 
+
 def main():
     '''
     Tests nGraph-TensorFlow Python 3. This script needs to be run after 
@@ -67,7 +68,7 @@ def main():
         raise Exception("Error running command: pip install psutil")
 
     os.chdir("python")
-    if call(["python", "-m", "pytest"]) != 0 :
+    if call(["python", "-m", "pytest"]) != 0:
         raise Exception("Error running test command: python -m  pytest")
 
     os.chdir("..")
@@ -75,9 +76,15 @@ def main():
 
     # Next patch the TensorFlow so that the tests run using ngraph_bridge
     pwd = os.getcwd()
-    os.chdir(get_python_lib())
-    patch_file = os.path.join(
-        root_pwd, "test/python/tensorflow/tf_unittest_ngraph.patch")
+
+    # Go to the site-packages
+    os.chdir(glob.glob(venv_dir_absolute + "/lib/py*/site-packages")[0])
+    print("CURRENT DIR: " + os.getcwd())
+
+    patch_file = os.path.abspath(
+        os.path.join(root_pwd,
+                     "test/python/tensorflow/tf_unittest_ngraph.patch"))
+
     print("Patching TensorFlow using: %s" % patch_file)
     result = call(["patch", "-p1", "-N", "-i", patch_file])
     print("Patch result: %d" % result)
@@ -95,8 +102,8 @@ def main():
     print("NUM Cores: %s " % omp_flag)
     os.environ['OMP_NUM_THREADS'] = str(num_cores)
     if call([
-        "python", test_script, "--tensorflow_path",
-            tensorflow_src_dir, "--run_tests_from_file", test_manifest_file
+            "python", test_script, "--tensorflow_path", tensorflow_src_dir,
+            "--run_tests_from_file", test_manifest_file
     ]) != 0:
         raise Exception("Error running TensorFlow python tests")
 
