@@ -88,7 +88,8 @@ def load_venv(venv_dir):
         compile(
             open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
         dict(__file__=activate_this_file), dict(__file__=activate_this_file))
-
+        
+    return venv_dir
 
 def load_venv2(venv_dir):
     # Check if we are already inside the virtual environment
@@ -288,7 +289,6 @@ def install_tensorflow(venv_dir, artifacts_dir):
     os.chdir(pwd)
 
     return str(cxx_abi)
-
 
 def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags):
     pwd = os.getcwd()
