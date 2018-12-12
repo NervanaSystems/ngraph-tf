@@ -98,9 +98,9 @@ def main():
 
     import psutil
     num_cores = int(psutil.cpu_count(logical=False))
-    omp_flag = "OMP_NUM_THREADS=" + str(num_cores)
-    print("NUM Cores: %s " % omp_flag)
+    print("OMP_NUM_THREADS: %s " % str(num_cores))
     os.environ['OMP_NUM_THREADS'] = str(num_cores)
+
     if call([
             "python", test_script, "--tensorflow_path", tensorflow_src_dir,
             "--run_tests_from_file", test_manifest_file
