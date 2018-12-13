@@ -147,6 +147,10 @@ option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
 option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
 
+if(NGRAPH_DISTRIBUTED_ENABLE) 
+     add_definitions(-DNGRAPH_DISTRIBUTED)
+endif()
+
 # Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT DEFINED PlaidML_DIR)
@@ -237,6 +241,7 @@ if (NOT USE_PRE_BUILT_NGRAPH)
             -DNGRAPH_DEX_ONLY=TRUE         
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
+            -DNGRAPH_CPU_ENABLE=${NGRAPH_CPU_ENABLE}
             -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
             -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
             -DPlaidML_DIR=${PlaidML_DIR}

@@ -20,7 +20,6 @@
 #include "ngraph_version_utils.h"
 #include "tensorflow/core/graph/graph.h"
 using namespace std;
-
 namespace tensorflow {
 
 namespace ngraph_bridge {

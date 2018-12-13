@@ -278,7 +278,7 @@ class NGraphEncapsulateOp : public OpKernel {
           std::cerr << e.what() << endl;
         }
       }
-      op_backend->compile(ng_function);
+      //op_backend->compile(ng_function);
       m_ng_functions[signature] = ng_function;
     } else {
       ng_function = it->second;
@@ -459,6 +459,7 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
+        op_backend->compile(ng_function);
         op_backend->call(ng_function, ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
         OP_REQUIRES(ctx, false,

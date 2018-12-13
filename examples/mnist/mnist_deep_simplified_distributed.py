@@ -46,6 +46,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import argparse
 import sys
 import tempfile
@@ -252,7 +253,7 @@ def train_mnist_cnn(FLAGS):
                 test_accuracy.append(accuracy)
 
         print("Training finished. Running test")
-        saver.save(sess, FLAGS.model_dir)
+        #saver.save(sess, FLAGS.model_dir)
         return loss_values, test_accuracy
 
 
@@ -290,4 +291,5 @@ if __name__ == '__main__':
 
     FLAGS, unparsed = parser.parse_known_args()
     hvd.init()
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(hvd.local_rank())
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
