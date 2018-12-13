@@ -2589,16 +2589,9 @@ static Status helper(const Node* op,
   return Status::OK();
 }
 
-static Status TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp(
+static Status helper1(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  return Status::OK();
-}
-
-// TODO have the same "helper" for all 4 fused quantized translations
-static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
+    Builder::OpMap& ng_op_map, bool type) {
   shared_ptr<ng::Node> ng_input, ng_filter, ng_bias, ng_sum_input;
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
   TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
@@ -2657,12 +2650,20 @@ static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
   // constant nodes
   // Hence declaring them static, reading their values and converting to
   // constant nodes
-  std::shared_ptr<ng::Node> ng_quant_conv_bias =
-      ng::builder::ScaledQuantizedConvolutionBiasSignedAdd(
+  std::shared_ptr<ng::Node> ng_quant_conv_bias;
+  if (type){
+      ng_quant_conv_bias = ng::builder::ScaledQuantizedConvolutionBiasSignedAdd(
           ng_input, ng_filter, ng_bias, ng_sum_input, ng_strides, ng_dilations,
           ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
           static_inps[1], static_inps[2], static_inps[3], static_inps[4],
           static_inps[5], static_inps[6], static_inps[7], true);
+  } else {
+    ng_quant_conv_bias = ng::builder::ScaledQuantizedConvolutionBiasAdd(
+          ng_input, ng_filter, ng_bias, ng_sum_input, ng_strides, ng_dilations,
+          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
+          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
+          static_inps[5], static_inps[6], static_inps[7], true);
+  }
   BatchToTensorflow(is_nhwc, ng_quant_conv_bias);
   SaveNgOp(ng_op_map, op->name(), ng_quant_conv_bias);
   // Forward the min_freezed_output input to output min
@@ -2671,6 +2672,19 @@ static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
   // Forward the max_freezed_output input to output max
   SaveNgOp(ng_op_map, op->name(), static_inps[5]);
   return Status::OK();
+}
+
+static Status TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return helper1(op, static_input_map, ng_op_map, false);
+}
+
+// TODO have the same "helper" for all 4 fused quantized translations
+static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return helper1(op, static_input_map, ng_op_map, true);
 }
 
 static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
