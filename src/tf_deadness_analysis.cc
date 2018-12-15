@@ -404,6 +404,11 @@ Status DeadnessAnalysisImpl::GetNodePredicate(const Node& node,
       *pred = static_cast<AndPredicate*>(it->second);
     }
   }
+
+  // All outputs have the same predicate
+  if (pred != nullptr) {
+    pred_string = pred->ToString();
+  }
   return Status::OK();
 }
 

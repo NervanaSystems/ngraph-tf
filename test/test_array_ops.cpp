@@ -159,6 +159,75 @@ TEST(ArrayOps, Dequantizei8) {
   opexecuter.RunTest();
 }  // end of test op Dequantizei8
 
+// Dequantize tests for values tested in tf test
+// dequantize_op_test.DequantizeOpTest.testBasicQint8 with 'Scaled' mode
+TEST(ArrayOps, Dequantizei8TF1) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 3;
+
+  Tensor A(DT_QINT8, TensorShape({dim1}));
+  AssignInputValues<qint8>(A, {-128, 0, 127});
+
+  auto attrs = ops::Dequantize::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::Dequantize R = ops::Dequantize(root, A, -1.0f, 2.0f, attrs);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "Dequantize", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Dequantizei8TF1
+
+// The output values are close but do not pass the test
+TEST(ArrayOps, DISABLED_Dequantizei8TF2) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 3;
+
+  Tensor A(DT_QINT8, TensorShape({dim1}));
+  AssignInputValues<qint8>(A, {-2, 4, -17});
+
+  auto attrs = ops::Dequantize::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::Dequantize R = ops::Dequantize(root, A, -5.0f, -3.0f, attrs);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "Dequantize", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Dequantizei8TF2
+
+TEST(ArrayOps, Dequantizei8TF3) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 4;
+
+  Tensor A(DT_QINT8, TensorShape({dim1}));
+  AssignInputValues<qint8>(A, {0, -4, 42, -108});
+
+  auto attrs = ops::Dequantize::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::Dequantize R = ops::Dequantize(root, A, 5.0f, 40.0f, attrs);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "Dequantize", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Dequantizei8TF3
+
 // Test op: Dequantize
 // Dequantizes a tensor from u8 to float
 TEST(ArrayOps, Dequantizeu8) {
@@ -692,11 +761,11 @@ TEST(ArrayOps, StridedSliceTest1) {
   std::vector<int64> cend = {0, 2};
   std::vector<int64> cstride = {1, 1};
 
-  Tensor begin(DT_INT64, TensorShape({cstart.size()}));
+  Tensor begin(DT_INT64, TensorShape({static_cast<int>(cstart.size())}));
   AssignInputValues<int64>(begin, cstart);
-  Tensor end(DT_INT64, TensorShape({cend.size()}));
+  Tensor end(DT_INT64, TensorShape({static_cast<int>(cend.size())}));
   AssignInputValues<int64>(end, cend);
-  Tensor strides(DT_INT64, TensorShape({cstride.size()}));
+  Tensor strides(DT_INT64, TensorShape({static_cast<int>(cstride.size())}));
   AssignInputValues<int64>(strides, cstride);
 
   ops::StridedSlice::Attrs attrs;
@@ -883,11 +952,11 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
           std::iota(data_vect.begin(), data_vect.end(), 0.0f);
           AssignInputValues<float>(input_data, data_vect);
 
-          Tensor begin(DT_INT64, TensorShape({rank}));
+          Tensor begin(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(begin, cstart);
-          Tensor end(DT_INT64, TensorShape({rank}));
+          Tensor end(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(end, cend);
-          Tensor strides(DT_INT64, TensorShape({rank}));
+          Tensor strides(DT_INT64, TensorShape({static_cast<int>(rank)}));
           AssignInputValues<int64>(strides, cstride);
 
           auto R = ops::StridedSlice(root, input_data, begin, end, strides);
@@ -906,6 +975,70 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
   cout << "Ran a total of " << tot_num_tests_run << " tests\n";
 }  // end of test op Tile
 
+// Test SplitNegativeAxis op
+TEST(ArrayOps, SplitNegativeAxis) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 8, 1});
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
+  int64_t num_splits = 4;
+
+  vector<int> static_input_indexes = {0};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, -2);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::Split(root, axis, input_data, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2], R[3]};
+    OpExecuter opexecuter(root, "Split", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitNegativeAxis
+
+// Test SplitPositiveAxis op
+TEST(ArrayOps, SplitPositiveAxis) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 2, 1, 6});
+  // num_split : The number of ways to split. Must evenly divide
+  // value.shape[split_dim]
+  int64_t num_splits = 3;
+
+  vector<int> static_input_indexes = {0};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 3);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+
+    auto R = ops::Split(root, axis, input_data, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1], R[2]};
+    OpExecuter opexecuter(root, "Split", static_input_indexes, output_datatypes,
+                          sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitPositiveAxis
+
 // Test SplitVNegSizeSplit op
 TEST(ArrayOps, SplitVNegSizeSplit) {
   std::vector<std::vector<int64>> input_shapes;
@@ -915,7 +1048,7 @@ TEST(ArrayOps, SplitVNegSizeSplit) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -949,7 +1082,7 @@ TEST(ArrayOps, SplitVNegativeAxis) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -983,7 +1116,7 @@ TEST(ArrayOps, SplitVPositiveSizeSplits) {
   int64_t num_splits = 4;
 
   vector<int> static_input_indexes = {1, 2};
-  vector<DataType> output_datatypes = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
 
   // axis at which the dimension will be inserted
   // should be -rank <= axis < rank
@@ -1007,6 +1140,74 @@ TEST(ArrayOps, SplitVPositiveSizeSplits) {
     opexecuter.RunTest();
   }
 }  // end of op SplitVPositiveSizeSplits
+
+// Test SplitVZeroSizeSplit op
+TEST(ArrayOps, SplitVZeroSizeSplit) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 10});
+
+  std::vector<int64> size_splits = {10, 0};
+  int64_t num_splits = 2;
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 1);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    Tensor size_tensor(DT_INT64, TensorShape({2}));
+    AssignInputValues(size_tensor, size_splits);
+
+    auto R = ops::SplitV(root, input_data, size_tensor, axis, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1]};
+    OpExecuter opexecuter(root, "SplitV", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitVZeroSizeSplit
+
+// Test SplitVZeroSizeNegSplit op
+TEST(ArrayOps, SplitVZeroSizeNegSplit) {
+  std::vector<std::vector<int64>> input_shapes;
+  input_shapes.push_back({1, 10});
+
+  std::vector<int64> size_splits = {10, -1};
+  int64_t num_splits = 2;
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes(num_splits, DT_FLOAT);
+
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  Tensor axis(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(axis, 1);
+
+  for (auto const& shape : input_shapes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input_data, -10.0f, 10.0f);
+    Tensor size_tensor(DT_INT64, TensorShape({2}));
+    AssignInputValues(size_tensor, size_splits);
+
+    auto R = ops::SplitV(root, input_data, size_tensor, axis, num_splits);
+
+    std::vector<Output> sess_run_fetchoutputs = {R[0], R[1]};
+    OpExecuter opexecuter(root, "SplitV", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of op SplitVZeroSizeNegSplit
 
 // Test op: Tile, constructs a tensor by tiling a given tensor
 TEST(ArrayOps, Tile) {
@@ -1041,6 +1242,47 @@ TEST(ArrayOps, Tile) {
     opexecuter.RunTest();
   }
 }  // end of test op Tile
+
+// Test op: Transpose
+TEST(ArrayOps, Transpose) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+  int dim3 = 2;
+
+  Tensor A(DT_FLOAT, TensorShape({dim1, dim2, dim3}));
+  Tensor perm(DT_INT32, TensorShape({3}));
+  AssignInputValues(A, 7.5f);
+  AssignInputValues(perm, vector<int>{2, 1, 0});
+
+  vector<int> static_input_indexes = {1};
+  auto R = ops::Transpose(root, A, perm);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Transpose", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Transpose
+
+// Test op: Transpose With Constant input and empty permuation vector
+TEST(ArrayOps, TransposeConstant) {
+  Scope root = Scope::NewRootScope();
+
+  auto A = ops::Const(root, 12.0f);
+  auto perm = ops::Const(root, std::initializer_list<int>{});
+  auto R = ops::Transpose(root, A, perm);
+
+  vector<int> static_input_indexes = {1};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Transpose", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op Transpose
 
 // Unpacks the given dimension of a rank R tensor into a (R-1) tensor
 TEST(ArrayOps, Unpack) {

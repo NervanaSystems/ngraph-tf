@@ -18,25 +18,25 @@
 
 #include <fstream>
 
-#include "ngraph/ngraph.hpp"
-#include "ngraph_builder.h"
-#include "ngraph_utils.h"
-#include "test_utilities.h"
-#include "tf_graph_writer.h"
-
+#include "tensorflow/cc/client/client_session.h"
+#include "tensorflow/cc/ops/standard_ops.h"
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/graph_constructor.h"
 #include "tensorflow/core/platform/env.h"
-
-#include "tensorflow/cc/client/client_session.h"
-#include "tensorflow/cc/ops/standard_ops.h"
-#include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
+
+#include "ngraph/ngraph.hpp"
+#include "ngraph_backend_manager.h"
+#include "ngraph_builder.h"
+#include "ngraph_utils.h"
+#include "test_utilities.h"
+#include "tf_graph_writer.h"
 
 #include "ngraph/serializer.hpp"
 
@@ -85,7 +85,11 @@ class OpExecuter {
 
   // Executes on NGraph backend, then executes on TF, and compares the results
   // NOTE: Env Variable NGRAPH_TF_BACKEND if set, overrides ng_backend_name
-  void RunTest(const string& ng_backend_name = "CPU");
+  void RunTest(const string& ng_backend_name = "CPU",
+               float rtol = static_cast<float>(1e-05),
+               float atol = static_cast<float>(1e-08));
+  // If only want to set tolerance values and running using default backends
+  void RunTest(float rtol, float atol) { return RunTest("CPU", rtol, atol); };
 
   // TODO(malikshr) : Overload RunTest() to take in tolerance
 
