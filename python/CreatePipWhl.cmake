@@ -45,15 +45,18 @@ if (PYTHON)
     endif()
     message(STATUS "LIB_SUFFIX: ${NGTF_INSTALL_DIR}/${LIB_SUFFIX}")
     file(GLOB NGRAPH_LIB_FILES "${NGTF_INSTALL_DIR}/${LIB_SUFFIX}/lib*")
-    
+
     # Copy the ngraph_bridge libraries from install
     foreach(DEP_FILE ${NGRAPH_LIB_FILES})
         get_filename_component(lib_file_real_path ${DEP_FILE} ABSOLUTE)
         get_filename_component(lib_file_name ${DEP_FILE} NAME)
         set(ngraph_libraries "${ngraph_libraries}\"${lib_file_name}\",\n\t")
-        file(COPY ${lib_file_real_path} 
-            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge")        
-    endforeach()            
+        file(COPY ${lib_file_real_path}
+            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge")
+    endforeach()
+
+    # Get the list of license files
+    file(GLOB NGRAPH_TF_LICENSE_FILES "${NGTF_SRC_DIR}/third-party/licenses/*")
 
     if(NOT ${NGRAPH_INSTALL_TF_BRIDGE_ONLY})
 		    # Get the list of license files 
@@ -94,10 +97,10 @@ if (PYTHON)
     configure_file(${SETUP_PY_IN} ${SETUP_PY})
     configure_file(${INIT_PY_IN} ${INIT_PY})
     if (APPLE)
-        execute_process(COMMAND 
-            install_name_tool -change 
-            libngraph.dylib 
-            @loader_path/libngraph.dylib 
+        execute_process(COMMAND
+            install_name_tool -change
+            libngraph.dylib
+            @loader_path/libngraph.dylib
             ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libngraph_bridge.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
@@ -107,10 +110,10 @@ if (PYTHON)
             message(FATAL_ERROR "Cannot update @loader_path")
         endif()
 
-        execute_process(COMMAND 
-            install_name_tool -change 
-            libngraph.dylib 
-            @loader_path/libngraph.dylib 
+        execute_process(COMMAND
+            install_name_tool -change
+            libngraph.dylib
+            @loader_path/libngraph.dylib
             ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libcpu_backend.dylib
             RESULT_VARIABLE result
             ERROR_VARIABLE ERR
@@ -129,10 +132,10 @@ if (PYTHON)
 
         FOREACH(lib_file ${cpu_lib_list})
             message("Library: " ${lib_file})
-            execute_process(COMMAND 
-                install_name_tool -change 
-                @rpath/${lib_file} 
-                @loader_path/${lib_file} 
+            execute_process(COMMAND
+                install_name_tool -change
+                @rpath/${lib_file}
+                @loader_path/${lib_file}
                 ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libcpu_backend.dylib
                 RESULT_VARIABLE result
                 ERROR_VARIABLE ERR
@@ -191,5 +194,5 @@ if (PYTHON)
         COMMAND ${PYTHON} "setup.py" "bdist_wheel"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python/
     )
-    
+
 endif()

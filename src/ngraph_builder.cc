@@ -3695,9 +3695,10 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
-  if (in_rank == 0) {
+  if (begin_vec.size() > in_rank) {
     return errors::InvalidArgument("Index out of range using input dim ",
-                                   "; input has only ", in_rank, " dims");
+                                   begin_vec.size(), "; input has only ",
+                                   in_rank, " dims");
   }
 
   // TODO/Note/Question: Are begin, end and stride vectors are of equal length
@@ -4047,6 +4048,7 @@ const static std::map<
         {"FloorDiv", TranslateFloorDivOp},
         {"FloorMod", TranslateFloorModOp},
         {"FusedBatchNorm", TranslateFusedBatchNormOp},
+        {"FusedBatchNormV2", TranslateFusedBatchNormOp},
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
