@@ -2603,15 +2603,6 @@ static Status helper1(
     std::vector<float> tmp_vect;
     TF_RETURN_IF_ERROR(
         GetStaticInputVector(op, static_inps_idxs[i], static_input_map, &tmp_vect));
-    cout << i << " " << tmp_vect[0] << "\n";
-    // 0 0
-    // 1 1.44268
-    // 2 -0.855151
-    // 3 0.84847
-    // 4 0
-    // 5 3.21348
-    // 6 -3.28676
-    // 7 3.26523
     if (tmp_vect.size() != 1) {
       return errors::InvalidArgument(
           ("QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",

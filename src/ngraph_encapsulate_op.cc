@@ -459,12 +459,8 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
-        cout << "XXXX1\n";
-        auto tmp = op_backend->compile(ng_function);
-        cout << "XXXX2 compile done\n";
-        op_backend->call(tmp, ng_outputs,
+        op_backend->call(op_backend->compile(ng_function), ng_outputs,
                          ng_inputs);
-        cout << "XXXX3 call done\n";
       } catch (const std::exception& exp) {
         OP_REQUIRES(ctx, false,
                     errors::Internal(
