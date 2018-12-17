@@ -2637,6 +2637,7 @@ static Status helper1(
   BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
   BatchToNGraph(is_nhwc, ng_input);
+  BatchToNGraph(is_nhwc, ng_sum_input);
   auto& ng_filter_shape = ng_filter->get_shape();
   ng_kernel_shape[0] = ng_filter_shape[0];
   ng_kernel_shape[1] = ng_filter_shape[1];
