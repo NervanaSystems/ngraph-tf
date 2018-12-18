@@ -479,8 +479,13 @@ def test_single_node_graph(node_name, inp_tensors_feeddict):
     for t1, t2, tname in zip(outvals, outvals_tf, tensornames):
         print(tname, np.linalg.norm(t1.astype('float') - t2.astype('float')))
         print(tname, t1.shape)
-    pdb.set_trace()
-    print('hello')
+    diff = outvals[0].astype(int) - outvals_tf[0].astype(int)
+    print("Max diff val: ", np.max(diff))
+    print('Number of non-zero elements in diff: ', np.sum(diff!=0))
+    print('Number of zero elements in diff: ', np.sum(diff==0))
+    hist = {i:np.sum(diff==i) for i in np.unique(diff)}
+    print(' '.join([str(i) + ':' + str(hist[i]) for i in sorted(hist.keys(), key=lambda x : abs(x))]))
+    print('Ending test')
 
 def test_resnet_newoponly_conv4():
     bs = 1
