@@ -15,6 +15,8 @@
 #  limitations under the License.
 # ==============================================================================
 import argparse
+from argparse import RawTextHelpFormatter
+
 import errno
 import os
 from subprocess import check_output, call
@@ -162,7 +164,7 @@ def setup_venv(venv_dir):
     call(["pip", "list"])
 
 
-def build_tensorflow(venv_dir, src_dir, artifacts_dir):
+def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch):
 
     base = sys.prefix
     python_lib_path = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
@@ -198,7 +200,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
     os.environ["TF_NEED_CUDA"] = "0"
     os.environ["TF_DOWNLOAD_CLANG"] = "0"
     os.environ["TF_SET_ANDROID_WORKSPACE"] = "0"
-    os.environ["CC_OPT_FLAGS"] = "-march=native"
+    os.environ["CC_OPT_FLAGS"] = "-march=" + target_arch
 
     call([
         "./configure",
@@ -384,7 +386,8 @@ def main():
     '''
     Builds TensorFlow, ngraph, and ngraph-tf for python 3
     '''
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
+    subparsers = parser.add_subparsers(dest='use_prebuilts', help='Available pre-built options')
 
     parser.add_argument(
         '--debug_build',
@@ -392,9 +395,22 @@ def main():
         action="store_true")
 
     parser.add_argument(
-        '--skip_tf_build',
-        help="Don't build TensorFlow - use existing one\n",
-        action="store_true")
+        '--artifacts_dir',
+        help="Location where nGraph and TensorFlow binaries are found.\n" + 
+            "The following directory structure is assumed:\n" + 
+            "build\n" + 
+            "  |\n" + 
+            "   -- artifacts\n" + 
+            "  |   |\n" + 
+            "  |   |-- bin (contains binaries from nGraph build)\n" + 
+            "  |   |-- include (contains include files from nGraph build)\n" + 
+            "  |   |-- lib (contains library files from nGraph build)\n" + 
+            "  |   |-- . . . \n" + 
+            "  |   |-- venv-tf-py3 (Virtualenv directory to be used)\n" + 
+            "  |   |-- tensorflow (contains tf whl and tf_cc lib)\n" + 
+            "  |\n" +
+            "  |-- tensorflow (contains tf source)\n",
+        )
 
     arguments = parser.parse_args()
 
@@ -405,9 +421,20 @@ def main():
     # Recipe
     #-------------------------------
 
-    # Create the build directory
-    # mkdir build directory
+    # Component versions
+    ngraph_version = "v0.11.0"
+    tf_version = "v1.12.0"
+
+    # Default directories
     build_dir = 'build'
+
+    # Override the pre-built location is specified
+    use_pre_builts = False
+    if (arguments.artifacts_dir):
+        print("Using prebuilt artifacts from: %s" % arguments.artifacts_dir )
+        build_dir = arguments.artifacts_dir
+        use_pre_builts = True
+
     try:
         os.makedirs(build_dir)
     except OSError as exc:  # Python >2.5
@@ -417,71 +444,75 @@ def main():
     pwd = os.getcwd()
     os.chdir(build_dir)
 
-    # Component versions
-    ngraph_version = "v0.11.0"
-    tf_version = "v1.12.0"
     venv_dir = 'venv-tf-py3'
     artifacts_location = 'artifacts'
 
-    #install virtualenv
-    install_virtual_env(venv_dir)
+    if not use_pre_builts:
+        #install virtualenv
+        install_virtual_env(venv_dir)
 
     # Load the virtual env
     load_venv(venv_dir)
 
-    # Setup the virtual env
-    setup_venv(venv_dir)
+    if not use_pre_builts:
+        # Setup the virtual env
+        setup_venv(venv_dir)
 
-    if (not arguments.skip_tf_build):
+    target_arch = 'native'
+    if (platform.system() != 'Darwin'):
+        target_arch = 'core-avx2'
+
+    if not use_pre_builts:
         # Download TensorFlow
         download_repo("tensorflow",
                       "https://github.com/tensorflow/tensorflow.git",
                       tf_version)
 
         # Build TensorFlow
-        build_tensorflow(venv_dir, "tensorflow", artifacts_location)
+        build_tensorflow(venv_dir, "tensorflow", artifacts_location, target_arch)
     else:
         print("Skipping the TensorFlow build")
 
     # Install tensorflow
     cxx_abi = install_tensorflow(venv_dir, artifacts_location)
 
-    # Download nGraph
-    download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
-                  ngraph_version)
+    if not use_pre_builts:
+        # Download nGraph
+        download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
+                    ngraph_version)
 
-    # Now build nGraph
-    artifacts_location = os.path.abspath(artifacts_location)
-    print("ARTIFACTS location: " + artifacts_location)
+        # Now build nGraph
+        artifacts_location = os.path.abspath(artifacts_location)
+        print("ARTIFACTS location: " + artifacts_location)
 
-    ngraph_cmake_flags = [
-        "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
-        "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE",
-        "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
-        "-DNGRAPH_UNIT_TEST_ENABLE=NO",
-        "-DNGRAPH_DEX_ONLY=TRUE",
-        "-DNGRAPH_GPU_ENABLE=NO",
-        "-DNGRAPH_PLAIDML_ENABLE=NO",
-        "-DNGRAPH_DEBUG_ENABLE=NO",
-        "-DNGRAPH_TARGET_ARCH=native",
-        "-DNGRAPH_TUNE_ARCH=native",
-    ]
-    if (platform.system() != 'Darwin'):
-        ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=YES"])
-    else:
-        ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=NO"])
+        ngraph_cmake_flags = [
+            "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
+            "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE",
+            "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
+            "-DNGRAPH_UNIT_TEST_ENABLE=NO",
+            "-DNGRAPH_DEX_ONLY=TRUE",
+            "-DNGRAPH_GPU_ENABLE=NO",
+            "-DNGRAPH_PLAIDML_ENABLE=NO",
+            "-DNGRAPH_DEBUG_ENABLE=NO",
+            "-DNGRAPH_TARGET_ARCH=" + target_arch,
+            "-DNGRAPH_TUNE_ARCH=" + target_arch,
+        ]
+        if (platform.system() != 'Darwin'):
+            ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=YES"])
+        else:
+            ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=NO"])
 
-    if (arguments.debug_build):
-        ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
+        if (arguments.debug_build):
+            ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-    build_ngraph("./ngraph", ngraph_cmake_flags)
+        build_ngraph("./ngraph", ngraph_cmake_flags)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
 
     ngraph_tf_cmake_flags = [
-        "-DUSE_PRE_BUILT_NGRAPH=ON", "-DNGRAPH_TARGET_ARCH=native",
-        "-DNGRAPH_TUNE_ARCH=native",
+        "-DUSE_PRE_BUILT_NGRAPH=ON", "-DNGRAPH_TARGET_ARCH=" + target_arch,
+        "-DNGRAPH_TUNE_ARCH=" + target_arch,
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON",
         "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
