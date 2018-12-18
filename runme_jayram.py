@@ -253,7 +253,7 @@ def load_file(graph_file):
     return graphdef
 
 def test_resnet():  #quantize.
-    graphdef = load_file('/localdisk/sarkars/workspace1/cpu_quant/final_int8_resnet50.pb')
+    graphdef = load_file('/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_resnet50.pb')
     '''
     for node in graphdef.node:
         print(node.name)
@@ -460,7 +460,7 @@ def test_resnet_quackbarkonly():
 
 def test_single_node_graph(node_name, inp_tensors_feeddict):
     ngraph_bridge.enable()
-    graphdef = load_file('/localdisk/sarkars/workspace1/cpu_quant/final_int8_resnet50.pb')
+    graphdef = load_file('/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_resnet50.pb')
     tensornames = [node_name]
     bs = 1
     with tf.Session() as sess:
