@@ -1725,6 +1725,8 @@ static Status TranslateFusedBatchNormOp(
     ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
     ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
     // This is for Bessel's correction in ng_variance:
+
+// <<<<<<< HEAD
     int ng_input_size = ng::shape_size(ng_input->get_shape());
     int num_channels = ng::shape_size(ng_variance->get_shape());
     int sample_size = ng_input_size / num_channels;
@@ -1735,6 +1737,33 @@ static Status TranslateFusedBatchNormOp(
         ng_variance->get_element_type(), ng_variance->get_shape(),
         Bessel_factor);
     auto variance = ng_variance * Bessel_scale;
+// =======
+/*
+    size_t ng_input_size = 1.0;
+    size_t ng_scale_size = 1.0;
+    for (size_t i = 0; i < ng_input->get_shape().size(); i++) {
+      ng_input_size *= ng_input->get_shape()[i];
+    }
+    for (size_t i = 0; i < ng_scale->get_shape().size(); i++) {
+      ng_scale_size *= ng_scale->get_shape()[i];
+    }
+    size_t sample_size = ng_input_size / ng_scale_size;
+    size_t sample_size_minus_one =
+        sample_size > 1.0 ? (sample_size - 1.0) : 1.0;
+    std::vector<size_t> sample_values(ng::shape_size(ng_variance->get_shape()),
+                                      sample_size);
+    auto sample = std::make_shared<ng::op::Constant>(
+        ng_variance->get_element_type(), ng_variance->get_shape(),
+        sample_values);
+    std::vector<size_t> minus_values(ng::shape_size(ng_variance->get_shape()),
+                                     sample_size_minus_one);
+    auto minus_one = std::make_shared<ng::op::Constant>(
+        ng_variance->get_element_type(), ng_variance->get_shape(),
+        minus_values);
+    auto Bess_scale = sample / minus_one;
+    auto variance = ng_variance * Bess_scale;
+*/
+//  >>>>>>> langjian/distributed_json
 
     BatchToTensorflow(is_nhwc, ng_y);
 
@@ -1754,7 +1783,6 @@ static Status TranslateFusedBatchNormOp(
     BatchToTensorflow(is_nhwc, ng_batch_norm);
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
-
   return Status::OK();
 }
 
