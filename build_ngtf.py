@@ -346,7 +346,7 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "90aa7336dfbf21d3ecab1b50aa8676c2fe1bd75d"
+    ngraph_version = "nishant_bias_reorder_fix"
     tf_version = "int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
