@@ -44,7 +44,7 @@ def get_whole_dataset(mnist_dir):
 def read_graphdef(graph_file=None):
     graphdef = graph_pb2.GraphDef()
     if graph_file is None:
-        graph_file="/nfs/site/home/jbobba/final_int8_mnist.pbtxt"
+        graph_file="/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_mnist.pbtxt"
         #graph_file = "final_int8_mnist_dequant_scaled.pbtxt"
     f = open(graph_file, "r")
     text_format.Merge(f.read(), graphdef)
@@ -531,16 +531,56 @@ def test_resnet_quackbarknoreluonly_conv1():
     "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": 2
     })
 
+
+def unittest_signedsum():
+    def _helper():
+        from tensorflow.python.ops import nn_ops
+        N = 1
+        C = 1
+        H = 3
+        W = 4
+        O = 1
+        I = C
+        FH = 3
+        FW = 3
+        input = tf.constant(np.array([1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4]).reshape([N, H, W, C]), dtype=tf.quint8, name='input')
+        filter = tf.constant(np.array([1, 2, 3, 4, 5, 0, 0, 1, 2]).reshape([FH, FW, I, O]), dtype=tf.qint8, name='filter')
+        bias = tf.constant(np.array([5]), dtype=tf.qint32, name='bias')
+        min_input = 0.0
+        max_input = 255.0
+        min_filter = -127.0
+        max_filter = 127.0
+        min_freezed_output = 22.0
+        max_freezed_output = 90.0
+        summand = tf.constant(np.array([-1, -2, -3, -4, -5, -6, -10, 0, 1, 2, 3, 4]).reshape([N, H, W, C]), dtype=tf.qint8, name='sum')
+        min_summand = 22.0
+        max_summand = 90.0
+        strides = [1,1,1,1]
+        padding = "SAME"
+        #pdb.set_trace()
+        qop = nn_ops.quantized_conv2d_with_bias_signed_sum_and_relu_and_requantize(input, filter, bias, min_input, max_input, min_filter, max_filter, min_freezed_output, max_freezed_output, summand, min_summand, max_summand, strides, padding, out_type=tf.quint8, dilations=[1, 1, 1, 1], name='qop')
+        result = tf.Session().run([qop, input, filter, bias, summand])
+        for name, val in zip(['qop', 'input', 'filter', 'bias', 'summand'], result):
+            print(name, ":", val)
+
+    ngraph_bridge.disable()
+    print("Raw TF result")
+    _helper()
+    #print("NGTF result")
+    #ngraph_bridge.enable()
+    #_helper()
+
 #test1()
 #test_acc()
 
 #test_resnet()
 
-test_resnet_newoponly_conv4()
-test_resnet_newunsignedoponly_conv7()
-test_resnet_quackbarkonly_conv2()
-test_resnet_quackbarknoreluonly_conv1()
+#test_resnet_newoponly_conv4()
+#test_resnet_newunsignedoponly_conv7()
+#test_resnet_quackbarkonly_conv2()
+#test_resnet_quackbarknoreluonly_conv1()
 
+unittest_signedsum()
 '''
 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_PASS_ENABLES="ConstantFolding:1" NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1  python runme_jayram.py
 '''
