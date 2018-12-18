@@ -459,6 +459,7 @@ def test_resnet_quackbarkonly():
 '''
 
 def test_single_node_graph(node_name, inp_tensors_feeddict):
+    ngraph_bridge.enable()
     graphdef = load_file('/localdisk/sarkars/workspace1/cpu_quant/final_int8_resnet50.pb')
     tensornames = [node_name]
     bs = 1
