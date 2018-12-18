@@ -395,8 +395,8 @@ def main():
         action="store_true")
 
     parser.add_argument(
-        '--artifacts_dir',
-        help="Location where nGraph and TensorFlow binaries are found.\n" + 
+        '--use_prebuilt_binaries',
+        help="Skip building nGraph and TensorFlow. Rather use \"build\" directory.\n" + 
             "The following directory structure is assumed:\n" + 
             "build\n" + 
             "  |\n" + 
@@ -406,10 +406,11 @@ def main():
             "  |   |-- include (contains include files from nGraph build)\n" + 
             "  |   |-- lib (contains library files from nGraph build)\n" + 
             "  |   |-- . . . \n" + 
-            "  |   |-- venv-tf-py3 (Virtualenv directory to be used)\n" + 
             "  |   |-- tensorflow (contains tf whl and tf_cc lib)\n" + 
             "  |\n" +
-            "  |-- tensorflow (contains tf source)\n",
+            "  |-- tensorflow (contains tf source)\n" +
+            "  |-- venv-tf-py3 (Virtualenv directory to be used)\n",
+        action="store_true"
         )
 
     arguments = parser.parse_args()
@@ -429,11 +430,10 @@ def main():
     build_dir = 'build'
 
     # Override the pre-built location is specified
-    use_pre_builts = False
-    if (arguments.artifacts_dir):
-        print("Using prebuilt artifacts from: %s" % arguments.artifacts_dir )
-        build_dir = arguments.artifacts_dir
-        use_pre_builts = True
+    use_prebuilt_binaries = False
+    if (arguments.use_prebuilt_binaries):
+        print("Using prebuilt artifacts.")
+        use_prebuilt_binaries = True
 
     try:
         os.makedirs(build_dir)
@@ -447,14 +447,14 @@ def main():
     venv_dir = 'venv-tf-py3'
     artifacts_location = 'artifacts'
 
-    if not use_pre_builts:
+    if not use_prebuilt_binaries:
         #install virtualenv
         install_virtual_env(venv_dir)
 
     # Load the virtual env
     load_venv(venv_dir)
 
-    if not use_pre_builts:
+    if not use_prebuilt_binaries:
         # Setup the virtual env
         setup_venv(venv_dir)
 
@@ -462,7 +462,7 @@ def main():
     if (platform.system() != 'Darwin'):
         target_arch = 'core-avx2'
 
-    if not use_pre_builts:
+    if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
                       "https://github.com/tensorflow/tensorflow.git",
@@ -476,7 +476,7 @@ def main():
     # Install tensorflow
     cxx_abi = install_tensorflow(venv_dir, artifacts_location)
 
-    if not use_pre_builts:
+    if not use_prebuilt_binaries:
         # Download nGraph
         download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
                     ngraph_version)

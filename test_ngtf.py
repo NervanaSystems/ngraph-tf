@@ -110,6 +110,54 @@ def main():
 
     os.chdir(root_pwd)
 
+    # Go to the build directory
+    import subprocess
+
+    os.chdir(build_dir)
+
+    call(['git', 'clone', 'https://github.com/tensorflow/benchmarks.git'])
+
+    os.chdir('benchmarks/scripts/tf_cnn_benchmarks/')
+
+    call(['git', 'checkout', '4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed'])
+
+    # Update the script by adding `import ngaph_bridge`
+    with open('convnet_builder.py', 'a') as outfile:
+        subprocess.call(['echo', 'import ngraph_bridge'], stdout=outfile)
+
+    # Setup the env flags
+    os.environ["KMP_AFFINITY"] = 'granularity=fine,compact,1,0'
+
+    # Delete the temporary model save directory
+    model_save_dir = os.getcwd() + '/modelsavepath'
+    shutil.rmtree(model_save_dir)
+
+    # Run training job
+    cmd = [
+        'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        '--num_batches', '10',
+        '--model=resnet50', '--batch_size=128'
+    ]
+
+    print('Running command')
+    print(cmd)
+    call(cmd)
+
+    # Run inference job
+    cmd = [
+        'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1',
+        '--train_dir=' + model_save_dir, '--model=resnet50',
+        '--batch_size=128', '--num_batches', '10', '--eval'
+    ]
+
+    print('Running command')
+    print(cmd)
+    call(cmd)
+
+    os.chdir(root_pwd)
+
 
 if __name__ == '__main__':
     main()
