@@ -229,7 +229,12 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
       confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
-      confirmation_function_map["Dequantize"] = SimpleConfirmationFunction();
+      confirmation_function_map["Dequantize"] = [](Node* n, bool* result) {
+        string mode;
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "mode", &mode));
+        *result = (mode.compare("SCALED") == 0);
+        return Status::OK();
+      };
       confirmation_function_map["Equal"] = SimpleConfirmationFunction();
       confirmation_function_map["Exp"] = SimpleConfirmationFunction();
       confirmation_function_map["ExpandDims"] = SimpleConfirmationFunction();
@@ -238,6 +243,8 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["FloorDiv"] = SimpleConfirmationFunction();
       confirmation_function_map["FloorMod"] = SimpleConfirmationFunction();
       confirmation_function_map["FusedBatchNorm"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["FusedBatchNormV2"] =
           SimpleConfirmationFunction();
       confirmation_function_map["FusedBatchNormGrad"] = [](Node* n,
                                                            bool* result) {
@@ -373,6 +380,9 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["FloorDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["FloorMod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["FusedBatchNorm"]["T"] = NGraphNumericDTypes();
+      // TODO (mingshan): FusedBatchNormV2 supports DT_HALF,DT_BFLOAT16,
+      // DT_FLOAT
+      type_constraint_map["FusedBatchNormV2"]["T"] = {DT_FLOAT};
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
@@ -416,6 +426,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["QuantizedMaxPool"]["T"] =
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["Rank"]["T"] = NGraphNumericDTypes();
       type_constraint_map["RealDiv"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Reciprocal"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Relu"]["T"] = NGraphNumericDTypes();
