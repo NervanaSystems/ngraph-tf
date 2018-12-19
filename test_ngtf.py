@@ -130,7 +130,8 @@ def main():
 
     # Delete the temporary model save directory
     model_save_dir = os.getcwd() + '/modelsavepath'
-    shutil.rmtree(model_save_dir)
+    if os.path.exists(model_save_dir) and os.path.isdir(model_save_dir):
+        shutil.rmtree(model_save_dir)
 
     # Run training job
     cmd = [
