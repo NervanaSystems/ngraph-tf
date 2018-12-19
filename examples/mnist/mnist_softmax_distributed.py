@@ -76,7 +76,9 @@ def run_mnist(_):
   train_step = opt.minimize(cross_entropy, global_step=global_step)
 
   # The StopAtStepHook handles stopping after running given steps. 
-  hooks=[tf.train.StopAtStepHook(last_step=10)]
+  hooks=[
+    hvd.BroadcastGlobalVariablesHook(0),
+    tf.train.StopAtStepHook(last_step=10)]
 
   # Test trained model
   correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1)) 
@@ -91,7 +93,7 @@ def run_mnist(_):
   #config.graph_options.optimizer_options.global_jit_level = jit_level
   run_metadata = tf.RunMetadata()
 
-  init_op = tf.global_variables_initializer()
+  #init_op = tf.global_variables_initializer()
   print("Variables initialized ...")
 
   # The MonitoredTrainingSession takes care of session initialization
@@ -105,9 +107,9 @@ def run_mnist(_):
       mon_sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
       
       # Test trained model
-      if not mon_sess.should_stop():
-        print("Accuracy: ", mon_sess.run(accuracy, feed_dict={x: mnist.test.images,
-                                            y_: mnist.test.labels}))
+#      if not mon_sess.should_stop():
+#        print("Accuracy: ", mon_sess.run(accuracy, feed_dict={x: mnist.test.images,
+#                                            y_: mnist.test.labels}))
 
     end = time.time()
 
