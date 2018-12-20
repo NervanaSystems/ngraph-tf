@@ -26,7 +26,7 @@ import glob
 import platform
 
 
-def build_ngraph(src_location, cmake_flags):
+def build_ngraph(src_location, cmake_flags, verbose):
     pwd = os.getcwd()
 
     src_location = os.path.abspath(src_location)
@@ -54,9 +54,13 @@ def build_ngraph(src_location, cmake_flags):
     if (result != 0):
         raise Exception("Error running command: " + str(cmake_cmd))
 
-    result = call(["make", "-j", "install"])
+    cmd = ["make", "-j", "install"]
+    if verbose:
+        cmd.extend(['VERBOSE=1'])
+
+    result = call(cmd)
     if (result != 0):
-        raise Exception("Error running command: make -j install")
+        raise Exception("Error running command: " + str(cmd))
     os.chdir(pwd)
 
 
@@ -164,7 +168,7 @@ def setup_venv(venv_dir):
     call(["pip", "list"])
 
 
-def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch):
+def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
 
     base = sys.prefix
     python_lib_path = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
@@ -213,6 +217,9 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch):
         "--config=opt",
         "//tensorflow/tools/pip_package:build_pip_package",
     ]
+    if verbosity:
+        cmd.extend(['-s'])
+
     print("Running CMD: " + str(cmd))
     result = call(cmd)
     if (result != 0):
@@ -223,6 +230,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch):
         "bazel-bin/tensorflow/tools/pip_package/build_pip_package",
         artifacts_dir
     ])
+
     if (result != 0):
         raise Exception("Error running command: build_pip_package: " + artifacts_dir)
 
@@ -292,7 +300,7 @@ def install_tensorflow(venv_dir, artifacts_dir):
 
     return str(cxx_abi)
 
-def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags):
+def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, verbose):
     pwd = os.getcwd()
 
     # Load the virtual env
@@ -325,8 +333,12 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags):
     if (call(cmake_cmd) != 0):
         raise Exception("Error running cmake command: " + str(cmake_cmd))
 
-    if (call(["make", "-j", "install"]) != 0):
-        raise Exception("Error running make command ")
+    make_cmd = ["make", "-j", "install"]
+    if verbose:
+        make_cmd.extend(['VERBOSE=1'])
+
+    if (call(make_cmd) != 0):
+        raise Exception("Error running make command: " + str(make_cmd)) 
 
     os.chdir(os.path.join("python", "dist"))
     ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
@@ -395,6 +407,11 @@ def main():
         action="store_true")
 
     parser.add_argument(
+        '--verbose_build',
+        help="Display verbose error messages\n",
+        action="store_true")
+
+    parser.add_argument(
         '--use_prebuilt_binaries',
         help="Skip building nGraph and TensorFlow. Rather use \"build\" directory.\n" + 
             "The following directory structure is assumed:\n" + 
@@ -417,6 +434,11 @@ def main():
 
     if (arguments.debug_build):
         print("Building in DEBUG mode\n")
+
+    verbosity = False
+    if (arguments.verbose_build):
+        print("Building in with VERBOSE output messages\n")
+        verbosity = True
 
     #-------------------------------
     # Recipe
@@ -458,9 +480,9 @@ def main():
         # Setup the virtual env
         setup_venv(venv_dir)
 
-    target_arch = 'native'
-    if (platform.system() != 'Darwin'):
-        target_arch = 'core-avx2'
+    #target_arch = 'native'
+    #if (platform.system() != 'Darwin'):
+    target_arch = 'core-avx2'
 
     if not use_prebuilt_binaries:
         # Download TensorFlow
@@ -469,7 +491,7 @@ def main():
                       tf_version)
 
         # Build TensorFlow
-        build_tensorflow(venv_dir, "tensorflow", artifacts_location, target_arch)
+        build_tensorflow(venv_dir, "tensorflow", artifacts_location, target_arch, verbosity)
     else:
         print("Skipping the TensorFlow build")
 
@@ -505,7 +527,7 @@ def main():
         if (arguments.debug_build):
             ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-        build_ngraph("./ngraph", ngraph_cmake_flags)
+        build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
@@ -523,7 +545,7 @@ def main():
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
-                                ngraph_tf_cmake_flags)
+                                ngraph_tf_cmake_flags, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
 
