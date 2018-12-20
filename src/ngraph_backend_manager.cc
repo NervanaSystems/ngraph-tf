@@ -44,16 +44,24 @@ Status BackendManager::SetBackendName(const string& backend_name) {
 }
 
 void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name) {
+
+  NGRAPH_VLOG(5)<< "sandeep :: begin of CreateBackendIfDoesNotExist "<< backend_name;
   std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_);
   auto itr = BackendManager::ng_backend_map_.find(backend_name);
   // if backend does not exist create it
   if (itr == BackendManager::ng_backend_map_.end()) {
+    NGRAPH_VLOG(5)<< "sandeep :: begin create backend of CreateBackendIfDoesNotExist ";
     Backend* bend = new Backend;
+    NGRAPH_VLOG(5)<< "sandeep :: begin create backend New Backend success full of CreateBackendIfDoesNotExist ";
     std::unique_ptr<ng::runtime::Backend> bend_ptr =
         ng::runtime::Backend::create(backend_name);
+    NGRAPH_VLOG(5)<< "sandeep :: end create backend of CreateBackendIfDoesNotExist " << backend_name ;
     bend->backend_ptr = std::move(bend_ptr);
+    NGRAPH_VLOG(5)<< "sandeep :: move backend_ptr successful of CreateBackendIfDoesNotExist ";
     BackendManager::ng_backend_map_[backend_name] = bend;
+    NGRAPH_VLOG(5)<< "sandeep :: ng_backend_map_ updated  CreateBackendIfDoesNotExist ";
   }
+  NGRAPH_VLOG(5)<< "sandeep :: end of CreateBackendIfDoesNotExist ";
 }
 
 // Returns a backend pointer of the type specified by the backend name

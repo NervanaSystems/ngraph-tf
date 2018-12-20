@@ -128,10 +128,14 @@ class NGraphEncapsulateOp : public OpKernel {
       m_input_is_static[index] = is_static;
     }
 
+    NGRAPH_VLOG(5)<< "sandeep :: test ";
+
     // Set the backend type for the op
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
     BackendManager::CreateBackendIfDoesNotExist(m_op_backend_name);
+
+    NGRAPH_VLOG(5)<< "sandeep :: end of NGraphEncapsulateOp ";
   }
 
   ~NGraphEncapsulateOp() override {
