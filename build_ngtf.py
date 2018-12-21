@@ -456,7 +456,7 @@ def main():
 
     ngraph_cmake_flags = [
         "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
-        "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE",
+        "-DNGRAPH_DISTRIBUTED_ENABLE=TRUE",
         "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
         "-DNGRAPH_UNIT_TEST_ENABLE=NO",
         "-DNGRAPH_DEX_ONLY=TRUE",
@@ -484,6 +484,7 @@ def main():
         "-DNGRAPH_TUNE_ARCH=native",
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON",
+        "-DNGRAPH_DISTRIBUTED_ENABLE=TRUE",
         "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
             artifacts_location, "tensorflow")
     ]
