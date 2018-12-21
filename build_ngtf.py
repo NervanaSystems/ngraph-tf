@@ -25,7 +25,6 @@ import shutil
 import glob
 import platform
 
-
 def build_ngraph(src_location, cmake_flags, verbose):
     pwd = os.getcwd()
 
@@ -49,14 +48,22 @@ def build_ngraph(src_location, cmake_flags, verbose):
     cmake_cmd.extend(cmake_flags)
     cmake_cmd.extend([src_location])
 
-    print("nGraph CMAKE flags: %s" % cmake_cmd)
+    print('Running cmake command')
+    print(' '.join(cmake_cmd))
+
+    print("nGraph CMAKE flags: %s" % ' '.join(cmake_cmd))
     result = call(cmake_cmd)
     if (result != 0):
         raise Exception("Error running command: " + str(cmake_cmd))
 
-    cmd = ["make", "-j", "install"]
+    import psutil
+    num_cores = str(psutil.cpu_count(logical=True))
+    cmd = ["make", "-j"+num_cores, "install"]
     if verbose:
         cmd.extend(['VERBOSE=1'])
+
+    print('Running make command')
+    print(' '.join(cmd))
 
     result = call(cmd)
     if (result != 0):
@@ -151,6 +158,7 @@ def setup_venv(venv_dir):
         "-U",
         "pip",
         "setuptools",
+        "psutil",
         "six",
         "numpy",
         "wheel",
@@ -220,7 +228,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     if verbosity:
         cmd.extend(['-s'])
 
-    print("Running CMD: " + str(cmd))
+    print("Running command: " + ' '.join(cmd))
     result = call(cmd)
     if (result != 0):
         raise Exception("Error running command: " + str(cmd))
@@ -243,7 +251,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
         "bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
     ]
 
-    print("Running CMD: " + str(cmd))
+    print("Running command: " + ' '.join(cmd))
     result = call(cmd)
     if (result != 0):
         raise Exception("Error running command: " + str(cmd))
@@ -333,9 +341,14 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     if (call(cmake_cmd) != 0):
         raise Exception("Error running cmake command: " + str(cmake_cmd))
 
-    make_cmd = ["make", "-j", "install"]
+    import psutil
+    num_cores = str(psutil.cpu_count(logical=True))
+    make_cmd = ["make", "-j"+num_cores, "install"]
     if verbose:
         make_cmd.extend(['VERBOSE=1'])
+
+    print('Running make command')
+    print(' '.join(make_cmd))
 
     if (call(make_cmd) != 0):
         raise Exception("Error running make command: " + str(make_cmd)) 
