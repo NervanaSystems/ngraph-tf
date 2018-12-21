@@ -164,7 +164,7 @@ def run_resnet50(build_dir):
     ]
 
     print('Running command')
-    print(cmd)
+    print(' '.join(cmd))
     call(cmd)
 
 
