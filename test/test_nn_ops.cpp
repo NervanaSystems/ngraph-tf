@@ -912,47 +912,42 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
   }
 }  // end of op Conv2DBackpropInputNHWCWithDilation
 
-// FusedBatchNormV2 op test with only DT_FLOAT datatype
-TEST(NNOps, FusedBatchNormV2NHWCInference) {
-  Scope root = Scope::NewRootScope();
+// Conv3D Op Tests
 
-  // 4D tensor for input data
-  Tensor x(DT_FLOAT, TensorShape({10, 128, 128, 3}));
-  // 1D tensor for scaling the normalized x
-  Tensor scale(DT_FLOAT, TensorShape({3}));
-  // 1D tensor for offset, to shift to the normalized x
-  Tensor offset(DT_FLOAT, TensorShape({3}));
-  // 1D tensor for population mean
-  // used for inference only, must be empty for training
-  Tensor mean(DT_FLOAT, TensorShape({3}));
-  // 1D tensor for population variance
-  // used for inference only, must be empty for training
-  Tensor variance(DT_FLOAT, TensorShape({3}));
+TEST(NNOps, Conv3DNDHWC) {
+  vector<int64> input_size_NDHWC = {1, 5, 6, 7, 10};
+  Tensor input_data_NDHWC(DT_FLOAT, TensorShape(input_size_NDHWC));
+  AssignInputValuesRandom<float>(input_data_NDHWC, -15.0f, 15.0f);
 
-  AssignInputValuesRandom<float>(x, -30.0f, 50.0f);
-  AssignInputValuesRandom<float>(scale, 0.2f, 3.f);
-  AssignInputValuesRandom<float>(offset, 1.1f, 1.5f);
-  AssignInputValuesRandom<float>(mean, -3.5f, 3.5f);
-  AssignInputValuesRandom<float>(variance, 0.5f, 3.5f);
+  // Filter :[filter_depth, filter_height, filter_width, in_channels,
+  // out_channels]
+  vector<int64> filter_size_DHWIO = {3, 3, 3, 10, 2};
 
-  auto attrs = ops::FusedBatchNormV2::Attrs();
-  attrs.is_training_ = false;
-  attrs.epsilon_ = 0.0001f;
-  attrs.data_format_ = "NHWC";
+  std::vector<int> stride = {1, 2, 2, 2, 1};
 
-  // test grab the first three outputs from the FusedBatchNormGrad op
+  // Dilation rates > 1 not supported by TF on CPU
+  ops::Conv3D::Attrs op_attr_ndhwc;
+  op_attr_ndhwc = op_attr_ndhwc.DataFormat("NDHWC");
+  op_attr_ndhwc = op_attr_ndhwc.Dilations({1, 1, 1, 1, 1});
+
   vector<int> static_input_indexes = {};
 
+  Scope root = Scope::NewRootScope();
+  string padding_type = "SAME";
+
+  Tensor filter(DT_FLOAT, TensorShape(filter_size_DHWIO));
+  AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+
+  auto R = ops::Conv3D(root, input_data_NDHWC, filter, stride, padding_type,
+                       op_attr_ndhwc);
+
   vector<DataType> output_datatypes = {DT_FLOAT};
-  auto R = ops::FusedBatchNormV2(root, x, scale, offset, mean, variance, attrs);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Conv3D", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
 
-  // In inference case, y is the only output tensor
-  std::vector<Output> sess_run_fetchoutputs = {R.y};
-  OpExecuter opexecuter(root, "FusedBatchNormV2", static_input_indexes,
-                        output_datatypes, sess_run_fetchoutputs);
-
-  opexecuter.RunTest(1e-05, 1e-06);
-}  // end of FusedBatchNormV2NHWCInference
+  opexecuter.RunTest(1e-05, 1e-05);
+}
 
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
 TEST(NNOps, FusedBatchNormV2NHWCTraining) {

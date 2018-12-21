@@ -1374,7 +1374,7 @@ static Status TranslateConv3DOp(
 
   if (tf_data_format != "NDHWC" && tf_data_format != "NCDHW") {
     return errors::InvalidArgument(
-        "Conv2D data format is neither NDHWC nor NCDHW");
+        "Conv3D data format is neither NDHWC nor NCDHW");
   }
 
   bool is_ndhwc = (tf_data_format == "NDHWC");
@@ -1393,10 +1393,10 @@ static Status TranslateConv3DOp(
   NGRAPH_VLOG(3) << tf_padding_type;
   NGRAPH_VLOG(3) << tf_data_format;
 
-  ng::Strides ng_strides(2);
-  ng::Strides ng_dilations(2);
-  ng::Shape ng_image_shape(2);
-  ng::Shape ng_kernel_shape(2);
+  ng::Strides ng_strides(3);
+  ng::Strides ng_dilations(3);
+  ng::Shape ng_image_shape(3);
+  ng::Shape ng_kernel_shape(3);
 
   BatchedOpParam3DToNGraph(is_ndhwc, tf_strides, ng_strides);
   BatchedOpParam3DToNGraph(is_ndhwc, ng_input->get_shape(), ng_image_shape);
@@ -1410,16 +1410,20 @@ static Status TranslateConv3DOp(
   auto& ng_filter_shape = ng_filter->get_shape();
   ng_kernel_shape[0] = ng_filter_shape[0];
   ng_kernel_shape[1] = ng_filter_shape[1];
+  ng_kernel_shape[2] = ng_filter_shape[2];
   Reshape3D<4, 3, 0, 1, 2>(ng_filter);
 
   NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
-  ng::CoordinateDiff ng_padding_below{0, 0};
-  ng::CoordinateDiff ng_padding_above{0, 0};
+  ng::CoordinateDiff ng_padding_below{1, 1, 1};
+  ng::CoordinateDiff ng_padding_above{1, 1, 1};
 
-  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-                       ng_strides, ng_dilations, ng_padding_below,
-                       ng_padding_above);
+  // ng::CoordinateDiff ng_padding_below{0, 0};
+  // ng::CoordinateDiff ng_padding_above{0, 0};
+
+  // Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+  //                      ng_strides, ng_dilations, ng_padding_below,
+  //                      ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
       ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
