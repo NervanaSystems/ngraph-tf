@@ -45,7 +45,6 @@ def run_mnist(_):
     # Import data
     mnist = learn.datasets.mnist.read_data_sets(
         FLAGS.data_dir + 'MNIST-data-%d' % hvd.rank(), one_hot=True)
-    #mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
     # Create the model
     with tf.name_scope("mnist_placholder"):
@@ -139,4 +138,4 @@ if __name__ == '__main__':
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
 # run comand for this distributed script
-# mpirun -np 2 python mnist_softmax_distributed.py
+# mpirun -np 2 python mnist_softmax_distributed.py --data_dir=/mnt/data/mnist
