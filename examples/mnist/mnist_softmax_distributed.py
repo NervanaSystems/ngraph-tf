@@ -70,7 +70,6 @@ def run_mnist(_):
   global_step = tf.contrib.framework.get_or_create_global_step()
   opt = tf.train.GradientDescentOptimizer(0.5)
   # Add MPI Distributed Optimizer
-  #import pdb; pdb.set_trace()
   with tf.name_scope("horovod_opt"):
     opt = hvd.DistributedOptimizer(opt) 
   train_step = opt.minimize(cross_entropy, global_step=global_step)
@@ -107,9 +106,9 @@ def run_mnist(_):
       mon_sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
       
       # Test trained model
-#      if not mon_sess.should_stop():
-#        print("Accuracy: ", mon_sess.run(accuracy, feed_dict={x: mnist.test.images,
-#                                            y_: mnist.test.labels}))
+      if not mon_sess.should_stop():
+        print("Accuracy: ", mon_sess.run(accuracy, feed_dict={x: mnist.test.images,
+                                            y_: mnist.test.labels}))
 
     end = time.time()
 
@@ -124,3 +123,5 @@ if __name__ == '__main__':
                       help='Summaries log directory')
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+# run comand for this distributed script
+# mpirun -np 2 python mnist_softmax_distributed.py  

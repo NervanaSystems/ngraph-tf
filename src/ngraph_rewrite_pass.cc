@@ -30,7 +30,7 @@
 #include <iomanip>
 
 #ifdef NGRAPH_DISTRIBUTED
-#include <mpi.h>>
+#include <mpi.h>
 #endif
 
 using namespace std;
