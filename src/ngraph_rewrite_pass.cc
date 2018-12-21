@@ -29,7 +29,7 @@
 
 #include <iomanip>
 
-#ifdef NGRAPH_DISTRIBUTED 
+#ifdef NGRAPH_DISTRIBUTED
 #include <mpi.h>>
 #endif
 
@@ -121,7 +121,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
 #ifdef NGRAPH_DISTRIBUTED
     int Rank_ID;
     MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
-    ss << "_" << std::setfill('0') << std::setw(4)  << Rank_ID;
+    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
   }
