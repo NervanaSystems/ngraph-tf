@@ -81,7 +81,7 @@ if (APPLE)
 endif()
 
 # If pre-built tensorflow CC library is not provided, then build one.
-# TODO: Removethis option once we migrate to build_ngtf.oy 
+# TODO: Remove this option once we migrate to build_ngtf.py 
 if (NOT UNIT_TEST_TF_CC_DIR)
     add_custom_target(
         build_tf_cc
