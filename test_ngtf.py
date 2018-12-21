@@ -128,7 +128,7 @@ def run_resnet50(build_dir):
 
     call(['git', 'checkout', '4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed'])
 
-    # Update the script by adding `import ngaph_bridge`
+    # Update the script by adding `import ngraph_bridge`
     with open('convnet_builder.py', 'a') as outfile:
         call(['echo', 'import ngraph_bridge'], stdout=outfile)
 
