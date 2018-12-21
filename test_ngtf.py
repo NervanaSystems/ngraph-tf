@@ -193,7 +193,7 @@ def main():
     # Next run Python unit tests
     run_ngtf_pytests(venv_dir, build_dir)
 
-    # Next run the TensorFLow python tests
+    # Next run the TensorFlow python tests
     run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
 
     # Finally run Resnet50 based training and inferences
