@@ -399,7 +399,6 @@ def main():
     Builds TensorFlow, ngraph, and ngraph-tf for python 3
     '''
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-    subparsers = parser.add_subparsers(dest='use_prebuilts', help='Available pre-built options')
 
     parser.add_argument(
         '--debug_build',
