@@ -949,61 +949,6 @@ TEST(NNOps, Conv3DNDHWC) {
   opexecuter.RunTest(1e-05, 1e-05);
 }
 
-// TEST(NNOps, Conv3DNCDHWSame) {
-//   string padding_type = "SAME";
-//   // Filter :[filter_depth, filter_height, filter_width, in_channels,
-//   out_channels]
-//   initializer_list<int> filter_size_DHWIO = {2, 3, 3, 2, 2};
-//   vector<DataType> output_datatypes = {DT_FLOAT};
-//   vector<int> static_input_indexes = {};
-
-//   // Define scope for nGraph
-//   // Data Format : NCDHW
-//   Scope ngraph_scope = Scope::NewRootScope();
-//   vector<int64> input_size_NCDHW = {1, 2, 2, 7, 6};
-//   Tensor input_data_NCDHW(DT_FLOAT, TensorShape(input_size_NCDHW));
-//   AssignInputValuesRandom<float>(input_data_NCDHW, -15.0f, 15.0f);
-
-//   auto filter_sizes = ops::Const(ngraph_scope, filter_size_DHWIO);
-//   vector<int> stride_NCDHW = {1, 2, 2, 2, 1};
-
-//   // Dilation rates > 1 not supported by TF on CPU
-//   ops::Conv3D::Attrs op_attr_ncdhw;
-//   op_attr_ncdhw = op_attr_ncdhw.DataFormat("NCDHW");
-//   op_attr_ncdhw = op_attr_ncdhw.Dilations({1, 1, 1, 1, 1});
-
-//   auto r_ngraph = ops::Conv3D(
-//       ngraph_scope, input_data_NCDHW, filter_sizes,
-//       stride_NCDHW, padding_type, op_attr_ncdhw);
-
-//   vector<Output> sess_run_fetchoutputs = {r_ngraph};
-//   OpExecuter opexecuter_ngraph(ngraph_scope, "Conv3D",
-//                                static_input_indexes, output_datatypes,
-//                                sess_run_fetchoutputs);
-//   vector<Tensor> ngraph_outputs;
-//   //opexecuter_ngraph.ExecuteOnNGraph(ngraph_outputs);
-
-//   // Define scope for tf (without nGraph)
-//   // Data Format: NDHWC
-//   Scope tf_scope = Scope::NewRootScope();
-//   auto input_data_NDHWC =
-//       ops::Transpose(tf_scope, input_data_NCDHW, {0, 2, 3, 4, 1});
-//   auto filter_sizes_tf = ops::Const(tf_scope, filter_size_DHWIO);
-//   vector<int> stride_NDHWC = {1, 2, 2, 2, 1};
-//   auto r_tf =
-//       ops::Conv3D(tf_scope, input_data_NDHWC, filter_sizes_tf,
-//                                 stride_NDHWC, padding_type);
-//   vector<Output> sess_run_fetchoutputs_tf = {r_tf};
-//   OpExecuter opexecuter_tf(tf_scope, "Conv3D",
-//                            static_input_indexes, output_datatypes,
-//                            sess_run_fetchoutputs_tf);
-
-//   vector<Tensor> tf_outputs;
-//   opexecuter_tf.ExecuteOnTF(tf_outputs);
-
-//   // Compare NGraph and TF Outputs
-//   //Compare(tf_outputs, ngraph_outputs);
-// }
 
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
 TEST(NNOps, FusedBatchNormV2NHWCInference) {
