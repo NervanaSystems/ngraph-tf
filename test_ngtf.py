@@ -75,11 +75,16 @@ def run_ngtf_pytests(venv_dir, build_dir):
     os.chdir(root_pwd)
 
 
-def run_tensorflow_pytests(venv_dir, build_dir):
+def run_tensorflow_pytests(venv_dir, build_dir, ngraph_tf_src_dir, tf_src_dir):
     root_pwd = os.getcwd()
 
     build_dir = os.path.abspath(build_dir)
     venv_dir = os.path.abspath(venv_dir)
+    ngraph_tf_src_dir = os.path.abspath(ngraph_tf_src_dir)
+
+    patch_file = os.path.abspath(
+        os.path.join(ngraph_tf_src_dir,
+                     "test/python/tensorflow/tf_unittest_ngraph.patch"))
 
     # Load the virtual env
     venv_dir_absolute = load_venv(venv_dir)
@@ -91,18 +96,13 @@ def run_tensorflow_pytests(venv_dir, build_dir):
     os.chdir(glob.glob(venv_dir_absolute + "/lib/py*/site-packages")[0])
     print("CURRENT DIR: " + os.getcwd())
 
-    patch_file = os.path.abspath(
-        os.path.join(root_pwd,
-                     "test/python/tensorflow/tf_unittest_ngraph.patch"))
-
     print("Patching TensorFlow using: %s" % patch_file)
     result = call(["patch", "-p1", "-N", "-i", patch_file])
     print("Patch result: %d" % result)
     os.chdir(pwd)
 
     # Now run the TensorFlow python tests
-    tensorflow_src_dir = os.path.join(root_pwd, "build/tensorflow")
-    test_src_dir = os.path.join(root_pwd, "test/python/tensorflow")
+    test_src_dir = os.path.join(ngraph_tf_src_dir, "test/python/tensorflow")
     test_script = os.path.join(test_src_dir, "tf_unittest_runner.py")
     test_manifest_file = os.path.join(test_src_dir, "python_tests_list.txt")
 
@@ -113,7 +113,7 @@ def run_tensorflow_pytests(venv_dir, build_dir):
     os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
 
     if call([
-            "python", test_script, "--tensorflow_path", tensorflow_src_dir,
+            "python", test_script, "--tensorflow_path", tf_src_dir,
             "--run_tests_from_file", test_manifest_file
     ]) != 0:
         raise Exception("Error running TensorFlow python tests")
@@ -194,7 +194,7 @@ def main():
     run_ngtf_pytests(venv_dir, build_dir)
 
     # Next run the TensorFLow python tests
-    run_tensorflow_pytests(venv_dir, build_dir)
+    run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
 
     # Finally run Resnet50 based training and inferences
     run_resnet50(build_dir)
