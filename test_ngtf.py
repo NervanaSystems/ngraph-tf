@@ -190,7 +190,7 @@ def main():
     # First run the C++ gtests
     run_ngtf_gtests(build_dir)
 
-    # Next run Pytohon unit tests
+    # Next run Python unit tests
     run_ngtf_pytests(venv_dir, build_dir)
 
     # Next run the TensorFLow python tests
