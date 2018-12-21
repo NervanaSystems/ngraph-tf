@@ -1414,15 +1414,12 @@ static Status TranslateConv3DOp(
 
   NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
 
-  ng::CoordinateDiff ng_padding_below{1, 1, 1};
-  ng::CoordinateDiff ng_padding_above{1, 1, 1};
+  ng::CoordinateDiff ng_padding_below{0, 0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0, 0};
 
-  // ng::CoordinateDiff ng_padding_below{0, 0};
-  // ng::CoordinateDiff ng_padding_above{0, 0};
-
-  // Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-  //                      ng_strides, ng_dilations, ng_padding_below,
-  //                      ng_padding_above);
+  Builder::MakePadding3D(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_dilations, ng_padding_below,
+                         ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
       ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,

@@ -65,9 +65,9 @@ void NhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node) {
 
 template <typename T>
 void NdhwcToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
-  dst[0] = src[0];
-  dst[1] = src[1];
-  dst[2] = src[2];
+  dst[0] = src[1];
+  dst[1] = src[2];
+  dst[2] = src[3];
 }
 
 void NdhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node) {
