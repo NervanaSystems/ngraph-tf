@@ -1356,7 +1356,6 @@ static Status TranslateConv2DBackpropInputOp(
 }
 
 // Translate Conv3D Op
-
 static Status TranslateConv3DOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {

@@ -42,7 +42,7 @@ void Reshape3D(std::shared_ptr<ngraph::Node>& ng_node) {
   static_assert(a < 5 && b < 5 && c < 5 && d < 5 && e < 5,
                 "Number of dimensions cannot exceed 5");
   static_assert(a != b && a != c && a != d && a != e && b != c && b != d &&
-                    b != e && c != d && c != e,
+                    b != e && c != d && c != e && d != e,
                 "Dimensions indices cannot be equal");
   auto& s = ng_node->get_shape();
   ngraph::Shape reshaped_shape{s[a], s[b], s[c], s[d], s[e]};
@@ -65,9 +65,9 @@ void NhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node) {
 
 template <typename T>
 void NdhwcToNGraph(const std::vector<T>& src, std::vector<size_t>& dst) {
-  dst[0] = src[1];
-  dst[1] = src[2];
-  dst[2] = src[3];
+  dst[0] = src[0];
+  dst[1] = src[1];
+  dst[2] = src[2];
 }
 
 void NdhwcToNGraph(std::shared_ptr<ngraph::Node>& ng_node) {
@@ -99,8 +99,9 @@ template <typename T>
 void NdhwcToNcdhw(const std::vector<T>& src, std::vector<size_t>& dst) {
   dst[0] = src[0];
   dst[1] = src[4];
-  dst[2] = src[2];
-  dst[3] = src[3];
+  dst[2] = src[1];
+  dst[3] = src[2];
+  dst[4] = src[3];
 }
 }
 

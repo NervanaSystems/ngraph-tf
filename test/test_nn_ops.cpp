@@ -949,7 +949,6 @@ TEST(NNOps, Conv3DNDHWC) {
   opexecuter.RunTest(1e-05, 1e-05);
 }
 
-
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
 TEST(NNOps, FusedBatchNormV2NHWCInference) {
   Scope root = Scope::NewRootScope();
