@@ -411,6 +411,8 @@ class NGraphEncapsulateOp : public OpKernel {
       OP_REQUIRES_OK(
           ctx, TFDataTypeToNGraphElementType(ctx->expected_output_dtype(i),
                                              &expected_elem_type));
+      //cout << "ctx->expected_output_dtype(i): " << ctx->expected_output_dtype(i) << "\n";
+      //cout << "ng_element_type " << ng_element_type << " expected_elem_type " << expected_elem_type << "\n";
       OP_REQUIRES(
           ctx, ng_element_type == expected_elem_type,
           errors::Internal("Element type inferred by nGraph does not match "

@@ -272,16 +272,16 @@ def test_resnet():  #quantize.
         
         
         "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0",
-        "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1",
-        "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
+        #"import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1",
+        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
 
         "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:0",
-        "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:1",
-        "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
+        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:1",
+        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
 
         "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:0",
-        "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1",
-        "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2",
+        #"import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1",
+        #"import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2",
 
 
         "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:0",
@@ -299,7 +299,7 @@ def test_resnet():  #quantize.
        # "import/v0/resnet_v10/conv1/conv2d/kernel_qint8_const:0"
         #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:0"
         #"import/v0/resnet_v11/conv7/conv2d/Conv2D_eightbit_requantize:0"
-        "import/predict:0",
+        #"import/predict:0",
     ]
     #pool1/MaxPool_eightbit_quantized
     bs = 1
@@ -575,12 +575,12 @@ def unittest_signedsum():
 
 #test_resnet()
 
-#test_resnet_newoponly_conv4()
-#test_resnet_newunsignedoponly_conv7()
-#test_resnet_quackbarkonly_conv2()
-#test_resnet_quackbarknoreluonly_conv1()
+test_resnet_newoponly_conv4()
+test_resnet_newunsignedoponly_conv7()
+test_resnet_quackbarkonly_conv2()
+test_resnet_quackbarknoreluonly_conv1()
 
-unittest_signedsum()
+#unittest_signedsum()
 '''
 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_PASS_ENABLES="ConstantFolding:1" NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1  python runme_jayram.py
 '''
