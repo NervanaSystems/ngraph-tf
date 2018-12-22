@@ -25,6 +25,21 @@ import shutil
 import glob
 import platform
 
+def command_executor(cmd, verbose = False, msg=None, stdout=None):
+    '''
+    Executes the command.
+    Example: 
+      - command_executor('ls -lrt')
+      - command_executor(['ls', '-lrt'])
+    '''
+    if type(cmd) == type([]):  #if its a list, convert to string
+        cmd = ' '.join(cmd)
+    if verbose:
+        tag = 'Running COMMAND: ' if msg is None else msg
+        print(tag + cmd)
+    if (call(cmd.split(' '), stdout=stdout) != 0):
+        raise Exception("Error running command: " + cmd)
+
 def build_ngraph(src_location, cmake_flags, verbose):
     pwd = os.getcwd()
 
@@ -48,13 +63,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
     cmake_cmd.extend(cmake_flags)
     cmake_cmd.extend([src_location])
 
-    print('Running cmake command')
-    print(' '.join(cmake_cmd))
-
-    print("nGraph CMAKE flags: %s" % ' '.join(cmake_cmd))
-    result = call(cmake_cmd)
-    if (result != 0):
-        raise Exception("Error running command: " + str(cmake_cmd))
+    command_executor(cmake_cmd, verbose=True)
 
     import psutil
     num_cores = str(psutil.cpu_count(logical=True))
@@ -62,12 +71,8 @@ def build_ngraph(src_location, cmake_flags, verbose):
     if verbose:
         cmd.extend(['VERBOSE=1'])
 
-    print('Running make command')
-    print(' '.join(cmd))
+    command_executor(cmd, verbose=True)
 
-    result = call(cmd)
-    if (result != 0):
-        raise Exception("Error running command: " + str(cmd))
     os.chdir(pwd)
 
 
@@ -79,10 +84,7 @@ def install_virtual_env(venv_dir):
     venv_dir = os.path.abspath(venv_dir)
     # Note: We assume that we are using Python 3 (as this script is also being
     # executed under Python 3 as marked in line 1)
-    result = call(["virtualenv", "-p", "python3", venv_dir])
-    if (result != 0):
-        raise Exception("Error running command: virtualenv -p python3 " + venv_dir)
-
+    command_executor(["virtualenv", "-p", "python3", venv_dir])
 
 
 def load_venv(venv_dir):
@@ -104,37 +106,6 @@ def load_venv(venv_dir):
         
     return venv_dir
 
-def load_venv2(venv_dir):
-    # Check if we are already inside the virtual environment
-    return (hasattr(sys, 'real_prefix')
-            or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
-
-    venv_dir = os.path.abspath(venv_dir)
-    old_os_path = os.environ.get('PATH', '')
-    os.environ['PATH'] = os.path.join(venv_dir,
-                                      'bin') + os.pathsep + old_os_path
-    print("PATH %s" % os.environ['PATH'])
-    base = venv_dir
-    if sys.platform == 'win32':
-        site_packages = os.path.join(base, 'Lib', 'site-packages')
-    else:
-        site_packages = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
-                                     'site-packages')
-    prev_sys_path = list(sys.path)
-
-    import site
-    site.addsitedir(site_packages)
-    sys.real_prefix = sys.prefix
-    sys.prefix = base
-    # Move the added items to the front of the path:
-    new_sys_path = []
-    for item in list(sys.path):
-        if item not in prev_sys_path:
-            new_sys_path.append(item)
-            sys.path.remove(item)
-    sys.path[:0] = new_sys_path
-
-
 def setup_venv(venv_dir):
     load_venv(venv_dir)
 
@@ -152,7 +123,7 @@ def setup_venv(venv_dir):
         call(["python3", "./get-pip.py"])
 
     # Install the pip packages
-    if call([
+    package_list = [
         "pip",
         "install",
         "-U",
@@ -168,13 +139,11 @@ def setup_venv(venv_dir):
         "--no-deps",
         "keras_preprocessing==1.0.3",
         "--no-deps",
-    ]) != 0:
-        raise Exception("Error running command: pip install ")
-
+    ]
+    command_executor(package_list)
 
     # Print the current packages
-    call(["pip", "list"])
-
+    command_executor(["pip", "list"])
 
 def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
 
@@ -214,9 +183,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     os.environ["TF_SET_ANDROID_WORKSPACE"] = "0"
     os.environ["CC_OPT_FLAGS"] = "-march=" + target_arch
 
-    call([
-        "./configure",
-    ])
+    command_executor("./configure")
 
     # Build the python package
     cmd = [
@@ -228,19 +195,12 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     if verbosity:
         cmd.extend(['-s'])
 
-    print("Running command: " + ' '.join(cmd))
-    result = call(cmd)
-    if (result != 0):
-        raise Exception("Error running command: " + str(cmd))
+    command_executor(cmd)
 
-    # Make the pip wheel
-    result = call([
+    command_executor([
         "bazel-bin/tensorflow/tools/pip_package/build_pip_package",
         artifacts_dir
     ])
-
-    if (result != 0):
-        raise Exception("Error running command: build_pip_package: " + artifacts_dir)
 
     # Get the name of the TensorFlow pip package
     tf_wheel_files = glob.glob(os.path.join(artifacts_dir, "tensorflow-*.whl"))
@@ -250,11 +210,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     cmd = [
         "bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
     ]
-
-    print("Running command: " + ' '.join(cmd))
-    result = call(cmd)
-    if (result != 0):
-        raise Exception("Error running command: " + str(cmd))
+    command_executor(cmd)
 
     tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
 
@@ -292,9 +248,7 @@ def install_tensorflow(venv_dir, artifacts_dir):
             "artifacts directory contains more than 1 version of tensorflow wheel"
         )
 
-    result = call(["pip", "install", "-U", tf_wheel_files[0]])
-    if (result != 0):
-        raise Exception("Error running command: " + str(cmd))
+    command_executor(["pip", "install", "-U", tf_wheel_files[0]])
 
     cxx_abi = "0"
     if (platform.system() == 'Linux'):
@@ -314,7 +268,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     # Load the virtual env
     load_venv(venv_dir)
 
-    call(["pip", "list"])
+    command_executor(["pip", "list"])
 
     # Get the absolute path for the artifacts
     artifacts_location = os.path.abspath(artifacts_location)
@@ -337,9 +291,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     cmake_cmd = ["cmake"]
     cmake_cmd.extend(cmake_flags)
     cmake_cmd.extend([ngtf_src_loc])
-    print("NGRAPH_TF Cmake options: %s" + str(cmake_cmd))
-    if (call(cmake_cmd) != 0):
-        raise Exception("Error running cmake command: " + str(cmake_cmd))
+    command_executor(cmake_cmd)
 
     import psutil
     num_cores = str(psutil.cpu_count(logical=True))
@@ -347,11 +299,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     if verbose:
         make_cmd.extend(['VERBOSE=1'])
 
-    print('Running make command')
-    print(' '.join(make_cmd))
-
-    if (call(make_cmd) != 0):
-        raise Exception("Error running make command: " + str(make_cmd)) 
+    command_executor(make_cmd)
 
     os.chdir(os.path.join("python", "dist"))
     ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
@@ -380,8 +328,7 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     # Load the virtual env
     load_venv(venv_dir)
 
-    # Intall the ngtf_wheel
-    call(["pip", "install", "-U", ngtf_pip_whl])
+    command_executor(["pip", "install", "-U", ngtf_pip_whl])
 
     import tensorflow as tf
     print('TensorFlow version: r', tf.__version__)
@@ -402,8 +349,7 @@ def download_repo(target_name, repo, version):
     os.chdir(target_name)
 
     # checkout the specified branch
-    call(["git", "checkout", version])
-
+    command_executor(["git", "checkout", version])
     os.chdir(pwd)
 
 

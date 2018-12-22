@@ -24,7 +24,7 @@ import glob
 import platform
 from distutils.sysconfig import get_python_lib
 
-from build_ngtf import load_venv
+from build_ngtf import load_venv, command_executor
 
 
 def run_ngtf_gtests(build_dir):
@@ -36,10 +36,7 @@ def run_ngtf_gtests(build_dir):
 
     # First run the C++ gtests
     os.chdir(os.path.join(build_dir, "test"))
-
-    result = call(["./gtest_ngtf"])
-    if (result != 0):
-        raise Exception("Error running command: gtest_ngtf")
+    command_executor("./gtest_ngtf")
 
     os.chdir(root_pwd)
 
@@ -63,14 +60,9 @@ def run_ngtf_pytests(venv_dir, build_dir):
     load_venv(venv_dir)
 
     # Next run the ngraph-tensorflow python tests
-    if call(["pip", "install", "-U", "pytest"]) != 0:
-        raise Exception("Error running command: pip install ")
-
-    if call(["pip", "install", "-U", "psutil"]) != 0:
-        raise Exception("Error running command: pip install psutil")
-
-    if call(["python", "-m", "pytest"]) != 0:
-        raise Exception("Error running test command: python -m  pytest")
+    command_executor(["pip", "install", "-U", "pytest"])
+    command_executor(["pip", "install", "-U", "psutil"])
+    command_executor(["python", "-m", "pytest"])
 
     os.chdir(root_pwd)
 
@@ -112,16 +104,19 @@ def run_tensorflow_pytests(venv_dir, build_dir, ngraph_tf_src_dir, tf_src_dir):
     os.environ['OMP_NUM_THREADS'] = str(num_cores)
     os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
 
-    if call([
+    command_executor([
             "python", test_script, "--tensorflow_path", tf_src_dir,
             "--run_tests_from_file", test_manifest_file
-    ]) != 0:
-        raise Exception("Error running TensorFlow python tests")
+    ])
 
     os.chdir(root_pwd)
 
 
 def run_resnet50(build_dir):
+
+    root_pwd = os.getcwd()
+    build_dir = os.path.abspath(build_dir)
+    os.chdir(build_dir)
 
     call(['git', 'clone', 'https://github.com/tensorflow/benchmarks.git'])
     os.chdir('benchmarks/scripts/tf_cnn_benchmarks/')
@@ -151,10 +146,7 @@ def run_resnet50(build_dir):
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--num_batches', '10', '--model=resnet50', '--batch_size=128'
     ]
-
-    print('Running command')
-    print(' '.join(cmd))
-    call(cmd)
+    command_executor(cmd)
 
     # Run inference job
     cmd = [
@@ -162,10 +154,9 @@ def run_resnet50(build_dir):
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
     ]
+    command_executor(cmd)
 
-    print('Running command')
-    print(' '.join(cmd))
-    call(cmd)
+    os.chdir(root_pwd)
 
 
 def main():
