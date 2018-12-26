@@ -307,7 +307,7 @@ def download_repo(target_name, repo, version):
 
     # Go to the tree
     os.chdir(target_name)
-
+    call(["git", "fetch"])
     # checkout the specified branch
     call(["git", "checkout", version])
 
@@ -347,7 +347,7 @@ def main():
 
     # Component versions
     ngraph_version = "nishant_sayantan_signed_op_fix"
-    tf_version = "int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
+    tf_version = "r1.13" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
     download_repo(
