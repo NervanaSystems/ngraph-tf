@@ -373,6 +373,33 @@ TEST(ArrayOps, QuantizeV2i8) {
   opexecuter.RunTest();
 }  // end of test op QuantizeV2i8
 
+/*
+TEST(ArrayOps, QuantizeV2i8tou8) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 8;
+
+  Tensor A(DT_QINT8, TensorShape({dim1}));
+  AssignInputValues<qint8>(A, {0, 0, 1, 3, 5, 64, 127, 127});
+  auto quant_type = DT_QUINT8;
+
+  auto attrs = ops::QuantizeV2::Attrs();
+  attrs.mode_ = "SCALED";
+
+  vector<int> static_input_indexes = {1, 2};
+  ops::QuantizeV2 R =
+      ops::QuantizeV2(root, A, -1.0f, 1.0f, quant_type, attrs);
+
+  vector<DataType> output_datatypes = {quant_type};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "QuantizeV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizeV2i8
+*/
+
+
 // Test op: QuantizeV2
 // Quantizes a tensor from float to i8. Also tests min-max output
 // TODO: enable this test when min-max output generation is supported

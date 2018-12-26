@@ -566,9 +566,9 @@ def unittest_signedsum():
     ngraph_bridge.disable()
     print("Raw TF result")
     _helper()
-    #print("NGTF result")
-    #ngraph_bridge.enable()
-    #_helper()
+    print("NGTF result")
+    ngraph_bridge.enable()
+    _helper()
 
 #test1()
 #test_acc()
@@ -580,7 +580,7 @@ test_resnet_newunsignedoponly_conv7()
 test_resnet_quackbarkonly_conv2()
 test_resnet_quackbarknoreluonly_conv1()
 
-#unittest_signedsum()
+unittest_signedsum()
 '''
 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_PASS_ENABLES="ConstantFolding:1" NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1  python runme_jayram.py
 '''
