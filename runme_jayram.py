@@ -12,7 +12,7 @@ try:
     from urllib.parse import urljoin
 except ImportError:
     from urlparse import urljoin
-
+import pickle as pkl
 
 
 import ngraph_bridge
@@ -264,24 +264,24 @@ def test_resnet():  #quantize.
     '''
     tensornames = [
         "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0",
-        "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0",
         "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1",
         "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2",
+
+        "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0",
         "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1",
         "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2",
-        
-        
+
         "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0",
-        #"import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1",
-        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
+        "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1",
+        "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:2",
 
         "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:0",
-        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:1",
-        #"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
+        "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:1",
+        "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:2",
 
         "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:0",
-        #"import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1",
-        #"import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2",
+        "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1",
+        "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2",
 
 
         "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:0",
@@ -325,6 +325,8 @@ def test_resnet():  #quantize.
     for t1, t2, tname in zip(outvals, outvals_tf, tensornames):
         print(tname, np.linalg.norm(t1.astype('float') - t2.astype('float')))
         print(tname, t1.shape)
+    datadict = {tname:t1 for t1, tname in zip(outvals_tf, tensornames)}
+    pkl.dump(datadict, open('../datadict.pkl', 'wb'))
     pdb.set_trace()
     print('hello')
 
@@ -487,44 +489,84 @@ def test_single_node_graph(node_name, inp_tensors_feeddict):
     #print(' '.join([str(i) + ':' + str(hist[i]) for i in sorted(hist.keys(), key=lambda x : abs(x))]))
     print('Ending test')
 
-def test_resnet_newoponly_conv4():
-    bs = 1
-    indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
-    indata1 = np.arange(bs*55*55*256).reshape([bs,55, 55, 256])%256
+def test_resnet_newoponly_conv4(datadict=None):
+    if datadict is None:
+        bs = 1
+        indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+        indata1 = np.arange(bs*55*55*256).reshape([bs,55, 55, 256])%256
+        min1 = -2
+        min2 = -1
+        max1 = 2
+        max2 = 1
+    else:
+        indata = datadict["import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:0"]
+        indata1 = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0"]
+        min1 = datadict["import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1"]
+        max1 = datadict["import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2"]
+        min2 = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1"]
+        max2 = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:2"]
+
 
     test_single_node_graph('import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:0', {"import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:0": indata,
-    "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1": -2, 
-    "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2": 2,
+    "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:1": min1, 
+    "import/v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requantize:2": max1,
     "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0": indata1,
-    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1": -1, 
-    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:2": 1
+    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:1": min2, 
+    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:2": max2
     })
 
-def test_resnet_newunsignedoponly_conv7():
-    bs = 1
-    indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
-    indata1 = np.arange(bs*55*55*256).reshape([bs,55, 55, 256])%256
+def test_resnet_newunsignedoponly_conv7(datadict=None):
+    if datadict is None:
+        bs = 1
+        indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+        indata1 = np.arange(bs*55*55*256).reshape([bs,55, 55, 256])%256
+        min1 = -2
+        min2 = -1
+        max1 = 2
+        max2 = 1
+    else:
+        indata = datadict["import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:0"]
+        indata1 = datadict["import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:0"]
+        min1 = datadict["import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:1"]
+        max1 = datadict["import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:2"]
+        min2 = datadict["import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:1"]
+        max2 = datadict["import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:2"]
 
     test_single_node_graph('import/v0/resnet_v11/conv7/conv2d/Conv2D_eightbit_requantize:0', {"import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:0": indata,
-    "import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:1": -2, 
-    "import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:2": 2,
+    "import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:1": min1, 
+    "import/v0/resnet_v11/conv6/conv2d/Conv2D_eightbit_requantize:2": max1,
     "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:0": indata1,
-    "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:1": -1, 
-    "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:2": 1
+    "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:1": min2, 
+    "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:2": max2
     })
 
-def test_resnet_quackbarkonly_conv2():
-    bs = 1
-    indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+def test_resnet_quackbarkonly_conv2(datadict):
+    if datadict is None:
+        bs = 1
+        indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+        mn = -2
+        mx = 2
+    else:
+        indata = datadict["import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0"]
+        mn = datadict["import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1"]
+        mx = datadict["import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2"]
 
     test_single_node_graph('import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:0', {"import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0": indata,
-    "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1": -2, 
-    "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": 2
+    "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1": mn, 
+    "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": mx
     })
 
-def test_resnet_quackbarknoreluonly_conv1():
-    bs = 1
-    indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+def test_resnet_quackbarknoreluonly_conv1(datadict):
+    if datadict is None:
+        bs = 1
+        indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
+        mn = -2
+        mx = 2
+    else:
+        indata = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0"]
+        mn = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1"]
+        mx = datadict["import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2"]
+
 
     test_single_node_graph('import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0', {"import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0": indata,
     "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1": -2, 
@@ -575,12 +617,20 @@ def unittest_signedsum():
 
 #test_resnet()
 
-test_resnet_newoponly_conv4()
-test_resnet_newunsignedoponly_conv7()
-test_resnet_quackbarkonly_conv2()
-test_resnet_quackbarknoreluonly_conv1()
+#test_resnet_newoponly_conv4()
+#test_resnet_newunsignedoponly_conv7()
+#test_resnet_quackbarkonly_conv2()
+#test_resnet_quackbarknoreluonly_conv1()
 
-unittest_signedsum()
+
+datadict = pkl.load(open('../datadict.pkl', 'rb'))
+
+test_resnet_newoponly_conv4(datadict)
+#test_resnet_newunsignedoponly_conv7(datadict)
+test_resnet_quackbarkonly_conv2(datadict)
+test_resnet_quackbarknoreluonly_conv1(datadict)
+
+#unittest_signedsum()
 '''
 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_PASS_ENABLES="ConstantFolding:1" NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1  python runme_jayram.py
 '''
