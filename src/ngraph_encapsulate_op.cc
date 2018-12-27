@@ -40,7 +40,7 @@
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
 #ifdef NGRAPH_DISTRIBUTED
-#include <mpi.h>
+#include "ngraph/mlsl.hpp"
 #endif
 
 using namespace std;
@@ -270,8 +270,9 @@ class NGraphEncapsulateOp : public OpKernel {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
 #ifdef NGRAPH_DISTRIBUTED
-        int Rank_ID;
-        MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+        MLSL::Environment* mlsl_env;
+        MLSL::Distribution* mlsl_dist;
+        int Rank_ID = MLSL::Environment::GetEnv().GetProcessIdx();
         file_name = "tf_function_" + ctx->op_kernel().name() + "_" +
                     to_string(Rank_ID) + ".json";
 #endif

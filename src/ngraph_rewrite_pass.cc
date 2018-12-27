@@ -30,7 +30,7 @@
 #include <iomanip>
 
 #ifdef NGRAPH_DISTRIBUTED
-#include <mpi.h>
+#include "ngraph/mlsl.h"
 #endif
 
 using namespace std;
@@ -107,8 +107,9 @@ class NGraphRewritePass : public GraphOptimizationPass {
     std::stringstream ss;
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
 #ifdef NGRAPH_DISTRIBUTED
-    int Rank_ID;
-    MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+    MLSL::Environment* mlsl_env;
+    MLSL::Distribution* mlsl_dist;
+    int Rank_ID = MLSL::Environment::GetEnv().GetProcessIdx();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
