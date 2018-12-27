@@ -492,6 +492,7 @@ def test_single_node_graph(node_name, inp_tensors_feeddict):
     print('Number of zero elements in diff: ', np.sum(diff==0))
     hist = {i:np.sum(diff==i) for i in np.unique(diff)}
     #print(' '.join([str(i) + ':' + str(hist[i]) for i in sorted(hist.keys(), key=lambda x : abs(x))]))
+    pdb.set_trace()
     print('Ending test')
 
 def test_resnet_newoponly_conv4(datadict=None):
@@ -574,8 +575,8 @@ def test_resnet_quackbarknoreluonly_conv1(datadict):
 
 
     test_single_node_graph('import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requantize:0', {"import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:0": indata,
-    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1": -2, 
-    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": 2
+    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:1": mn,
+    "import/v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": mx
     })
 
 
@@ -632,9 +633,8 @@ test_resnet(datadict)
 
 
 
-test_resnet_newoponly_conv4(datadict)
-#test_resnet_newunsignedoponly_conv7(datadict)
-test_resnet_quackbarkonly_conv2(datadict)
+#test_resnet_newoponly_conv4(datadict)
+#test_resnet_quackbarkonly_conv2(datadict)
 test_resnet_quackbarknoreluonly_conv1(datadict)
 
 #unittest_signedsum()
