@@ -252,7 +252,7 @@ def load_file(graph_file):
                             str(input_binary) + " maybe try flipping it?")
     return graphdef
 
-def test_resnet():  #quantize.
+def test_resnet(datadict=None):  #quantize.
     graphdef = load_file('/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_resnet50.pb')
     '''
     for node in graphdef.node:
@@ -302,8 +302,11 @@ def test_resnet():  #quantize.
         #"import/predict:0",
     ]
     #pool1/MaxPool_eightbit_quantized
-    bs = 1
-    indata = np.arange(bs*224*224*3).reshape([bs,224,224,3])%256
+    if datadict is None:
+        bs = 1
+        indata = np.arange(bs*224*224*3).reshape([bs,224,224,3])%256
+    else:
+        indata = datadict['import/input:0']
     with tf.Session() as sess:
         graph = tf.import_graph_def(graphdef)
         #placeholders = [ op for op in tf.get_default_graph().get_operations() if op.type == "Placeholder"]
@@ -325,8 +328,10 @@ def test_resnet():  #quantize.
     for t1, t2, tname in zip(outvals, outvals_tf, tensornames):
         print(tname, np.linalg.norm(t1.astype('float') - t2.astype('float')))
         print(tname, t1.shape)
-    datadict = {tname:t1 for t1, tname in zip(outvals_tf, tensornames)}
-    pkl.dump(datadict, open('../datadict.pkl', 'wb'))
+    if datadict is None:
+        datadict = {tname:t1 for t1, tname in zip(outvals_tf, tensornames)}
+        datadict['import/input:0'] = indata
+        pkl.dump(datadict, open('../datadict.pkl', 'wb'))
     pdb.set_trace()
     print('hello')
 
@@ -615,7 +620,9 @@ def unittest_signedsum():
 #test1()
 #test_acc()
 
-#test_resnet()
+datadict = pkl.load(open('../datadict.pkl', 'rb'))
+
+test_resnet(datadict)
 
 #test_resnet_newoponly_conv4()
 #test_resnet_newunsignedoponly_conv7()
@@ -623,7 +630,7 @@ def unittest_signedsum():
 #test_resnet_quackbarknoreluonly_conv1()
 
 
-datadict = pkl.load(open('../datadict.pkl', 'rb'))
+
 
 test_resnet_newoponly_conv4(datadict)
 #test_resnet_newunsignedoponly_conv7(datadict)
