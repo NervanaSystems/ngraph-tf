@@ -318,7 +318,7 @@ def test_resnet(datadict=None):  #quantize.
         outvals = sess.run(outtensors, feed_dict = {intensor1 : indata})
 
     print ('===============')
-    #ngraph_bridge.disable()
+    ngraph_bridge.disable()
 
     with tf.Session() as sess:
         graph = tf.import_graph_def(graphdef)
@@ -337,7 +337,7 @@ def test_resnet(datadict=None):  #quantize.
     print('hello')
 
 def test_single_node_graph(node_name, inp_tensors_feeddict):
-    #ngraph_bridge.enable()
+    ngraph_bridge.enable()
     graphdef = load_file('/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_resnet50.pb')
     tensornames = [node_name]
     bs = 1
@@ -347,7 +347,7 @@ def test_single_node_graph(node_name, inp_tensors_feeddict):
         outvals = sess.run(outtensors, feed_dict = {tf.get_default_graph().get_tensor_by_name(tname):inp_tensors_feeddict[tname] for tname in inp_tensors_feeddict})
 
     print ('===============')
-    #ngraph_bridge.disable()
+    ngraph_bridge.disable()
 
     with tf.Session() as sess:
         graph = tf.import_graph_def(graphdef)
