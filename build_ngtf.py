@@ -352,7 +352,7 @@ def main():
     # Download TensorFlow
     download_repo(
         "tensorflow", 
-        "https://github.com/NervanaSystems/private-tensorflow.git", 
+        "https://github.com/tensorflow/tensorflow.git",
         tf_version)
     # Build TensorFlow
     build_tensorflow("venv-tf-py3", "tensorflow", "artifacts")
