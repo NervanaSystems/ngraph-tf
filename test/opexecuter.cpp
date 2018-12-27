@@ -129,12 +129,13 @@ OpExecuter::OpExecuter(const Scope sc, const string test_op,
 // Destructor
 OpExecuter::~OpExecuter() {}
 
-void OpExecuter::RunTest(const string& ng_backend_name) {
+void OpExecuter::RunTest(const string& ng_backend_name, float rtol,
+                         float atol) {
   vector<Tensor> ngraph_outputs;
   ExecuteOnNGraph(ngraph_outputs, ng_backend_name);
   vector<Tensor> tf_outputs;
   ExecuteOnTF(tf_outputs);
-  Compare(tf_outputs, ngraph_outputs);
+  Compare(tf_outputs, ngraph_outputs, rtol, atol);
 }
 
 // Uses tf_scope to execute on TF
@@ -406,7 +407,7 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   NGRAPH_VLOG(5) << " Executing on nGraph ";
   BackendManager::LockBackend(ng_backend_type);
   try {
-    backend->call(ng_function, ng_op_tensors, ng_ip_tensors);
+    backend->call(backend->compile(ng_function), ng_op_tensors, ng_ip_tensors);
   } catch (const std::exception& exp) {
     std::cout << "Exception while executing on nGraph " << exp.what()
               << std::endl;

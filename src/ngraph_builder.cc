@@ -2314,6 +2314,23 @@ static Status TranslateProdOp(
   return Status::OK();
 }
 
+static Status TranslateRankOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  auto input_rank = static_cast<int>(input_shape.size());
+
+  auto ng_rank = std::make_shared<ng::op::Constant>(
+      ng::element::i32, ng::Shape(), std::vector<int>({input_rank}));
+
+  SaveNgOp(ng_op_map, op->name(), ng_rank);
+  return Status::OK();
+}
+
 static Status TranslateReciprocalOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -3695,9 +3712,10 @@ static Status TranslateStridedSliceOp(
   auto dim_vec = ng_input->get_shape();
   auto in_rank = dim_vec.size();
 
-  if (in_rank == 0) {
+  if (begin_vec.size() > in_rank) {
     return errors::InvalidArgument("Index out of range using input dim ",
-                                   "; input has only ", in_rank, " dims");
+                                   begin_vec.size(), "; input has only ",
+                                   in_rank, " dims");
   }
 
   // TODO/Note/Question: Are begin, end and stride vectors are of equal length
@@ -4047,6 +4065,7 @@ const static std::map<
         {"FloorDiv", TranslateFloorDivOp},
         {"FloorMod", TranslateFloorModOp},
         {"FusedBatchNorm", TranslateFusedBatchNormOp},
+        {"FusedBatchNormV2", TranslateFusedBatchNormOp},
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
@@ -4084,6 +4103,7 @@ const static std::map<
          TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
+        {"Rank", TranslateRankOp},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
         {"Relu", TranslateReluOp},
