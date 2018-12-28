@@ -343,7 +343,7 @@ def download_repo(target_name, repo, version):
     # First download to a temp folder
     call(["git", "clone", repo, target_name])
 
-    call("git fetch")
+    call(["git", "fetch"])
 
     # Next goto this folder nd determine the name of the root folder
     pwd = os.getcwd()
