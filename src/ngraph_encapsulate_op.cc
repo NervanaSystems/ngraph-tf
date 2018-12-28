@@ -270,8 +270,6 @@ class NGraphEncapsulateOp : public OpKernel {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
 #ifdef NGRAPH_DISTRIBUTED
-        MLSL::Environment* mlsl_env;
-        MLSL::Distribution* mlsl_dist;
         int Rank_ID = MLSL::Environment::GetEnv().GetProcessIdx();
         file_name = "tf_function_" + ctx->op_kernel().name() + "_" +
                     to_string(Rank_ID) + ".json";
