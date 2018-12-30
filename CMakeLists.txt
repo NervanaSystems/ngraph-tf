@@ -226,6 +226,10 @@ message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
 message(STATUS "NGRAPH_TARGET_ARCH:         ${NGRAPH_TARGET_ARCH}")
 message(STATUS "NGRAPH_TUNE_ARCH:           ${NGRAPH_TUNE_ARCH}")
 
+if(NGRAPH_DISTRIBUTED_ENABLE)
+    add_definitions(-DNGRAPH_DISTRIBUTED)
+endif()
+
 # Find and build ngraph - if not using pre-built one
 if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(

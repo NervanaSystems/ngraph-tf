@@ -29,6 +29,10 @@
 
 #include <iomanip>
 
+#ifdef NGRAPH_DISTRIBUTED
+#include "ngraph/mlsl.hpp"
+#endif
+
 using namespace std;
 
 namespace tensorflow {
@@ -102,6 +106,10 @@ class NGraphRewritePass : public GraphOptimizationPass {
   static std::string GraphFilenamePrefix(std::string kind, int idx) {
     std::stringstream ss;
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
+#ifdef NGRAPH_DISTRIBUTED
+    int Rank_ID = MLSL::Environment::GetEnv().GetProcessIdx();
+    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
+#endif
     return ss.str();
   }
   static std::string GraphFilenamePrefix(std::string kind, int idx,
@@ -109,6 +117,10 @@ class NGraphRewritePass : public GraphOptimizationPass {
     std::stringstream ss;
     ss << GraphFilenamePrefix(kind, idx) << "_" << std::setfill('0')
        << std::setw(4) << sub_idx;
+#ifdef NGRAPH_DISTRIBUTED
+    int Rank_ID = MLSL::Environment::GetEnv().GetProcessIdx();
+    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
+#endif
     return ss.str();
   }
 
