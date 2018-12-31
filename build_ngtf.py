@@ -14,6 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
+
 import argparse
 from argparse import RawTextHelpFormatter
 
@@ -370,6 +371,11 @@ def main():
         action="store_true")
 
     parser.add_argument(
+        '--target_arch',
+        help="Architecture flag to use (e.g., haswell, core-avx2 etc. Default \'native\'\n",
+    )
+
+    parser.add_argument(
         '--use_prebuilt_binaries',
         help="Skip building nGraph and TensorFlow. Rather use \"build\" directory.\n" + 
             "The following directory structure is assumed:\n" + 
@@ -403,7 +409,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.11.0"
+    ngraph_version = "v0.11.1"
     tf_version = "v1.12.0"
 
     # Default directories
@@ -438,9 +444,11 @@ def main():
         # Setup the virtual env
         setup_venv(venv_dir)
 
-    #target_arch = 'native'
-    #if (platform.system() != 'Darwin'):
-    target_arch = 'core-avx2'
+    target_arch = 'native'
+    if (arguments.target_arch):
+        target_arch = arguments.target_arch
+
+    print("Target Arch: %s" % target_arch)
 
     if not use_prebuilt_binaries:
         # Download TensorFlow
