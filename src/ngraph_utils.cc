@@ -212,8 +212,8 @@ void NgraphSerialize(const std::string& file_name,
     f << js;
     f.close();
   } catch (std::ofstream::failure& e) {
-    std::cerr << "Exception opening/closing file " << file_name << std::endl;
-    std::cerr << e.what() << std::endl;
+    NGRAPH_VLOG(0) << "Exception opening/closing file " << file_name << std::endl;
+    NGRAPH_VLOG(0) << e.what() << std::endl;
   }
 };
 

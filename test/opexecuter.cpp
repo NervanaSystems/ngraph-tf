@@ -401,10 +401,12 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
     std::cout << "Exception while executing on nGraph " << exp.what()
               << std::endl;
+    throw;
   } catch (...) {
     BackendManager::UnlockBackend(ng_backend_type);
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
     std::cout << "Exception while executing on nGraph " << std::endl;
+    throw;
   }
   BackendManager::UnlockBackend(ng_backend_type);
 
