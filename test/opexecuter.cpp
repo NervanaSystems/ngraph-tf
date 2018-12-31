@@ -399,14 +399,11 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   } catch (const std::exception& exp) {
     BackendManager::UnlockBackend(ng_backend_type);
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
-    std::cout << "Exception while executing on nGraph " << exp.what()
-              << std::endl;
-    throw;
+    FAIL() << "Exception while executing on nGraph " << exp.what();
   } catch (...) {
     BackendManager::UnlockBackend(ng_backend_type);
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
-    std::cout << "Exception while executing on nGraph " << std::endl;
-    throw;
+    FAIL() << "Exception while executing on nGraph";
   }
   BackendManager::UnlockBackend(ng_backend_type);
 
