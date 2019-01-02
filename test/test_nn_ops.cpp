@@ -914,7 +914,7 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
 
 // Conv3D Op Tests
 
-TEST(NNOps, Conv3DNDHWC) {
+TEST(NNOps, Conv3DNDHWCSame) {
   vector<int64> input_size_NDHWC = {1, 5, 6, 7, 10};
   Tensor input_data_NDHWC(DT_FLOAT, TensorShape(input_size_NDHWC));
   AssignInputValuesRandom<float>(input_data_NDHWC, -15.0f, 15.0f);
