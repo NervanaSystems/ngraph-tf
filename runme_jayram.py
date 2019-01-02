@@ -115,7 +115,7 @@ def test1():  #quantize.
     for t1, t2, tname in zip(outvals, outvals_tf, tensornames):
         print(tname, np.linalg.norm(t1.astype('float') - t2.astype('float')))
         print(tname, t1.shape)
-    pdb.set_trace()
+    #pdb.set_trace()
     print('hello')
 
 
@@ -190,7 +190,7 @@ def test3():
     for t1, t2 in zip(outvals, outvals_tf):
         print(np.linalg.norm(t1.astype('float') - t2.astype('float')))
         print(t1.shape)
-    pdb.set_trace()
+    #pdb.set_trace()
     print('hello')
 
 
@@ -333,7 +333,7 @@ def test_resnet(datadict=None):  #quantize.
         datadict = {tname:t1 for t1, tname in zip(outvals_tf, tensornames)}
         datadict['import/input:0'] = indata
         pkl.dump(datadict, open('../datadict.pkl', 'wb'))
-    pdb.set_trace()
+    #pdb.set_trace()
     print('hello')
 
 def test_single_node_graph(node_name, inp_tensors_feeddict):
@@ -363,14 +363,15 @@ def test_single_node_graph(node_name, inp_tensors_feeddict):
     print('Number of zero elements in diff: ', np.sum(diff==0))
     hist = {i:np.sum(diff==i) for i in np.unique(diff)}
     #print(' '.join([str(i) + ':' + str(hist[i]) for i in sorted(hist.keys(), key=lambda x : abs(x))]))
-    pdb.set_trace()
+    #pdb.set_trace()
     print('Ending test')
+#    print('outvals_tf ', outvals_tf[:10])
 
 def test_resnet_newoponly_conv4(datadict=None):
     if datadict is None:
         bs = 1
         indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
-        indata1 = np.arange(bs*55*55*256).reshape([bs,55, 55, 256])%256
+        indata1 = np.arange(bs*55*55*256).reshape([bs, 55, 55, 256])%128
         min1 = -2
         min2 = -1
         max1 = 2
@@ -417,7 +418,7 @@ def test_resnet_newunsignedoponly_conv7(datadict=None):
     "import/v0/resnet_v10/conv4/conv2d/Conv2D_eightbit_requantize:2": max2
     })
 
-def test_resnet_quackbarkonly_conv2(datadict):
+def test_resnet_quackbarkonly_conv2(datadict=None):
     if datadict is None:
         bs = 1
         indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
@@ -433,7 +434,7 @@ def test_resnet_quackbarkonly_conv2(datadict):
     "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_quantize_v0/mpool0/MaxPool:2": mx
     })
 
-def test_resnet_quackbarknoreluonly_conv1(datadict):
+def test_resnet_quackbarknoreluonly_conv1(datadict=None):
     if datadict is None:
         bs = 1
         indata = np.arange(bs*55*55*64).reshape([bs,55, 55, 64])%256
@@ -455,46 +456,57 @@ def unittest_signedsum():
     def _helper():
         from tensorflow.python.ops import nn_ops
         N = 1
-        C = 1
-        H = 3
-        W = 4
-        O = 1
+        C = 64
+        H = 55
+        W = 55
+        O = 256
         I = C
-        FH = 3
-        FW = 3
-        input = tf.constant(np.array([1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4]).reshape([N, H, W, C]), dtype=tf.quint8, name='input')
-        filter = tf.constant(np.array([1, 2, 3, 4, 5, 0, 0, 1, 2]).reshape([FH, FW, I, O]), dtype=tf.qint8, name='filter')
-        bias = tf.constant(np.array([5]), dtype=tf.qint32, name='bias')
-        min_input = 0.0
-        max_input = 255.0
-        min_filter = -127.0
-        max_filter = 127.0
+        FH = 1
+        FW = 1
+        max_modulo = 128
+        input = tf.constant((np.array(np.arange(N*H*W*C))%max_modulo).reshape([N, H, W, C]), dtype=tf.quint8, name='input')
+        filter = tf.constant((np.array(np.arange(FH*FW*I*O))%max_modulo).reshape([FH, FW, I, O]), dtype=tf.qint8, name='filter')
+        bias = tf.constant(np.array([5]*O), dtype=tf.qint32, name='bias')
+        min_input = 0
+        max_input = 10
+        min_filter = 0
+        max_filter = 10
         min_freezed_output = 22.0
         max_freezed_output = 90.0
-        summand = tf.constant(np.array([-1, -2, -3, -4, -5, -6, -10, 0, 1, 2, 3, 4]).reshape([N, H, W, C]), dtype=tf.qint8, name='sum')
-        min_summand = 22.0
-        max_summand = 90.0
+        summand = tf.constant((np.array(np.arange(N*H*W*O))%max_modulo).reshape([N, H, W, O]), dtype=tf.qint8, name='sum')
+        min_summand = 0
+        max_summand = max_modulo
         strides = [1,1,1,1]
         padding = "SAME"
         #pdb.set_trace()
         qop = nn_ops.quantized_conv2d_with_bias_signed_sum_and_relu_and_requantize(input, filter, bias, min_input, max_input, min_filter, max_filter, min_freezed_output, max_freezed_output, summand, min_summand, max_summand, strides, padding, out_type=tf.quint8, dilations=[1, 1, 1, 1], name='qop')
         result = tf.Session().run([qop, input, filter, bias, summand])
-        for name, val in zip(['qop', 'input', 'filter', 'bias', 'summand'], result):
-            print(name, ":", val)
+        return result[0].output
+        #for name, val in zip(['qop', 'input', 'filter', 'bias', 'summand'], result):
+            #print(name, ":", val)
 
     ngraph_bridge.disable()
-    print("Raw TF result")
-    _helper()
-    print("NGTF result")
+    #print("Raw TF result")
+    result_tf = _helper()
+    #print("NGTF result")
     ngraph_bridge.enable()
-    _helper()
+    result_ng = _helper()
+    print(result_tf)
+    print(result_ng)
+    for t1, t2 in zip(result_ng, result_tf):
+        print(np.linalg.norm(t1.astype('float') - t2.astype('float')))
+        print(t1.shape)
+    diff = result_ng[0].astype(int) - result_tf[0].astype(int)
+    print("Max diff val: ", np.max(np.abs(diff)))
+    print('Number of non-zero elements in diff: ', np.sum(diff!=0))
+    print('Number of zero elements in diff: ', np.sum(diff==0))
 
 #test1()
 #test_acc()
 
 datadict = pkl.load(open('../datadict.pkl', 'rb'))
 
-test_resnet(datadict)
+#test_resnet(datadict)
 
 #test_resnet_newoponly_conv4()
 #test_resnet_newunsignedoponly_conv7()
@@ -504,11 +516,11 @@ test_resnet(datadict)
 
 
 
-test_resnet_newoponly_conv4(datadict)
+#test_resnet_newoponly_conv4(datadict)
 #test_resnet_quackbarkonly_conv2(datadict)
-test_resnet_quackbarknoreluonly_conv1(datadict)
+#test_resnet_quackbarknoreluonly_conv1(datadict)
 
-#unittest_signedsum()
+unittest_signedsum()
 '''
 NGRAPH_TF_LOG_PLACEMENT=1 NGRAPH_PASS_ENABLES="ConstantFolding:1" NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS=1  python runme_jayram.py
 '''
