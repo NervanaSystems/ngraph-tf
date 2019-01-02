@@ -24,21 +24,6 @@ set -e  # Make sure we exit on any command that returns non-zero
 set -u  # No unset variables
 set -o pipefail # Make sure cmds in pipe that are non-zero also fail immediately
 
-
-# Default is Python 3, but can override with NG_TF_PY_VERSION env. variable
-export PY_VERSION_NUMBER="${NG_TF_PY_VERSION}"
-if [ -z "${PY_VERSION_NUMBER}" ] ; then
-    PY_VERSION_NUMBER=3
-fi
-export PY_BIN_PATH="/usr/bin/python$PY_VERSION_NUMBER"
-
-# build_ngtf.py only supports Python 3 right now
-if [ ! "${PY_VERSION_NUMBER}" = 3 ] ; then
-    ( >&2 echo '***** Error: *****' )
-    ( >&2 echo "build_ngtf.py only supports build with Python 3 [PY_VERSION_NUMBER=${PY_VERSION_NUMBER}]" )
-    exit 1
-fi
-
 # Set up some important known directories
 bridge_dir='/home/dockuser/ngraph-tf'
 bbuild_dir="${bridge_dir}/build"
@@ -60,8 +45,6 @@ echo "  venv_dir=${venv_dir}"
 echo "  ngraph_wheel_dir=${ngraph_wheel_dir}"
 echo ''
 echo "  HOME=${HOME}"
-echo "  PY_VERSION_NUMBER=${PY_VERSION_NUMBER}"
-echo "  PY_BIN_PATH=${PY_BIN_PATH}"
 
 # Do some up-front checks, to make sure necessary directories are in-place and
 # build directories are not-in-place
@@ -89,7 +72,7 @@ ln -s /tmp/bazel-cache "$HOME/.cache"
 
 xtime="$(date)"
 echo  ' '
-echo  "===== Checking gcc and OS version at ${xtime} ====="
+echo  "===== Checking gcc, python and OS version at ${xtime} ====="
 echo  ' '
 
 echo 'gcc is being run from:'
@@ -105,6 +88,18 @@ which g++
 echo ' '
 echo 'g++ version is:'
 g++ --version
+
+echo ' '
+echo 'python version is:'
+python --version
+
+echo ' '
+echo 'python2 version is:'
+python2 --version
+
+echo ' '
+echo 'python3 version is:'
+python3 --version
 
 echo ' '
 echo 'Ubuntu version is:'
@@ -123,8 +118,8 @@ virtualenv --system-site-packages -p /usr/bin/python2 "${venv_dir}"
 source "${venv_dir}/bin/activate"
 
 # yapf and futures are needed for code-format checks (ngraph-tf PR#211)
-pip3 install yapf==0.24.0
-pip3 install futures
+pip install yapf==0.24.0
+pip install futures
 
 xtime="$(date)"
 echo  ' '

@@ -19,34 +19,8 @@
 # Script parameters:
 #
 # $1 ImageID    Required: ID of the ngtf_bridge_ci docker image to use
-#
-# Script environment variable parameters:
-#
-# NG_TF_PY_VERSION   Optional: Set python major version ("2" or "3", default=2)
 
 set -e  # Fail on any command with non-zero exit
-
-# Set defaults
-
-if [ -z "${NG_TF_PY_VERSION}" ] ; then
-    NG_TF_PY_VERSION='2'  # Default is Python 2
-fi
-
-# Note that the docker image must have been previously built using the
-# make-docker-ngraph-tf-ci.sh script (in the same directory as this script).
-#
-case "${NG_TF_PY_VERSION}" in
-    2)
-        IMAGE_CLASS='ngraph_tf_ci_py2'
-        ;;
-    3)
-        IMAGE_CLASS='ngraph_tf_ci_py3'
-        ;;
-    *)
-        echo 'NG_TF_PY_VERSION must be set to "2", "3", or left unset (default is "2")'
-        exit 1
-        ;;
-esac
 
 IMAGE_ID="${1}"
 if [ -z "${IMAGE_ID}" ] ; then
@@ -66,7 +40,6 @@ long_ID=`echo ${IMAGE_ID} | grep ':' || true`
 if [ ! -z "${long_ID}" ] ; then
     IMAGE_CLASS=` echo ${IMAGE_ID} | sed -e 's/:[^:]*$//' `
     IMAGE_ID=` echo ${IMAGE_ID} | sed -e 's/^[^:]*://' `
-    # TODO: set python version here based on presence of _py3
 fi
 
 # Find the top-level bridge directory, so we can mount it into the docker
@@ -78,12 +51,6 @@ tf_mountpoint='/home/dockuser/tensorflow'
 
 # Set up a bunch of volume mounts
 volume_mounts="-v ${bridge_dir}:${bridge_mountpoint}"
-
-# Set up optional environment variables
-optional_env=''
-if [ ! -z "${NG_TF_PY_VERSION}" ] ; then
-  optional_env="${optional_env} --env NG_TF_PY_VERSION=${NG_TF_PY_VERSION}"
-fi
 
 set -u  # No unset variables after this point
 
@@ -109,7 +76,6 @@ fi
 drun_cmd="docker run --rm \
     --env RUN_UID=$(id -u) \
     --env RUN_CMD=${BUILD_SCRIPT} \
-    ${optional_env} \
     ${DOCKER_HTTP_PROXY} ${DOCKER_HTTPS_PROXY} \
     ${volume_mounts} \
     ${IMAGE_CLASS}:${IMAGE_ID} ${RUNASUSER_SCRIPT}"
