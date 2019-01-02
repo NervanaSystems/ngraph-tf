@@ -306,6 +306,9 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     os.chdir(os.path.join("python", "dist"))
     ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
     if (len(ngtf_wheel_files) != 1):
+        print("Multiple Python whl files exist. Please remove old wheels")
+        for whl in nnp_wheel_files:
+            print(whl)
         raise Exception("Error getting the ngraph-tf wheel file")
 
     output_wheel = ngtf_wheel_files[0]
@@ -453,6 +456,7 @@ def main():
 
     print("Target Arch: %s" % target_arch)
 
+    cxx_abi = 0
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
