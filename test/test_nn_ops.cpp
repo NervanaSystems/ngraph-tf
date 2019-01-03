@@ -946,7 +946,8 @@ TEST(NNOps, Conv3DNDHWCSame) {
   OpExecuter opexecuter(root, "Conv3D", static_input_indexes, output_datatypes,
                         sess_run_fetchoutputs);
 
-  opexecuter.RunTest(1e-05, 1e-05);
+
+  opexecuter.RunTest(1e-04, 1e-04);
 }
 
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
