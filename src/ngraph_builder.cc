@@ -15,6 +15,7 @@
  *******************************************************************************/
 
 #include "ngraph_builder.h"
+#include "ngraph/op/util/logical_reduction.hpp"
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
@@ -462,64 +463,15 @@ static Status TranslateAddNOp(
   return Status::OK();
 }
 
-static Status TranslateAnyOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
+template <typename T>
+static Status TranslateLogicalReduction(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input, ng_axes_op;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
 
-  std::vector<int64> axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = ng_input->get_shape().size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(axes.size());
-  std::transform(
-      axes.begin(), axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::vector<bool> init_val = {false};
-  auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                ng::Shape(0), init_val);
-  auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto ng_or = make_shared<ng::Function>(make_shared<ng::op::Or>(f_A, f_B),
-                                         ng::ParameterVector{f_A, f_B});
-
-  shared_ptr<ng::Node> ng_any =
-      make_shared<ng::op::Reduce>(ng_input, arg_init, ng_or, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-    ng::AxisVector ng_axis_order(ng_any->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-    ng_any = make_shared<ng::op::Reshape>(ng_any, ng_axis_order,
-                                          ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_any);
-  return Status::OK();
-}
-
-static Status TranslateAllOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
+  static_assert(std::is_base_of<ngraph::op::util::LogicalReduction, T>::value,
+                "Expected LogicalReduction type op (Any or All)");
 
   bool tf_keep_dims;
   if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
@@ -540,16 +492,8 @@ static Status TranslateAllOp(const Node* op,
       [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
-  std::vector<bool> init_val = {true};
-  auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                ng::Shape(0), init_val);
-  auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto ng_and = make_shared<ng::Function>(make_shared<ng::op::And>(f_A, f_B),
-                                          ng::ParameterVector{f_A, f_B});
-
-  shared_ptr<ng::Node> ng_all = make_shared<ng::op::Reduce>(
-      ng_input, arg_init, ng_and, ng_reduction_axes);
+  shared_ptr<ng::Node> ng_all_or_any =
+      make_shared<T>(ng_input, ng_reduction_axes);
 
   // If keep_dims is specified we need to reshape to put back the reduced
   // axes, with length 1.
@@ -561,13 +505,13 @@ static Status TranslateAllOp(const Node* op,
           ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
     }
 
-    ng::AxisVector ng_axis_order(ng_all->get_shape().size());
+    ng::AxisVector ng_axis_order(ng_all_or_any->get_shape().size());
     std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-    ng_all = make_shared<ng::op::Reshape>(ng_all, ng_axis_order,
-                                          ng_result_shape_with_keep);
+    ng_all_or_any = make_shared<ng::op::Reshape>(ng_all_or_any, ng_axis_order,
+                                                 ng_result_shape_with_keep);
   }
 
-  SaveNgOp(ng_op_map, op->name(), ng_all);
+  SaveNgOp(ng_op_map, op->name(), ng_all_or_any);
   return Status::OK();
 }
 
@@ -1355,6 +1299,81 @@ static Status TranslateConv2DBackpropInputOp(
   return Status::OK();
 }
 
+// Translate Conv3D Op
+static Status TranslateConv3DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_filter;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter));
+
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_dilations;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NDHWC" && tf_data_format != "NCDHW") {
+    return errors::InvalidArgument(
+        "Conv3D data format is neither NDHWC nor NCDHW");
+  }
+
+  bool is_ndhwc = (tf_data_format == "NDHWC");
+
+  // TODO: in 3D
+  // TF Kernel Test Checks
+  // // Strides in the batch and depth dimension is not supported
+  // if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+  //   return errors::InvalidArgument(
+  //       "Strides in batch and depth dimensions is not supported: ",
+  //       op->type_string());
+  // }
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_dilations);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(3);
+  ng::Strides ng_dilations(3);
+  ng::Shape ng_image_shape(3);
+  ng::Shape ng_kernel_shape(3);
+
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_strides, ng_strides);
+  BatchedOpParam3DToNGraph(is_ndhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_dilations, ng_dilations);
+  BatchToNGraph3D(is_ndhwc, ng_input);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+  auto& ng_filter_shape = ng_filter->get_shape();
+  ng_kernel_shape[0] = ng_filter_shape[0];
+  ng_kernel_shape[1] = ng_filter_shape[1];
+  ng_kernel_shape[2] = ng_filter_shape[2];
+  Reshape3D<4, 3, 0, 1, 2>(ng_filter);
+
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::CoordinateDiff ng_padding_below{0, 0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0, 0};
+
+  Builder::MakePadding3D(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_dilations, ng_padding_below,
+                         ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
+      ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
+      ng_padding_above);
+
+  BatchToTensorflow3D(is_ndhwc, ng_conv);
+  SaveNgOp(ng_op_map, op->name(), ng_conv);
+  return Status::OK();
+}
+
 // Translate DepthToSpace op
 static Status TranslateDepthToSpaceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
@@ -2008,6 +2027,68 @@ static Status TranslateMaxPoolOp(
                                    ng_padding_below, ng_padding_above);
 
   BatchToTensorflow(is_nhwc, ng_maxpool);
+
+  NGRAPH_VLOG(3) << "maxpool outshape: {" << ng::join(ng_maxpool->get_shape())
+                 << "}";
+
+  SaveNgOp(ng_op_map, op->name(), ng_maxpool);
+  return Status::OK();
+}
+
+static Status TranslateMaxPool3DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NDHWC" && tf_data_format != "NCDHW") {
+    return errors::InvalidArgument(
+        "MaxPool3D data format is neither NDHWC nor NCDHW");
+  }
+
+  bool is_ndhwc = (tf_data_format == "NDHWC");
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(3);
+  ng::Shape ng_image_shape(3);
+  ng::Shape ng_kernel_shape(3);
+
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_strides, ng_strides);
+  BatchedOpParam3DToNGraph(is_ndhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph3D(is_ndhwc, ng_input);
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  // TODO: change this once nGraph supports negative padding
+  // (CoordinateDiff) for MaxPool
+  // ng::CoordinateDiff ng_padding_below{0,0};
+  // ng::CoordinateDiff ng_padding_above{0,0};
+  ng::Shape ng_padding_below{0, 0, 0};
+  ng::Shape ng_padding_above{0, 0, 0};
+
+  Builder::MakePadding3D(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_padding_below, ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_maxpool =
+      make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
+                                   ng_padding_below, ng_padding_above);
+
+  BatchToTensorflow3D(is_ndhwc, ng_maxpool);
 
   NGRAPH_VLOG(3) << "maxpool outshape: {" << ng::join(ng_maxpool->get_shape())
                  << "}";
@@ -4039,8 +4120,8 @@ const static std::map<
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
         {"AddN", TranslateAddNOp},
-        {"Any", TranslateAnyOp},
-        {"All", TranslateAllOp},
+        {"Any", TranslateLogicalReduction<ng::op::Any>},
+        {"All", TranslateLogicalReduction<ng::op::All>},
         {"ArgMax", TranslateArgMaxOp},
         {"ArgMin", TranslateArgMinOp},
         {"AvgPool", TranslateAvgPoolOp},
@@ -4054,6 +4135,7 @@ const static std::map<
         {"Conv2D", TranslateConv2DOp},
         {"Conv2DBackpropFilter", TranslateConv2DBackpropFilterOp},
         {"Conv2DBackpropInput", TranslateConv2DBackpropInputOp},
+        {"Conv3D", TranslateConv3DOp},
         {"DepthToSpace", TranslateDepthToSpaceOp},
         {"DepthwiseConv2dNative", TranslateDepthwiseConv2dNativeOp},
         {"Dequantize", TranslateDequantizeOp},
@@ -4082,6 +4164,7 @@ const static std::map<
         {"Max", TranslateMaxOp},
         {"Maximum", TranslateBinaryOp<ngraph::op::Maximum>},
         {"MaxPool", TranslateMaxPoolOp},
+        {"MaxPool3D", TranslateMaxPool3DOp},
         {"MaxPoolGrad", TranslateMaxPoolGradOp},
         {"Mean", TranslateMeanOp},
         {"Min", TranslateMinOp},

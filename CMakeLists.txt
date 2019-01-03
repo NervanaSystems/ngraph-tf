@@ -201,16 +201,21 @@ if(UNIT_TEST_TF_CC_DIR)
 endif()
 
 # Enable build target CPU features
-set(
-    NGRAPH_TARGET_ARCH
-    native
-    CACHE STRING "Target CPU architecture to build for.")
+if (NOT DEFINED NGRAPH_TARGET_ARCH)
+    set(
+        NGRAPH_TARGET_ARCH
+        native
+        CACHE STRING "Target CPU architecture to build for.")
+endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${NGRAPH_TARGET_ARCH}")
 
-set(
-    NGRAPH_TUNE_ARCH
-    native
-    CACHE STRING "Target CPU architecture to tune for")
+if (NOT DEFINED NGRAPH_TUNE_ARCH)
+    set(
+        NGRAPH_TUNE_ARCH
+        native
+        CACHE STRING "Target CPU architecture to build for.")
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=${NGRAPH_TARGET_ARCH}")
 
 message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
 message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
@@ -227,7 +232,7 @@ if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-        GIT_TAG v0.11.0
+        GIT_TAG v0.12.0-rc.0
         CMAKE_ARGS 
             -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
             -DNGRAPH_INSTALL_PREFIX=${NGRAPH_ARTIFACTS_DIR}

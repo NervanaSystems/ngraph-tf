@@ -228,6 +228,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["Conv3D"] = SimpleConfirmationFunction();
       confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
       confirmation_function_map["Dequantize"] = [](Node* n, bool* result) {
         string mode;
@@ -269,6 +270,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Max"] = SimpleConfirmationFunction();
       confirmation_function_map["Maximum"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPool"] = SimpleConfirmationFunction();
+      confirmation_function_map["MaxPool3D"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_function_map["Mean"] = SimpleConfirmationFunction();
       confirmation_function_map["Min"] = SimpleConfirmationFunction();
@@ -370,6 +372,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Conv3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthToSpace"]["T"] = NGraphDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -401,6 +404,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["MaxPool3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
