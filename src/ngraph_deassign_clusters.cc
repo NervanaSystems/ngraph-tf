@@ -86,27 +86,30 @@ static void MaybeLogPlacement(const Graph* graph) {
           ? (int)((nodes_assigned_a_cluster * 100.0) /
                   nodes_marked_for_clustering)
           : 0;
-
-  std::cout << "Number of nodes in the graph: " << number_of_nodes << std::endl;
-  std::cout << "Number of nodes marked for clustering: "
+  
+  std::cout << "\n"; // insert a new line at the start of NGTF_SUMMARY
+  std::cout << "NGTF_SUMMARY: Number of nodes in the graph: " << number_of_nodes << std::endl;
+  std::cout << "NGTF_SUMMARY: Number of nodes marked for clustering: "
             << nodes_marked_for_clustering << " ("
             << perc_marked_for_clustering_of_total << "% of total nodes)"
             << std::endl;
-  std::cout << "Number of nodes assigned a cluster: "
+  std::cout << "NGTF_SUMMARY: Number of nodes assigned a cluster: "
             << nodes_assigned_a_cluster << " ("
             << perc_assigned_clusters_of_total << "% of total nodes) \t"
             << " (" << perc_assigned_clusters_of_marked
             << "% of nodes marked for clustering) \t" << std::endl;
-  std::cout << "Number of ngraph clusters :" << final_cluster_map.size() - 1
+  std::cout << "NGTF_SUMMARY: Number of ngraph clusters :" << final_cluster_map.size() - 1
             << std::endl;
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
     if (cluster_idx != -1) {
-      std::cout << "Size of nGraph Cluster[" << cluster_idx << "]\t"
+      std::cout << "NGTF_SUMMARY: Size of nGraph Cluster[" << cluster_idx << "]\t"
                 << kv.second.size() << std::endl;
     }
   }
+
+  std::cout << "\n"; // insert a new line between NGTF_SUMMARY and OP_placement
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
