@@ -102,6 +102,14 @@ echo 'python3 version is:'
 python3 --version
 
 echo ' '
+echo 'virtualenv version is:'
+virtualenv --version
+
+echo ' '
+echo 'pip version is:'
+pip --version
+
+echo ' '
 echo 'Ubuntu version is:'
 cat /etc/os-release
 
