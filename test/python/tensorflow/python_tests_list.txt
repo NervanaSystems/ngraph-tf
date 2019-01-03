@@ -141,6 +141,8 @@ conv_ops_3d_test.Conv3DTest.testKernelSizeMatchesInputSize
 #conv_ops_3d_test.Conv3DTest.testKernelSmallerThanStride 
 conv_ops_3d_test.Conv3DTest.test_session 
 
+conv3d_transpose_test.Conv3DTransposeTest.testGradient
+
 conv_ops_test.DepthwiseConv2DTest.testConv2D2x2Filter
 
 constant_op_test.ConstantTest.testDouble 
