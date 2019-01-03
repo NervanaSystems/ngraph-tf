@@ -52,7 +52,7 @@ RUN updatedb
 
 # The pip-upgrade for pip, setuptools, and virtualenv is to avoid a nasty
 #   bug in setuptools: "_NamespacePath object has no attribute sort"
-RUN pip3 install --upgrade pip setuptools virtualenv
+RUN pip3 install --upgrade pip setuptools virtualenv==16.1.0
 
 # We include pytest so the Docker image can be used for daily validation
 RUN pip3 install --upgrade pytest
