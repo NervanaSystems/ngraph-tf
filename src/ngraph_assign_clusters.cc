@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <type_traits>
 
 #include "tensorflow/core/framework/attr_value_util.h"
 #include "tensorflow/core/framework/graph.pb.h"
@@ -26,6 +27,7 @@
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/util/device_name_utils.h"
 
+#include "ngraph_api.h"
 #include "ngraph_assign_clusters.h"
 #include "ngraph_cluster_manager.h"
 #include "ngraph_log.h"
@@ -435,7 +437,38 @@ Status AssignClusters(Graph* graph) {
 
   NGRAPH_VLOG(2) << "Starting contraction";
   bool changed;
+  bool collect_non_contracting_edge_info = false; // Must init with false
 
+  /*
+  enum class EdgeNonContractionReasons: size_t
+  {
+      UNSUPPORTED = 0,
+      DEADNESS,
+      BACKEND,
+      STATICINPUT,
+      PATHEXISTS
+  };
+
+  typedef struct EdgeInfo {
+    int xxxx;
+  } EdgeInfo;
+
+  
+  auto enumclass_to_number = [](EdgeNonContractionReasons x){return static_cast<underlying_type<EdgeNonContractionReasons>::type>(x);};
+  enumclass_to_number(EdgeNonContractionReasons::UNSUPPORTED);
+
+  std::vector<std::set<EdgeInfo>> classify_non_contracting_edges();
+  */
+ std::unordered_map<string, int> unsupported_ops;
+
+ auto increment_histogram = [](std::unordered_map<string, int>& map, const string& key){
+      auto iter = map.find(key);
+      if(iter != map.end()) 
+        iter->second++;
+      else
+        map[key] = 1;
+ };
+  
   do {
     changed = false;
 
@@ -455,6 +488,11 @@ Status AssignClusters(Graph* graph) {
                        << edge->src_output() << "]@" << src_index << " -> "
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
+        if (collect_non_contracting_edge_info) {
+          // not supported by ngraph/ngtf
+          increment_histogram(unsupported_ops, src->type_string());
+          // also note which 2 clusters are separated because of this
+        }
         continue;
       }
 
@@ -469,6 +507,12 @@ Status AssignClusters(Graph* graph) {
                        << edge->src_output() << "]@" << src_index << " -> "
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
+        if (collect_non_contracting_edge_info) {
+          // deadness issues
+          // collect deadness predicate of src and dst clusters?
+          // Dump these out and analyse if a more advanced deadness algorithm can collapse these edges?
+          // also note which 2 clusters are separated because of this
+        }
         continue;
       }
 #endif
@@ -482,6 +526,11 @@ Status AssignClusters(Graph* graph) {
                        << edge->src_output() << "]@" << src_index << " -> "
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
+        if (collect_non_contracting_edge_info) {
+          // backend issues
+          // nothing to be done here. just count number of such edges?
+          // also note which 2 clusters are separated because of this
+        }
         // do not contract, src and dst node cannot be in the same cluster
         continue;
       }
@@ -493,7 +542,28 @@ Status AssignClusters(Graph* graph) {
         MergeClusters(edge, cluster_map);
         // something changed
         changed = true;
+      } else {
+        if (collect_non_contracting_edge_info) {
+          // either static input
+          // or... there exists a longer path, so contracting this edge causes cycles
+
+          std::vector<int32> static_inputs;
+          GetStaticInputs(dst, &static_inputs);
+          bool has_static_inputs = static_inputs.size() > 0;
+          if (has_static_inputs){
+            // also check if static inputs are being fed by consts?
+          }
+          // also note which 2 clusters are separated because of this?
+        }
       }
+    }
+
+    if (!changed && config::IsLoggingPlacement() && !collect_non_contracting_edge_info){
+      changed = true;
+      collect_non_contracting_edge_info = true;
+    }
+    if (collect_non_contracting_edge_info){
+      // assert "changed" is false
     }
   } while (changed);
   NGRAPH_VLOG(2) << "Contraction done";
