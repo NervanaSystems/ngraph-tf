@@ -137,5 +137,5 @@ if __name__ == '__main__':
         help='Summaries log directory')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
-# run comand for this distributed script
+# run command for this distributed script
 # mpirun -np 2 python mnist_softmax_distributed.py --data_dir=/mnt/data/mnist
