@@ -158,6 +158,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
         "build",
         "--config=opt",
         "--config=mkl",
+        '--copt="-DINTEL_MKL_QUANTIZED"',
         "//tensorflow/tools/pip_package:build_pip_package",
     ])
 
@@ -347,7 +348,7 @@ def main():
 
     # Component versions
     ngraph_version = "nishant_sayantan_signed_op_fix"
-    tf_version = "r1.13" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
+    tf_version = "master" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
     download_repo(
