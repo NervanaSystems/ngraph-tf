@@ -508,6 +508,8 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
+  std::unordered_map<string, int> no_support_histogram;
+  std::unordered_map<string, int> fail_constraint_histogram;
   vector<Node*> nodes_marked_for_clustering;
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
@@ -528,6 +530,7 @@ Status MarkForClustering(Graph* graph) {
       if (!confirmation_constraint_ok) {
         NGRAPH_VLOG(5) << "Node does not meet confirmation constraints: "
                        << node->name();
+        no_support_histogram[node->type_string()]++;
         break;
       }
 
@@ -538,6 +541,7 @@ Status MarkForClustering(Graph* graph) {
       if (!type_constraint_ok) {
         NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
                        << node->name();
+        fail_constraint_histogram[node->type_string()]++;
         break;
       }
 
@@ -556,6 +560,13 @@ Status MarkForClustering(Graph* graph) {
                      << node->type_string() << "]";
     }
   }
+
+  // print summary for nodes failed to be marked
+  std::cout << "NGTF_SUMMARY: Op_not_supported: ";
+  print_node_histogram(no_support_histogram);
+  std::cout << "\n";
+  std::cout << "NGTF_SUMMARY: Op_failed_type_constraint: ";
+  print_node_histogram(fail_constraint_histogram);
 
   // Set Attributes for nodes marked for clustering
   // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"

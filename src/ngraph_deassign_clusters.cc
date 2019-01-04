@@ -117,9 +117,9 @@ static void MaybeLogPlacement(const Graph* graph) {
   }
 
   // log the ops gets deassigned
-  int deassigned_histogram_counter = 0;
   std::cout << "NGTF_SUMMARY: Op_deassigned: ";
   print_node_histogram(deassigned_histogram);
+  std::cout << "\n" << endl;  // insert a line between summary and op placement
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
@@ -136,6 +136,7 @@ static void MaybeLogPlacement(const Graph* graph) {
       std::cout << placement_dev.str() << std::endl;
     }
   }
+  std::cout << endl;
 }
 
 Status DeassignClusters(Graph* graph) {

@@ -170,7 +170,6 @@ void print_node_histogram(std::unordered_map<string, int> histogram,
                 << (endelem ? " " : ",");
     }
   }
-  std::cout << "\n" << endl;
 }
 
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
