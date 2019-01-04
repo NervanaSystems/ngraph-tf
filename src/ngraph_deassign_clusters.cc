@@ -123,7 +123,11 @@ static void MaybeLogPlacement(const Graph* graph) {
     std::cout << "None" << std::endl;
   }
   else{
-    for(auto node : deassigned_histogram){
+    // Descending sort
+    vector<std::pair<string, int>> v(begin(deassigned_histogram), end(deassigned_histogram));
+    sort(begin(v), end(v), [](const pair<string, int>& a, const pair<string, int>& b) { return a.second > b.second; });
+
+    for(auto node : v){
       if(++deassigned_histogram_counter < deassigned_histogram_size){
         std::cout << " " << node.first << " -> " << node.second << ",";
       }else{
@@ -131,7 +135,6 @@ static void MaybeLogPlacement(const Graph* graph) {
       }
     }
   }
-  
   std::cout << "\n"; // insert a new line between NGTF_SUMMARY and OP_placement
 
   for (auto kv : final_cluster_map) {
