@@ -64,7 +64,7 @@ static void MaybeLogPlacement(const Graph* graph) {
   int number_of_nodes = 0, nodes_marked_for_clustering = 0,
       nodes_assigned_a_cluster = 0;
   for (auto node : graph->nodes()) {
-      number_of_nodes++;
+    number_of_nodes++;
     // Check marked for clustering
     if (NodeIsMarkedForClustering(node)) {
       nodes_marked_for_clustering++;
@@ -90,9 +90,10 @@ static void MaybeLogPlacement(const Graph* graph) {
           ? (int)((nodes_assigned_a_cluster * 100.0) /
                   num_nodes_marked_before_deassign)
           : 0;
-  
-  std::cout << "\n"; // insert a new line at the start of NGTF_SUMMARY
-  std::cout << "NGTF_SUMMARY: Number of nodes in the graph: " << number_of_nodes << std::endl;
+
+  std::cout << "\n";  // insert a new line at the start of NGTF_SUMMARY
+  std::cout << "NGTF_SUMMARY: Number of nodes in the graph: " << number_of_nodes
+            << std::endl;
   // print out the number of nodes marked before deassign
   std::cout << "NGTF_SUMMARY: Number of nodes marked for clustering: "
             << num_nodes_marked_before_deassign << " ("
@@ -104,14 +105,14 @@ static void MaybeLogPlacement(const Graph* graph) {
             << perc_assigned_clusters_of_total << "% of total nodes) \t"
             << " (" << perc_assigned_clusters_of_marked
             << "% of nodes marked for clustering) \t" << std::endl;
-  std::cout << "NGTF_SUMMARY: Number of ngraph clusters :" << final_cluster_map.size() - 1
-            << std::endl;
+  std::cout << "NGTF_SUMMARY: Number of ngraph clusters :"
+            << final_cluster_map.size() - 1 << std::endl;
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
     if (cluster_idx != -1) {
-      std::cout << "NGTF_SUMMARY: Size of nGraph Cluster[" << cluster_idx << "]:\t"
-                << kv.second.size() << std::endl;
+      std::cout << "NGTF_SUMMARY: Size of nGraph Cluster[" << cluster_idx
+                << "]:\t" << kv.second.size() << std::endl;
     }
   }
 
@@ -119,23 +120,26 @@ static void MaybeLogPlacement(const Graph* graph) {
   int deassigned_histogram_counter = 0;
   int deassigned_histogram_size = deassigned_histogram.size();
   std::cout << "NGTF_SUMMARY: Op_deassigned: ";
-  if(deassigned_histogram_size == 0){
+  if (deassigned_histogram_size == 0) {
     std::cout << "None" << std::endl;
-  }
-  else{
+  } else {
     // Descending sort
-    vector<std::pair<string, int>> v(begin(deassigned_histogram), end(deassigned_histogram));
-    sort(begin(v), end(v), [](const pair<string, int>& a, const pair<string, int>& b) { return a.second > b.second; });
+    vector<std::pair<string, int>> v(begin(deassigned_histogram),
+                                     end(deassigned_histogram));
+    sort(begin(v), end(v),
+         [](const pair<string, int>& a, const pair<string, int>& b) {
+           return a.second > b.second;
+         });
 
-    for(auto node : v){
-      if(++deassigned_histogram_counter < deassigned_histogram_size){
+    for (auto node : v) {
+      if (++deassigned_histogram_counter < deassigned_histogram_size) {
         std::cout << " " << node.first << " -> " << node.second << ",";
-      }else{
+      } else {
         std::cout << " " << node.first << " -> " << node.second << std::endl;
       }
     }
   }
-  std::cout << "\n"; // insert a new line between NGTF_SUMMARY and OP_placement
+  std::cout << "\n";  // insert a new line between NGTF_SUMMARY and OP_placement
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
@@ -159,8 +163,8 @@ Status DeassignClusters(Graph* graph) {
   // When running unit tests, we do not want to see trivial clusters
   // deassigned. This flag (used by the Python tests) makes this possible.
   //
-  num_nodes_marked_before_deassign = 0; // reset for every TF graph
-  deassigned_histogram.clear(); // reset the histogram 
+  num_nodes_marked_before_deassign = 0;  // reset for every TF graph
+  deassigned_histogram.clear();          // reset the histogram
 
   if (std::getenv("NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS") != nullptr) {
     // still need to calculate num_nodes_marked_before_deassign
@@ -169,8 +173,8 @@ Status DeassignClusters(Graph* graph) {
 
       if (GetNodeCluster(node, &cluster_idx) == Status::OK()) {
         num_nodes_marked_before_deassign++;
-      }      
-  }
+      }
+    }
     MaybeLogPlacement(graph);
     return Status::OK();
   }
@@ -183,7 +187,7 @@ Status DeassignClusters(Graph* graph) {
     if (GetNodeCluster(node, &cluster_idx) != Status::OK()) {
       continue;
     }
-    
+
     num_nodes_marked_before_deassign++;
     cluster_map[cluster_idx].insert(node);
   }
@@ -211,7 +215,7 @@ Status DeassignClusters(Graph* graph) {
         node->ClearAttr("_ngraph_cluster");
         // TODO(amprocte): move attr name to a constant
         node->ClearAttr("_ngraph_marked_for_clustering");
-        
+
         deassigned_histogram[node->type_string()]++;
       }
     }
