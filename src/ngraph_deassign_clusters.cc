@@ -118,31 +118,8 @@ static void MaybeLogPlacement(const Graph* graph) {
 
   // log the ops gets deassigned
   int deassigned_histogram_counter = 0;
-  int deassigned_histogram_size = deassigned_histogram.size();
   std::cout << "NGTF_SUMMARY: Op_deassigned: ";
-  if (deassigned_histogram_size == 0) {
-    std::cout << "None";
-  } else {
-    // Descending sort
-    vector<std::pair<string, int>> v(begin(deassigned_histogram),
-                                     end(deassigned_histogram));
-    sort(begin(v), end(v),
-         [](const pair<string, int>& a, const pair<string, int>& b) {
-           return a.second > b.second;
-         });
-
-    for (auto node: v) {
-      bool endelem = node == v.back();
-      std::cout << " " << node.first << " -> " << node.second << (endelem ? " " : ",");
-    }
-
-    // for (auto iter = v.begin(); iter != v.end(); ++iter) {
-    //   bool endelem = iter == v.back();
-    //   std::cout << " " << iter->first << " -> " << iter->second << (endelem ? " " : ",");
-    // }
-  }
-
-  std::cout << "\n" << endl;  // insert a new line between NGTF_SUMMARY and OP_placement
+  print_node_histogram(deassigned_histogram);
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
