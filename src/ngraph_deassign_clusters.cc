@@ -121,7 +121,7 @@ static void MaybeLogPlacement(const Graph* graph) {
   int deassigned_histogram_size = deassigned_histogram.size();
   std::cout << "NGTF_SUMMARY: Op_deassigned: ";
   if (deassigned_histogram_size == 0) {
-    std::cout << "None" << std::endl;
+    std::cout << "None";
   } else {
     // Descending sort
     vector<std::pair<string, int>> v(begin(deassigned_histogram),
@@ -131,15 +131,18 @@ static void MaybeLogPlacement(const Graph* graph) {
            return a.second > b.second;
          });
 
-    for (auto node : v) {
-      if (++deassigned_histogram_counter < deassigned_histogram_size) {
-        std::cout << " " << node.first << " -> " << node.second << ",";
-      } else {
-        std::cout << " " << node.first << " -> " << node.second << std::endl;
-      }
+    for (auto node: v) {
+      bool endelem = node == v.back();
+      std::cout << " " << node.first << " -> " << node.second << (endelem ? " " : ",");
     }
+
+    // for (auto iter = v.begin(); iter != v.end(); ++iter) {
+    //   bool endelem = iter == v.back();
+    //   std::cout << " " << iter->first << " -> " << iter->second << (endelem ? " " : ",");
+    // }
   }
-  std::cout << "\n";  // insert a new line between NGTF_SUMMARY and OP_placement
+
+  std::cout << "\n" << endl;  // insert a new line between NGTF_SUMMARY and OP_placement
 
   for (auto kv : final_cluster_map) {
     int cluster_idx = kv.first;
