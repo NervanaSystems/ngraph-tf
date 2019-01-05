@@ -67,23 +67,44 @@ def calculate_output(param_dict, select_device, input_example):
         raise Exception("Input graph file '" + graph_filename +
                         "' does not exist!")
 
-    graph_def = tf.GraphDef()
-    if graph_filename.endswith("pbtxt"):
-        with open(graph_filename, "r") as f:
-            text_format.Merge(f.read(), graph_def)
-    else:
-        with open(graph_filename, "rb") as f:
-            graph_def.ParseFromString(f.read())
+    config = tf.ConfigProto(
+        allow_soft_placement=True,
+        # log_device_placement=True,
+        inter_op_parallelism_threads=1)
 
+    sess = tf.Session(config=config)
+    is_ckpt = False
     set_os_env(select_device)
 
-    with tf.Graph().as_default() as graph:
-        tf.import_graph_def(graph_def)
+    # check if the file is ckpts
+    if (is_ckpt):
+        saver = tf.train.Saver()
+        # TODO: change ckpt file name accordingly
+        saver.restore(sess, graph_filename + "/model.ckpt")
+        print("Model restored.")
+        graph_from_ckpt = tf.get_default_graph()
         if len(output_tensor_name) == 0:
             # if no outputs are specified, then compare for all tensors
             output_tensor_name = sum(
-                [[j.name for j in i.outputs] for i in graph.get_operations()],
-                [])
+                [[j.name
+                  for j in i.outputs]
+                 for i in graph_from_ckpt.get_operations()], [])
+    else:
+        graph_def = tf.GraphDef()
+        if graph_filename.endswith("pbtxt"):
+            with open(graph_filename, "r") as f:
+                text_format.Merge(f.read(), graph_def)
+        else:
+            with open(graph_filename, "rb") as f:
+                graph_def.ParseFromString(f.read())
+
+        with tf.Graph().as_default() as graph:
+            tf.import_graph_def(graph_def)
+            if len(output_tensor_name) == 0:
+                # if no outputs are specified, then compare for all tensors
+                output_tensor_name = sum([
+                    [j.name for j in i.outputs] for i in graph.get_operations()
+                ], [])
 
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
@@ -94,14 +115,14 @@ def calculate_output(param_dict, select_device, input_example):
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
     output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
 
-    config = tf.ConfigProto(
-        allow_soft_placement=True,
-        # log_device_placement=True,
-        inter_op_parallelism_threads=1)
-
-    with tf.Session(graph=graph, config=config) as sess:
-        output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
-        return output_tensor, output_tensor_name
+    # if it is from ckpt
+    if (is_ckpt):
+        sess.run(output_tensor, feed_dict=tensor_to_example_map)
+    else:
+        with tf.Session(graph=graph, config=config) as sess_pb:
+            output_tensor = sess_pb.run(
+                output_tensor, feed_dict=tensor_to_example_map)
+            return output_tensor, output_tensor_name
 
 
 def calculate_norm(ngraph_output, tf_output, desired_norm):
