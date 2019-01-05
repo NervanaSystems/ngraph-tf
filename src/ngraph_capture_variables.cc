@@ -33,7 +33,7 @@ namespace ngraph_bridge {
 //
 // FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
 //
-static bool NGraphPlacementRequested(const Node* node) { return true; }
+static bool NGraphPlacementRequested(const Node* node) { return false; }
 
 //
 // Main entry point for the variable-capture.

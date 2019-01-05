@@ -16,6 +16,7 @@
 
 #include "ngraph_builder.h"
 #include "ngraph_conversions.h"
+#include "ngraph_tensor_stream.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
 
@@ -31,6 +32,7 @@
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
+
 
 using namespace std;
 namespace ng = ngraph;
@@ -194,16 +196,6 @@ static Status GetStaticNodeTensor(
   }
 }
 
-template <typename Ttensor, typename Tvector>
-static void ConvertTensorDataToVector(const Tensor& tensor,
-                                      std::vector<Tvector>* vector) {
-  const Ttensor* data = tensor.flat<Ttensor>().data();
-  vector->resize(tensor.NumElements());
-  for (int64 i = 0; i < tensor.NumElements(); i++) {
-    (*vector)[i] = Tvector(data[i]);
-  }
-}
-
 template <typename T>
 static Status TensorDataToVector(const Tensor& tensor, std::vector<T>* vector) {
   DataType dt = tensor.dtype();
@@ -217,37 +209,37 @@ static Status TensorDataToVector(const Tensor& tensor, std::vector<T>* vector) {
   else {
     switch (dt) {
       case DT_FLOAT:
-        ConvertTensorDataToVector<float, T>(tensor, vector);
+        TensorToVector<float, T>(tensor, vector);
         break;
       case DT_DOUBLE:
-        ConvertTensorDataToVector<double, T>(tensor, vector);
+        TensorToVector<double, T>(tensor, vector);
         break;
       case DT_INT8:
-        ConvertTensorDataToVector<int8, T>(tensor, vector);
+        TensorToVector<int8, T>(tensor, vector);
         break;
       case DT_INT16:
-        ConvertTensorDataToVector<int16, T>(tensor, vector);
+        TensorToVector<int16, T>(tensor, vector);
         break;
       case DT_INT32:
-        ConvertTensorDataToVector<int32, T>(tensor, vector);
+        TensorToVector<int32, T>(tensor, vector);
         break;
       case DT_INT64:
-        ConvertTensorDataToVector<int64, T>(tensor, vector);
+        TensorToVector<int64, T>(tensor, vector);
         break;
       case DT_UINT8:
-        ConvertTensorDataToVector<uint8, T>(tensor, vector);
+        TensorToVector<uint8, T>(tensor, vector);
         break;
       case DT_UINT16:
-        ConvertTensorDataToVector<uint16, T>(tensor, vector);
+        TensorToVector<uint16, T>(tensor, vector);
         break;
       case DT_UINT32:
-        ConvertTensorDataToVector<uint32, T>(tensor, vector);
+        TensorToVector<uint32, T>(tensor, vector);
         break;
       case DT_UINT64:
-        ConvertTensorDataToVector<uint64, T>(tensor, vector);
+        TensorToVector<uint64, T>(tensor, vector);
         break;
       case DT_BOOL:
-        ConvertTensorDataToVector<bool, T>(tensor, vector);
+        TensorToVector<bool, T>(tensor, vector);
         break;
       default:
         return errors::Internal("TensorDataToVector: tensor has element type ",

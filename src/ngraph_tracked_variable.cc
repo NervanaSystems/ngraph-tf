@@ -184,6 +184,8 @@ REGISTER_OP("NGraphVariable")
 
 REGISTER_KERNEL_BUILDER(Name("NGraphVariable").Device(DEVICE_CPU),
                         NGraphVariableOp);
+REGISTER_KERNEL_BUILDER(Name("NGraphVariable").Device(DEVICE_GPU),
+                        NGraphVariableOp);
 
 }  // namespace ngraph_bridge
 

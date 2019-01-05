@@ -60,6 +60,13 @@ target_link_libraries( ${LIB_NAME} absl_algorithm )
 target_link_libraries( ${LIB_NAME} absl_container )
 target_link_libraries( ${LIB_NAME} absl_strings )
 
+if (NGRAPH_GPU_ENABLE)
+    find_package(CUDA 9 QUIET)
+    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUDNN_INCLUDE_DIRS})
+    target_link_libraries(${LIB_NAME} ${CUDA_cudart_LIBRARY})
+endif()
+
+
 target_compile_definitions( 
     ${LIB_NAME} PRIVATE
     _GLIBCXX_USE_CXX11_ABI=${TensorFlow_CXX_ABI}

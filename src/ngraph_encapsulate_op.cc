@@ -35,9 +35,11 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
+#include "ngraph_tensor_stream.h"
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
+
 
 using namespace std;
 namespace ng = ngraph;
@@ -145,69 +147,59 @@ class NGraphEncapsulateOp : public OpKernel {
     }
   }
 
-  template <typename T>
-  static void TensorDataToStream(std::ostream& ostream, int64 n_elements,
-                                 const char* data) {
-    const T* data_T = reinterpret_cast<const T*>(data);
-    for (size_t i = 0; i < n_elements; i++) {
-      ostream << data_T[i] << ",";
-    }
-  }
-
-  static Status TensorToStream(std::ostream& ostream, const Tensor& tensor) {
-    const char* data = tensor.tensor_data().data();
-    int64 n_elements = tensor.NumElements();
+  static Status TensorDataToStream(std::ostream& ostream, const Tensor& tensor) {
     switch (tensor.dtype()) {
-      case DT_HALF:
-        TensorDataToStream<Eigen::half>(ostream, n_elements, data);
-        break;
-      case DT_FLOAT:
-        TensorDataToStream<float>(ostream, n_elements, data);
-        break;
-      case DT_DOUBLE:
-        TensorDataToStream<double>(ostream, n_elements, data);
-        break;
-      case DT_UINT32:
-        TensorDataToStream<uint32>(ostream, n_elements, data);
-        break;
-      case DT_INT32:
-        TensorDataToStream<int32>(ostream, n_elements, data);
-        break;
-      case DT_UINT8:
-      case DT_QUINT8:
-        TensorDataToStream<uint8>(ostream, n_elements, data);
-        break;
-      case DT_UINT16:
-      case DT_QUINT16:
-        TensorDataToStream<uint16>(ostream, n_elements, data);
-        break;
-      case DT_INT8:
-      case DT_QINT8:
-        TensorDataToStream<int8>(ostream, n_elements, data);
-        break;
-      case DT_INT16:
-      case DT_QINT16:
-        TensorDataToStream<int16>(ostream, n_elements, data);
-        break;
-      case DT_UINT64:
-        TensorDataToStream<uint64>(ostream, n_elements, data);
-        break;
-      case DT_INT64:
-        TensorDataToStream<int64>(ostream, n_elements, data);
-        break;
-      case DT_BOOL:
-        TensorDataToStream<bool>(ostream, n_elements, data);
-        break;
-      default:
-        return errors::Internal("TensorToStream got unsupported data type ",
-                                DataType_Name(tensor.dtype()));
-        break;
+    case DT_HALF:
+      ostream << *TensorToStream<Eigen::half>(tensor);
+      break;
+    case DT_FLOAT:
+      ostream << *TensorToStream<float>(tensor);
+      break;
+    case DT_DOUBLE:
+      ostream << *TensorToStream<double>(tensor);
+      break;
+    case DT_UINT32:
+      ostream << *TensorToStream<uint32>(tensor);
+      break;
+    case DT_INT32:
+      ostream << *TensorToStream<int32>(tensor);
+      break;
+    case DT_UINT8:
+    case DT_QUINT8:
+      ostream << *TensorToStream<uint8>(tensor);
+      break;
+    case DT_UINT16:
+    case DT_QUINT16:
+      ostream << *TensorToStream<uint16>(tensor);
+      break;
+    case DT_INT8:
+    case DT_QINT8:
+      ostream << *TensorToStream<int8>(tensor);
+      break;
+    case DT_INT16:
+    case DT_QINT16:
+      ostream << *TensorToStream<int16>(tensor);
+      break;
+    case DT_UINT64:
+      ostream << *TensorToStream<uint64>(tensor);
+      break;
+    case DT_INT64:
+      ostream << *TensorToStream<int64>(tensor);
+      break;
+    case DT_BOOL:
+      ostream << *TensorToStream<bool>(tensor);
+      break;
+    default:
+      return errors::Internal("TensorDataToStream got unsupported data type ",
+                              DataType_Name(tensor.dtype()));
+      break;
     }
     return Status::OK();
   }
 
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
+
     std::lock_guard<std::mutex> lock(m_compute_lock);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
@@ -235,7 +227,7 @@ class NGraphEncapsulateOp : public OpKernel {
       const Tensor& input_tensor = ctx->input(i);
       if (m_input_is_static[i]) {
         static_input_map[i] = &input_tensor;
-        OP_REQUIRES_OK(ctx, TensorToStream(signature_ss, input_tensor));
+        OP_REQUIRES_OK(ctx, TensorDataToStream(signature_ss, input_tensor));
         signature_ss << ";";
       }
     }
@@ -328,7 +320,7 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
       try {
-        if (m_op_backend_name == "CPU") {
+        if (m_op_backend_name == "CPU" || m_op_backend_name == "GPU") {
           // We need to check last_tv != nullptr, since there are cases where at
           // the first call to the ng_function, both the current_src_ptr (when
           // the input is a 0-sized tensor) and last_src_ptr (uninitialized at
@@ -422,7 +414,7 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
-      if (m_op_backend_name == "CPU") {
+      if (m_op_backend_name == "CPU" || m_op_backend_name == "GPU") {
         // We need to check last_tv != nullptr, since there are cases where at
         // the first call to the ng_function, both the current_dst_ptr (when the
         // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
@@ -476,9 +468,9 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    // Copy value to host if backend is not CPU
+    // Copy value to TF if backend is not CPU or GPU
     try {
-      if (m_op_backend_name != "CPU") {
+      if (m_op_backend_name != "CPU" && m_op_backend_name != "GPU") {
         for (size_t i = 0; i < output_caches.size(); ++i) {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::Tensor> dst_tv;
@@ -534,6 +526,8 @@ class NGraphEncapsulateOp : public OpKernel {
 }  // namespace ngraph_bridge
 
 REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
+                        ngraph_bridge::NGraphEncapsulateOp);
+REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_GPU),
                         ngraph_bridge::NGraphEncapsulateOp);
 
 }  // namespace tensorflow

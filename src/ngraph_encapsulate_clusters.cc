@@ -116,7 +116,7 @@ Status EncapsulateClusters(Graph* graph) {
                << " but another node with assigned device " << it->second
                << " has already been seen in the same cluster";
 
-        return errors::Internal(ss_err.str());
+        // return errors::Internal(ss_err.str());
       }
     } else {
       NGRAPH_VLOG(3) << "setting cluster " << cluster_idx
