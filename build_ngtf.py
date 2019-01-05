@@ -512,6 +512,7 @@ def main():
         "-DNGRAPH_TUNE_ARCH=" + target_arch,
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
         "-DUNIT_TEST_ENABLE=ON",
+        "-DNGRAPH_DISTRIBUTED_ENABLE=TRUE",
         "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
             artifacts_location, "tensorflow")
     ]
