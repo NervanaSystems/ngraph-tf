@@ -912,6 +912,43 @@ TEST(NNOps, Conv2DBackpropInputNHWCWithDilation) {
   }
 }  // end of op Conv2DBackpropInputNHWCWithDilation
 
+// Conv3D Op Tests
+
+TEST(NNOps, Conv3DNDHWCSame) {
+  vector<int64> input_size_NDHWC = {1, 5, 6, 7, 10};
+  Tensor input_data_NDHWC(DT_FLOAT, TensorShape(input_size_NDHWC));
+  AssignInputValuesRandom<float>(input_data_NDHWC, -15.0f, 15.0f);
+
+  // Filter :[filter_depth, filter_height, filter_width, in_channels,
+  // out_channels]
+  vector<int64> filter_size_DHWIO = {3, 3, 3, 10, 2};
+
+  std::vector<int> stride = {1, 2, 2, 2, 1};
+
+  // Dilation rates > 1 not supported by TF on CPU
+  ops::Conv3D::Attrs op_attr_ndhwc;
+  op_attr_ndhwc = op_attr_ndhwc.DataFormat("NDHWC");
+  op_attr_ndhwc = op_attr_ndhwc.Dilations({1, 1, 1, 1, 1});
+
+  vector<int> static_input_indexes = {};
+
+  Scope root = Scope::NewRootScope();
+  string padding_type = "SAME";
+
+  Tensor filter(DT_FLOAT, TensorShape(filter_size_DHWIO));
+  AssignInputValuesRandom<float>(filter, -1.1f, 10.0f);
+
+  auto R = ops::Conv3D(root, input_data_NDHWC, filter, stride, padding_type,
+                       op_attr_ndhwc);
+
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+  OpExecuter opexecuter(root, "Conv3D", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest(1e-04, 1e-04);
+}
+
 // FusedBatchNormV2 op test with only DT_FLOAT datatype
 TEST(NNOps, FusedBatchNormV2NHWCInference) {
   Scope root = Scope::NewRootScope();
@@ -1078,6 +1115,62 @@ TEST(NNOps, L2Loss) {
     opexecuter.RunTest();
   }
 }
+
+// Test Op :"MaxPool3D"
+TEST(NNOps, MaxPool3DNDHWCSame) {
+  std::vector<std::vector<int64>> input_sizes;
+  input_sizes.push_back({2, 3, 4, 4, 3});
+  input_sizes.push_back({10, 30, 15, 20, 3});
+
+  vector<int> static_input_indexes = {};
+
+  for (auto const& input_size : input_sizes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(input_size));
+    AssignInputValuesRandom<float>(input_data, -10, 10);
+
+    vector<int> filter = {1, 2, 2, 2, 1};
+    vector<int> stride = {1, 1, 1, 1, 1};
+
+    auto R = ops::MaxPool3D(root, input_data, filter, stride, "SAME");
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+
+    OpExecuter opexecuter(root, "MaxPool3D", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of MaxPool3DNDHWCSame op
+
+// Test Op :"MaxPool3D"
+TEST(NNOps, MaxPool3DNDHWCValid) {
+  std::vector<std::vector<int64>> input_sizes;
+  input_sizes.push_back({2, 3, 4, 4, 3});
+  input_sizes.push_back({10, 30, 15, 20, 3});
+
+  vector<int> static_input_indexes = {};
+
+  for (auto const& input_size : input_sizes) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input_data(DT_FLOAT, TensorShape(input_size));
+    AssignInputValuesRandom<float>(input_data, -10, 10);
+
+    vector<int> filter = {1, 2, 2, 2, 1};
+    vector<int> stride = {1, 1, 1, 1, 1};
+
+    auto R = ops::MaxPool3D(root, input_data, filter, stride, "VALID");
+    vector<DataType> output_datatypes = {DT_FLOAT};
+    std::vector<Output> sess_run_fetchoutputs = {R};
+
+    OpExecuter opexecuter(root, "MaxPool3D", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of MaxPool3DNDHWCValid op
 
 // Note: TF only supports QUINT8 for QMP in CPU
 // Source:

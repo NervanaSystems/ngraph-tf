@@ -149,6 +149,29 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
   return Status::OK();
 }
 
+void print_node_histogram(std::unordered_map<string, int> histogram,
+                          bool sorted) {
+  int histogram_size = histogram.size();
+  if (histogram_size == 0) {
+    std::cout << "None";
+  } else {
+    vector<std::pair<string, int>> vec(begin(histogram), end(histogram));
+    if (sorted) {
+      sort(begin(vec), end(vec),
+           [](const pair<string, int>& a, const pair<string, int>& b) {
+             // descending sort
+             return a.second > b.second;
+           });
+    }
+
+    for (auto node : vec) {
+      bool endelem = node == vec.back();
+      std::cout << " " << node.first << " -> " << node.second
+                << (endelem ? " " : ",");
+    }
+  }
+}
+
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
   static gtl::ArraySlice<DataType> result{
       DT_FLOAT,  DT_DOUBLE, DT_INT8,   DT_INT16, DT_INT32, DT_INT64, DT_UINT8,
@@ -200,6 +223,23 @@ Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
   }
   return Status::OK();
 }
+
+void NgraphSerialize(const std::string& file_name,
+                     const std::shared_ptr<ngraph::Function>& ng_function) {
+  NGRAPH_VLOG(0) << "Serializing graph to: " << file_name << std::endl;
+  std::string js = ngraph::serialize(ng_function, 4);
+  std::ofstream f;
+  f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+  try {
+    f.open(file_name);
+    f << js;
+    f.close();
+  } catch (std::ofstream::failure& e) {
+    NGRAPH_VLOG(0) << "Exception opening/closing file " << file_name
+                   << std::endl;
+    NGRAPH_VLOG(0) << e.what() << std::endl;
+  }
+};
 
 }  // namespace ngraph_bridge
 

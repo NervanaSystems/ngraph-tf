@@ -94,7 +94,6 @@ static Status ConfirmationOk(
   return Status::OK();
 }
 
-//
 // Marks the input indices in "inputs" as static
 static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
@@ -228,6 +227,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["Conv3D"] = SimpleConfirmationFunction();
       confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
       confirmation_function_map["Dequantize"] = [](Node* n, bool* result) {
         string mode;
@@ -269,6 +269,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Max"] = SimpleConfirmationFunction();
       confirmation_function_map["Maximum"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPool"] = SimpleConfirmationFunction();
+      confirmation_function_map["MaxPool3D"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_function_map["Mean"] = SimpleConfirmationFunction();
       confirmation_function_map["Min"] = SimpleConfirmationFunction();
@@ -370,6 +371,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Conv3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthToSpace"]["T"] = NGraphDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -401,6 +403,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["MaxPool3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
@@ -504,6 +507,9 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
+  std::unordered_map<string, int> no_support_histogram;
+  std::unordered_map<string, int> fail_confirmation_histogram;
+  std::unordered_map<string, int> fail_constraint_histogram;
   vector<Node*> nodes_marked_for_clustering;
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
@@ -524,6 +530,14 @@ Status MarkForClustering(Graph* graph) {
       if (!confirmation_constraint_ok) {
         NGRAPH_VLOG(5) << "Node does not meet confirmation constraints: "
                        << node->name();
+        if (confirmation_function_map.find(node->type_string()) ==
+            confirmation_function_map.end()) {
+          // not found
+          no_support_histogram[node->type_string()]++;
+        } else {
+          // found
+          fail_confirmation_histogram[node->type_string()]++;
+        }
         break;
       }
 
@@ -534,6 +548,7 @@ Status MarkForClustering(Graph* graph) {
       if (!type_constraint_ok) {
         NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
                        << node->name();
+        fail_constraint_histogram[node->type_string()]++;
         break;
       }
 
@@ -551,6 +566,18 @@ Status MarkForClustering(Graph* graph) {
       NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
                      << node->type_string() << "]";
     }
+  }
+
+  if (config::IsLoggingPlacement()) {
+    // print summary for nodes failed to be marked
+    std::cout << "NGTF_SUMMARY: Op_not_supported: ";
+    print_node_histogram(no_support_histogram);
+    std::cout << "\n";
+    std::cout << "NGTF_SUMMARY: Op_failed_confirmation: ";
+    print_node_histogram(fail_confirmation_histogram);
+    std::cout << "\n";
+    std::cout << "NGTF_SUMMARY: Op_failed_type_constraint: ";
+    print_node_histogram(fail_constraint_histogram);
   }
 
   // Set Attributes for nodes marked for clustering
