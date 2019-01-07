@@ -109,9 +109,8 @@ class NGraphRewritePass : public GraphOptimizationPass {
 #ifdef NGRAPH_DISTRIBUTED
     int flag = 0;
     MPI_Initialized(&flag);
-    if (!flag)
-    {
-        MPI_Init(NULL, NULL);
+    if (!flag) {
+      MPI_Init(NULL, NULL);
     }
     int Rank_ID;
     MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
@@ -127,9 +126,8 @@ class NGraphRewritePass : public GraphOptimizationPass {
 #ifdef NGRAPH_DISTRIBUTED
     int flag = 0;
     MPI_Initialized(&flag);
-    if (!flag)
-    {
-        MPI_Init(NULL, NULL);
+    if (!flag) {
+      MPI_Init(NULL, NULL);
     }
     int Rank_ID;
     MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);

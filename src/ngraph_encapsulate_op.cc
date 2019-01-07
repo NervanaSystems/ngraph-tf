@@ -269,14 +269,14 @@ class NGraphEncapsulateOp : public OpKernel {
 #ifdef NGRAPH_DISTRIBUTED
         int flag = 0;
         MPI_Initialized(&flag);
-        if (!flag)
-        {
-            MPI_Init(NULL, NULL);
+        if (!flag) {
+          MPI_Init(NULL, NULL);
         }
         int Rank_ID;
         MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
         NgraphSerialize("tf_function_" + ctx->op_kernel().name() + "_" +
-                    to_string(Rank_ID) + ".json", ng_function);
+                            to_string(Rank_ID) + ".json",
+                        ng_function);
 #endif
       }
 
