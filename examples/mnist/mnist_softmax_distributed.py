@@ -109,14 +109,13 @@ def run_mnist(_):
 
             # Test trained model
             if not mon_sess.should_stop():
-                print(
-                    "Accuracy: ",
-                    mon_sess.run(
-                        accuracy,
-                        feed_dict={
-                            x: mnist.test.images,
-                            y_: mnist.test.labels
-                        }))
+                print("Accuracy: ",
+                      mon_sess.run(
+                          accuracy,
+                          feed_dict={
+                              x: mnist.test.images,
+                              y_: mnist.test.labels
+                          }))
 
         end = time.time()
 
