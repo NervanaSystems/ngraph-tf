@@ -102,6 +102,17 @@ class NGraphRewritePass : public GraphOptimizationPass {
   static std::string GraphFilenamePrefix(std::string kind, int idx) {
     std::stringstream ss;
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
+#ifdef NGRAPH_DISTRIBUTED
+    int flag = 0;
+    MPI_Initialized(&flag);
+    if (!flag)
+    {
+        MPI_Init(NULL, NULL);
+    }
+    int Rank_ID;
+    MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
+#endif
     return ss.str();
   }
   static std::string GraphFilenamePrefix(std::string kind, int idx,
@@ -109,6 +120,17 @@ class NGraphRewritePass : public GraphOptimizationPass {
     std::stringstream ss;
     ss << GraphFilenamePrefix(kind, idx) << "_" << std::setfill('0')
        << std::setw(4) << sub_idx;
+#ifdef NGRAPH_DISTRIBUTED
+    int flag = 0;
+    MPI_Initialized(&flag);
+    if (!flag)
+    {
+        MPI_Init(NULL, NULL);
+    }
+    int Rank_ID;
+    MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
+#endif
     return ss.str();
   }
 

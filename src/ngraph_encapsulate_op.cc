@@ -260,8 +260,32 @@ class NGraphEncapsulateOp : public OpKernel {
 
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
-        NgraphSerialize("tf_function_" + ctx->op_kernel().name() + ".json",
-                        ng_function);
+        std::string file_name =
+            "tf_function_" + ctx->op_kernel().name() + ".json";
+#ifdef NGRAPH_DISTRIBUTED
+        int flag = 0;
+        MPI_Initialized(&flag);
+        if (!flag)
+        {
+            MPI_Init(NULL, NULL);
+        }
+        int Rank_ID;
+        MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+        file_name = "tf_function_" + ctx->op_kernel().name() + "_" +
+                    to_string(Rank_ID) + ".json";
+#endif
+        NGRAPH_VLOG(0) << "Serializing graph to: " << file_name;
+        std::string js = ngraph::serialize(ng_function, 4);
+        std::ofstream f;
+        f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        try {
+          f.open(file_name);
+          f << js;
+          f.close();
+        } catch (std::ofstream::failure& e) {
+          std::cerr << "Exception opening/closing file " << file_name << endl;
+          std::cerr << e.what() << endl;
+        }
       }
 
       m_ng_functions[signature] = ng_function;
