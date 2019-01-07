@@ -270,6 +270,12 @@ class NGraphEncapsulateOp : public OpKernel {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
 #ifdef NGRAPH_DISTRIBUTED
+        int flag = 0;
+        MPI_Initialized(&flag);
+        if (!flag)
+        {
+            MPI_Init(NULL, NULL);
+        }
         int Rank_ID;
         MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
         file_name = "tf_function_" + ctx->op_kernel().name() + "_" +
