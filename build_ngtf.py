@@ -348,7 +348,7 @@ def main():
 
     # Component versions
     ngraph_version = "nishant_sayantan_signed_op_fix"
-    tf_version = "master" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
+    tf_version = "9b5a2831c8f9b52d2a83355ce3831771324c0ab4"#"master" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
     download_repo(
