@@ -72,25 +72,26 @@ target_include_directories(${LIB_NAME} PUBLIC "${NGRAPH_DEVICE_INCLUDE_PATH}")
 #------------------------------------------------------------------------------
 #installation 
 #------------------------------------------------------------------------------
+if (LINUX)
+    include(GNUInstallDirs)
+else()
+    set(CMAKE_INSTALL_LIBDIR "lib")
+endif()
+
+
 if (DEFINED NGRAPH_TF_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX ${NGRAPH_TF_INSTALL_PREFIX})
 else()
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/../install/")
 endif()
 
-
-if(OS_VERSION STREQUAL "\"centos\"")
-	set(NGTF_INSTALL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/lib64)
-else()
-	set(NGTF_INSTALL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
+set(NGTF_INSTALL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 
 # First install the libngraph_bridge.so
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
 
 # Next install all the other prerequisites
-if(OS_VERSION STREQUAL "\"centos\"")
+if(EXISTS ${NGRAPH_INSTALL_DIR}/lib64)
 	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib64/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
 else()
 	install(DIRECTORY ${NGRAPH_INSTALL_DIR}/lib/ DESTINATION "${NGTF_INSTALL_LIB_DIR}" )
