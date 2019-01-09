@@ -17,7 +17,6 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <type_traits>
 
 #include "tensorflow/core/framework/attr_value_util.h"
 #include "tensorflow/core/framework/graph.pb.h"
@@ -437,38 +436,24 @@ Status AssignClusters(Graph* graph) {
 
   NGRAPH_VLOG(2) << "Starting contraction";
   bool changed;
-  bool collect_non_contracting_edge_info = false; // Must init with false
+  bool collect_non_contracting_edge_info = false;  // Must init with false
 
-  /*
-  enum class EdgeNonContractionReasons: size_t
-  {
-      UNSUPPORTED = 0,
-      DEADNESS,
-      BACKEND,
-      STATICINPUT,
-      PATHEXISTS
+  enum class EdgeNonContractionReasons {
+    UNSUPPORTED,
+    DEADNESS,
+    BACKEND,
+    STATICINPUT,
+    PATHEXISTS
+  };
+  std::unordered_map<string, int> unsupported_ops;
+  std::vector<int> deadness_info;
+  size_t num_edges_with_different_backends = 0;
+  std::unordered_map<std::string, std::vector<EdgeNonContractionReasons>>
+      cluster_separation_reason;
+  auto get_string_key = [](int x, int y) {
+    return to_string(x) + "," + to_string(y);
   };
 
-  typedef struct EdgeInfo {
-    int xxxx;
-  } EdgeInfo;
-
-  
-  auto enumclass_to_number = [](EdgeNonContractionReasons x){return static_cast<underlying_type<EdgeNonContractionReasons>::type>(x);};
-  enumclass_to_number(EdgeNonContractionReasons::UNSUPPORTED);
-
-  std::vector<std::set<EdgeInfo>> classify_non_contracting_edges();
-  */
- std::unordered_map<string, int> unsupported_ops;
-
- auto increment_histogram = [](std::unordered_map<string, int>& map, const string& key){
-      auto iter = map.find(key);
-      if(iter != map.end()) 
-        iter->second++;
-      else
-        map[key] = 1;
- };
-  
   do {
     changed = false;
 
@@ -489,9 +474,9 @@ Status AssignClusters(Graph* graph) {
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
         if (collect_non_contracting_edge_info) {
-          // not supported by ngraph/ngtf
-          increment_histogram(unsupported_ops, src->type_string());
-          // also note which 2 clusters are separated because of this
+          unsupported_ops[src->type_string()]++;
+          cluster_separation_reason[get_string_key(src_index, dst_index)]
+              .push_back(EdgeNonContractionReasons::UNSUPPORTED);
         }
         continue;
       }
@@ -510,8 +495,11 @@ Status AssignClusters(Graph* graph) {
         if (collect_non_contracting_edge_info) {
           // deadness issues
           // collect deadness predicate of src and dst clusters?
-          // Dump these out and analyse if a more advanced deadness algorithm can collapse these edges?
+          // Dump these out and analyse if a more advanced deadness algorithm
+          // can collapse these edges?
           // also note which 2 clusters are separated because of this
+          cluster_separation_reason[get_string_key(src_index, dst_index)]
+              .push_back(EdgeNonContractionReasons::DEADNESS);
         }
         continue;
       }
@@ -527,9 +515,9 @@ Status AssignClusters(Graph* graph) {
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
         if (collect_non_contracting_edge_info) {
-          // backend issues
-          // nothing to be done here. just count number of such edges?
-          // also note which 2 clusters are separated because of this
+          num_edges_with_different_backends++;
+          cluster_separation_reason[get_string_key(src_index, dst_index)]
+              .push_back(EdgeNonContractionReasons::BACKEND);
         }
         // do not contract, src and dst node cannot be in the same cluster
         continue;
@@ -545,24 +533,27 @@ Status AssignClusters(Graph* graph) {
       } else {
         if (collect_non_contracting_edge_info) {
           // either static input
-          // or... there exists a longer path, so contracting this edge causes cycles
-
+          // or there exists a longer path, so contracting this edge causes
+          // cycles
           std::vector<int32> static_inputs;
           GetStaticInputs(dst, &static_inputs);
-          bool has_static_inputs = static_inputs.size() > 0;
-          if (has_static_inputs){
-            // also check if static inputs are being fed by consts?
+          for (auto idx : static_inputs) {
+            bool fed_by_const = src->type_string() == "Const";
+            cluster_separation_reason[get_string_key(src_index, dst_index)]
+                .push_back(fed_by_const
+                               ? EdgeNonContractionReasons::PATHEXISTS
+                               : EdgeNonContractionReasons::STATICINPUT);
           }
-          // also note which 2 clusters are separated because of this?
         }
       }
     }
 
-    if (!changed && config::IsLoggingPlacement() && !collect_non_contracting_edge_info){
+    if (!changed && config::IsLoggingPlacement() &&
+        !collect_non_contracting_edge_info) {
       changed = true;
       collect_non_contracting_edge_info = true;
     }
-    if (collect_non_contracting_edge_info){
+    if (collect_non_contracting_edge_info) {
       // assert "changed" is false
     }
   } while (changed);
