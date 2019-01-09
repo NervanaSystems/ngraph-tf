@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,59 +34,84 @@
 
 using namespace std;
 
-tensorflow::Status SetNGraphBackend(const string& backend_name) {
-  // Set the nGraph backend
+// Prints the available backends
+void PrintAvailableBackends() {
+  // Get the list of backends
   auto supported_backends =
       tensorflow::ngraph_bridge::BackendManager::GetSupportedBackendNames();
   vector<string> backends(supported_backends.begin(), supported_backends.end());
 
+  cout << "Available backends: " << endl;
   for (auto& backend_name : backends) {
     cout << "Backend: " << backend_name << std::endl;
   }
+}
 
+// Sets the specified backend. This backend must be set BEFORE running
+// the computation
+tensorflow::Status SetNGraphBackend(const string& backend_name) {
   // Select a backend
   tensorflow::Status status =
       tensorflow::ngraph_bridge::BackendManager::SetBackendName(backend_name);
   return status;
 }
 
-// Run a simple TF op from a constructed graph
-void MatMulExample() {
+// Create a simple computation graph and run
+void RunSimpleNetworkExample() {
   // Create the graph
   tensorflow::Scope root = tensorflow::Scope::NewRootScope();
 
   // Matrix A = [3 2; -1 0]
-  auto A = tensorflow::ops::Const(root, {{3.f, 2.f}, {-1.f, 0.f}});
+  auto A = tensorflow::ops::Const(root, {{0.03f, 0.022f}, {-0.001f, 0.025f}});
   // Vector b = [3 5]
-  auto b = tensorflow::ops::Const(root, {{3.f, 5.f}});
+  auto b = tensorflow::ops::Const(root, {{0.345f, 0.35f}});
   // v = Ab^T
   auto v = tensorflow::ops::MatMul(root.WithOpName("v"), A, b,
                                    tensorflow::ops::MatMul::TransposeB(true));
+  // R = softmax(v)
+  auto R = tensorflow::ops::Softmax(root, v);
 
-  std::vector<tensorflow::Tensor> outputs;
-
-  tensorflow::ClientSession session(root);
-
-  // Run and fetch v
-  session.Run({v}, &outputs);
+  // Turn off optimizations so that all the nodes are processed
+  tensorflow::SessionOptions options;
+  options.config.mutable_graph_options()
+      ->mutable_optimizer_options()
+      ->set_opt_level(tensorflow::OptimizerOptions_Level_L0);
+  options.config.mutable_graph_options()
+      ->mutable_rewrite_options()
+      ->set_constant_folding(tensorflow::RewriterConfig::OFF);
 
   std::cout
-      << "Current backend: "
+      << "Currently selected backend: "
       << tensorflow::ngraph_bridge::BackendManager::GetCurrentlySetBackendName()
       << std::endl;
+
+  tensorflow::ClientSession session(root, options);
+
+  std::vector<tensorflow::Tensor> outputs;
+  session.Run({R}, &outputs);
 
   // Expect outputs[0] == [19; -3]
   std::cout << "Result: " << outputs[0].matrix<float>() << std::endl;
 }
 
 int main(int argc, char** argv) {
+  PrintAvailableBackends();
+
   if (SetNGraphBackend("CPU") != tensorflow::Status::OK()) {
     std::cout << "Error: Cannot set the backend" << std::endl;
     return -1;
   }
 
   // Run the MatMul example
-  MatMulExample();
+  RunSimpleNetworkExample();
+
+  // Now set the backend to INTERPRETER
+  if (SetNGraphBackend("INTERPRETER") != tensorflow::Status::OK()) {
+    std::cout << "Error: Cannot set the backend" << std::endl;
+    return -1;
+  }
+
+  RunSimpleNetworkExample();
 
   return 0;
 }
