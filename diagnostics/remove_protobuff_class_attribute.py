@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 # ******************************************************************************
 # Copyright 2019 Intel Corporation
 #
@@ -40,13 +39,13 @@ optional arguments:
 Examples:
 
 # Provide a single input pbtxt
-./remove_protobuff_class_attribute.py -f ./path/precapture_0000.pbtxt -o temp.pbtxt
+python remove_protobuff_class_attribute.py -f ./path/precapture_0000.pbtxt -o temp.pbtxt
 
 # Provide a directory of input pbtxts
-./remove_protobuff_class_attribute.py -d /path/to/pbtxts/ -o /path/to/desired/output/directory/
+python remove_protobuff_class_attribute.py -d /path/to/pbtxts/ -o /path/to/desired/output/directory/
 
 # Provide a single input pbtxt to modify in place
-./remove_protobuff_class_attribute.py -f ./path/precapture_0000.pbtxt
+python remove_protobuff_class_attribute.py -f ./path/precapture_0000.pbtxt
 
 
 """
