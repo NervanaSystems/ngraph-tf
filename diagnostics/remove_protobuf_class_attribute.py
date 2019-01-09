@@ -18,7 +18,6 @@ import argparse
 import errno
 import os
 import sys
-
 """
 Removes the `_class` attribute from protobuffer nodes in pbtxts
 
@@ -50,6 +49,7 @@ python remove_protobuf_class_attribute.py -f ./path/precapture_0000.pbtxt
 
 """
 
+
 def get_files(directory):
     files = os.listdir(path=directory)
     pbtxts = []
@@ -57,6 +57,7 @@ def get_files(directory):
         if ".pbtxt" in f:
             pbtxts.append(f)
     return pbtxts
+
 
 def main():
     """
@@ -93,7 +94,7 @@ def main():
         pruned = []
         save = True
         blacklist = 0
-        for i,line in enumerate(lines):
+        for i, line in enumerate(lines):
             if "_class" in line:
                 del pruned[-1]
                 blacklist = i + 6
@@ -106,12 +107,15 @@ def main():
             for line in pruned:
                 output.write(line)
 
+
 class term_colors:
     OKBLUE = '\033[94m'
     ENDC = '\033[0m'
 
+
 def progress(result):
     return term_colors.OKBLUE + result + term_colors.ENDC + "\r"
+
 
 def get_args():
     """
@@ -119,12 +123,19 @@ def get_args():
     """
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-f", "--file", help="pbtxt from tensorflow", default=None)
-    group.add_argument("-d", "--directory", help="directory of pbtxts to modify", default=None)
-    parser.add_argument("-o", "--output", help=
-                        "Output file or directory. If a single pbtxt was provided as input (-f), provide here an output filename. If a directory of pbtxts was provided (-d), provide here an output directory path.", default=None)
+    group.add_argument(
+        "-f", "--file", help="pbtxt from tensorflow", default=None)
+    group.add_argument(
+        "-d", "--directory", help="directory of pbtxts to modify", default=None)
+    parser.add_argument(
+        "-o",
+        "--output",
+        help=
+        "Output file or directory. If a single pbtxt was provided as input (-f), provide here an output filename. If a directory of pbtxts was provided (-d), provide here an output directory path.",
+        default=None)
 
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     main()
