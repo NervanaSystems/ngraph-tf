@@ -174,7 +174,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
 
     # Now build the TensorFlow C++ library
     call(
-        ["bazel", "build", "--config=opt", "--config=mkl", "//tensorflow:libtensorflow_cc.so"])
+        ["bazel", "build", "--config=opt", "--config=mkl", '--copt="-DINTEL_MKL_QUANTIZED"', "//tensorflow:libtensorflow_cc.so"])
 
     tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
 
