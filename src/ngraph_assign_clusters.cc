@@ -578,44 +578,11 @@ Status AssignClusters(Graph* graph) {
     }
   } while (changed);
 
-  if (config::IsLoggingPlacement()) {
-    std::cout << "\n=============Edge contraction logs=============\n";
-    vector<int> reason_count(5, 0);
-    int num_non_contracted = 0;
-    std::vector<string> reason_string(
-        {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS"});
-    for (auto it : cluster_separation_reason) {
-      num_non_contracted += it.second.size();
-      vector<string> reasons_for_this_edge;
-      for (auto& inner_itr : it.second) {
-        reason_count[inner_itr]++;
-        reasons_for_this_edge.push_back(reason_string[inner_itr]);
-      }
-      std::cout << it.first << " " << ng::join(reasons_for_this_edge) << endl;
-      // TODO: these are "cluster" ids, not the final encapsulate number. Check
-    }
-    std::cout << endl;
-    for (auto& itr : deadness_info) {
-      std::cout << "Source predicate: " << std::get<0>(itr)
-                << " Destination predicate: " << std::get<1>(itr)
-                << " Neighbours predicates: " << ng::join(std::get<2>(itr))
-                << endl;
-    }
-    std::cout << "NGTF_SUMMARY: Ratio of uncontracted edges: "
-              << num_non_contracted << "/" << graph->num_edges() << " = "
-              << float(num_non_contracted) / float(graph->num_edges()) << endl;
-    for (int i = 0; i < 5; i++) {
-      std::cout << (i == 0 ? "NGTF_SUMMARY: " : "") << reason_string[i] << ": "
-                << reason_count[i] << (i < (5 - 1) ? ", " : "\n");
-    }
-    // TODO: print hist of unsupported ops
-  }
-
   NGRAPH_VLOG(2) << "Contraction done";
 
   NGRAPH_VLOG(2) << "Starting tagging";
   std::set<Cluster*> seen;
-
+  unordered_map<int, int> cluster_to_encapsulate;
   for (auto kv : cluster_map) {
     auto cluster = kv.second.get();
     if (seen.count(cluster) != 0) {
@@ -674,11 +641,68 @@ Status AssignClusters(Graph* graph) {
 
       // TODO(amprocte): move attr name to a constant
       node->AddAttr("_ngraph_cluster", cluster_idx);
+
+      if (config::IsLoggingPlacement()) {
+        cluster_to_encapsulate[cluster->index] = cluster_idx;
+      }
     }
 
     seen.insert(cluster);
   }
   NGRAPH_VLOG(2) << "Tagging done";
+
+  if (config::IsLoggingPlacement()) {
+    std::cout << "\n=============Edge contraction logs=============\n";
+    vector<int> reason_count(5, 0);
+    int num_non_contracted = 0;
+    std::vector<string> reason_string(
+        {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS"});
+    std::cout << "Encapsulates i->j non contraction reason: (Cannot be "
+                 "UNSUPPORTED because unsupported ops will not be assigned an "
+                 "encapsulate)\n";
+    for (auto it : cluster_separation_reason) {
+      num_non_contracted += it.second.size();
+      vector<string> reasons_for_this_edge;
+      for (auto& inner_itr : it.second) {
+        reason_count[inner_itr]++;
+        reasons_for_this_edge.push_back(reason_string[inner_itr]);
+      }
+      auto cluster_id_vector = ng::split(it.first, ',');
+      // auto find_in_map = [&cluster_to_encapsulate, &cluster_id_vector](int
+      // x){return std::find(cluster_to_encapsulate.begin(),
+      // cluster_to_encapsulate.end(), stoi(cluster_id_vector[x])) !=
+      // cluster_to_encapsulate.end();};
+      auto find_in_map = [&cluster_to_encapsulate, &cluster_id_vector](int x) {
+        auto itr = cluster_to_encapsulate.find(stoi(cluster_id_vector[x]));
+        return itr == cluster_to_encapsulate.end() ? -1 : itr->second;
+      };
+      int src_encapsulate = find_in_map(0);
+      int dst_encapsulate = find_in_map(1);
+      bool both_src_dst_are_encapsulates =
+          src_encapsulate >= 0 && dst_encapsulate >= 0;
+      bool src_dst_are_distinct = src_encapsulate != dst_encapsulate;
+      if (both_src_dst_are_encapsulates &&
+          src_dst_are_distinct) {  //(src_is_encapsulate && dst_is_encapsulate){
+        std::cout << src_encapsulate << "->" << dst_encapsulate << ": "
+                  << ng::join(reasons_for_this_edge) << endl;
+      }
+    }
+    for (auto& itr : deadness_info) {
+      std::cout << "Source predicate: " << std::get<0>(itr)
+                << " Destination predicate: " << std::get<1>(itr)
+                << " Neighbours predicates: " << ng::join(std::get<2>(itr))
+                << endl;
+    }
+    std::cout << endl;
+    std::cout << "NGTF_SUMMARY: Ratio of uncontracted edges: "
+              << num_non_contracted << "/" << graph->num_edges() << " = "
+              << float(num_non_contracted) / float(graph->num_edges()) << endl;
+    for (int i = 0; i < 5; i++) {
+      std::cout << (i == 0 ? "NGTF_SUMMARY: " : "") << reason_string[i] << ": "
+                << reason_count[i] << (i < (5 - 1) ? ", " : "\n");
+    }
+    // TODO: print hist of unsupported ops
+  }
 
   return Status::OK();
 }
