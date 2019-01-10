@@ -5,7 +5,6 @@ CXXFLAGS=-std=c++11 -Wall -pedantic \
 	-I ../ngraph-tf/build/tensorflow/ \
 	-I ../ngraph-tf/build/tensorflow/bazel-genfiles \
 	-I ../ngraph-tf/build/venv-tf-py3/lib/python3.5/site-packages/tensorflow/include \
-	-I ../ngraph-tf/src \
 	-I ../ngraph-tf/logging
 
 ODIR=obj
