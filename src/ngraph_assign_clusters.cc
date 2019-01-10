@@ -452,7 +452,7 @@ Status AssignClusters(Graph* graph) {
   auto get_string_key = [](int x, int y) {
     return to_string(x) + "," + to_string(y);
   };
-  vector<tuple<string, string, vector<string>>> deadness_info;
+  vector<tuple<int, int, string, string, vector<string>>> deadness_info;
 
   do {
     changed = false;
@@ -492,11 +492,6 @@ Status AssignClusters(Graph* graph) {
                        << dst->name() << "[" << edge->dst_input() << "]@"
                        << dst_index;
         if (collect_non_contracting_edge_info) {
-          // deadness issues
-          // collect deadness predicate of src and dst clusters?
-          // Dump these out and analyse if a more advanced deadness algorithm
-          // can collapse these edges?
-          // also note which 2 clusters are separated because of this
           cluster_separation_reason[get_string_key(src_index, dst_index)]
               .push_back(EdgeNonContractionReasons::DEADNESS);
 
@@ -509,9 +504,8 @@ Status AssignClusters(Graph* graph) {
                   cluster_map[src_cluster_edge->dst()]->predicate_string);
             }
           }
-
           deadness_info.push_back(make_tuple(
-              cluster_map.at(src)->predicate_string,
+              src_index, dst_index, cluster_map.at(src)->predicate_string,
               cluster_map.at(dst)->predicate_string, neighbours_predicate));
         }
         continue;
@@ -657,7 +651,7 @@ Status AssignClusters(Graph* graph) {
     int num_non_contracted = 0;
     std::vector<string> reason_string(
         {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS"});
-    std::cout << "Encapsulates i->j non contraction reason: (Cannot be "
+    std::cout << "Encapsulates i->j: non contraction reason (Cannot be "
                  "UNSUPPORTED because unsupported ops will not be assigned an "
                  "encapsulate)\n";
     for (auto it : cluster_separation_reason) {
@@ -668,10 +662,6 @@ Status AssignClusters(Graph* graph) {
         reasons_for_this_edge.push_back(reason_string[inner_itr]);
       }
       auto cluster_id_vector = ng::split(it.first, ',');
-      // auto find_in_map = [&cluster_to_encapsulate, &cluster_id_vector](int
-      // x){return std::find(cluster_to_encapsulate.begin(),
-      // cluster_to_encapsulate.end(), stoi(cluster_id_vector[x])) !=
-      // cluster_to_encapsulate.end();};
       auto find_in_map = [&cluster_to_encapsulate, &cluster_id_vector](int x) {
         auto itr = cluster_to_encapsulate.find(stoi(cluster_id_vector[x]));
         return itr == cluster_to_encapsulate.end() ? -1 : itr->second;
@@ -688,9 +678,11 @@ Status AssignClusters(Graph* graph) {
       }
     }
     for (auto& itr : deadness_info) {
-      std::cout << "Source predicate: " << std::get<0>(itr)
-                << " Destination predicate: " << std::get<1>(itr)
-                << " Neighbours predicates: " << ng::join(std::get<2>(itr))
+      std::cout << "Source[" << cluster_to_encapsulate[std::get<0>(itr)]
+                << "] predicate: " << std::get<2>(itr) << " Destination["
+                << cluster_to_encapsulate[std::get<1>(itr)]
+                << "] predicate: " << std::get<3>(itr)
+                << " Neighbours predicates: " << ng::join(std::get<4>(itr))
                 << endl;
     }
     std::cout << endl;
