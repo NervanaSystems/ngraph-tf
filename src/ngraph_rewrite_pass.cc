@@ -29,6 +29,10 @@
 
 #include <iomanip>
 
+#ifdef NGRAPH_DISTRIBUTED
+#include "ngraph/distributed.hpp"
+#endif
+
 using namespace std;
 
 namespace tensorflow {
@@ -103,14 +107,8 @@ class NGraphRewritePass : public GraphOptimizationPass {
     std::stringstream ss;
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
 #ifdef NGRAPH_DISTRIBUTED
-    int flag = 0;
-    MPI_Initialized(&flag);
-    if (!flag)
-    {
-        MPI_Init(NULL, NULL);
-    }
-    int Rank_ID;
-    MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+    ngraph::Distributed dist;
+    int Rank_ID = dist->get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
@@ -121,14 +119,8 @@ class NGraphRewritePass : public GraphOptimizationPass {
     ss << GraphFilenamePrefix(kind, idx) << "_" << std::setfill('0')
        << std::setw(4) << sub_idx;
 #ifdef NGRAPH_DISTRIBUTED
-    int flag = 0;
-    MPI_Initialized(&flag);
-    if (!flag)
-    {
-        MPI_Init(NULL, NULL);
-    }
-    int Rank_ID;
-    MPI_Comm_rank(MPI_COMM_WORLD, &Rank_ID);
+    ngraph::Distributed dist;
+    int Rank_ID = dist->get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
