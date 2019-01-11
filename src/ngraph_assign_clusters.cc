@@ -438,14 +438,17 @@ Status AssignClusters(Graph* graph) {
   bool changed;
   bool collect_non_contracting_edge_info = false;  // Must init with false
 
-  // 5 reasons why edges might non contract
+  // 7 exhaustive reasons why edges might non contract
+  // The reasons are not mutually exclusive, but there is an order of priority
+  // that makes them mutually exclusive
   enum EdgeNonContractionReasons {
+    NOTANOP,      // edge connects to non-ops
     UNSUPPORTED,  // either the src or dst is an unsupported op
     DEADNESS,     // deadness criteria not met
     BACKEND,      // different backends
+    SAMECLUSTER,  // both ends lie in the same cluster
     STATICINPUT,  // static input in dst (not fed by const)
-    PATHEXISTS,   // base case reason. contraction causes cycles
-    NOTANOP       // edge connects to non-ops
+    PATHEXISTS    // base case reason. contraction causes cycles
   };
   // a cluster pair is the string "cluster1_id, cluster2_id"
   // Using string, because a pair won't hash unless implemented
@@ -556,9 +559,17 @@ Status AssignClusters(Graph* graph) {
           GetStaticInputs(dst, &static_inputs);
           bool is_static = std::find(static_inputs.begin(), static_inputs.end(),
                                      edge->dst_input()) != static_inputs.end();
+          // 3 possible reasons here:
+          // src dst lies in same cluster, so nothing to do (trivial cycle
+          // induced in graphcycles)
+          // dst has static input
+          // a longer irreducible path exists
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(is_static ? EdgeNonContractionReasons::STATICINPUT
-                                   : EdgeNonContractionReasons::PATHEXISTS);
+              .push_back(src_index == dst_index
+                             ? EdgeNonContractionReasons::SAMECLUSTER
+                             : (is_static
+                                    ? EdgeNonContractionReasons::STATICINPUT
+                                    : EdgeNonContractionReasons::PATHEXISTS));
         }
       }
     }
@@ -655,13 +666,16 @@ Status AssignClusters(Graph* graph) {
 
   if (config::IsLoggingPlacement()) {
     std::cout << "\n=============Edge contraction logs=============\n";
-    vector<int> reason_count(6, 0);  // histogram of reasons of non-contraction
+    int num_reasons = 7;  // the number of elements in the reasons enum
+    vector<int> reason_count(num_reasons,
+                             0);  // histogram of reasons of non-contraction
     int num_non_contracted = 0;
     std::vector<string> reason_string(  // to convert the enum to string
-        {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS",
-         "NOTANOP"});
+        {"NOTANOP", "UNSUPPORTED", "DEADNESS", "BACKEND", "SAMECLUSTER",
+         "STATICINPUT", "PATHEXISTS"});
     std::cout << "_ngraph_cluster i->j: non contraction reason (Cannot be "
-                 "UNSUPPORTED because unsupported ops will not be assigned an "
+                 "UNSUPPORTED or NOTANOP because unsupported ops will not be "
+                 "assigned an "
                  "encapsulate)\n";
     for (auto it : cluster_separation_reason) {
       num_non_contracted += it.second.size();
@@ -704,13 +718,14 @@ Status AssignClusters(Graph* graph) {
                 << endl;
     }
     std::cout << endl;
-    ///////////TODO: figure this out. whth this is 1
-    std::cout << "NGTF_SUMMARY: Ratio of uncontracted edges: "
-              << num_non_contracted << "/" << graph->num_edges() << " = "
-              << float(num_non_contracted) / float(graph->num_edges()) << endl;
-    for (int i = 0; i < 6; i++) {
+    if (num_non_contracted != graph->num_edges()) {
+      return errors::Internal(
+          "Number of non contracted edges ", num_non_contracted,
+          " should match number of edges ", graph->num_edges());
+    }
+    for (int i = 0; i < num_reasons; i++) {
       std::cout << (i == 0 ? "NGTF_SUMMARY: " : "") << reason_string[i] << ": "
-                << reason_count[i] << (i < (6 - 1) ? ", " : "\n");
+                << reason_count[i] << (i < (num_reasons - 1) ? ", " : "\n");
     }
   }
 
