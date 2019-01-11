@@ -673,10 +673,11 @@ Status AssignClusters(Graph* graph) {
     std::vector<string> reason_string(  // to convert the enum to string
         {"NOTANOP", "UNSUPPORTED", "DEADNESS", "BACKEND", "SAMECLUSTER",
          "STATICINPUT", "PATHEXISTS"});
-    std::cout << "_ngraph_cluster i->j: non contraction reason (Cannot be "
-                 "UNSUPPORTED or NOTANOP because unsupported ops will not be "
-                 "assigned an "
-                 "encapsulate)\n";
+    std::cout
+        << "_ngraph_cluster i->j: non contraction reason histogram (Cannot be "
+           "UNSUPPORTED or NOTANOP because unsupported ops will not be "
+           "assigned an "
+           "encapsulate)\n";
     for (auto it : cluster_separation_reason) {
       num_non_contracted += it.second.size();
       vector<string> reasons_for_this_edge;
@@ -705,8 +706,13 @@ Status AssignClusters(Graph* graph) {
               "encapsulates",
               reasons_string);
         }
-        std::cout << src_encapsulate << "->" << dst_encapsulate << ": "
-                  << reasons_string << endl;
+        std::unordered_map<string, int> pair_reason_hist;
+        for (auto& i : ng::split(reasons_string, ',')) {
+          pair_reason_hist[i]++;
+        }
+        std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
+        print_node_histogram(pair_reason_hist);
+        std::cout << endl;
       }
     }
     for (auto& itr : deadness_info) {
