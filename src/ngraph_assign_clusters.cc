@@ -466,8 +466,16 @@ Status AssignClusters(Graph* graph) {
       Node* src = edge->src();
       Node* dst = edge->dst();
 
+      if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE1 " << dst->name() << "\n";
+      }
+
       if (!src->IsOp() || !dst->IsOp()) {
         continue;
+      }
+
+      if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE2 " << dst->name() << "\n";
       }
 
       int src_index = cluster_map[src]->index;
@@ -483,6 +491,10 @@ Status AssignClusters(Graph* graph) {
               .push_back(EdgeNonContractionReasons::UNSUPPORTED);
         }
         continue;
+      }
+
+      if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE2.5 " << dst->name() << "\n";
       }
 
 #if !defined(NGRAPH_TF_DISABLE_DEADNESS_CHECK)
@@ -518,6 +530,10 @@ Status AssignClusters(Graph* graph) {
       }
 #endif
 
+if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE3 " << dst->name() << "\n";
+      }
+
       // check if the edge can be constracted with respect to backend
       bool is_backend_ok = false;
       TF_RETURN_IF_ERROR(
@@ -535,6 +551,13 @@ Status AssignClusters(Graph* graph) {
         continue;
       }
 
+      if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE4 " << dst->name() << "\n";
+        cout << src_index << " " << dst_index << "\n"; //23, 23
+        cout << gc.HasEdge(src_index, dst_index) << "\n";   // 0 (False)
+
+      }
+
       // Check if contracting the edge will lead to cycles
       // if not, MergeClusters
       if (gc.HasEdge(src_index, dst_index) &&
@@ -542,40 +565,57 @@ Status AssignClusters(Graph* graph) {
         MergeClusters(edge, cluster_map);
         // something changed
         changed = true;
+
+        if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE4 NOCYCLE" << dst->name() << "\n";
+      }
+
       } else {
+
+        if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE4 CYCLE :( " << dst->name() << "\n";
+      }
         if (collect_non_contracting_edge_info) {
           // either static input
           // or there exists a longer path, so contracting this edge causes
           // cycles
           std::vector<int32> static_inputs;
           GetStaticInputs(dst, &static_inputs);
+          if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+          std::cout << "XXX: " << ng::join(static_inputs) << "\n";
+          std::cout << "edge->dst_input(): " << edge->dst_input() << "\n";
+          }
           bool is_static = std::find(static_inputs.begin(), static_inputs.end(),
                                      edge->dst_input()) != static_inputs.end();
           if (is_static) {
-            ///////TODO: THIS AREA NEEDS SOME MORE THOUGHT
-            /*
             bool fed_by_const = src->type_string() == "Const";
-
-            if (fed_by_const && NodeIsMarkedForClustering(src)) {
-              auto num_neighbours = std::accumulate(src->out_nodes().begin(), src->out_nodes().end(), 0, [](int acc, tensorflow::Node* x){return acc+1;});
+            bool in_diff_clusters = src_index != dst_index;
+            auto num_neighbours_of_const = std::accumulate(src->out_nodes().begin(), src->out_nodes().end(), 0, [](int acc, tensorflow::Node* x){return acc+1;});
+            if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+            cout << fed_by_const << " " << in_diff_clusters << " " << num_neighbours_of_const << "\n";}
+            if (fed_by_const && NodeIsMarkedForClustering(src) && in_diff_clusters && num_neighbours_of_const==1) {
+              
               for (auto xx : src->out_nodes()){
-                std::cout << "HERE:: " << xx->name() << " " << xx->type_string() << "\n";
+                std::cout << "\n\nHERE:: " << xx->name() << " " << xx->type_string() << "\n";
               }
+              std::cout << "";
               return errors::Internal(
                   "A Const node ", src->name(),
                   " is feeding a static input in ", dst->name(),
                   ", but they are in different clusters. This "
-                  "should not be happening ", num_neighbours, NodeIsMarkedForClustering(src));
+                  "should not be happening ", num_neighbours_of_const, NodeIsMarkedForClustering(src));
             }
-            */
-           ///////
           }
           cluster_separation_reason[get_string_key(src_index, dst_index)]
               .push_back(is_static ? EdgeNonContractionReasons::STATICINPUT
                                    : EdgeNonContractionReasons::PATHEXISTS);
         }
       }
+      if (src->name() == "ConstantFolding/tower_0/v/gradients/tower_0/v/cg/MobilenetV2/Conv_1/Conv2D_grad/ShapeN-matshapes-1"){
+        cout << "\nHEREHEREHERE5 " << dst->name() << "\n";
+      }
     }
+
 
     if (!changed && config::IsLoggingPlacement()) {
       // This will be entered only once if logging is enabled
