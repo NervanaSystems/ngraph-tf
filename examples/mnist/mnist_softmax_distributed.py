@@ -16,6 +16,11 @@
 
 See extensive documentation at
 https://www.tensorflow.org/get_started/mnist/beginners
+Add distributed fetaure with horovod
+1. hvd.init()
+2. Add distributed wrapper from hvd.DistributedOptimizer
+3. Broadcast the variables from root rank to the rest processors: hvd.BroadcastGlobalVariablesHook(0)
+4. Print the output for root rank only
 """
 from __future__ import absolute_import
 from __future__ import division
