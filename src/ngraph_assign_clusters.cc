@@ -444,7 +444,8 @@ Status AssignClusters(Graph* graph) {
     DEADNESS,     // deadness criteria not met
     BACKEND,      // different backends
     STATICINPUT,  // static input in dst (not fed by const)
-    PATHEXISTS    // base case reason. contraction causes cycles
+    PATHEXISTS,   // base case reason. contraction causes cycles
+    NOTANOP       // edge connects to non-ops
   };
   // a cluster pair is the string "cluster1_id, cluster2_id"
   // Using string, because a pair won't hash unless implemented
@@ -466,12 +467,16 @@ Status AssignClusters(Graph* graph) {
       Node* src = edge->src();
       Node* dst = edge->dst();
 
-      if (!src->IsOp() || !dst->IsOp()) {
-        continue;
-      }
-
       int src_index = cluster_map[src]->index;
       int dst_index = cluster_map[dst]->index;
+
+      if (!src->IsOp() || !dst->IsOp()) {
+        if (collect_non_contracting_edge_info) {
+          cluster_separation_reason[get_string_key(src_index, dst_index)]
+              .push_back(EdgeNonContractionReasons::NOTANOP);
+        }
+        continue;
+      }
 
       if (!NodeIsMarkedForClustering(src) || !NodeIsMarkedForClustering(dst)) {
         NGRAPH_VLOG(5) << "Skipping (not marked): " << src->name() << "["
@@ -650,10 +655,11 @@ Status AssignClusters(Graph* graph) {
 
   if (config::IsLoggingPlacement()) {
     std::cout << "\n=============Edge contraction logs=============\n";
-    vector<int> reason_count(5, 0);  // histogram of reasons of non-contraction
+    vector<int> reason_count(6, 0);  // histogram of reasons of non-contraction
     int num_non_contracted = 0;
     std::vector<string> reason_string(  // to convert the enum to string
-        {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS"});
+        {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS",
+         "NOTANOP"});
     std::cout << "_ngraph_cluster i->j: non contraction reason (Cannot be "
                  "UNSUPPORTED because unsupported ops will not be assigned an "
                  "encapsulate)\n";
@@ -698,12 +704,13 @@ Status AssignClusters(Graph* graph) {
                 << endl;
     }
     std::cout << endl;
+    ///////////TODO: figure this out. whth this is 1
     std::cout << "NGTF_SUMMARY: Ratio of uncontracted edges: "
               << num_non_contracted << "/" << graph->num_edges() << " = "
               << float(num_non_contracted) / float(graph->num_edges()) << endl;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
       std::cout << (i == 0 ? "NGTF_SUMMARY: " : "") << reason_string[i] << ": "
-                << reason_count[i] << (i < (5 - 1) ? ", " : "\n");
+                << reason_count[i] << (i < (6 - 1) ? ", " : "\n");
     }
   }
 

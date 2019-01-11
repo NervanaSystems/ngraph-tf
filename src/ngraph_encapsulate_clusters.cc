@@ -292,7 +292,8 @@ Status EncapsulateClusters(Graph* graph) {
               << ", encapsulated: " << count_encapsulated
               << ", total: " << count_tot
               << ", computed total: " << computed_edge_number << endl;
-    if (computed_edge_number != count_tot) {
+    if (!(computed_edge_number == count_tot &&
+          count_tot == graph->num_edges())) {
       return errors::Internal("Computed number of edges ", computed_edge_number,
                               " and counted number of edges ", count_tot,
                               " do not match up\n");
