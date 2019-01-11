@@ -562,14 +562,18 @@ Status AssignClusters(Graph* graph) {
       }
     }
 
-    if (!changed && config::IsLoggingPlacement() &&
-        !collect_non_contracting_edge_info) {
-      changed = true;
-      collect_non_contracting_edge_info = true;
+    if (!changed && config::IsLoggingPlacement()) {
+      if (!collect_non_contracting_edge_info) {
+        changed = true;
+        collect_non_contracting_edge_info = true;
+      } else {
+        if (changed) {
+          return errors::Internal(
+              "After contraction has finished, found changed to be true.");
+        }
+      }
     }
-    if (collect_non_contracting_edge_info) {
-      // assert "changed" is false
-    }
+
   } while (changed);
 
   NGRAPH_VLOG(2) << "Contraction done";
@@ -651,7 +655,7 @@ Status AssignClusters(Graph* graph) {
     int num_non_contracted = 0;
     std::vector<string> reason_string(
         {"UNSUPPORTED", "DEADNESS", "BACKEND", "STATICINPUT", "PATHEXISTS"});
-    std::cout << "Encapsulates i->j: non contraction reason (Cannot be "
+    std::cout << "_ngraph_cluster i->j: non contraction reason (Cannot be "
                  "UNSUPPORTED because unsupported ops will not be assigned an "
                  "encapsulate)\n";
     for (auto it : cluster_separation_reason) {
