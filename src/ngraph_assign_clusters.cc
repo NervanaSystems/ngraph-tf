@@ -551,25 +551,6 @@ Status AssignClusters(Graph* graph) {
           GetStaticInputs(dst, &static_inputs);
           bool is_static = std::find(static_inputs.begin(), static_inputs.end(),
                                      edge->dst_input()) != static_inputs.end();
-          if (is_static) {
-            ///////TODO: THIS AREA NEEDS SOME MORE THOUGHT
-            /*
-            bool fed_by_const = src->type_string() == "Const";
-
-            if (fed_by_const && NodeIsMarkedForClustering(src)) {
-              auto num_neighbours = std::accumulate(src->out_nodes().begin(), src->out_nodes().end(), 0, [](int acc, tensorflow::Node* x){return acc+1;});
-              for (auto xx : src->out_nodes()){
-                std::cout << "HERE:: " << xx->name() << " " << xx->type_string() << "\n";
-              }
-              return errors::Internal(
-                  "A Const node ", src->name(),
-                  " is feeding a static input in ", dst->name(),
-                  ", but they are in different clusters. This "
-                  "should not be happening ", num_neighbours, NodeIsMarkedForClustering(src));
-            }
-            */
-           ///////
-          }
           cluster_separation_reason[get_string_key(src_index, dst_index)]
               .push_back(is_static ? EdgeNonContractionReasons::STATICINPUT
                                    : EdgeNonContractionReasons::PATHEXISTS);
@@ -701,7 +682,8 @@ Status AssignClusters(Graph* graph) {
           return errors::Internal(
               "UNSUPPORTED should not be a reason why 2 encapsulates did not "
               "merge, because unsupported ops would not end up in "
-              "encapsulates", reasons_string);
+              "encapsulates",
+              reasons_string);
         }
         std::cout << src_encapsulate << "->" << dst_encapsulate << ": "
                   << reasons_string << endl;
