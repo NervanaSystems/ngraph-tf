@@ -25,13 +25,9 @@ The application links with the following dynamic shared object (DSO) libraries
 
 ## Build the example
 
-### Copy the library files
-
-Create a working directory at the parent directory of `ngraph-tf` and copy the `Makefile` and the `hello_tf.cpp`. Next create a directory called `lib` in this working directory and copy all the DSO files from the following location: `../ngraph-tf/build/artifacts/lib`
-
 ### Update the Makefile
 
-If you are using clang or gcc 4.8 to build ngraph-tf then change the `CXX_ABI_FLAG` value to 0. Also, change the ngraph-tf location as needed.
+If you are using clang or gcc 4.8 to build ngraph-tf then change the `CXX_ABI_FLAG` value to 0. Also, change the `NGRAPH_TF_DIR` pointing to the location of the `ngraph-tf` on your system as needed.
 
 ### Build
 

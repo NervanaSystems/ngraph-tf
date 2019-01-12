@@ -228,9 +228,13 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
         print("Cannot remove: %s" % doomed_file)
         pass
 
-    # Now copy
+    # Now copy the TF libraries
     print("Copying %s to %s" % (tf_cc_lib_file, artifacts_dir))
     shutil.copy2(tf_cc_lib_file, artifacts_dir)
+
+    tf_cc_fmwk_file = "bazel-bin/tensorflow/libtensorflow_framework.so"
+    print("Copying %s to %s" % (tf_cc_fmwk_file, artifacts_dir))
+    shutil.copy2(tf_cc_fmwk_file, artifacts_dir)
 
     # popd
     os.chdir(pwd)
@@ -462,7 +466,7 @@ def main():
 
     print("Target Arch: %s" % target_arch)
 
-    cxx_abi = 0
+    cxx_abi = "0"
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",

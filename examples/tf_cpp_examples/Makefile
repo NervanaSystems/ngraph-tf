@@ -16,7 +16,10 @@ CXXFLAGS=-std=c++11 -Wall -pedantic \
 
 ODIR=obj
 INCDIR = include
-LIBDIR=lib
+LD_FLAGS=\
+	-L $(NGRAPH_TF_DIR)/build/artifacts/lib \
+	-L $(NGRAPH_TF_DIR)/build/artifacts/tensorflow 
+
 BIN = hello_tf
 
 LIBS=\
@@ -30,7 +33,7 @@ SRC=$(wildcard *.cpp)
 OBJ=$(SRC:%.cpp=%.o)
 
 all: $(OBJ)
-	$(CXX) $^  -Llib  $(LIBS) -o $(BIN)
+	$(CXX) $^  $(LD_FLAGS)  $(LIBS) -o $(BIN)
 
 %.o: %.c
 	$(CXX)  $@ -c $<
