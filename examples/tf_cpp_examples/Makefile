@@ -1,7 +1,7 @@
 # A simple makefile that builds the hello_tf example
 
 # Location of the ngraph-tf directory
-NGRAPH_TF_DIR=../ngraph-tf
+NGRAPH_TF_DIR=../../
 # Set the CXX_ABI_FLAG to 0 if you are using Clang or gcc 4.8
 # Also ensure that TensorFlow is built with the same compiler version. 
 CXX_ABI_FLAG=1
