@@ -88,7 +88,7 @@ void RunSimpleNetworkExample() {
   std::vector<tensorflow::Tensor> outputs;
   session.Run({R}, &outputs);
 
-  // Expect outputs[0] == [19; -3]
+  // Print the output
   std::cout << "Result: " << outputs[0].matrix<float>() << std::endl;
 }
 
