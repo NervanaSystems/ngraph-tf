@@ -266,10 +266,12 @@ class NGraphEncapsulateOp : public OpKernel {
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
             "tf_function_" + ctx->op_kernel().name() + ".json";
+        NgraphSerialize("tf_function_" + ctx->op_kernel().name() + ".json",
+                        ng_function);
 #ifdef NGRAPH_DISTRIBUTED
         ngraph::Distributed dist;
         int Rank_ID;
-        Rank_ID = dist->get_rank();
+        Rank_ID = dist.get_rank();
         NgraphSerialize("tf_function_" + ctx->op_kernel().name() + "_" +
                             to_string(Rank_ID) + ".json",
                         ng_function);

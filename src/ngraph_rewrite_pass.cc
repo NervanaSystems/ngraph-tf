@@ -108,7 +108,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
 #ifdef NGRAPH_DISTRIBUTED
     ngraph::Distributed dist;
-    int Rank_ID = dist->get_rank();
+    int Rank_ID = dist.get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
@@ -120,7 +120,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
        << std::setw(4) << sub_idx;
 #ifdef NGRAPH_DISTRIBUTED
     ngraph::Distributed dist;
-    int Rank_ID = dist->get_rank();
+    int Rank_ID = dist.get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
 #endif
     return ss.str();
