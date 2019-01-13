@@ -78,7 +78,6 @@ else()
     set(CMAKE_INSTALL_LIBDIR "lib")
 endif()
 
-
 if (DEFINED NGRAPH_TF_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX ${NGRAPH_TF_INSTALL_PREFIX})
 else()
@@ -87,8 +86,10 @@ endif()
 
 set(NGTF_INSTALL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 
-# First install the libngraph_bridge.so
+# First install the libngraph_bridge.so and headers
 install(TARGETS ${LIB_NAME} DESTINATION "${NGTF_INSTALL_LIB_DIR}")  
+install(FILES ngraph_backend_manager.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+
 
 # Next install all the other prerequisites
 if(EXISTS ${NGRAPH_INSTALL_DIR}/lib64)
