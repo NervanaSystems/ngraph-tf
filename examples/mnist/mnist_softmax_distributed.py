@@ -16,6 +16,8 @@
 
 See extensive documentation at
 https://www.tensorflow.org/get_started/mnist/beginners
+Reference to the original source code:
+https://github.com/tensorflow/tensorflow/blob/r1.2/tensorflow/examples/tutorials/mnist/mnist_softmax.py
 Add distributed fetaure with horovod
 1. hvd.init()
 2. Add distributed wrapper from hvd.DistributedOptimizer
