@@ -581,11 +581,6 @@ Status AssignClusters(Graph* graph) {
       if (!collect_non_contracting_edge_info) {
         changed = true;
         collect_non_contracting_edge_info = true;
-      } else {
-        if (changed) {
-          return errors::Internal(
-              "After contraction has finished, found changed to be true.");
-        }
       }
     }
   } while (changed);

@@ -296,7 +296,8 @@ Status EncapsulateClusters(Graph* graph) {
           count_tot == graph->num_edges())) {
       return errors::Internal("Computed number of edges ", computed_edge_number,
                               " and counted number of edges ", count_tot,
-                              " do not match up\n");
+                              " and number of edges from querying TF api ",
+                              graph->num_edges(), " do not match up\n");
     }
   }
 
