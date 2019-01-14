@@ -36,7 +36,7 @@
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
 #endif
 
@@ -268,7 +268,7 @@ class NGraphEncapsulateOp : public OpKernel {
             "tf_function_" + ctx->op_kernel().name() + ".json";
         NgraphSerialize("tf_function_" + ctx->op_kernel().name() + ".json",
                         ng_function);
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
         ngraph::Distributed dist;
         int Rank_ID;
         Rank_ID = dist.get_rank();

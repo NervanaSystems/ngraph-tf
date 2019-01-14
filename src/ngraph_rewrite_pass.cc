@@ -29,7 +29,7 @@
 
 #include <iomanip>
 
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
 #endif
 
@@ -106,7 +106,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
   static std::string GraphFilenamePrefix(std::string kind, int idx) {
     std::stringstream ss;
     ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
     ngraph::Distributed dist;
     int Rank_ID = dist.get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
@@ -118,7 +118,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
     std::stringstream ss;
     ss << GraphFilenamePrefix(kind, idx) << "_" << std::setfill('0')
        << std::setw(4) << sub_idx;
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
     ngraph::Distributed dist;
     int Rank_ID = dist.get_rank();
     ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
