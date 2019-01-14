@@ -675,12 +675,6 @@ Status AssignClusters(Graph* graph) {
            "encapsulate)\n";
     for (auto it : cluster_separation_reason) {
       num_non_contracted += it.second.size();
-      // vector of reasons why 2 clusters were separated
-      vector<string> reasons_for_this_separation;
-      for (auto& inner_itr : it.second) {
-        reason_count[inner_itr]++;
-        reasons_for_this_separation.push_back(reason_string[inner_itr]);
-      }
       auto cluster_id_vector = ng::split(it.first, ',');
       // function to find if this cluster became an ngraph_cluster
       // returns ngraph_cluster id if yes, else returns -1
@@ -694,6 +688,12 @@ Status AssignClusters(Graph* graph) {
           src_encapsulate >= 0 && dst_encapsulate >= 0;
       bool src_dst_are_distinct = src_encapsulate != dst_encapsulate;
       if (both_src_dst_are_encapsulates && src_dst_are_distinct) {
+        // vector of reasons why 2 clusters were separated
+        vector<string> reasons_for_this_separation;
+        for (auto& inner_itr : it.second) {
+          reason_count[inner_itr]++;
+          reasons_for_this_separation.push_back(reason_string[inner_itr]);
+        }
         auto reasons_string = ng::join(reasons_for_this_separation);
         if (reasons_string.find(reason_string[0]) != std::string::npos) {
           return errors::Internal(
