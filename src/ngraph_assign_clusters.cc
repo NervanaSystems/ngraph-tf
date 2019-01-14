@@ -460,8 +460,10 @@ Status AssignClusters(Graph* graph) {
   auto get_string_key = [](int x, int y) {
     return to_string(x) + "," + to_string(y);
   };
-  // src id, dst id, src predicate, dst predicate, other neighbours predicates
-  vector<tuple<int, int, string, string, vector<string>>> deadness_info;
+  // (src id, dst id) -> (src predicate, dst predicate, other neighbours
+  // predicates)
+  std::unordered_map<std::string, tuple<string, string, vector<string>>>
+      deadness_info;
 
   do {
     changed = false;
@@ -518,9 +520,9 @@ Status AssignClusters(Graph* graph) {
                   cluster_map[src_cluster_edge->dst()]->predicate_string);
             }
           }
-          deadness_info.push_back(make_tuple(
-              src_index, dst_index, cluster_map.at(src)->predicate_string,
-              cluster_map.at(dst)->predicate_string, neighbours_predicate));
+          deadness_info[get_string_key(src_index, dst_index)] = make_tuple(
+              cluster_map.at(src)->predicate_string,
+              cluster_map.at(dst)->predicate_string, neighbours_predicate);
         }
         continue;
       }
@@ -709,15 +711,17 @@ Status AssignClusters(Graph* graph) {
         std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
         print_node_histogram(pair_reason_hist);
         std::cout << endl;
+        auto deadness_itr = deadness_info.find(it.first);
+        if (deadness_itr != deadness_info.end()) {
+          auto deadness_predicates_tpl = deadness_itr->second;
+          std::cout << "Source[" << src_encapsulate
+                    << "] predicate: " << std::get<0>(deadness_predicates_tpl)
+                    << " Destination[" << dst_encapsulate
+                    << "] predicate: " << std::get<1>(deadness_predicates_tpl)
+                    << " Neighbours predicates: "
+                    << ng::join(std::get<2>(deadness_predicates_tpl)) << endl;
+        }
       }
-    }
-    for (auto& itr : deadness_info) {
-      std::cout << "Source[" << cluster_to_encapsulate[std::get<0>(itr)]
-                << "] predicate: " << std::get<2>(itr) << " Destination["
-                << cluster_to_encapsulate[std::get<1>(itr)]
-                << "] predicate: " << std::get<3>(itr)
-                << " Neighbours predicates: " << ng::join(std::get<4>(itr))
-                << endl;
     }
     std::cout << endl;
     if (num_non_contracted != graph->num_edges()) {
