@@ -137,6 +137,7 @@ static void MaybeLogPlacement(const Graph* graph) {
     }
   }
   std::cout << endl;
+  std::cout << "\n=============Ending sub-graph logs=============\n";
 }
 
 Status DeassignClusters(Graph* graph) {

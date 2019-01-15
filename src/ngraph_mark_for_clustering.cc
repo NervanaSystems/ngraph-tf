@@ -569,6 +569,7 @@ Status MarkForClustering(Graph* graph) {
   }
 
   if (config::IsLoggingPlacement()) {
+    std::cout << "\n=============New sub-graph logs=============\n";
     // print summary for nodes failed to be marked
     std::cout << "NGTF_SUMMARY: Op_not_supported: ";
     print_node_histogram(no_support_histogram);
