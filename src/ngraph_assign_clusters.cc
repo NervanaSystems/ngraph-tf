@@ -672,9 +672,9 @@ Status AssignClusters(Graph* graph) {
          "STATICINPUT", "PATHEXISTS"});
     std::cout
         << "_ngraph_cluster i->j: non contraction reason histogram (Cannot be "
-           "UNSUPPORTED or NOTANOP because unsupported ops will not be "
-           "assigned an "
-           "encapsulate)\n";
+           "UNSUPPORTED, NOTANOP or SAMECLUSTER because unsupported ops will "
+           "not be "
+           "assigned an encapsulate)\n";
     auto forbidden_reasons_for_not_merging_clusters =
         std::set<EdgeNonContractionReasons>{
             EdgeNonContractionReasons::NOTANOP,
@@ -755,11 +755,11 @@ Status AssignClusters(Graph* graph) {
       }
     };
     std::cout << "NGTF_SUMMARY: Summary of reasons why a pair of edge "
-                 "connected encapsulates did not merge";
+                 "connected encapsulates did not merge\n";
     print_reason_summary(reason_count_encapsulates, is_forbidden_reason);
     std::cout << "NGTF_SUMMARY: Summary of reasons why a pair of edge "
-                 "connected clusters did not merge";
-    print_reason_summary(reason_count_encapsulates,
+                 "connected clusters did not merge\n";
+    print_reason_summary(reason_count_clusters,
                          [](EdgeNonContractionReasons x) { return false; });
   }
 

@@ -579,6 +579,7 @@ Status MarkForClustering(Graph* graph) {
     std::cout << "\n";
     std::cout << "NGTF_SUMMARY: Op_failed_type_constraint: ";
     print_node_histogram(fail_constraint_histogram);
+    std::cout << "\n";
   }
 
   // Set Attributes for nodes marked for clustering
