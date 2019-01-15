@@ -139,35 +139,6 @@ if (PYTHON)
             )
         ENDFOREACH()
 
-        if ("${NGRAPH_LIB_FILES};" MATCHES "/libplaidml_backend.dylib;")
-            execute_process(COMMAND
-                install_name_tool -change
-                libngraph.dylib
-                @loader_path/libngraph.dylib
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
-                RESULT_VARIABLE result
-                ERROR_VARIABLE ERR
-                ERROR_STRIP_TRAILING_WHITESPACE
-            )
-            if(${result})
-                message(FATAL_ERROR "Cannot update @loader_path")
-            endif()
-
-            message("Library: libplaidml.dylib")
-            execute_process(COMMAND
-                install_name_tool -change
-                @rpath/libplaidml.dylib
-                @loader_path/../plaidml/libplaidml.so
-                ${CMAKE_CURRENT_BINARY_DIR}/python/ngraph_bridge/libplaidml_backend.dylib
-                RESULT_VARIABLE result
-                ERROR_VARIABLE ERR
-                ERROR_STRIP_TRAILING_WHITESPACE
-            )
-            if(${result})
-                message(FATAL_ERROR "Cannot update @loader_path")
-            endif()
-        endif()
-
     endif()
 
     execute_process(
