@@ -152,7 +152,7 @@ option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" ${PLAIDML_FOUND})
 # Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
     if (NOT PLAIDML_FOUND)
-        message(FATAL_ERROR "PlaidML not installed")
+        message(FATAL_ERROR "Unable to find PlaidML; use \"pip install plaidml\" to install it.")
     endif()
 endif()
 
