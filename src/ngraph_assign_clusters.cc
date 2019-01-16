@@ -702,6 +702,7 @@ Status AssignClusters(Graph* graph) {
       bool src_dst_are_distinct = src_encapsulate != dst_encapsulate;
       vector<int> reason_count_encapsulates_for_pair(num_reasons, 0);
       bool pair_has_reason = false;
+      string deadness_string = "";
       for (auto& inner_itr : it.second) {
         // This if checks if the pair are 2 distinct encapsulates
         // In which case it asserts certain non-merging reasons are not possible
@@ -719,18 +720,25 @@ Status AssignClusters(Graph* graph) {
           auto deadness_itr = deadness_info.find(it.first);
           if (deadness_itr != deadness_info.end()) {
             auto deadness_predicates_tpl = deadness_itr->second;
-            std::cout << "Source[" << src_encapsulate
-                      << "] predicate: " << std::get<0>(deadness_predicates_tpl)
-                      << " Destination[" << dst_encapsulate
-                      << "] predicate: " << std::get<1>(deadness_predicates_tpl)
-                      << " Neighbours predicates: "
-                      << ng::join(std::get<2>(deadness_predicates_tpl)) << endl;
+            deadness_string +=
+                ("Source[" + to_string(src_encapsulate) + "] predicate: " +
+                 std::get<0>(deadness_predicates_tpl) + " Destination[" +
+                 to_string(dst_encapsulate) + "] predicate: " +
+                 std::get<1>(deadness_predicates_tpl) +
+                 " Neighbours predicates: " +
+                 ng::join(std::get<2>(deadness_predicates_tpl)) + "\n");
           }
         }
         reason_count_clusters[inner_itr]++;
       }  // end of the for over each cluster pair's reason vector
 
+      if (deadness_string != "") {
+        std::cout << "Deadness predicates information\n";
+        std::cout << deadness_string;
+      }
+
       if (pair_has_reason) {
+        std::cout << "Reasons why 2 encapsulates did not merge:\n";
         std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
         for (int reason_id = 0; reason_id < num_reasons; reason_id++) {
           if (!is_forbidden_reason(
