@@ -670,11 +670,6 @@ Status AssignClusters(Graph* graph) {
     std::vector<string> reason_string(  // to convert the enum to string
         {"NOTANOP", "UNSUPPORTED", "DEADNESS", "BACKEND", "SAMECLUSTER",
          "STATICINPUT", "PATHEXISTS"});
-    std::cout
-        << "_ngraph_cluster i->j: non contraction reason histogram (Cannot be "
-           "UNSUPPORTED, NOTANOP or SAMECLUSTER because unsupported ops will "
-           "not be "
-           "assigned an encapsulate)\n";
     auto forbidden_reasons_for_not_merging_clusters =
         std::set<EdgeNonContractionReasons>{
             EdgeNonContractionReasons::NOTANOP,
@@ -686,6 +681,11 @@ Status AssignClusters(Graph* graph) {
       return forbidden_reasons_for_not_merging_clusters.find(r) !=
              forbidden_reasons_for_not_merging_clusters.end();
     };
+    std::cout
+        << "Encapsulate i->j: non contraction reason histogram (Cannot be "
+           "UNSUPPORTED, NOTANOP or SAMECLUSTER because unsupported ops will "
+           "not be "
+           "assigned an encapsulate)\n";
     for (auto it : cluster_separation_reason) {
       num_non_contracted += it.second.size();
       auto cluster_id_vector = ng::split(it.first, ',');
@@ -700,6 +700,8 @@ Status AssignClusters(Graph* graph) {
       bool both_src_dst_are_encapsulates =
           src_encapsulate >= 0 && dst_encapsulate >= 0;
       bool src_dst_are_distinct = src_encapsulate != dst_encapsulate;
+      vector<int> reason_count_encapsulates_for_pair(num_reasons, 0);
+      bool pair_has_reason = false;
       for (auto& inner_itr : it.second) {
         // This if checks if the pair are 2 distinct encapsulates
         // In which case it asserts certain non-merging reasons are not possible
@@ -712,14 +714,8 @@ Status AssignClusters(Graph* graph) {
                 "merge, because unsupported ops would not end up in "
                 "encapsulates");
           }
-          reason_count_encapsulates[inner_itr]++;
-          std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
-          for (int reason_id = 0; reason_id < num_reasons; reason_id++) {
-            cout << reason_string[reason_id] << ":"
-                 << reason_count_encapsulates[reason_id]
-                 << (reason_id < (num_reasons - 1) ? ", " : "");
-          }
-          std::cout << endl;
+          pair_has_reason = true;
+          reason_count_encapsulates_for_pair[inner_itr]++;
           auto deadness_itr = deadness_info.find(it.first);
           if (deadness_itr != deadness_info.end()) {
             auto deadness_predicates_tpl = deadness_itr->second;
@@ -733,7 +729,23 @@ Status AssignClusters(Graph* graph) {
         }
         reason_count_clusters[inner_itr]++;
       }  // end of the for over each cluster pair's reason vector
-    }    // end of the for over cluster_separation_reason
+
+      if (pair_has_reason) {
+        std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
+        for (int reason_id = 0; reason_id < num_reasons; reason_id++) {
+          if (!is_forbidden_reason(
+                  static_cast<EdgeNonContractionReasons>(reason_id))) {
+            // Update global histogram with current pair's counts
+            reason_count_encapsulates[reason_id] +=
+                reason_count_encapsulates_for_pair[reason_id];
+            cout << reason_string[reason_id] << ":"
+                 << reason_count_encapsulates_for_pair[reason_id]
+                 << (reason_id < (num_reasons - 1) ? ", " : "");
+          }
+        }
+        std::cout << endl;
+      }
+    }  // end of the for over cluster_separation_reason
     std::cout << endl;
     if (num_non_contracted != graph->num_edges()) {
       return errors::Internal(
