@@ -764,12 +764,14 @@ Status AssignClusters(Graph* graph) {
         vector<int> reasons_count,
         std::function<bool(EdgeNonContractionReasons)>
             forbidden_reasons_filter) {
+      bool first = true;
       for (int i = 0; i < num_reasons; i++) {
         if (!forbidden_reasons_filter(
                 static_cast<EdgeNonContractionReasons>(i))) {
-          std::cout << (i == 0 ? "NGTF_SUMMARY: " : "") << reason_string[i]
+          std::cout << (first ? "NGTF_SUMMARY: " : "") << reason_string[i]
                     << ": " << reasons_count[i]
                     << (i < (num_reasons - 1) ? ", " : "\n");
+          first = false;
         }
       }
     };
