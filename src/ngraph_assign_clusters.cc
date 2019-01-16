@@ -738,7 +738,6 @@ Status AssignClusters(Graph* graph) {
       }
 
       if (pair_has_reason) {
-        std::cout << "Reasons why 2 encapsulates did not merge:\n";
         std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
         for (int reason_id = 0; reason_id < num_reasons; reason_id++) {
           if (!is_forbidden_reason(
