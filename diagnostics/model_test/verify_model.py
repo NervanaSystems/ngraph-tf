@@ -1,4 +1,4 @@
-# ==============================================================================
+#n ==============================================================================
 #  Copyright 2018 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -73,14 +73,19 @@ def calculate_output(param_dict, select_device, input_example):
         inter_op_parallelism_threads=1)
 
     sess = tf.Session(config=config)
-    is_ckpt = False
+    is_ckpt = True
     set_os_env(select_device)
 
     # check if the file is ckpts
     if (is_ckpt):
-        saver = tf.train.Saver()
         # TODO: change ckpt file name accordingly
-        saver.restore(sess, graph_filename + "/model.ckpt")
+        saver = tf.train.import_meta_graph(
+            '/localdisk/skantama/ngraph-tf/diagnostics/model_test/MLP/saved_model.ckpt.meta'
+        )
+        saver.restore(
+            sess,
+            '/localdisk/skantama/ngraph-tf/diagnostics/model_test/MLP/saved_model.ckpt'
+        )
         print("Model restored.")
         graph_from_ckpt = tf.get_default_graph()
         if len(output_tensor_name) == 0:
@@ -109,15 +114,20 @@ def calculate_output(param_dict, select_device, input_example):
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
     for item in input_example:
-        t = graph.get_tensor_by_name(item)
+        #t = graph.get_tensor_by_name(item)
+        t = graph_from_ckpt.get_tensor_by_name(item)
         tensor_to_example_map[t] = input_example[item]
 
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
-    output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
+    #output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
+    output_tensor = [
+        graph_from_ckpt.get_tensor_by_name(i) for i in output_tensor_name
+    ]
 
     # if it is from ckpt
     if (is_ckpt):
         sess.run(output_tensor, feed_dict=tensor_to_example_map)
+        return output_tensor, output_tensor_name
     else:
         with tf.Session(graph=graph, config=config) as sess_pb:
             output_tensor = sess_pb.run(
@@ -248,8 +258,8 @@ if __name__ == '__main__':
         new_out_layer = tname.replace("/", "_")
         nparray_tf = np.array(result_tf_graph)
         nparray_ngraph = np.array(result_ngraph)
-        np.save(device1 + "-" + new_out_layer + ".npy", nparray_tf)
-        np.save(device2 + "-" + new_out_layer + ".npy", nparray_ngraph)
+        #np.save(device1 + "-" + new_out_layer + ".npy", nparray_tf)
+        #np.save(device2 + "-" + new_out_layer + ".npy", nparray_ngraph)
 
         l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
         l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
