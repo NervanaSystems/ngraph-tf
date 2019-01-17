@@ -322,6 +322,7 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["Split"] = SimpleConfirmationFunction();
       confirmation_function_map["SplitV"] = SimpleConfirmationFunction();
+      confirmation_function_map["Sqrt"] = SimpleConfirmationFunction();
       confirmation_function_map["Square"] = SimpleConfirmationFunction();
       confirmation_function_map["SquaredDifference"] =
           SimpleConfirmationFunction();
@@ -457,6 +458,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Split"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["Tlen"] = NGraphIndexDTypes();
+      type_constraint_map["Sqrt"]["T"] = NGraphDTypes();
       type_constraint_map["Square"]["T"] = NGraphDTypes();
       type_constraint_map["SquaredDifference"]["T"] = NGraphDTypes();
       type_constraint_map["Squeeze"]["T"] = NGraphDTypes();
@@ -569,6 +571,7 @@ Status MarkForClustering(Graph* graph) {
   }
 
   if (config::IsLoggingPlacement()) {
+    std::cout << "\n=============New sub-graph logs=============\n";
     // print summary for nodes failed to be marked
     std::cout << "NGTF_SUMMARY: Op_not_supported: ";
     print_node_histogram(no_support_histogram);
@@ -578,6 +581,7 @@ Status MarkForClustering(Graph* graph) {
     std::cout << "\n";
     std::cout << "NGTF_SUMMARY: Op_failed_type_constraint: ";
     print_node_histogram(fail_constraint_histogram);
+    std::cout << "\n";
   }
 
   // Set Attributes for nodes marked for clustering
