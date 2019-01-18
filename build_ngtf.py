@@ -111,8 +111,9 @@ def load_venv(venv_dir):
     return venv_dir
 
 
-def setup_venv(venv_dir):
-    load_venv(venv_dir)
+def setup_venv(venv_dir, system):
+    if not system:
+        load_venv(venv_dir)
 
     print("PIP location")
     call(['which', 'pip'])
@@ -475,9 +476,9 @@ def main():
     if not system:
         load_venv(venv_dir)
 
-    if not use_prebuilt_binaries and not system:
+    if not use_prebuilt_binaries:
         # Setup the virtual env
-        setup_venv(venv_dir)
+        setup_venv(venv_dir, system)
 
     target_arch = 'native'
     if (arguments.target_arch):
