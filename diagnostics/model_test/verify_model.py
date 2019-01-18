@@ -1,4 +1,4 @@
-#n ==============================================================================
+# ==============================================================================
 #  Copyright 2018 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -61,31 +61,35 @@ def calculate_output(param_dict, select_device, input_example):
         The output vector obtained from running the input_example through the graph.
     """
     graph_filename = param_dict["graph_location"]
+    checkpoint_filename = param_dict["checkpoint_location"]
     output_tensor_name = param_dict["output_tensor_name"]
 
-    if not tf.gfile.Exists(graph_filename):
-        raise Exception("Input graph file '" + graph_filename +
-                        "' does not exist!")
-
     config = tf.ConfigProto(
-        allow_soft_placement=True,
         # log_device_placement=True,
         inter_op_parallelism_threads=1)
 
     sess = tf.Session(config=config)
-    is_ckpt = True
+    import pdb
+    #pdb.set_trace()
+    if tf.train.checkpoint_exists(
+            checkpoint_filename) and not tf.gfile.Exists(graph_filename):
+        is_ckpt = True
+    if tf.gfile.Exists(
+            graph_filename) and not tf.gfile.Exists(checkpoint_filename):
+        is_ckpt = False
+    if not tf.train.checkpoint_exists(
+            checkpoint_filename) and not tf.gfile.Exists(graph_filename):
+        raise Exception("Input graph file '" + graph_filename + "' or" +
+                        "Input checkpoint file '" + checkpoint_filename +
+                        "' does not exist!")
+    #pdb.set_trace()
+
     set_os_env(select_device)
 
-    # check if the file is ckpts
+    # if checkpoint, then load checkpoint
     if (is_ckpt):
-        # TODO: change ckpt file name accordingly
-        saver = tf.train.import_meta_graph(
-            '/localdisk/skantama/ngraph-tf/diagnostics/model_test/MLP/saved_model.ckpt.meta'
-        )
-        saver.restore(
-            sess,
-            '/localdisk/skantama/ngraph-tf/diagnostics/model_test/MLP/saved_model.ckpt'
-        )
+        saver = tf.train.import_meta_graph(checkpoint_filename + '.meta')
+        saver.restore(sess, checkpoint_filename)
         print("Model restored.")
         graph_from_ckpt = tf.get_default_graph()
         if len(output_tensor_name) == 0:
@@ -94,7 +98,8 @@ def calculate_output(param_dict, select_device, input_example):
                 [[j.name
                   for j in i.outputs]
                  for i in graph_from_ckpt.get_operations()], [])
-    else:
+
+    if tf.gfile.Exists(graph_filename):
         graph_def = tf.GraphDef()
         if graph_filename.endswith("pbtxt"):
             with open(graph_filename, "r") as f:
@@ -114,21 +119,23 @@ def calculate_output(param_dict, select_device, input_example):
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
     for item in input_example:
-        #t = graph.get_tensor_by_name(item)
-        t = graph_from_ckpt.get_tensor_by_name(item)
+        if (is_ckpt):
+            t = graph_from_ckpt.get_tensor_by_name(item)
+        else:
+            t = graph.get_tensor_by_name(item)
         tensor_to_example_map[t] = input_example[item]
 
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
-    #output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
-    output_tensor = [
-        graph_from_ckpt.get_tensor_by_name(i) for i in output_tensor_name
-    ]
-
-    # if it is from ckpt
     if (is_ckpt):
+        output_tensor = [
+            graph_from_ckpt.get_tensor_by_name(i) for i in output_tensor_name
+        ]
         output = sess.run(output_tensor, feed_dict=tensor_to_example_map)
         return output, output_tensor_name
     else:
+        output_tensor = [
+            graph.get_tensor_by_name(i) for i in output_tensor_name
+        ]
         with tf.Session(graph=graph, config=config) as sess_pb:
             output_tensor = sess_pb.run(
                 output_tensor, feed_dict=tensor_to_example_map)
