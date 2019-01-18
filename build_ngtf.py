@@ -140,7 +140,7 @@ def setup_venv(venv_dir):
         "wheel",
         "mock",
         "protobuf",
-        "keras_applications==1.0.5",
+        "keras_applications>=1.0.6",
         "--no-deps",
         "keras_preprocessing==1.0.3",
         "--no-deps",
