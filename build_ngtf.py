@@ -475,7 +475,7 @@ def main():
     if not system:
         load_venv(venv_dir)
 
-    if not use_prebuilt_binaries:
+    if not use_prebuilt_binaries or not system:
         # Setup the virtual env
         setup_venv(venv_dir)
 
