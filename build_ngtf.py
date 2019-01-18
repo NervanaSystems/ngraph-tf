@@ -467,7 +467,7 @@ def main():
     artifacts_location = os.path.abspath(artifacts_location)
     print("ARTIFACTS location: " + artifacts_location)
 
-    if not use_prebuilt_binaries or not system:
+    if not use_prebuilt_binaries and not system:
         #install virtualenv
         install_virtual_env(venv_dir)
 
@@ -475,7 +475,7 @@ def main():
     if not system:
         load_venv(venv_dir)
 
-    if not use_prebuilt_binaries or not system:
+    if not use_prebuilt_binaries and not system:
         # Setup the virtual env
         setup_venv(venv_dir)
 
