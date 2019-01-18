@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include <iterator>
 #include <map>
 
 #include "gtest/gtest.h"
@@ -1162,13 +1161,13 @@ TEST(MathOps, SqueezeNoAttributes) {
   shape_vector.push_back({1, 1, 1, 1});
 
   vector<int> static_input_indexes = {};
-  vector<DataType> output_datatypes = {DT_FLOAT};
+  vector<DataType> output_datatypes = {DT_INT32};
 
   for (auto shape : shape_vector) {
     Scope root = Scope::NewRootScope();
 
-    Tensor input(DT_FLOAT, TensorShape(shape));
-    AssignInputValuesRandom<float>(input, -50, 50);
+    Tensor input(DT_INT32, TensorShape(shape));
+    AssignInputValuesRandom<int32>(input, -50, 50);
 
     auto R = ops::Squeeze(root, input);
 
@@ -1182,10 +1181,8 @@ TEST(MathOps, SqueezeNoAttributes) {
 
 // Test op: SqueezeWithAttributes
 TEST(MathOps, SqueezeWithAttributes) {
-  // empty map container
+  // construct a map to store input shape and squeeze dimension attributes
   map<vector<int64>, gtl::ArraySlice<int>> shape_attributes_map;
-
-  // insert elements in random order
   shape_attributes_map.insert(
       pair<vector<int64>, gtl::ArraySlice<int>>({1, 10, 2, 3}, {0}));
   shape_attributes_map.insert(
@@ -1218,7 +1215,7 @@ TEST(MathOps, SqueezeWithAttributes) {
 
     opexecuter.RunTest();
   }
-}  // end of test op Squeeze
+}  // end of test op SqueezeWithAttributes
 
 // Test op: Sqrt
 TEST(MathOps, Sqrt) {
