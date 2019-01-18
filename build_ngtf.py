@@ -428,7 +428,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0-rc.0"
+    ngraph_version = "langjian/test_distributed_class" #"sandeep/git-d" #"v0.12.0-rc.0"
     tf_version = "v1.12.0"
 
     # Default directories
