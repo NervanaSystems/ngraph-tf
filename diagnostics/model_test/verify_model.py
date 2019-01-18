@@ -126,8 +126,8 @@ def calculate_output(param_dict, select_device, input_example):
 
     # if it is from ckpt
     if (is_ckpt):
-        sess.run(output_tensor, feed_dict=tensor_to_example_map)
-        return output_tensor, output_tensor_name
+        output = sess.run(output_tensor, feed_dict=tensor_to_example_map)
+        return output, output_tensor_name
     else:
         with tf.Session(graph=graph, config=config) as sess_pb:
             output_tensor = sess_pb.run(
@@ -258,12 +258,12 @@ if __name__ == '__main__':
         new_out_layer = tname.replace("/", "_")
         nparray_tf = np.array(result_tf_graph)
         nparray_ngraph = np.array(result_ngraph)
-        #np.save(device1 + "-" + new_out_layer + ".npy", nparray_tf)
-        #np.save(device2 + "-" + new_out_layer + ".npy", nparray_ngraph)
+        np.save(device1 + "-" + new_out_layer + ".npy", nparray_tf)
+        np.save(device2 + "-" + new_out_layer + ".npy", nparray_ngraph)
 
-        l1_norm = calculate_norm(result_ngraph, result_tf_graph, 1)
-        l2_norm = calculate_norm(result_ngraph, result_tf_graph, 2)
-        inf_norm = calculate_norm(result_ngraph, result_tf_graph, np.inf)
+        l1_norm = calculate_norm(nparray_ngraph, nparray_tf, 1)
+        l2_norm = calculate_norm(nparray_ngraph, nparray_tf, 2)
+        inf_norm = calculate_norm(nparray_ngraph, nparray_tf, np.inf)
 
         norm_dict = {"L1": l1_norm, "L2": l2_norm, "inf": inf_norm}
         print("\n[" + tname + "]")
