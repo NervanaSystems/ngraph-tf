@@ -60,8 +60,20 @@ def calculate_output(param_dict, select_device, input_example):
     Returns:
         The output vector obtained from running the input_example through the graph.
     """
-    graph_filename = param_dict["graph_location"]
-    checkpoint_filename = param_dict["checkpoint_location"]
+
+    is_ckpt = False
+
+    if "graph_location" in param_dict:
+        graph_filename = param_dict["graph_location"]
+
+    elif "checkpoint_location" in param_dict:
+        checkpoint_filename = param_dict["checkpoint_location"]
+        is_ckpt = True
+
+    else:
+        raise Exception(
+            "Input graph file OR Input checkpoint file is required!")
+
     output_tensor_name = param_dict["output_tensor_name"]
 
     config = tf.ConfigProto(
@@ -69,37 +81,26 @@ def calculate_output(param_dict, select_device, input_example):
         inter_op_parallelism_threads=1)
 
     sess = tf.Session(config=config)
-    import pdb
-    #pdb.set_trace()
-    if tf.train.checkpoint_exists(
-            checkpoint_filename) and not tf.gfile.Exists(graph_filename):
-        is_ckpt = True
-    if tf.gfile.Exists(
-            graph_filename) and not tf.gfile.Exists(checkpoint_filename):
-        is_ckpt = False
-    if not tf.train.checkpoint_exists(
-            checkpoint_filename) and not tf.gfile.Exists(graph_filename):
-        raise Exception("Input graph file '" + graph_filename + "' or" +
-                        "Input checkpoint file '" + checkpoint_filename +
-                        "' does not exist!")
-    #pdb.set_trace()
-
     set_os_env(select_device)
 
-    # if checkpoint, then load checkpoint
+    # if checkpoint,then load checkpoint
     if (is_ckpt):
-        saver = tf.train.import_meta_graph(checkpoint_filename + '.meta')
-        saver.restore(sess, checkpoint_filename)
-        print("Model restored.")
-        graph_from_ckpt = tf.get_default_graph()
-        if len(output_tensor_name) == 0:
-            # if no outputs are specified, then compare for all tensors
-            output_tensor_name = sum(
-                [[j.name
-                  for j in i.outputs]
-                 for i in graph_from_ckpt.get_operations()], [])
+        meta_filename = checkpoint_filename + '.meta'
+        if not tf.gfile.Exists(meta_filename):
+            raise Exception("Checkpoint with this prefix does not exist")
+        else:
+            saver = tf.train.import_meta_graph(meta_filename)
 
-    if tf.gfile.Exists(graph_filename):
+        if not tf.train.checkpoint_exists(checkpoint_filename):
+            raise Exception("Checkpoint with this prefix does not exist")
+        else:
+            saver.restore(sess, checkpoint_filename)
+
+        print("Model restored.")
+        graph = tf.get_default_graph()
+
+    #if graph,then load graph
+    else:
         graph_def = tf.GraphDef()
         if graph_filename.endswith("pbtxt"):
             with open(graph_filename, "r") as f:
@@ -110,36 +111,23 @@ def calculate_output(param_dict, select_device, input_example):
 
         with tf.Graph().as_default() as graph:
             tf.import_graph_def(graph_def)
-            if len(output_tensor_name) == 0:
-                # if no outputs are specified, then compare for all tensors
-                output_tensor_name = sum([
-                    [j.name for j in i.outputs] for i in graph.get_operations()
-                ], [])
+        sess = tf.Session(graph=graph, config=config)
+
+    # if no outputs are specified, then compare for all tensors
+    if len(output_tensor_name) == 0:
+        output_tensor_name = sum(
+            [[j.name for j in i.outputs] for i in graph.get_operations()], [])
 
     # Create the tensor to its corresponding example map
     tensor_to_example_map = {}
     for item in input_example:
-        if (is_ckpt):
-            t = graph_from_ckpt.get_tensor_by_name(item)
-        else:
-            t = graph.get_tensor_by_name(item)
+        t = graph.get_tensor_by_name(item)
         tensor_to_example_map[t] = input_example[item]
 
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
-    if (is_ckpt):
-        output_tensor = [
-            graph_from_ckpt.get_tensor_by_name(i) for i in output_tensor_name
-        ]
-        output = sess.run(output_tensor, feed_dict=tensor_to_example_map)
-        return output, output_tensor_name
-    else:
-        output_tensor = [
-            graph.get_tensor_by_name(i) for i in output_tensor_name
-        ]
-        with tf.Session(graph=graph, config=config) as sess_pb:
-            output_tensor = sess_pb.run(
-                output_tensor, feed_dict=tensor_to_example_map)
-            return output_tensor, output_tensor_name
+    output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
+    output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
+    return output_tensor, output_tensor_name
 
 
 def calculate_norm(ngraph_output, tf_output, desired_norm):

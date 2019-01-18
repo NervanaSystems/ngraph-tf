@@ -3,7 +3,6 @@
     "reference_backend": "CPU",
     "testing_backend": "NGRAPH_CPU",
     "graph_location": "/nfs/site/home/mingshan/frozen_graphs/frozen_mnist.pb",
-    "checkpoint_location": "/path/to/the/checkpoint.ckpt",
     "input_tensor_name": ["import/Placeholder:0"],
     "output_tensor_name": ["import/Placeholder:0", "import/fc2/yconv:0"],
     "random_val_range": [255],
