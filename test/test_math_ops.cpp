@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
+#include <iterator>
+#include <map>
 
 #include "gtest/gtest.h"
 #include "opexecuter.h"
@@ -1150,6 +1152,73 @@ TEST(MathOps, Square) {
                         sess_run_fetchoutputs);
   opexecuter.RunTest();
 }  // end of test op Square
+
+// Test op: SqueezeNoAttributes
+TEST(MathOps, SqueezeNoAttributes) {
+  vector<vector<int64>> shape_vector;
+  shape_vector.push_back({1, 10, 2, 3});
+  shape_vector.push_back({2, 2, 3, 4});
+  shape_vector.push_back({10, 1, 5, 1});
+  shape_vector.push_back({1, 1, 1, 1});
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  for (auto shape : shape_vector) {
+    Scope root = Scope::NewRootScope();
+
+    Tensor input(DT_FLOAT, TensorShape(shape));
+    AssignInputValuesRandom<float>(input, -50, 50);
+
+    auto R = ops::Squeeze(root, input);
+
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Squeeze", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of test op SqueezeNoAttributes
+
+// Test op: SqueezeWithAttributes
+TEST(MathOps, SqueezeWithAttributes) {
+  // empty map container
+  map<vector<int64>, gtl::ArraySlice<int>> shape_attributes_map;
+
+  // insert elements in random order
+  shape_attributes_map.insert(
+      pair<vector<int64>, gtl::ArraySlice<int>>({1, 10, 2, 3}, {0}));
+  shape_attributes_map.insert(
+      pair<vector<int64>, gtl::ArraySlice<int>>({10, 1, 5, 1}, {-1, -3}));
+  shape_attributes_map.insert(
+      pair<vector<int64>, gtl::ArraySlice<int>>({1, 1, 1, 1}, {-1, -2}));
+  shape_attributes_map.insert(
+      pair<vector<int64>, gtl::ArraySlice<int>>({1, 1, 1, 1}, {0, 1, -2, -3}));
+
+  vector<int> static_input_indexes = {};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  for (auto itr : shape_attributes_map) {
+    Scope root = Scope::NewRootScope();
+
+    auto input_shape = itr.first;
+    auto squeeze_dim = itr.second;
+
+    Tensor input(DT_FLOAT, TensorShape(input_shape));
+    AssignInputValuesRandom<float>(input, -50, 50);
+
+    auto attrs = ops::Squeeze::Attrs();
+    attrs.axis_ = squeeze_dim;
+
+    auto R = ops::Squeeze(root, input, attrs);
+
+    std::vector<Output> sess_run_fetchoutputs = {R};
+    OpExecuter opexecuter(root, "Squeeze", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+    opexecuter.RunTest();
+  }
+}  // end of test op Squeeze
 
 // Test op: Sqrt
 TEST(MathOps, Sqrt) {
