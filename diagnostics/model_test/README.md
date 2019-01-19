@@ -3,7 +3,7 @@
 This model_test tool will run the model inference and training seperately on any two specified backends(e.g. Backends: Tensorflow (native), nGraph-CPU, nGraph-GPU etc) in json file and the outputs from each backend should match given the same inputs. It can be used as a debugging tool for layer by layer comparison, and also a verification that nGraph produces the same output as Tensorflow. 
 
 # Required files to use the tool:
-* A json file: Provide model specific parameters. Look at the example ```mnist_cnn.json``` for graph and ```mnist_cnn.json``` for checkpoint. You can start with the ```template.json``` and modify it to match your model
+* A json file: Provide model specific parameters. Look at the example ```mnist_cnn.json``` for graph and ```mnist_mlp.json``` for checkpoint. You can start with the ```template_pb.json``` for graph and ```template_ckpt.json``` for checkpoint and modify it to match your model
 * A tensorflow model file: Either .pb or .pbtxt file or .ckpt file
 
 ## To prepare the required json file:
