@@ -91,6 +91,13 @@ The installation prerequisites are the same as described in the TensorFlow
 
         python3 build_ngtf.py
 
+Note that if you are running TensorFlow on a Skylake family processor then pass the target_arch as below
+
+        python3 build_ngtf.py --target_arch=broadwell
+ 
+This is due to an issue in TensorFlow tracked here:
+        https://github.com/tensorflow/tensorflow/issues/17273
+
 Once the build finishes, a new virtualenv directory is created in the `build/venv-tf-py3`. The build artifacts i.e., the `ngraph_tensorflow_bridge-<VERSION>-py2.py3-none-manylinux1_x86_64.whl` is created in the `build/artifacts` directory. 
 
 3. Test the installation by running the following command:
@@ -145,7 +152,7 @@ Note: To get the latest version of nGraph, use the tip of `master` branch of Ten
         when bazel option "--config=opt" is specified 
         [Default is -march=native]: -march=broadwell
     
-    This is due to an issue in TensorFlow tracked in this issue: 
+    This is due to an issue in TensorFlow tracked here: 
     https://github.com/tensorflow/tensorflow/issues/17273
 
 5. Prepare the pip package
