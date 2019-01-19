@@ -62,28 +62,27 @@ def calculate_output(param_dict, select_device, input_example):
     """
 
     is_ckpt = False
+    if "graph_location" in param_dict and "checkpoint_location" in param_dict:
+        raise Exception(
+            "Only Graph or Checkpoint file can be specified, not both!")
 
     if "graph_location" in param_dict:
         graph_filename = param_dict["graph_location"]
-
     elif "checkpoint_location" in param_dict:
         checkpoint_filename = param_dict["checkpoint_location"]
         is_ckpt = True
-
     else:
         raise Exception(
             "Input graph file OR Input checkpoint file is required!")
 
     output_tensor_name = param_dict["output_tensor_name"]
 
-    config = tf.ConfigProto(
-        # log_device_placement=True,
-        inter_op_parallelism_threads=1)
+    config = tf.ConfigProto(inter_op_parallelism_threads=1)
 
     sess = tf.Session(config=config)
     set_os_env(select_device)
 
-    # if checkpoint,then load checkpoint
+    # if checkpoint, then load checkpoint
     if (is_ckpt):
         meta_filename = checkpoint_filename + '.meta'
         if not tf.gfile.Exists(meta_filename):
@@ -99,7 +98,7 @@ def calculate_output(param_dict, select_device, input_example):
         print("Model restored.")
         graph = tf.get_default_graph()
 
-    #if graph,then load graph
+    #if graph, then load graph
     else:
         graph_def = tf.GraphDef()
         if graph_filename.endswith("pbtxt"):
