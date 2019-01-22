@@ -417,5 +417,53 @@ std::unordered_set<int32> GraphCycles::Predecessors(int32 node) {
   return rep_->nodes_[node]->in;
 }
 
+// 2 options for finding all paths.
+// A: all paths that have no edges in common: in which case delete the current
+// path foud and find a new path
+// B: all possible paths. find a path, del last edge, see if path exists from
+// second last node to dst node.. etc
+// Option B can get exponential.
+// for src and dst, ignore all nodes (and edges) whose rank are <= src and >=
+// dst
+// This means this is a gurranteed 1 src, 1 node graph
+// So the problem is finding all paths between a single-src, single-dst DAG
+// starting at the single src and ending at the single dst
+// f(s, d):
+//   #basecase: s in d.predecessors: return [s->d]
+//   list_of_paths = []
+//   for pred of d.predecessors:
+//      list_of_paths.append([i + pred for i in f(s, pred)])
+//   return list_of_paths
+std::vector<std::vector<int32>> GraphCycles::FindMultiplePaths(int32 source,
+                                                               int32 dest) {
+  std::vector<std::vector<int32>> list_of_paths;
+  //std::cout << "---------FInding path from: "<< source <<"->" << dest << "\n";
+  if (source == dest) {
+    //std::cout << "source==dest\n";
+    list_of_paths.push_back({source});
+  } else {
+    for (auto pred_of_dst : Predecessors(dest)) {
+      //std::cout << "pred_of_dst:: " << pred_of_dst << "\n";
+      auto paths_to_pred_of_dst = FindMultiplePaths( source, pred_of_dst);
+      //std::cout << "pred_of_dst:: " << pred_of_dst << " --- " << paths_to_pred_of_dst.size() << "\n";
+      for (auto& path : paths_to_pred_of_dst) {
+        path.push_back(dest);
+        //std::cout << "path size: " << path.size() << " " ;
+        //std::copy(path.begin(), path.end(), std::ostream_iterator<int>(std::cout, ","));
+        //std::cout << std::endl;
+      }
+      list_of_paths.insert(list_of_paths.end(), paths_to_pred_of_dst.begin(),
+                           paths_to_pred_of_dst.end());
+
+      /*for (auto pp : list_of_paths){
+        std::copy(pp.begin(), pp.end(), std::ostream_iterator<int>(std::cout, ","));
+        std::cout << std::endl;
+      }*/
+    }
+  }
+  //std::cout << "----------------------- exiting:: " << source << " " << dest << " " << list_of_paths.size() << "\n";
+  return list_of_paths;
+}
+
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

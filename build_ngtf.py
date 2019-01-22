@@ -466,7 +466,7 @@ def main():
         # Setup the virtual env
         setup_venv(venv_dir)
 
-    target_arch = 'native'
+    target_arch = 'broadwell'
     if (arguments.target_arch):
         target_arch = arguments.target_arch
 

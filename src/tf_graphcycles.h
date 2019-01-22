@@ -47,6 +47,8 @@ File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.h
 // The current implementation uses O(|V|+|E|) space.
 
 #include <unordered_set>
+#include <vector>
+#include <iostream>
 
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/types.h"
@@ -122,6 +124,8 @@ class GraphCycles {
   // the return value is at most one greater than the number of nodes in the
   // graph.
   int FindPath(int32 source, int32 dest, int max_path_len, int32 path[]) const;
+
+  std::vector<std::vector<int32>> FindMultiplePaths(int32 source, int32 dest);
 
   // Check internal invariants. Crashes on failure, returns true on success.
   // Expensive: should only be called from graphcycles_test.cc.

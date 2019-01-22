@@ -454,8 +454,9 @@ Status AssignClusters(Graph* graph) {
   // Using string, because a pair won't hash unless implemented
   // Note that we store a vector of "reasons", because there could be multiple
   // reasons
-  using ClusterPairToReason =
-      std::unordered_map<std::string, std::vector<EdgeNonContractionReasons>>;
+  using ClusterPairToReason = std::unordered_map<
+      std::string,
+      std::vector<std::tuple<string, string, EdgeNonContractionReasons>>>;
   ClusterPairToReason cluster_separation_reason;
   auto get_string_key = [](int x, int y) {
     return to_string(x) + "," + to_string(y);
@@ -464,13 +465,23 @@ Status AssignClusters(Graph* graph) {
   // predicates)
   std::unordered_map<std::string, tuple<string, string, vector<string>>>
       deadness_info;
-
+  // (src id, dst id) -> vector<string> (denoting the nodes between src and dst
+  // that are unsupported)
+  // TODO: should the value of this map be vector or set?
+  // set would give a shortened summary..vector would give the full path (easier to track)
+  std::unordered_map<std::string, std::set<string>> unsupported_info;
+  std::unordered_map<int, std::shared_ptr<Cluster>> idx_to_clusters;
+  auto get_node_tag = [](Node* n) -> string {
+    return n->name() + "(" + n->type_string() + ")";
+  };
   do {
     changed = false;
 
     for (auto edge : graph->edges()) {
       Node* src = edge->src();
       Node* dst = edge->dst();
+      string src_node_tag = get_node_tag(src);
+      string dst_node_tag = get_node_tag(dst);
 
       int src_index = cluster_map[src]->index;
       int dst_index = cluster_map[dst]->index;
@@ -478,7 +489,8 @@ Status AssignClusters(Graph* graph) {
       if (!src->IsOp() || !dst->IsOp()) {
         if (collect_non_contracting_edge_info) {
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(EdgeNonContractionReasons::NOTANOP);
+              .push_back(make_tuple(src_node_tag, dst_node_tag,
+                                    EdgeNonContractionReasons::NOTANOP));
         }
         continue;
       }
@@ -490,7 +502,8 @@ Status AssignClusters(Graph* graph) {
                        << dst_index;
         if (collect_non_contracting_edge_info) {
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(EdgeNonContractionReasons::UNSUPPORTED);
+              .push_back(make_tuple(src_node_tag, dst_node_tag,
+                                    EdgeNonContractionReasons::UNSUPPORTED));
         }
         continue;
       }
@@ -508,7 +521,8 @@ Status AssignClusters(Graph* graph) {
                        << dst_index;
         if (collect_non_contracting_edge_info) {
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(EdgeNonContractionReasons::DEADNESS);
+              .push_back(make_tuple(src_node_tag, dst_node_tag,
+                                    EdgeNonContractionReasons::DEADNESS));
 
           auto src_cluster = cluster_map[src];
           auto dst_cluster = cluster_map[dst];
@@ -528,7 +542,7 @@ Status AssignClusters(Graph* graph) {
       }
 #endif
 
-      // check if the edge can be constracted with respect to backend
+      // check if the edge can be constructed with respect to backend
       bool is_backend_ok = false;
       TF_RETURN_IF_ERROR(
           CanContractEdgeBackendCheck(edge, cluster_map, is_backend_ok));
@@ -539,7 +553,8 @@ Status AssignClusters(Graph* graph) {
                        << dst_index;
         if (collect_non_contracting_edge_info) {
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(EdgeNonContractionReasons::BACKEND);
+              .push_back(make_tuple(src_node_tag, dst_node_tag,
+                                    EdgeNonContractionReasons::BACKEND));
         }
         // do not contract, src and dst node cannot be in the same cluster
         continue;
@@ -567,11 +582,47 @@ Status AssignClusters(Graph* graph) {
           // dst has static input
           // a longer irreducible path exists
           cluster_separation_reason[get_string_key(src_index, dst_index)]
-              .push_back(src_index == dst_index
-                             ? EdgeNonContractionReasons::SAMECLUSTER
-                             : (is_static
-                                    ? EdgeNonContractionReasons::STATICINPUT
-                                    : EdgeNonContractionReasons::PATHEXISTS));
+              .push_back(make_tuple(
+                  src_node_tag, dst_node_tag,
+                  src_index == dst_index
+                      ? EdgeNonContractionReasons::SAMECLUSTER
+                      : (is_static ? EdgeNonContractionReasons::STATICINPUT
+                                   : EdgeNonContractionReasons::PATHEXISTS)));
+          /*std::set<std::shared_ptr<Cluster>> all_clusters;
+          std::transform(
+          cluster_map.begin(),
+          cluster_map.end(),
+          std::inserter(all_clusters, end(all_clusters)),
+          [](const std::map<Node*, std::shared_ptr<Cluster>>::value_type
+          &pair){return pair.second;});
+          */
+
+          if (src_index != dst_index){
+            //std::cout << "XXXX:: " << src_index << " " <<  dst_index << "\n";
+            auto all_paths = gc.FindMultiplePaths(src_index, dst_index);
+            //cout << "AXAX:: all_paths.size(): " << all_paths.size() << " " << src_index << "->" << dst_index << "\n";
+            //for (auto path : all_paths) {
+            //  cout << ng::join(path) << "\n";
+            //}
+            for (auto path : all_paths) {
+              for (auto cluster_idx : path) {
+                auto set_of_nodes = idx_to_clusters[cluster_idx]->nodes;
+                auto a_node = *(set_of_nodes.begin());
+                bool unsupported = (set_of_nodes.size() == 1) &&
+                                  (!NodeIsMarkedForClustering(a_node));
+                //if (set_of_nodes.size() == 1){
+                  //cout << "xxx r1: " << (set_of_nodes.size()) << " r2: " << !NodeIsMarkedForClustering(a_node) << "\n";
+                  //cout << "node detail: " << get_node_tag(a_node) << "\n";
+                //}
+                if (unsupported) {
+                  //cout << "XXX: " << get_node_tag(a_node) << "\n";
+                  unsupported_info[get_string_key(src_index, dst_index)].insert(
+                      get_node_tag(a_node));
+                  //cout << "xyxy: " << unsupported_info.size() << "\n";
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -583,6 +634,24 @@ Status AssignClusters(Graph* graph) {
       if (!collect_non_contracting_edge_info) {
         changed = true;
         collect_non_contracting_edge_info = true;
+
+          // Create a map from cluster index to cluster
+          std::transform(
+              cluster_map.begin(), cluster_map.end(),
+              std::inserter(idx_to_clusters, end(idx_to_clusters)),
+              [](const std::map<Node*, std::shared_ptr<Cluster>>::value_type&
+                     pair) {
+                return make_pair(pair.second->index, pair.second);
+              });
+          
+          /*cout << "AXAXAXAX: " << idx_to_clusters.size() << "\n";
+          for (auto itrr : idx_to_clusters){
+            cout << itrr.first << " :: " << itrr.second->nodes.size() << "\n";
+            if (itrr.second->nodes.size() == 1){
+              auto xx = *(itrr.second->nodes.begin());
+              cout << xx->type_string() << " " << NodeIsMarkedForClustering(xx) << "\n";
+            }
+          }*/
       }
     }
   } while (changed);
@@ -703,20 +772,25 @@ Status AssignClusters(Graph* graph) {
       vector<int> reason_count_encapsulates_for_pair(num_reasons, 0);
       bool pair_has_reason = false;
       string deadness_string = "";
+      //string unsupported_string = "";
+      std::stringstream unsupported_string_str;
       for (auto& inner_itr : it.second) {
         // This if checks if the pair are 2 distinct encapsulates
         // In which case it asserts certain non-merging reasons are not possible
         // And also prints the reasons of non-merging
+        auto node_src = get<0>(inner_itr);
+        auto node_dst = get<1>(inner_itr);
+        auto curr_reason = get<2>(inner_itr);
         if (both_src_dst_are_encapsulates && src_dst_are_distinct) {
-          if (is_forbidden_reason(inner_itr)) {
+          if (is_forbidden_reason(curr_reason)) {
             return errors::Internal(
-                inner_itr,
+                curr_reason,
                 " should not be a reason why 2 encapsulates did not "
                 "merge, because unsupported ops would not end up in "
                 "encapsulates");
           }
           pair_has_reason = true;
-          reason_count_encapsulates_for_pair[inner_itr]++;
+          reason_count_encapsulates_for_pair[curr_reason]++;
           auto deadness_itr = deadness_info.find(it.first);
           if (deadness_itr != deadness_info.end()) {
             auto deadness_predicates_tpl = deadness_itr->second;
@@ -729,13 +803,38 @@ Status AssignClusters(Graph* graph) {
                  ng::join(std::get<2>(deadness_predicates_tpl)) + "\n");
           }
         }
-        reason_count_clusters[inner_itr]++;
+        reason_count_clusters[curr_reason]++;
+        
+        auto find_in_unsupported_info = unsupported_info.find(it.first);
+        if (find_in_unsupported_info != unsupported_info.end()){
+          unsupported_string_str << (node_src + "->" + node_dst + " : ");
+          std::copy(find_in_unsupported_info->second.begin(), find_in_unsupported_info->second.end(), std::ostream_iterator<std::string>(unsupported_string_str, ", "));
+          unsupported_string_str << "\n";
+        }
+        
+        //create string form unsupported_info
       }  // end of the for over each cluster pair's reason vector
 
       if (deadness_string != "") {
         std::cout << "Deadness predicates information\n";
         std::cout << deadness_string;
       }
+      //std::cout << "unsupported_info size:: " << unsupported_info.size() << endl;
+      
+      string unsupported_string = unsupported_string_str.str();
+      if (unsupported_string != "") {
+        std::cout << "Unsupported information\n";
+        std::cout << unsupported_string;
+      }
+      /*auto find_in_unsupported_info = unsupported_info.find(it.first);
+      if (find_in_unsupported_info != unsupported_info.end()){
+        std::cout << "XXXXXXX\n";
+        std::cout << find_in_unsupported_info->first << " ";
+        std::copy(find_in_unsupported_info->second.begin(), find_in_unsupported_info->second.end(), std::ostream_iterator<std::string>(std::cout, ", "));
+        std::cout << std::endl;
+      }*/
+
+      // TODO print other info. i->j exact reason of separation
 
       if (pair_has_reason) {
         std::cout << src_encapsulate << "->" << dst_encapsulate << ": ";
