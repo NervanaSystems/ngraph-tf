@@ -2645,14 +2645,14 @@ static Status TranslateQuantizedConv(const Node* op, const std::vector<const Ten
   size_t static_inp_count = 0;
   for (size_t inp_idx = 0; inp_idx < num_tf_op_inputs; inp_idx++){
     if (std::find(static_inps_idxs.begin(), static_inps_idxs.end(), inp_idx) == static_inps_idxs.end()){
-      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, inp_idx, &(node_inps[num_tf_op_inputs - static_inp_count])));
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, inp_idx, &(node_inps[inp_idx - static_inp_count])));
     } else {
       std::vector<float> tmp_vect;
       TF_RETURN_IF_ERROR(
           GetStaticInputVector(op, inp_idx, static_input_map, &tmp_vect));
       if (tmp_vect.size() != 1) {
         return errors::InvalidArgument(
-            "QuantizedConv2DWithBiasAndReluAndRequantize Op: Input number ",
+            "TranslateQuantizedConv: Input number ",
             inp_idx, " must be scalar. Got a vector of size, ", tmp_vect.size());
       }
       static_inps[static_inp_count] = std::make_shared<ng::op::Constant>(
@@ -2692,9 +2692,10 @@ static Status TranslateQuantizedConv(const Node* op, const std::vector<const Ten
   // It is expected by ScaledQuantizedConvolutionBias (and other buildeer functions) that the min max inputs be constant nodes
   // Hence declaring them static, reading their values and converting to
   // constant nodes
-
+  std::cout << "TranslateQuantizedConv 4\n";
   std::shared_ptr<ng::Node> ng_quant_conv_bias = create_quantized_conv_node(node_inps, ng_strides, ng_dilations,
           ng_padding_below, ng_padding_above, ng_data_dilations, static_inps);
+  std::cout << "TranslateQuantizedConv 5\n";
 
   /*
   std::shared_ptr<ng::Node> ng_quant_conv_bias =
