@@ -146,7 +146,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir):
     os.environ["TF_NEED_CUDA"] = "0"
     os.environ["TF_DOWNLOAD_CLANG"] = "0"
     os.environ["TF_SET_ANDROID_WORKSPACE"] = "0"
-    os.environ["CC_OPT_FLAGS"] = "-march=native"
+    os.environ["CC_OPT_FLAGS"] = "-march=broadwell"
 
     call([
         "./configure",
