@@ -347,7 +347,7 @@ def main():
     os.chdir(build_dir)
 
     # Component versions
-    ngraph_version = "nishant_sayantan_signed_op_fix"
+    ngraph_version = "nishant_fix_in_place" #"nishant_sayantan_signed_op_fix"
     tf_version = "9b5a2831c8f9b52d2a83355ce3831771324c0ab4"#"master" #"int8-master" #"54b110ae4369f86518f3950f11be749df2507c29"
 
     # Download TensorFlow
