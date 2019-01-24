@@ -51,8 +51,10 @@ def run(graph_def, output_tensor_names, input_folder_name, input_tensor_name):
         if '.bin' in flname and os.path.isfile(fullpath):
             out_results = run_single_input(graph_def, output_tensor_names, {input_tensor_name: np.fromfile(fullpath, dtype=np.float32).reshape([1, 224,224,3])})
             for tname in out_results:
-                with open(flname.split('.bin')[0] + "___" + tname.replace(':', '-').replace('/', '_') + '.bin', 'wb') as f:
+                out_flname = flname.split('.bin')[0] + "___" + tname.replace(':', '-').replace('/', '_')
+                with open(out_flname + '.bin', 'wb') as f:
                     f.write(out_results[tname].tobytes())
+                np.save(out_flname + '.npy', out_results[tname])
 
 if __name__ == '__main__':
     json_data = parse_json(sys.argv[1])
@@ -61,5 +63,4 @@ if __name__ == '__main__':
 
 # Run command:
 # python tf_dump.py config.json
-
 
