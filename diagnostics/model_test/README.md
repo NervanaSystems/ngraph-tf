@@ -1,10 +1,12 @@
 # Compare model output between two different backends
 
-This model_test tool will run the model inference and training seperately on any two specified backends(e.g. Backends: Tensorflow (native), nGraph-CPU, nGraph-GPU etc) in json file and the outputs from each backend should match given the same inputs. It can be used as a debugging tool for layer by layer comparison, and also a verification that nGraph produces the same output as Tensorflow. 
+This model_test tool will run the model seperately on any two specified backends(e.g. Backends: Tensorflow (native), nGraph-CPU, nGraph-GPU etc) in json file and the outputs from each backend should match given the same inputs. It can be used as a debugging tool for layer by layer comparison, and also a verification that nGraph produces the same output as Tensorflow.  Depending on the input model specified in the .pb, .pbtxt or .ckpt it can be used to verify layers in forward pass and backward pass both.
 
 # Required files to use the tool:
-* A json file: Provide model specific parameters. Look at the example ```mnist_cnn.json``` for graph and ```mnist_mlp.json``` for checkpoint. You can start with the ```template_pb.json``` for graph and ```template_ckpt.json``` for checkpoint and modify it to match your model
-* A tensorflow model file: Either .pb or .pbtxt file or .ckpt file
+* A json file: Provide model specific parameters. Look at the example ```mnist_cnn.json``` for graph and ```mnist_mlp.json``` for checkpoint. 
+* You can start with the ```template_pb.json``` for graph and ```template_ckpt.json``` for checkpoint and modify it to match your model
+* For inference verification,a tensorflow model inference .pb or .pbtxt file is required.
+* For training verification, a tensorflow model training checkpoint(.ckpt) is required. 
 
 ## To prepare the required json file:
 * Specify the ```reference_backend``` and ```testing_backend```. For tensolrflow on CPU, use 'CPU' and for nGraph, use 'NGRAPH_[desired backend name]' (e.g. Use 'NGAPH_CPU' for nGraph on CPU)
