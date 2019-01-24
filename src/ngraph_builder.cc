@@ -2676,8 +2676,11 @@ static Status TranslateQuantizedConv(const Node* op, const std::vector<const Ten
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, node_inps[0]->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
-  // Generally, the mapping is: 0->input, 1->filtar, 2->bias
+  // Generally, the mapping is: 0->input, 1->filtar, 2->bias, 3->sum input
   BatchToNGraph(is_nhwc, node_inps[0]);
+  if (num_node_inputs == 4){
+    BatchToNGraph(is_nhwc, node_inps[3]);
+  }
   auto& ng_filter_shape = node_inps[1]->get_shape();
   ng_kernel_shape[0] = ng_filter_shape[0];
   ng_kernel_shape[1] = ng_filter_shape[1];
