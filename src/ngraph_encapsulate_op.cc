@@ -35,6 +35,7 @@
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
+#include "ngraph/runtime/cpu/cpu_backend.hpp"
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
@@ -207,7 +208,7 @@ class NGraphEncapsulateOp : public OpKernel {
     return Status::OK();
   }
 
-  void process_mem_usage(double& vm_usage, double& resident_set) {
+/*  size_t mem_usage(ng:Function) {
     vm_usage = 0.0;
     resident_set = 0.0;
 
@@ -226,7 +227,7 @@ class NGraphEncapsulateOp : public OpKernel {
     vm_usage = vsize / 1024.0;
     resident_set = rss * page_size_kb;
   }
-
+*/
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
@@ -282,6 +283,12 @@ class NGraphEncapsulateOp : public OpKernel {
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
+      for (shared_ptr<ng::Node> node : ng_function->get_ordered_ops()) {
+        cout << node->get_name() << endl;
+        for (auto tensor : node->liveness_new_list) {
+          cout << tensor->get_name() << "  " << tensor->size() <<endl;
+        }
+      }
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
@@ -298,7 +305,7 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
 
-      m_ng_functions[signature] = ng_function;
+      //m_ng_functions[signature] = ng_function;
     } else {
       ng_function = it->second;
     }
@@ -480,6 +487,8 @@ class NGraphEncapsulateOp : public OpKernel {
       try {
         op_backend->call(op_backend->compile(ng_function), ng_outputs,
                          ng_inputs);
+
+        op_backend->remove_compiled_function(ng_function);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
