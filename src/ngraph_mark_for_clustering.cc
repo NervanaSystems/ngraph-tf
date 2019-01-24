@@ -294,12 +294,12 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
-      //confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
-      //    SimpleConfirmationFunction();
-      //confirmation_function_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
-      //    SimpleConfirmationFunction();
-      //confirmation_function_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
-      //    SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {

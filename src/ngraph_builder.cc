@@ -2708,14 +2708,38 @@ template <bool IsRelu>
 static Status TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map){
-    //std::function<std::shared_ptr<ng::Node>(std::vector<std::shared_ptr<ng::Node>>, ng::Strides, ng::Strides, ng::CoordinateDiff, ng::CoordinateDiff, ng::Strides, std::vector<std::shared_ptr<ng::op::Constant>>, bool)> create_quantized_conv_node;
-    
     auto create_quantized_conv_node = [](std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides, ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below, ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations, std::vector<std::shared_ptr<ng::op::Constant>> static_inps){
       return ng::builder::ScaledQuantizedConvolutionBias(
           node_inps[0], node_inps[1], node_inps[2], ng_strides, ng_dilations,
           ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
           static_inps[1], static_inps[2], static_inps[3], static_inps[4],
           static_inps[5], IsRelu);
+    };
+    return TranslateQuantizedConv(op, static_input_map, ng_op_map, create_quantized_conv_node);
+}
+
+static Status TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map){
+    auto create_quantized_conv_node = [](std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides, ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below, ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations, std::vector<std::shared_ptr<ng::op::Constant>> static_inps){
+      return ng::builder::ScaledQuantizedConvolutionBiasAdd(
+          node_inps[0], node_inps[1], node_inps[2], node_inps[3], ng_strides, ng_dilations,
+          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
+          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
+          static_inps[5], static_inps[6], static_inps[7], true);
+    };
+    return TranslateQuantizedConv(op, static_input_map, ng_op_map, create_quantized_conv_node);
+}
+
+static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map){
+    auto create_quantized_conv_node = [](std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides, ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below, ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations, std::vector<std::shared_ptr<ng::op::Constant>> static_inps){
+      return ng::builder::ScaledQuantizedConvolutionBiasSignedAdd(
+          node_inps[0], node_inps[1], node_inps[2], node_inps[3], ng_strides, ng_dilations,
+          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
+          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
+          static_inps[5], static_inps[6], static_inps[7], true);
     };
     return TranslateQuantizedConv(op, static_input_map, ng_op_map, create_quantized_conv_node);
 }
@@ -4227,10 +4251,10 @@ const static std::map<
          TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<true>},
         {"QuantizedConv2DWithBiasAndRequantize",
          TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<false>},
-        //{"QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
-        // TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp},
-        //{"QuantizedConv2DWithBiasSumAndReluAndRequantize",
-        // TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"Rank", TranslateRankOp},
