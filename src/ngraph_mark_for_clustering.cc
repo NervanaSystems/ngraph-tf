@@ -296,10 +296,12 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
           SimpleConfirmationFunction();
-      confirmation_function_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
-          SimpleConfirmationFunction();
-      confirmation_function_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
-          SimpleConfirmationFunction();
+      confirmation_function_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+              SimpleConfirmationFunction();
+      confirmation_function_map
+          ["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
+              SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
@@ -435,14 +437,18 @@ Status MarkForClustering(Graph* graph) {
                          ["Tbias"] = NGraphBiasDTypes();
       // TODO: check if any other type constraint is required
       // https://github.com/tensorflow/tensorflow/blob/c95ca05536144451ef78ca6e2c15f0f65ebaaf95/tensorflow/core/ops/nn_ops.cc#L2780
-      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
-                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
-      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
-                         ["Tsummand"] = NGraphSupportedQuantizedDTypes();
-      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
-                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
-      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
-                         ["Tbias"] = NGraphBiasDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tinput"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tsummand"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tfilter"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tbias"] =
+              NGraphBiasDTypes();
       type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
@@ -527,8 +533,9 @@ Status MarkForClustering(Graph* graph) {
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
-      set_attributes_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
-          SetStaticInputs({3, 4, 5, 6, 7, 8, 10, 11});
+      set_attributes_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+              SetStaticInputs({3, 4, 5, 6, 7, 8, 10, 11});
       set_attributes_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8, 10, 11});
       set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
