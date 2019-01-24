@@ -445,7 +445,7 @@ Status MarkForClustering(Graph* graph) {
                          ["Tbias"] = NGraphBiasDTypes();
       type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
-      type_constraint_map["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
                          ["Tsummand"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
                          ["Tfilter"] = NGraphSupportedQuantizedDTypes();
