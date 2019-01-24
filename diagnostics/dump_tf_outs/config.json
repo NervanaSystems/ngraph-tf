@@ -1,0 +1,6 @@
+{
+  "graph_location": "/nfs/site/home/sarkars/nishant_tf_sandbox/dump/final_int8_resnet50.pb",
+  "output_tensor_name": ["import/v0/mpool0/MaxPool:0", "import/v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requantize:0"],
+  "input_tensor_name": "import/input:0",
+  "input_loc": "/nfs/site/home/sarkars/onnx/inp3/"
+}
