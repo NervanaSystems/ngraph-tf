@@ -39,7 +39,6 @@ def set_os_env(select_device):
     else:
         if not ngraph_bridge.is_enabled():
             ngraph_bridge.enable()
-
         assert select_device[:
                              7] == "NGRAPH_", "Expecting device name to start with NGRAPH_"
         back_end = select_device.split("NGRAPH_")
@@ -60,20 +59,13 @@ def calculate_output(param_dict, select_device, input_example):
     Returns:
         The output vector obtained from running the input_example through the graph.
     """
-
+    tf.reset_default_graph()
     is_ckpt = False
-    if "graph_location" in param_dict and "checkpoint_location" in param_dict:
-        raise Exception(
-            "Only Graph or Checkpoint file can be specified, not both!")
-
-    if "graph_location" in param_dict:
-        graph_filename = param_dict["graph_location"]
-    elif "checkpoint_location" in param_dict:
-        checkpoint_filename = param_dict["checkpoint_location"]
+    graph_filename = param_dict["graph_location"]
+    if graph_filename.endswith("ckpt"):
         is_ckpt = True
-    else:
-        raise Exception(
-            "Input graph file OR Input checkpoint file is required!")
+    if graph_filename is None:
+        raise Exception("Input graph file is required!")
 
     output_tensor_name = param_dict["output_tensor_name"]
 
@@ -84,18 +76,18 @@ def calculate_output(param_dict, select_device, input_example):
 
     # if checkpoint, then load checkpoint
     if (is_ckpt):
-        meta_filename = checkpoint_filename + '.meta'
+        meta_filename = graph_filename + '.meta'
         if not tf.gfile.Exists(meta_filename):
             raise Exception("Checkpoint with this prefix does not exist")
         else:
             saver = tf.train.import_meta_graph(meta_filename)
 
-        if not tf.train.checkpoint_exists(checkpoint_filename):
+        if not tf.train.checkpoint_exists(graph_filename):
             raise Exception("Checkpoint with this prefix does not exist")
         else:
-            saver.restore(sess, checkpoint_filename)
+            saver.restore(sess, graph_filename)
 
-        print("Model restored.")
+        print("Model restored: " + select_device)
         graph = tf.get_default_graph()
 
     #if graph, then load graph
@@ -125,8 +117,19 @@ def calculate_output(param_dict, select_device, input_example):
 
     #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
     output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
-    output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
-    return output_tensor, output_tensor_name
+    #output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
+
+    tensors = []
+    skipped_tensors = []
+    print(len(output_tensor_name))
+
+    for name in output_tensor_name:
+        try:
+            output_tensor = sess.run(name, feed_dict=tensor_to_example_map)
+            tensors.append(output_tensor)
+        except Exception as e:
+            skipped_tensors.append(name)
+    return tensors, output_tensor_name
 
 
 def calculate_norm(ngraph_output, tf_output, desired_norm):
@@ -147,7 +150,6 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     """
     if (ngraph_output.shape != tf_output.shape):
         raise Exception('ngraph output and tf output dimension mismatch')
-
     ngraph_output_squeezed = np.squeeze(ngraph_output)
     tf_output_squeezed = np.squeeze(tf_output)
 
@@ -159,8 +161,18 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     if desired_norm not in [1, 2, np.inf]:
         raise Exception('Only L2, L2, and inf norms are supported')
 
-    n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
-                       desired_norm)
+    if ngraph_output_flatten.dtype == bool and tf_output_flatten.dtype == bool:
+        s = np.logical_xor(ngraph_output_flatten, tf_output_flatten)
+        n = np.linalg.norm(s, desired_norm)
+    elif (len(ngraph_output_flatten) == 0 and len(tf_output_flatten) == 0 and
+          desired_norm is np.inf):
+        n = "Invalid"
+        #print('ngraph and tf outputs have scalars so inf node is invalid')
+    else:
+        n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
+                           desired_norm)
+
+        #n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),desired_norm)
     if desired_norm is np.inf:
         return n
     else:
@@ -264,7 +276,10 @@ if __name__ == '__main__':
         #start the loop and check norms
         for norm_name in norm_dict:
             np.set_printoptions(precision=15)
-            if norm_dict[norm_name] > th_dict[norm_name]:
+            if inf_norm is "Invalid":
+                print(
+                    'ngraph and tf outputs have scalars so inf node is invalid')
+            elif norm_dict[norm_name] > th_dict[norm_name]:
                 print(
                     "The %s norm is greater than %s threshold - %s norm: %f, %s threshold: %f"
                     % (norm_name, norm_name, norm_name, norm_dict[norm_name],
