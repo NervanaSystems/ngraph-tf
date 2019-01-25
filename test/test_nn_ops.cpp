@@ -169,7 +169,7 @@ TEST(NNOps, Conv2DBackpropFilterNCHWSame) {
   opexecuter_tf.ExecuteOnTF(tf_outputs);
 
   // Compare NGraph and TF Outputs
-  Compare(tf_outputs, ngraph_outputs,1e-03, 1e-03);
+  Compare(tf_outputs, ngraph_outputs, 1e-03, 1e-03);
 }
 
 TEST(NNOps, Conv2DBackpropFilterNCHWSameWithDilation) {
