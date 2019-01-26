@@ -371,7 +371,7 @@ static Status TranslateUnaryOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
   return TranslateUnaryOp(
-      op, static_input_map, ng_op_map,first_ng_op_map,
+      op, static_input_map, ng_op_map, first_ng_op_map,
       [](std::shared_ptr<ng::Node> n) { return make_shared<T>(n); });
 }
 
@@ -1764,13 +1764,13 @@ static Status TranslateFloorModOp(
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
   std::tie(ng_lhs, ng_rhs) =
       ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
-  
+
   auto ng_div = std::make_shared<ng::op::Divide>(ng_lhs, ng_rhs);
   SaveNgOp(first_ng_op_map, op->name(), ng_div);
   auto floordiv = std::make_shared<ng::op::Floor>(ng_div);
 
-  auto ng_floormod =std::make_shared<ng::op::Subtract>(
-        ng_lhs, std::make_shared<ng::op::Multiply>(floordiv, ng_rhs));
+  auto ng_floormod = std::make_shared<ng::op::Subtract>(
+      ng_lhs, std::make_shared<ng::op::Multiply>(floordiv, ng_rhs));
   SaveNgOp(ng_op_map, op->name(), ng_floormod);
   return Status::OK();
 }
@@ -2935,10 +2935,10 @@ static Status TranslateQuantizeV2Op(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal(
-        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
-        op->type_string(), ")\n", op->def().DebugString(), "\n",
-        "what(): ", e.what());
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -3028,10 +3028,10 @@ static Status TranslateDequantizeOp(
                              (mode.compare("SCALED") == 0), ng_min[0],
                              ng_max[0], &ng_scale_val, &ng_offset_val);
   } catch (const std::exception& e) {
-    return errors::Internal(
-        "Unhandled exception in ComputeScaleOffset: ", op->name(), " (",
-        op->type_string(), ")\n", op->def().DebugString(), "\n",
-        "what(): ", e.what());
+    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
+                            op->name(), " (", op->type_string(), ")\n",
+                            op->def().DebugString(), "\n", "what(): ",
+                            e.what());
   }
 
   auto ng_scale = std::make_shared<ng::op::Constant>(
@@ -3171,9 +3171,9 @@ static Status TranslateRsqrtOp(
   SaveNgOp(first_ng_op_map, op->name(), ng_exponent);
   // Create a constant tensor populated with the value -1/2.
   // (1/sqrt(x) = x^(-1/2))
-  
+
   // Raise each element of the input to the power -0.5.
-  auto result =std::make_shared<ng::op::Power>(ng_input, ng_exponent);
+  auto result = std::make_shared<ng::op::Power>(ng_input, ng_exponent);
   SaveNgOp(ng_op_map, op->name(), result);
   return Status::OK();
 }
@@ -3441,9 +3441,8 @@ static Status TranslateSpaceToDepthOp(
     }
   }
 
-  SaveNgOp(
-      ng_op_map, op->name(),
-      make_shared<ngraph::op::Concat>(strided_slice_result, channel_index));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(
+                                      strided_slice_result, channel_index));
   return Status::OK();
 }
 
@@ -3692,7 +3691,7 @@ static Status TranslateSquareOp(
 static Status TranslateSquaredDifferenceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-      shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  shared_ptr<ng::Node> ng_lhs, ng_rhs;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
   std::tie(ng_lhs, ng_rhs) =
       ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
@@ -3831,9 +3830,10 @@ static Status TranslateStridedSliceOp(
     // The first 2 cases breaks down this range
     if (idx >= 0 && idx <= (static_cast<int>(dim) - 1)) {
       return idx;
-    } else if (idx < 0 && idx + static_cast<int>(dim) >=
-                              0) {  // careful not to do idx >= -dim
-                                    // (since dim is unsigned)
+    } else if (idx < 0 &&
+               idx + static_cast<int>(dim) >=
+                   0) {  // careful not to do idx >= -dim
+                         // (since dim is unsigned)
       return idx + static_cast<int>(
                        dim);  // Type casting to int to enable unambiguous auto
                               // type inference of return type
@@ -4516,8 +4516,8 @@ Status Builder::TranslateGraph(
     } catch (const std::exception& e) {
       return errors::Internal("Unhandled exception in op handler: ", op->name(),
                               " (", op->type_string(), ")\n",
-                              op->def().DebugString(), "\n",
-                              "what(): ", e.what());
+                              op->def().DebugString(), "\n", "what(): ",
+                              e.what());
     }
   }
 
@@ -4542,6 +4542,21 @@ Status Builder::TranslateGraph(
     TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, n, 0, &result));
 
     ng_result_list[index] = result;
+  }
+
+  // Add control dependencies
+  for (const Edge* edge : input_graph->edges()) {
+    if (edge->IsControlEdge()) {
+      Node* src = edge->src();
+      Node* dst = edge->dst();
+
+      for (auto ng_src : ng_op_map[src->name()]) {
+        for (auto ng_dst : first_ng_op_map[dst->name()]) {
+          NGRAPH_VLOG(1) << "Adding control edge in nGraph cluster";
+          ng_dst->add_control_dependency(ng_src);
+        }
+      }
+    }
   }
 
   //
