@@ -371,7 +371,7 @@ static Status TranslateUnaryOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
   return TranslateUnaryOp(
-      op, static_input_map, ng_op_map,
+      op, static_input_map, ng_op_map,first_ng_op_map,
       [](std::shared_ptr<ng::Node> n) { return make_shared<T>(n); });
 }
 
@@ -809,7 +809,7 @@ static Status TranslateBatchMatMulOp(
     auto output_shape = ng_lhs_shape;
     output_shape[n_dims - 1] = ng_rhs_shape[1];
     auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-    SaveNgOp(ng_op_map, op->name(), dot_output);
+    SaveNgOp(first_ng_op_map, op->name(), dot_output);
 
     size_t compound_size = 1;
     for (int i = 0; i < out_axes.size(); i++) {
@@ -1733,32 +1733,62 @@ static Status TranslateFillOp(
 static Status TranslateFloorDivOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-  auto ng_floordiv = [&](std::shared_ptr<ng::Node> ng_input1,
-                         std::shared_ptr<ng::Node> ng_input2) {
-    auto ng_div = std::make_shared<ng::op::Divide>(ng_input1, ng_input2);
-    SaveNgOp(first_ng_op_map, op->name(), ng_div);
-    return std::make_shared<ng::op::Floor>(ng_div);
-  };
-  return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
-                           ng_floordiv);
+  shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
+  std::tie(ng_lhs, ng_rhs) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+  auto ng_div = std::make_shared<ng::op::Divide>(ng_lhs, ng_rhs);
+  SaveNgOp(first_ng_op_map, op->name(), ng_div);
+  auto ng_floordiv = std::make_shared<ng::op::Floor>(ng_div);
+  SaveNgOp(ng_op_map, op->name(), ng_floordiv);
+  return Status::OK();
 }
+
+// static Status TranslateFloorDivOp(
+//     const Node* op, const std::vector<const Tensor*>& static_input_map,
+//     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
+//   auto ng_floordiv = [&](std::shared_ptr<ng::Node> ng_input1,
+//                          std::shared_ptr<ng::Node> ng_input2) {
+//     auto ng_div = std::make_shared<ng::op::Divide>(ng_input1, ng_input2);
+//     SaveNgOp(first_ng_op_map, op->name(), ng_div);
+//     return std::make_shared<ng::op::Floor>(ng_div);
+//   };
+//   return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
+//                            ng_floordiv);
+// }
 
 static Status TranslateFloorModOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-  auto ng_floormod = [first_ng_op_map, op](
-                         std::shared_ptr<ng::Node> ng_input1,
-                         std::shared_ptr<ng::Node> ng_input2) {
-    auto floordiv = std::make_shared<ng::op::Floor>(
-        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
-    SaveNgOp(first_ng_op_map, op->name(), floordiv);
-    return std::make_shared<ng::op::Subtract>(
-        ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
-  };
-  return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
-                           ng_floormod);
-}
+  shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
+  std::tie(ng_lhs, ng_rhs) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+  
+  auto ng_div = std::make_shared<ng::op::Divide>(ng_lhs, ng_rhs);
+  SaveNgOp(first_ng_op_map, op->name(), ng_div);
+  auto floordiv = std::make_shared<ng::op::Floor>(ng_div);
 
+  auto ng_floormod =std::make_shared<ng::op::Subtract>(
+        ng_lhs, std::make_shared<ng::op::Multiply>(floordiv, ng_rhs));
+  SaveNgOp(ng_op_map, op->name(), ng_floormod);
+  return Status::OK();
+}
+// static Status TranslateFloorModOp(
+//     const Node* op, const std::vector<const Tensor*>& static_input_map,
+//     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
+//   auto ng_floormod = [first_ng_op_map, op](
+//                          std::shared_ptr<ng::Node> ng_input1,
+//                          std::shared_ptr<ng::Node> ng_input2) {
+//     auto floordiv = std::make_shared<ng::op::Floor>(
+//         std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+//     SaveNgOp(first_ng_op_map, op->name(), floordiv);
+//     return std::make_shared<ng::op::Subtract>(
+//         ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
+//   };
+//   return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
+//                            ng_floormod);
+// }
 static Status TranslateFusedBatchNormOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
@@ -2519,20 +2549,17 @@ static Status TranslateRankOp(
 static Status TranslateReciprocalOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-  return TranslateUnaryOp(
-      op, static_input_map, ng_op_map, first_ng_op_map,
-      [first_ng_op_map, op](std::shared_ptr<ng::Node> n) {
-        // Create a constant tensor populated with the value -1.
-        // (1/x = x^(-1))
-        auto et = n->get_element_type();
-        auto shape = n->get_shape();
-        std::vector<std::string> constant_values(ng::shape_size(shape), "-1");
-        auto ng_exponent =
-            std::make_shared<ng::op::Constant>(et, shape, constant_values);
-        SaveNgOp(first_ng_op_map, op->name(), ng_exponent);
-        // Raise each element of the input to the power -1.
-        return std::make_shared<ng::op::Power>(n, ng_exponent);
-      });
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  auto et = ng_input->get_element_type();
+  auto shape = ng_input->get_shape();
+  std::vector<std::string> constant_values(ng::shape_size(shape), "-1");
+  auto ng_exponent =
+      std::make_shared<ng::op::Constant>(et, shape, constant_values);
+  SaveNgOp(first_ng_op_map, op->name(), ng_exponent);
+  auto ng_reciprocal = std::make_shared<ng::op::Power>(ng_input, ng_exponent);
+  SaveNgOp(ng_op_map, op->name(), ng_reciprocal);
+  return Status::OK();
 }
 
 static void ComputeScaleOffsetFolded(const uint& num_bits,
@@ -3134,20 +3161,21 @@ static Status TranslateReshapeOp(
 static Status TranslateRsqrtOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-  return TranslateUnaryOp(
-      op, static_input_map, ng_op_map, first_ng_op_map,
-      [first_ng_op_map, op](std::shared_ptr<ng::Node> n) {
-        // Create a constant tensor populated with the value -1/2.
-        // (1/sqrt(x) = x^(-1/2))
-        auto et = n->get_element_type();
-        auto shape = n->get_shape();
-        std::vector<std::string> constant_values(ng::shape_size(shape), "-0.5");
-        auto ng_exponent =
-            std::make_shared<ng::op::Constant>(et, shape, constant_values);
-        SaveNgOp(first_ng_op_map, op->name(), ng_exponent);
-        // Raise each element of the input to the power -0.5.
-        return std::make_shared<ng::op::Power>(n, ng_exponent);
-      });
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  auto et = ng_input->get_element_type();
+  auto shape = ng_input->get_shape();
+  std::vector<std::string> constant_values(ng::shape_size(shape), "-0.5");
+  auto ng_exponent =
+      std::make_shared<ng::op::Constant>(et, shape, constant_values);
+  SaveNgOp(first_ng_op_map, op->name(), ng_exponent);
+  // Create a constant tensor populated with the value -1/2.
+  // (1/sqrt(x) = x^(-1/2))
+  
+  // Raise each element of the input to the power -0.5.
+  auto result =std::make_shared<ng::op::Power>(ng_input, ng_exponent);
+  SaveNgOp(ng_op_map, op->name(), result);
+  return Status::OK();
 }
 
 static Status TranslateShapeOp(
@@ -3664,15 +3692,15 @@ static Status TranslateSquareOp(
 static Status TranslateSquaredDifferenceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-  return TranslateBinaryOp(
-      op, static_input_map, ng_op_map, first_ng_op_map,
-      [first_ng_op_map, op](std::shared_ptr<ng::Node> input1,
-                            std::shared_ptr<ng::Node> input2) {
-        auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
-        // An extra control dependecy will get added to the subsequent node also
-        SaveNgOp(first_ng_op_map, op->name(), ng_diff);
-        return std::make_shared<ng::op::Multiply>(ng_diff, ng_diff);
-      });
+      shared_ptr<ng::Node> ng_lhs, ng_rhs;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_lhs, &ng_rhs));
+  std::tie(ng_lhs, ng_rhs) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_lhs, ng_rhs));
+  auto ng_diff = std::make_shared<ng::op::Subtract>(ng_lhs, ng_rhs);
+  SaveNgOp(first_ng_op_map, op->name(), ng_diff);
+  auto ng_sq_diff = std::make_shared<ng::op::Multiply>(ng_diff, ng_diff);
+  SaveNgOp(ng_op_map, op->name(), ng_sq_diff);
+  return Status::OK();
 }
 
 static Status TranslateSqueezeOp(
