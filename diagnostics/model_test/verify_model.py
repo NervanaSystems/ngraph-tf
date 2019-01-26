@@ -115,21 +115,16 @@ def calculate_output(param_dict, select_device, input_example):
         t = graph.get_tensor_by_name(item)
         tensor_to_example_map[t] = input_example[item]
 
-    #input_placeholder = graph.get_tensor_by_name(input_tensor_name)
-    output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
-    #output_tensor = sess.run(output_tensor, feed_dict=tensor_to_example_map)
-
     tensors = []
     skipped_tensors = []
-    print(len(output_tensor_name))
-
+    output_tensor = [graph.get_tensor_by_name(i) for i in output_tensor_name]
     for name in output_tensor_name:
         try:
             output_tensor = sess.run(name, feed_dict=tensor_to_example_map)
             tensors.append(output_tensor)
-        except Exception as e:
+        except:
             skipped_tensors.append(name)
-    return tensors, output_tensor_name
+    return tensors, output_tensor_name, skipped_tensors
 
 
 def calculate_norm(ngraph_output, tf_output, desired_norm):
@@ -150,9 +145,14 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     """
     if (ngraph_output.shape != tf_output.shape):
         raise Exception('ngraph output and tf output dimension mismatch')
+
     ngraph_output_squeezed = np.squeeze(ngraph_output)
     tf_output_squeezed = np.squeeze(tf_output)
 
+    if(len(ngraph_output_squeezed.shape) == 0):
+        ngraph_output_squeezed = ngraph_output_squeezed.reshape([1])
+        tf_output_squeezed = tf_output_squeezed.reshape([1])
+  
     ngraph_output_flatten = ngraph_output_squeezed.flatten()
     tf_output_flatten = tf_output_squeezed.flatten()
 
@@ -161,24 +161,17 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     if desired_norm not in [1, 2, np.inf]:
         raise Exception('Only L2, L2, and inf norms are supported')
 
-    if ngraph_output_flatten.dtype == bool and tf_output_flatten.dtype == bool:
-        s = np.logical_xor(ngraph_output_flatten, tf_output_flatten)
-        n = np.linalg.norm(s, desired_norm)
-    elif (len(ngraph_output_flatten) == 0 and len(tf_output_flatten) == 0 and
-          desired_norm is np.inf):
-        n = "Invalid"
-        #print('ngraph and tf outputs have scalars so inf node is invalid')
-    else:
-        n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),
-                           desired_norm)
+    if ngraph_output_flatten.size is not 0:
+        try:
+            n = np.linalg.norm((ngraph_output_flatten.astype(np.float32) - tf_output_flatten.astype(np.float32)),desired_norm)
+        except:
+            n = None
 
-        #n = np.linalg.norm((ngraph_output_flatten - tf_output_flatten),desired_norm)
-    if desired_norm is np.inf:
-        return n
-    else:
-        return n / len(ngraph_output_flatten)
-
-
+        if desired_norm is np.inf or n is None:
+            return n
+        else:
+            return n / len(ngraph_output_flatten)
+        
 def parse_json():
     """
         Parse the user input json file.
@@ -245,11 +238,16 @@ if __name__ == '__main__':
         input_tensor_dim_map[name] = random_input
 
     # Run the model on reference backend
-    result_tf_graph_arrs, out_tensor_names_cpu = calculate_output(
+    result_tf_graph_arrs, out_tensor_names_cpu, tf_skipped_tensors = calculate_output(
         parameters, device1, input_tensor_dim_map)
     # Run the model on testing backend
-    result_ngraph_arrs, out_tensor_names_ngraph = calculate_output(
+    result_ngraph_arrs, out_tensor_names_ngraph, ngraph_skipped_tensors = calculate_output(
         parameters, device2, input_tensor_dim_map)
+
+    skipping_tensors = list(set(tf_skipped_tensors) & set(ngraph_skipped_tensors))
+    print("Skipping comparison of the output tensors below:")
+    for tensor in skipping_tensors:
+        print("\n["+ tensor +"]")
 
     assert all(
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
@@ -270,15 +268,15 @@ if __name__ == '__main__':
         l1_norm = calculate_norm(nparray_ngraph, nparray_tf, 1)
         l2_norm = calculate_norm(nparray_ngraph, nparray_tf, 2)
         inf_norm = calculate_norm(nparray_ngraph, nparray_tf, np.inf)
-
+        
         norm_dict = {"L1": l1_norm, "L2": l2_norm, "inf": inf_norm}
         print("\n[" + tname + "]")
         #start the loop and check norms
         for norm_name in norm_dict:
             np.set_printoptions(precision=15)
-            if inf_norm is "Invalid":
-                print(
-                    'ngraph and tf outputs have scalars so inf node is invalid')
+            if inf_norm is None:
+                print("Data type conversion failed, so not comparing outputs")
+                passed = False
             elif norm_dict[norm_name] > th_dict[norm_name]:
                 print(
                     "The %s norm is greater than %s threshold - %s norm: %f, %s threshold: %f"
