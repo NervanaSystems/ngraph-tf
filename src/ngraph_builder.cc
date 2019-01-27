@@ -459,12 +459,20 @@ static Status TranslateAddNOp(
     TF_RETURN_IF_ERROR(
         GetInputNode(ng_op_map, op, inp_idx, &ng_arg_vec[inp_idx]));
 
-  // TODO (malikshr): find out the first node here
+  // TODO (malikshr): Is empty list a valid input?
+  // TODO (malikshr) : No op is created
+  if (ng_arg_vec.size() == 1) {
+    SaveNgOp(ng_op_map, op->name(), ng_arg_vec[0]);
+    return Status::OK();
+  }
+
+  auto ng_first_add = ng_arg_vec[0] + ng_arg_vec[1];
+  SaveNgOp(first_ng_op_map, op->name(), ng_first_add);
   SaveNgOp(ng_op_map, op->name(),
-           std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
-                           ng_arg_vec.at(0)));  // accumulation: start with
-                                                // first element. default op is
-                                                // addition
+           std::accumulate(ng_arg_vec.begin() + 2, ng_arg_vec.end(),
+                           ng_first_add));  // accumulation: start
+                                            // with first element.
+                                            // default op is addition
   return Status::OK();
 }
 
@@ -777,19 +785,27 @@ static Status TranslateBatchMatMulOp(
 
   auto ng_lhs_axes = out_axes;
   auto ng_rhs_axes = out_axes;
+  bool got_first_node = false;
+
   if (tf_adj_x) {
     ng_lhs_axes.push_back(n_dims - 1);
     ng_lhs_axes.push_back(n_dims - 2);
     ng_lhs = ng::builder::numpy_transpose(ng_lhs, ng_lhs_axes);
+    got_first_node = true;
+    SaveNgOp(first_ng_op_map, op->name(), ng_lhs);
   }
   if (tf_adj_y) {
     ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 2);
     ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 1);
     ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
+    got_first_node = true;
+    SaveNgOp(first_ng_op_map, op->name(), ng_rhs);
   } else {
     ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 1);
     ng_rhs_axes.insert(ng_rhs_axes.begin(), n_dims - 2);
     ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng_rhs_axes);
+    got_first_node = true;
+    SaveNgOp(first_ng_op_map, op->name(), ng_rhs);
   }
 
   ng_lhs_shape = ng_lhs->get_shape();
@@ -802,15 +818,18 @@ static Status TranslateBatchMatMulOp(
   }
   if (n_dims == 2) {
     auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-    SaveNgOp(first_ng_op_map, op->name(), dot_output);
+    if (!got_first_node) {
+      SaveNgOp(first_ng_op_map, op->name(), dot_output);
+    }
     SaveNgOp(ng_op_map, op->name(), dot_output);
 
   } else {
     auto output_shape = ng_lhs_shape;
     output_shape[n_dims - 1] = ng_rhs_shape[1];
     auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-    SaveNgOp(first_ng_op_map, op->name(), dot_output);
-
+    if (!got_first_node) {
+      SaveNgOp(first_ng_op_map, op->name(), dot_output);
+    }
     size_t compound_size = 1;
     for (int i = 0; i < out_axes.size(); i++) {
       compound_size *= output_shape[i];
@@ -1106,9 +1125,8 @@ static Status TranslateConv2DOp(
   std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
       ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
       ng_padding_above);
-  if (!is_nhwc) {
-    SaveNgOp(first_ng_op_map, op->name(), ng_conv);
-  }
+
+  SaveNgOp(first_ng_op_map, op->name(), ng_conv);
 
   BatchToTensorflow(is_nhwc, ng_conv);
   SaveNgOp(ng_op_map, op->name(), ng_conv);
@@ -1193,6 +1211,9 @@ static Status TranslateConv2DBackpropFilterOp(
                       static_cast<unsigned int>(tf_filter_sizes[0]),
                       static_cast<unsigned int>(tf_filter_sizes[1])};
   BatchToNGraph(is_nhwc, ng_output_delta);
+  if (is_nhwc) {
+    SaveNgOp(first_ng_op_map, op->name(), ng_output_delta);
+  }
   BatchedOpParamToNGraph(is_nhwc, tf_strides,
                          ng_window_movement_strides_forward);
   BatchedOpParamToNGraph(is_nhwc, tf_dilations,
@@ -1328,9 +1349,8 @@ static Status TranslateConv2DBackpropInputOp(
           ng_batch_shape, ng_filter, ng_out_backprop, ng_strides, ng_dilations,
           ng_padding_below, ng_padding_above,
           ng::Strides(ng_batch_shape.size() - 2, 1));
-  if (!is_nhwc) {
-    SaveNgOp(first_ng_op_map, op->name(), ng_data);
-  }
+
+  SaveNgOp(first_ng_op_map, op->name(), ng_data);
 
   BatchToTensorflow(is_nhwc, ng_data);
 
@@ -1701,7 +1721,7 @@ static Status TranslateExpandDimsOp(
   std::iota(shape_dimensions.begin(), shape_dimensions.end(), 0);
   std::shared_ptr<ng::Node> ng_expand_dim =
       make_shared<ng::op::Reshape>(ng_input, shape_dimensions, out_shape);
-  SaveNgOp(ng_op_map, op->name(), ng_expand_dim);
+  SaveNgOp(first_ng_op_map, op->name(), ng_expand_dim);
   SaveNgOp(ng_op_map, op->name(), ng_expand_dim);
   return Status::OK();
 }
@@ -1744,19 +1764,6 @@ static Status TranslateFloorDivOp(
   return Status::OK();
 }
 
-// static Status TranslateFloorDivOp(
-//     const Node* op, const std::vector<const Tensor*>& static_input_map,
-//     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-//   auto ng_floordiv = [&](std::shared_ptr<ng::Node> ng_input1,
-//                          std::shared_ptr<ng::Node> ng_input2) {
-//     auto ng_div = std::make_shared<ng::op::Divide>(ng_input1, ng_input2);
-//     SaveNgOp(first_ng_op_map, op->name(), ng_div);
-//     return std::make_shared<ng::op::Floor>(ng_div);
-//   };
-//   return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
-//                            ng_floordiv);
-// }
-
 static Status TranslateFloorModOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
@@ -1774,21 +1781,7 @@ static Status TranslateFloorModOp(
   SaveNgOp(ng_op_map, op->name(), ng_floormod);
   return Status::OK();
 }
-// static Status TranslateFloorModOp(
-//     const Node* op, const std::vector<const Tensor*>& static_input_map,
-//     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
-//   auto ng_floormod = [first_ng_op_map, op](
-//                          std::shared_ptr<ng::Node> ng_input1,
-//                          std::shared_ptr<ng::Node> ng_input2) {
-//     auto floordiv = std::make_shared<ng::op::Floor>(
-//         std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
-//     SaveNgOp(first_ng_op_map, op->name(), floordiv);
-//     return std::make_shared<ng::op::Subtract>(
-//         ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
-//   };
-//   return TranslateBinaryOp(op, static_input_map, ng_op_map, first_ng_op_map,
-//                            ng_floormod);
-// }
+
 static Status TranslateFusedBatchNormOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
@@ -1935,7 +1928,13 @@ static Status TranslateFusedBatchNormGradOp(
   SaveNgOp(first_ng_op_map, op->name(), ng_beta);
 
   BatchToNGraph(is_nhwc, ng_input);
+  if (is_nhwc) {
+    SaveNgOp(first_ng_op_map, op->name(), ng_input);
+  }
   BatchToNGraph(is_nhwc, ng_delta);
+  if (is_nhwc) {
+    SaveNgOp(first_ng_op_map, op->name(), ng_delta);
+  }
 
   std::shared_ptr<ng::Node> ng_batch_norm_backprop;
 
@@ -1974,7 +1973,7 @@ static Status TranslateIdentityOp(
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
   shared_ptr<ng::Node> ng_arg;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_arg));
-  // TODO <malikshr>: Create an identity op?
+  // TODO (malikshr): No op created : control dependency?
   SaveNgOp(ng_op_map, op->name(), ng_arg);
   return Status::OK();
 }
@@ -1991,6 +1990,7 @@ static Status TranslateL2LossOp(
 
   std::shared_ptr<ng::Node> ng_pow =
       make_shared<ng::op::Multiply>(ng_input, ng_input);
+  SaveNgOp(first_ng_op_map, op->name(), ng_pow);
 
   size_t input_rank = ng_input->get_shape().size();
   ng::AxisSet axes;
@@ -2015,19 +2015,27 @@ static Status TranslateMatMulOp(
   bool transpose_a = false;
   bool transpose_b = false;
 
+  bool got_first_node = false;
   if (GetNodeAttr(op->attrs(), "transpose_a", &transpose_a) == Status::OK() &&
       transpose_a) {
     ng_lhs = ng::builder::numpy_transpose(ng_lhs, ng::AxisVector{1, 0});
+    got_first_node = true;
+    SaveNgOp(first_ng_op_map, op->name(), ng_lhs);
   }
   if (GetNodeAttr(op->attrs(), "transpose_b", &transpose_b) == Status::OK() &&
       transpose_b) {
     ng_rhs = ng::builder::numpy_transpose(ng_rhs, ng::AxisVector{1, 0});
+    got_first_node = true;
+    SaveNgOp(first_ng_op_map, op->name(), ng_rhs);
   }
 
   // The default axis count for nGraph's Dot op is 1, which is just what
   // we need here.
   auto result = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
-  SaveNgOp(first_ng_op_map, op->name(), result);
+  if (!got_first_node) {
+    SaveNgOp(first_ng_op_map, op->name(), result);
+  }
+
   SaveNgOp(ng_op_map, op->name(), result);
   return Status::OK();
 }
@@ -2254,8 +2262,13 @@ static Status TranslateMaxPoolGradOp(
     SaveNgOp(first_ng_op_map, op->name(), ng_input);
   }
   BatchToNGraph(is_nhwc, ng_grad);
+  if (is_nhwc) {
+    SaveNgOp(first_ng_op_map, op->name(), ng_grad);
+  }
   BatchToNGraph(is_nhwc, ng_fwd);
-
+  if (is_nhwc) {
+    SaveNgOp(first_ng_op_map, op->name(), ng_fwd);
+  }
   NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
   NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
   NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
@@ -2740,6 +2753,7 @@ static Status TranslateQuantizeAndDequantizeV2Op(
   SaveNgOp(first_ng_op_map, op->name(), ng_scale);
   auto ng_offset = std::make_shared<ng::op::Constant>(ng_q_et, ng::Shape(),
                                                       std::vector<int>({0}));
+  SaveNgOp(first_ng_op_map, op->name(), ng_offset);
   ng::op::Quantize::RoundMode ng_round_mode =
       ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
   auto ng_quant = make_shared<ng::op::Quantize>(
@@ -2951,6 +2965,7 @@ static Status TranslateQuantizeV2Op(
   // Cast offset appropriately? Currently using int
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
+  SaveNgOp(first_ng_op_map, op->name(), ng_offset);
 
   // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_INFINITY is supported, for now.
   // Support HALF_TO_EVEN later
@@ -2960,14 +2975,17 @@ static Status TranslateQuantizeV2Op(
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
                                          ng::AxisSet(), ng_round_mode));
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_min[0]})));
+  auto ng_min_res = make_shared<ng::op::Constant>(
+      ng::element::f32, ng::Shape(), std::vector<float>({ng_min[0]}));
+  SaveNgOp(first_ng_op_map, op->name(), ng_min_res);
+  SaveNgOp(ng_op_map, op->name(), ng_min_res);
+
   // TODO: For quantizev2 revisit output min-max (which would change in case
   // input min-max are too close. For now just propagating inputs
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_max[0]})));
+  auto ng_max_res = make_shared<ng::op::Constant>(
+      ng::element::f32, ng::Shape(), std::vector<float>({ng_max[0]}));
+  SaveNgOp(first_ng_op_map, op->name(), ng_max_res);
+  SaveNgOp(ng_op_map, op->name(), ng_max_res);
   return Status::OK();
 }
 
@@ -3044,6 +3062,7 @@ static Status TranslateDequantizeOp(
   // Cast offset appropriately? Currently using int
   auto ng_offset = std::make_shared<ng::op::Constant>(
       ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
+  SaveNgOp(first_ng_op_map, op->name(), ng_offset);
 
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset,
@@ -3057,6 +3076,7 @@ static Status TranslateReluOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
   auto result = make_shared<ng::op::Relu>(ng_input);
+  SaveNgOp(first_ng_op_map, op->name(), result);
   SaveNgOp(ng_op_map, op->name(), result);
   return Status::OK();
 }
@@ -3339,8 +3359,7 @@ static Status TranslateSnapshotOp(
     Builder::OpMap& ng_op_map, Builder::OpMap& first_ng_op_map) {
   shared_ptr<ng::Node> ng_arg;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_arg));
-  // TODO <malikshr> : Identity may be required here
-  // TODO : Check the right way to do TODO
+  // TODO (malikshr) : No op is created
   SaveNgOp(ng_op_map, op->name(), ng_arg);
   return Status::OK();
 }
@@ -3361,7 +3380,7 @@ static Status TranslateSoftmaxOp(
   ng_axes_softmax.insert(rank - 1);
   auto result = make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax);
 
-  SaveNgOp(ng_op_map, op->name(), result);
+  SaveNgOp(first_ng_op_map, op->name(), result);
   SaveNgOp(ng_op_map, op->name(), result);
 
   return Status::OK();
@@ -3669,10 +3688,9 @@ static Status TranslateSplitVOp(
       SaveNgOp(ng_op_map, op->name(), result);
     }
   } else {
-    // TODO <malikshr>: As the slice output is same as input node, we are not
-    // creating another node.
-    // So if there is a control dependency for this node, should the dependency
-    // be passed to the input node May be use identity node here
+    // TODO (malikshr): As the slice output is same as input node, no node is
+    // created. So if there is a control dependency for this node, should the
+    // dependency be passed to the input node May be use identity node here
     SaveNgOp(ng_op_map, op->name(), ng_input);
   }
 
@@ -4543,13 +4561,21 @@ Status Builder::TranslateGraph(
 
     ng_result_list[index] = result;
   }
-
+  NGRAPH_VLOG(1) << "Add control dependencies";
   // Add control dependencies
   for (const Edge* edge : input_graph->edges()) {
     if (edge->IsControlEdge()) {
       Node* src = edge->src();
       Node* dst = edge->dst();
+      NGRAPH_VLOG(1) << "Found Control Edge " << src->type_string() << " -> "
+                     << dst->type_string();
+      if (!src->IsOp() || !dst->IsOp()) {
+        continue;
+      }
 
+      // TODO(malikshr) : add error checks once we are sure that all the
+      // nodes have an entry + exit point
+      // Right now some ops like Snapshot dont have
       for (auto ng_src : ng_op_map[src->name()]) {
         for (auto ng_dst : first_ng_op_map[dst->name()]) {
           NGRAPH_VLOG(1) << "Adding control edge in nGraph cluster";
