@@ -278,14 +278,15 @@ class NGraphEncapsulateOp : public OpKernel {
     // Compile the graph using nGraph.
     //
     // TODO(amprocte): Investigate performance of the compilation cache.
-    mem_usage(vm, rss);
-    cout << "Virtual memory = " << vm << "  Resident memory = " << rss << endl;
     if (it == m_ng_functions.end()) {
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
+      mem_usage(vm, rss);
+      cout << "Resident memory = " << rss << endl;
+      cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; // kb unit << endl; // kb unit
       for (shared_ptr<ng::Node> node : ng_function->get_ordered_ops()) {
         //cout << node->get_name() << endl;
         //for (auto tensor : node->liveness_new_list) {
