@@ -412,6 +412,7 @@ Status AssignClusters(Graph* graph) {
   // edges, which keep decreasing unlike the TF edges. But this fix would break
   // then, since we have broken the contract that an edge in gc implies an edge
   // in TF in this fix
+  std::set<int> shadow_node_idxs;
   for (auto node : graph->op_nodes()) {
     std::vector<int32> static_inputs;
     GetStaticInputs(node, &static_inputs);
@@ -422,6 +423,7 @@ Status AssignClusters(Graph* graph) {
         auto static_edge = edges_to_node[static_inp_idx];
         if (static_edge->src()->type_string() != "Const") {
           int shadow_node_index = gc.NewNode();
+          shadow_node_idxs.insert(shadow_node_index);
           bool gc_success = gc.InsertEdge(
               cluster_map[static_edge->src()]->index, shadow_node_index);
           gc_success &= gc.InsertEdge(shadow_node_index,
@@ -468,7 +470,8 @@ Status AssignClusters(Graph* graph) {
   // (src id, dst id) -> vector<string> (denoting the nodes between src and dst
   // that are unsupported)
   // TODO: should the value of this map be vector or set?
-  // set would give a shortened summary..vector would give the full path (easier to track)
+  // set would give a shortened summary..vector would give the full path (easier
+  // to track)
   std::unordered_map<std::string, std::set<string>> unsupported_info;
   std::unordered_map<int, std::shared_ptr<Cluster>> idx_to_clusters;
   auto get_node_tag = [](Node* n) -> string {
@@ -597,28 +600,45 @@ Status AssignClusters(Graph* graph) {
           &pair){return pair.second;});
           */
 
-          if (src_index != dst_index){
-            //std::cout << "XXXX:: " << src_index << " " <<  dst_index << "\n";
-            auto all_paths = gc.FindMultiplePaths(src_index, dst_index);
-            //cout << "AXAX:: all_paths.size(): " << all_paths.size() << " " << src_index << "->" << dst_index << "\n";
-            //for (auto path : all_paths) {
+          if (src_index != dst_index) {
+            // std::cout << "XXXX:: " << src_index << " " <<  dst_index << "\n";
+            auto all_paths = gc.FindAllPaths(src_index, dst_index);
+            // cout << "AXAX:: all_paths.size(): " << all_paths.size() << " " <<
+            // src_index << "->" << dst_index << "\n";
+            // for (auto path : all_paths) {
             //  cout << ng::join(path) << "\n";
             //}
             for (auto path : all_paths) {
               for (auto cluster_idx : path) {
-                auto set_of_nodes = idx_to_clusters[cluster_idx]->nodes;
-                auto a_node = *(set_of_nodes.begin());
-                bool unsupported = (set_of_nodes.size() == 1) &&
-                                  (!NodeIsMarkedForClustering(a_node));
-                //if (set_of_nodes.size() == 1){
-                  //cout << "xxx r1: " << (set_of_nodes.size()) << " r2: " << !NodeIsMarkedForClustering(a_node) << "\n";
-                  //cout << "node detail: " << get_node_tag(a_node) << "\n";
-                //}
-                if (unsupported) {
-                  //cout << "XXX: " << get_node_tag(a_node) << "\n";
-                  unsupported_info[get_string_key(src_index, dst_index)].insert(
-                      get_node_tag(a_node));
-                  //cout << "xyxy: " << unsupported_info.size() << "\n";
+                bool is_present = (idx_to_clusters.find(cluster_idx) !=
+                                   idx_to_clusters.end());
+                bool is_shadow_node = shadow_node_idxs.find(cluster_idx) !=
+                                      shadow_node_idxs.end();
+                if (is_present == is_shadow_node) {
+                  return errors::Internal(
+                      "Index present in cluster map: ", is_present,
+                      ". Index is a shadow node index: ", is_shadow_node,
+                      ". They cannot be equal");
+                } else {
+                  if (is_present) {
+                    auto set_of_nodes = idx_to_clusters[cluster_idx]->nodes;
+                    auto a_node = *(set_of_nodes.begin());
+                    bool unsupported = (set_of_nodes.size() == 1) &&
+                                       (!NodeIsMarkedForClustering(a_node));
+                    // if (set_of_nodes.size() == 1){
+                    // cout << "xxx r1: " << (set_of_nodes.size()) << " r2: " <<
+                    // !NodeIsMarkedForClustering(a_node) << "\n";
+                    // cout << "node detail: " << get_node_tag(a_node) << "\n";
+                    //}
+                    if (unsupported) {
+                      // cout << get_string_key(src_index, dst_index) << "\n";
+                      // cout << get_node_tag(a_node) << "\n";
+                      // cout << "XXX: " << get_node_tag(a_node) << "\n";
+                      unsupported_info[get_string_key(src_index, dst_index)]
+                          .insert(get_node_tag(a_node));
+                      // cout << "xyxy: " << unsupported_info.size() << "\n";
+                    }
+                  }
                 }
               }
             }
@@ -635,27 +655,27 @@ Status AssignClusters(Graph* graph) {
         changed = true;
         collect_non_contracting_edge_info = true;
 
-          // Create a map from cluster index to cluster
-          std::transform(
-              cluster_map.begin(), cluster_map.end(),
-              std::inserter(idx_to_clusters, end(idx_to_clusters)),
-              [](const std::map<Node*, std::shared_ptr<Cluster>>::value_type&
-                     pair) {
-                return make_pair(pair.second->index, pair.second);
-              });
-          
-          /*cout << "AXAXAXAX: " << idx_to_clusters.size() << "\n";
-          for (auto itrr : idx_to_clusters){
-            cout << itrr.first << " :: " << itrr.second->nodes.size() << "\n";
-            if (itrr.second->nodes.size() == 1){
-              auto xx = *(itrr.second->nodes.begin());
-              cout << xx->type_string() << " " << NodeIsMarkedForClustering(xx) << "\n";
-            }
-          }*/
+        // Create a map from cluster index to cluster
+        std::transform(
+            cluster_map.begin(), cluster_map.end(),
+            std::inserter(idx_to_clusters, end(idx_to_clusters)),
+            [](const std::map<Node*, std::shared_ptr<Cluster>>::value_type&
+                   pair) {
+              return make_pair(pair.second->index, pair.second);
+            });
+
+        /*cout << "AXAXAXAX: " << idx_to_clusters.size() << "\n";
+        for (auto itrr : idx_to_clusters){
+          cout << itrr.first << " :: " << itrr.second->nodes.size() << "\n";
+          if (itrr.second->nodes.size() == 1){
+            auto xx = *(itrr.second->nodes.begin());
+            cout << xx->type_string() << " " << NodeIsMarkedForClustering(xx) <<
+        "\n";
+          }
+        }*/
       }
     }
   } while (changed);
-
   NGRAPH_VLOG(2) << "Contraction done";
 
   NGRAPH_VLOG(2) << "Starting tagging";
@@ -772,7 +792,7 @@ Status AssignClusters(Graph* graph) {
       vector<int> reason_count_encapsulates_for_pair(num_reasons, 0);
       bool pair_has_reason = false;
       string deadness_string = "";
-      //string unsupported_string = "";
+      // string unsupported_string = "";
       std::stringstream unsupported_string_str;
       for (auto& inner_itr : it.second) {
         // This if checks if the pair are 2 distinct encapsulates
@@ -804,23 +824,27 @@ Status AssignClusters(Graph* graph) {
           }
         }
         reason_count_clusters[curr_reason]++;
-        
+
         auto find_in_unsupported_info = unsupported_info.find(it.first);
-        if (find_in_unsupported_info != unsupported_info.end()){
+        if (find_in_unsupported_info != unsupported_info.end()) {
           unsupported_string_str << (node_src + "->" + node_dst + " : ");
-          std::copy(find_in_unsupported_info->second.begin(), find_in_unsupported_info->second.end(), std::ostream_iterator<std::string>(unsupported_string_str, ", "));
+          std::copy(
+              find_in_unsupported_info->second.begin(),
+              find_in_unsupported_info->second.end(),
+              std::ostream_iterator<std::string>(unsupported_string_str, ", "));
           unsupported_string_str << "\n";
         }
-        
-        //create string form unsupported_info
+
+        // create string form unsupported_info
       }  // end of the for over each cluster pair's reason vector
 
       if (deadness_string != "") {
         std::cout << "Deadness predicates information\n";
         std::cout << deadness_string;
       }
-      //std::cout << "unsupported_info size:: " << unsupported_info.size() << endl;
-      
+      // std::cout << "unsupported_info size:: " << unsupported_info.size() <<
+      // endl;
+
       string unsupported_string = unsupported_string_str.str();
       if (unsupported_string != "") {
         std::cout << "Unsupported information\n";
@@ -830,7 +854,9 @@ Status AssignClusters(Graph* graph) {
       if (find_in_unsupported_info != unsupported_info.end()){
         std::cout << "XXXXXXX\n";
         std::cout << find_in_unsupported_info->first << " ";
-        std::copy(find_in_unsupported_info->second.begin(), find_in_unsupported_info->second.end(), std::ostream_iterator<std::string>(std::cout, ", "));
+        std::copy(find_in_unsupported_info->second.begin(),
+      find_in_unsupported_info->second.end(),
+      std::ostream_iterator<std::string>(std::cout, ", "));
         std::cout << std::endl;
       }*/
 

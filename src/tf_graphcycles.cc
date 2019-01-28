@@ -434,34 +434,39 @@ std::unordered_set<int32> GraphCycles::Predecessors(int32 node) {
 //   for pred of d.predecessors:
 //      list_of_paths.append([i + pred for i in f(s, pred)])
 //   return list_of_paths
-std::vector<std::vector<int32>> GraphCycles::FindMultiplePaths(int32 source,
+std::vector<std::vector<int32>> GraphCycles::FindAllPaths(int32 source,
                                                                int32 dest) {
   std::vector<std::vector<int32>> list_of_paths;
-  //std::cout << "---------FInding path from: "<< source <<"->" << dest << "\n";
+  // std::cout << "---------FInding path from: "<< source <<"->" << dest <<
+  // "\n";
   if (source == dest) {
-    //std::cout << "source==dest\n";
+    // std::cout << "source==dest\n";
     list_of_paths.push_back({source});
   } else {
     for (auto pred_of_dst : Predecessors(dest)) {
-      //std::cout << "pred_of_dst:: " << pred_of_dst << "\n";
-      auto paths_to_pred_of_dst = FindMultiplePaths( source, pred_of_dst);
-      //std::cout << "pred_of_dst:: " << pred_of_dst << " --- " << paths_to_pred_of_dst.size() << "\n";
+      // std::cout << "pred_of_dst:: " << pred_of_dst << "\n";
+      auto paths_to_pred_of_dst = FindAllPaths(source, pred_of_dst);
+      // std::cout << "pred_of_dst:: " << pred_of_dst << " --- " <<
+      // paths_to_pred_of_dst.size() << "\n";
       for (auto& path : paths_to_pred_of_dst) {
         path.push_back(dest);
-        //std::cout << "path size: " << path.size() << " " ;
-        //std::copy(path.begin(), path.end(), std::ostream_iterator<int>(std::cout, ","));
-        //std::cout << std::endl;
+        // std::cout << "path size: " << path.size() << " " ;
+        // std::copy(path.begin(), path.end(),
+        // std::ostream_iterator<int>(std::cout, ","));
+        // std::cout << std::endl;
       }
       list_of_paths.insert(list_of_paths.end(), paths_to_pred_of_dst.begin(),
                            paths_to_pred_of_dst.end());
 
       /*for (auto pp : list_of_paths){
-        std::copy(pp.begin(), pp.end(), std::ostream_iterator<int>(std::cout, ","));
+        std::copy(pp.begin(), pp.end(), std::ostream_iterator<int>(std::cout,
+      ","));
         std::cout << std::endl;
       }*/
     }
   }
-  //std::cout << "----------------------- exiting:: " << source << " " << dest << " " << list_of_paths.size() << "\n";
+  // std::cout << "----------------------- exiting:: " << source << " " << dest
+  // << " " << list_of_paths.size() << "\n";
   return list_of_paths;
 }
 

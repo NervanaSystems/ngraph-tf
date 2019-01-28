@@ -46,9 +46,9 @@ File: tensorflow/tensorflow/compiler/jit/graphcycles/graphcycles.h
 //   FindPath() is linear in the size of the graph.
 // The current implementation uses O(|V|+|E|) space.
 
+#include <iostream>
 #include <unordered_set>
 #include <vector>
-#include <iostream>
 
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/types.h"
@@ -125,7 +125,7 @@ class GraphCycles {
   // graph.
   int FindPath(int32 source, int32 dest, int max_path_len, int32 path[]) const;
 
-  std::vector<std::vector<int32>> FindMultiplePaths(int32 source, int32 dest);
+  std::vector<std::vector<int32>> FindAllPaths(int32 source, int32 dest);
 
   // Check internal invariants. Crashes on failure, returns true on success.
   // Expensive: should only be called from graphcycles_test.cc.
