@@ -23,6 +23,7 @@
 #include <mutex>
 #include <ostream>
 #include <vector>
+#include <atomic>
 
 #include "ngraph/ngraph.hpp"
 #include "ngraph/runtime/backend_manager.hpp"
@@ -60,6 +61,8 @@ class BackendManager {
 
   static void CreateBackendIfDoesNotExist(const string& backend_name);
 
+  static void ReleaseBackend(const string& backend_name);
+
   // Returns a backend pointer of the type specified by the backend name
   static ng::runtime::Backend* GetBackend(const string& backend_name);
 
@@ -69,6 +72,8 @@ class BackendManager {
   // UnlockBackend
   static void UnlockBackend(const string& backend_name);
 
+  ~BackendManager();
+
  private:
   static string ng_backend_name_;  // currently set backend name
   static mutex ng_backend_name_mutex_;
@@ -77,6 +82,8 @@ class BackendManager {
   static mutex ng_backend_map_mutex_;
   // set of backends supported by nGraph
   static unordered_set<string> ng_supported_backends_;
+
+  static std::atomic<int> ref_count_;
 };
 
 }  // namespace ngraph_bridge
