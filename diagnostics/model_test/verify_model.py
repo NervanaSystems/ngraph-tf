@@ -149,10 +149,10 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     ngraph_output_squeezed = np.squeeze(ngraph_output)
     tf_output_squeezed = np.squeeze(tf_output)
 
-    if(len(ngraph_output_squeezed.shape) == 0):
+    if (len(ngraph_output_squeezed.shape) == 0):
         ngraph_output_squeezed = ngraph_output_squeezed.reshape([1])
         tf_output_squeezed = tf_output_squeezed.reshape([1])
-  
+
     ngraph_output_flatten = ngraph_output_squeezed.flatten()
     tf_output_flatten = tf_output_squeezed.flatten()
 
@@ -163,7 +163,9 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
 
     if ngraph_output_flatten.size is not 0:
         try:
-            n = np.linalg.norm((ngraph_output_flatten.astype(np.float32) - tf_output_flatten.astype(np.float32)),desired_norm)
+            n = np.linalg.norm((ngraph_output_flatten.astype(np.float32) -
+                                tf_output_flatten.astype(np.float32)),
+                               desired_norm)
         except:
             n = None
 
@@ -171,7 +173,8 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
             return n
         else:
             return n / len(ngraph_output_flatten)
-        
+
+
 def parse_json():
     """
         Parse the user input json file.
@@ -244,10 +247,11 @@ if __name__ == '__main__':
     result_ngraph_arrs, out_tensor_names_ngraph, ngraph_skipped_tensors = calculate_output(
         parameters, device2, input_tensor_dim_map)
 
-    skipping_tensors = list(set(tf_skipped_tensors) & set(ngraph_skipped_tensors))
+    skipping_tensors = list(
+        set(tf_skipped_tensors) & set(ngraph_skipped_tensors))
     print("Skipping comparison of the output tensors below:")
     for tensor in skipping_tensors:
-        print("\n["+ tensor +"]")
+        print("\n[" + tensor + "]")
 
     assert all(
         [i == j for i, j in zip(out_tensor_names_cpu, out_tensor_names_ngraph)])
@@ -268,7 +272,7 @@ if __name__ == '__main__':
         l1_norm = calculate_norm(nparray_ngraph, nparray_tf, 1)
         l2_norm = calculate_norm(nparray_ngraph, nparray_tf, 2)
         inf_norm = calculate_norm(nparray_ngraph, nparray_tf, np.inf)
-        
+
         norm_dict = {"L1": l1_norm, "L2": l2_norm, "inf": inf_norm}
         print("\n[" + tname + "]")
         #start the loop and check norms
