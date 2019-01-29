@@ -141,6 +141,7 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     else:
         return n / len(ngraph_output_flatten)
 
+
 def parse_json():
     """
         Parse the user input json file.
@@ -152,24 +153,29 @@ def parse_json():
         parsed_json = json.load(f)
         return parsed_json
 
+
 def read_inputs_from_file(param_dict):
     """
         Create and return a map between input tensor names and the values read from provided input files
     """
     # utility to remove '/' and ':' from tensor names to get strings usable as file paths
-    tensor_name_change = lambda tname: tname.replace('/','_').replace(':','-')
+    tensor_name_change = lambda tname: tname.replace('/', '_').replace(':', '-')
 
     input_tensor_names = param_dict['input_tensor_name']
     all_input_files = os.listdir(param_dict['input_val_location'])
-    assert len(all_input_files) == len(input_tensor_names), "Found " + str(len(all_input_files)) + " inputs, but was expecting " + str(len(input_tensor_names)) + " inputs"
+    assert len(all_input_files) == len(input_tensor_names), "Found " + str(
+        len(all_input_files)) + " inputs, but was expecting " + str(
+            len(input_tensor_names)) + " inputs"
     num_inp_tensors = len(input_tensor_names)
     inp_tensor_idx_to_file_map = {}
     # the next for loop populates inp_tensor_idx_to_file_map.
     for idx in range(num_inp_tensors):
         for flname in all_input_files:
             if tensor_name_change(input_tensor_names[idx]) in flname:
-                assert (idx not in inp_tensor_idx_to_file_map), "Found 2 input files matching this input tensor"
-                inp_tensor_idx_to_file_map[idx] = param_dict['input_val_location'].rstrip('/') + '/' + flname
+                assert (idx not in inp_tensor_idx_to_file_map
+                       ), "Found 2 input files matching this input tensor"
+                inp_tensor_idx_to_file_map[idx] = param_dict[
+                    'input_val_location'].rstrip('/') + '/' + flname
 
     in_tensor_name_to_val = {}
     # the next for loop populates in_tensor_name_to_val
@@ -178,10 +184,16 @@ def read_inputs_from_file(param_dict):
         try:
             val = np.load(filepath)
         except:
-            assert False, "Failed to read " + input_tensor_names[i] + " from " + filepath
+            assert False, "Failed to read " + input_tensor_names[
+                i] + " from " + filepath
         if 'input_dimension' in param_dict:
-            input_shape_from_json = [param_dict['batch_size']] + param_dict['input_dimension'][i]
-            assert np.all([i1==i2 for i1, i2 in zip(val.shape, input_shape_from_json)]), 'Input shapes provided ' + str(input_shape_from_json) + ' did not match shape of data ' + str(val.shape) + ' that was read for ' + input_tensor_names[i]
+            input_shape_from_json = [param_dict['batch_size']
+                                    ] + param_dict['input_dimension'][i]
+            assert np.all([
+                i1 == i2 for i1, i2 in zip(val.shape, input_shape_from_json)
+            ]), 'Input shapes provided ' + str(
+                input_shape_from_json) + ' did not match shape of data ' + str(
+                    val.shape) + ' that was read for ' + input_tensor_names[i]
         in_tensor_name_to_val[input_tensor_names[i]] = val
     return in_tensor_name_to_val
 
@@ -232,7 +244,7 @@ if __name__ == '__main__':
         # Generate random input based on input_dimension
         np.random.seed(100)
         for (dim, name, val_range) in zip(input_dimension, input_tensor_name,
-                                        rand_val_range):
+                                          rand_val_range):
             random_input = np.random.randint(
                 val_range, size=[bs] + dim).astype('float32')
             input_tensor_dim_map[name] = random_input
