@@ -2,7 +2,7 @@
     "model_name": "MLP",
     "reference_backend": "CPU",
     "testing_backend": "NGRAPH_CPU",
-    "graph_location": "/nfs/site/home/skantama/MLP/saved_model.ckpt",
+    "checkpoint_graph_location": "/nfs/site/home/skantama/MLP/saved_model.ckpt",
     "input_tensor_name": ["dense_3_sample_weights:0","dense_3_target:0","dense_1_input:0"],
     "output_tensor_name":[],
     "random_val_range": [10,10,255],

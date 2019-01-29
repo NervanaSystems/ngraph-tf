@@ -13,9 +13,9 @@ This model_test tool will run the model seperately on any two specified backends
 * You will need the names of the input/output tensors of the model. Currently we are supporting
 multiple input tensors and output tensors. Put the input tensor names as a list in the ```input_tensor_name``` field of the json file, and the output tensor name as a list in the ```output_tensor_name``` field of the json file. If no outputs are specified in the ```output_tensor_name```, then it will compare all output tensors
 * You will need the input dimensions for all the input tensors provided. Put the dimensions information as a list in the ```input_dimension``` field of the json file, and the corresponding order of ```input_tensor_name``` list should match the ```input_dimension``` list. Therfore, the length of ```input_tensor_name``` list should match the length of ```input_dimension``` list
-* Specify the the location of the graph file in the ```graph_location``` of the json file.
+* Specify the the location of the graph file in the json file, ```pb_graph_location``` for inference and ```checkpoint_graph_location``` for training verification
 * Specify the ```batch_size``` field in the json file to the desired batch size for inference
-* Specify the tolerance between the TF and NGraph outputs at ```l1_norm_threshold```, ```l2_norm_threshold``` and ```inf_norm_threshold``` in the json file 
+* Specify the tolerance between the TF and NGraph outputs at ```l1_norm_threshold```, ```l2_norm_threshold``` and ```inf_norm_threshold``` in the json file
 * Specify the ```random_val_range``` used to generate the input within 0 to random_val_range. You will need to specify them for all the input tensors provided
 
 # To run the model test tool:

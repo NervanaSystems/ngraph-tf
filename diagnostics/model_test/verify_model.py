@@ -61,31 +61,39 @@ def calculate_output(param_dict, select_device, input_example):
     """
     tf.reset_default_graph()
     is_ckpt = False
-    graph_filename = param_dict["graph_location"]
-    if graph_filename.endswith("ckpt"):
+
+    if "pb_graph_location" in param_dict and "checkpoint_graph_location" in param_dict:
+        raise Exception(
+            "Only Graph or Checkpoint file can be specified, not both!")
+
+    if "pb_graph_location" in param_dict:
+        pb_filename = param_dict["pb_graph_location"]
+    elif "checkpoint_graph_location" in param_dict:
+        checkpoint_filename = param_dict["checkpoint_graph_location"]
         is_ckpt = True
-    if graph_filename is None:
-        raise Exception("Input graph file is required!")
+    else:
+        raise Exception(
+            "Input graph file OR Input checkpoint file is required!")
 
     output_tensor_name = param_dict["output_tensor_name"]
 
     config = tf.ConfigProto(inter_op_parallelism_threads=1)
 
-    sess = tf.Session(config=config)
+    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
     set_os_env(select_device)
 
     # if checkpoint, then load checkpoint
     if (is_ckpt):
-        meta_filename = graph_filename + '.meta'
+        meta_filename = checkpoint_filename + '.meta'
         if not tf.gfile.Exists(meta_filename):
-            raise Exception("Checkpoint with this prefix does not exist")
+            raise Exception("Meta file does not exist")
         else:
             saver = tf.train.import_meta_graph(meta_filename)
 
-        if not tf.train.checkpoint_exists(graph_filename):
+        if not tf.train.checkpoint_exists(checkpoint_filename):
             raise Exception("Checkpoint with this prefix does not exist")
         else:
-            saver.restore(sess, graph_filename)
+            saver.restore(sess, checkpoint_filename)
 
         print("Model restored: " + select_device)
         graph = tf.get_default_graph()
@@ -93,11 +101,11 @@ def calculate_output(param_dict, select_device, input_example):
     #if graph, then load graph
     else:
         graph_def = tf.GraphDef()
-        if graph_filename.endswith("pbtxt"):
-            with open(graph_filename, "r") as f:
+        if pb_filename.endswith("pbtxt"):
+            with open(pb_filename, "r") as f:
                 text_format.Merge(f.read(), graph_def)
         else:
-            with open(graph_filename, "rb") as f:
+            with open(pb_filename, "rb") as f:
                 graph_def.ParseFromString(f.read())
 
         with tf.Graph().as_default() as graph:
@@ -247,10 +255,11 @@ if __name__ == '__main__':
     result_ngraph_arrs, out_tensor_names_ngraph, ngraph_skipped_tensors = calculate_output(
         parameters, device2, input_tensor_dim_map)
 
-    skipping_tensors = list(
-        set(tf_skipped_tensors) & set(ngraph_skipped_tensors))
+    assert all(
+        [i == j for i, j in zip(tf_skipped_tensors, ngraph_skipped_tensors)])
+
     print("Skipping comparison of the output tensors below:")
-    for tensor in skipping_tensors:
+    for tensor in tf_skipped_tensors:
         print("\n[" + tensor + "]")
 
     assert all(
@@ -278,9 +287,10 @@ if __name__ == '__main__':
         #start the loop and check norms
         for norm_name in norm_dict:
             np.set_printoptions(precision=15)
-            if inf_norm is None:
+            if norm_dict[norm_name] is None:
                 print("Data type conversion failed, so not comparing outputs")
                 passed = False
+                break
             elif norm_dict[norm_name] > th_dict[norm_name]:
                 print(
                     "The %s norm is greater than %s threshold - %s norm: %f, %s threshold: %f"
