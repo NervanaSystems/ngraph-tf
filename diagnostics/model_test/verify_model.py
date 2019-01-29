@@ -258,7 +258,7 @@ if __name__ == '__main__':
     result_ngraph_arrs, out_tensor_names_ngraph, ngraph_skipped_tensors = calculate_output(
         parameters, device2, input_tensor_dim_map)
 
-    assert all(
+    assert (len(tf_skipped_tensors) == len(ngraph_skipped_tensors)) and all(
         [i == j for i, j in zip(tf_skipped_tensors, ngraph_skipped_tensors)])
 
     print("Skipping comparison of the output tensors below:")
