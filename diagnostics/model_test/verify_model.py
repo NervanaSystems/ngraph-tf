@@ -130,7 +130,7 @@ def calculate_output(param_dict, select_device, input_example):
         try:
             output_tensor = sess.run(name, feed_dict=tensor_to_example_map)
             tensors.append(output_tensor)
-        except:
+        except Exception as e:
             skipped_tensors.append(name)
     return tensors, output_tensor_name, skipped_tensors
 
@@ -157,6 +157,7 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     ngraph_output_squeezed = np.squeeze(ngraph_output)
     tf_output_squeezed = np.squeeze(tf_output)
 
+    #if size of node is 1 but shape is (), reshaping it to (1,)
     if (len(ngraph_output_squeezed.shape) == 0):
         ngraph_output_squeezed = ngraph_output_squeezed.reshape([1])
         tf_output_squeezed = tf_output_squeezed.reshape([1])
@@ -169,6 +170,8 @@ def calculate_norm(ngraph_output, tf_output, desired_norm):
     if desired_norm not in [1, 2, np.inf]:
         raise Exception('Only L2, L2, and inf norms are supported')
 
+    #Additional check to verify if the op datatype can be converted or not to be able to subtract.
+    #Few data types cannot be converted, the list is printed among the results at the end.
     if ngraph_output_flatten.size is not 0:
         try:
             n = np.linalg.norm((ngraph_output_flatten.astype(np.float32) -
