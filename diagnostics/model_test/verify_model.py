@@ -189,7 +189,7 @@ def read_inputs_from_file(param_dict):
         if 'input_dimension' in param_dict:
             input_shape_from_json = [param_dict['batch_size']
                                     ] + param_dict['input_dimension'][i]
-            assert np.all([
+            assert (len(val.shape) == len(input_shape_from_json)) and np.all([
                 i1 == i2 for i1, i2 in zip(val.shape, input_shape_from_json)
             ]), 'Input shapes provided ' + str(
                 input_shape_from_json) + ' did not match shape of data ' + str(
@@ -223,24 +223,24 @@ if __name__ == '__main__':
     output_folder = device1 + "-" + device2
     createFolder(output_folder)
 
-    input_dimension = parameters["input_dimension"]
-    input_tensor_name = parameters["input_tensor_name"]
-    # Get random value range
-    rand_val_range = parameters["random_val_range"]
-    bs = int(parameters["batch_size"])
-
-    assert len(input_dimension) == len(
-        input_tensor_name
-    ), "input_tensor_name dimension should match input_dimension in json file"
-
-    assert len(input_tensor_name) == len(
-        rand_val_range
-    ), "Length of random_val_range should match input_tensor_name in json file"
-
     # Matches the input tensors name with its required dimensions
     input_tensor_dim_map = {}
     use_random_inputs = "input_val_location" not in parameters
     if use_random_inputs:
+        input_dimension = parameters["input_dimension"]
+        input_tensor_name = parameters["input_tensor_name"]
+        # Get random value range
+        rand_val_range = parameters["random_val_range"]
+        bs = int(parameters["batch_size"])
+
+        assert len(input_dimension) == len(
+            input_tensor_name
+        ), "input_tensor_name dimension should match input_dimension in json file"
+
+        assert len(input_tensor_name) == len(
+            rand_val_range
+        ), "Length of random_val_range should match input_tensor_name in json file"
+
         # Generate random input based on input_dimension
         np.random.seed(100)
         for (dim, name, val_range) in zip(input_dimension, input_tensor_name,
