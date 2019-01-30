@@ -2680,7 +2680,7 @@ static Status TranslateQuantizedConv(
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
   BatchedOpParamToNGraph(is_nhwc, node_inps[0]->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
-  // Generally, the mapping is: 0->input, 1->filtar, 2->bias, 3->sum input
+  // Generally, the mapping is: 0->input, 1->filter, 2->bias, 3->sum input
   BatchToNGraph(is_nhwc, node_inps[0]);
   if (num_node_inputs == 4) {
     BatchToNGraph(is_nhwc, node_inps[3]);
