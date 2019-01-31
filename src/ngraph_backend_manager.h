@@ -83,7 +83,8 @@ class BackendManager {
   // set of backends supported by nGraph
   static unordered_set<string> ng_supported_backends_;
 
-  static std::atomic<int> ref_count_;
+  // Map of backends and their reference counts
+  static std::map<std::string,int> ref_count_each_backend_;
 };
 
 }  // namespace ngraph_bridge

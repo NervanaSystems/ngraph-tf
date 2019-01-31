@@ -39,7 +39,7 @@ vector<string> ng_supported_backends =
 unordered_set<string> BackendManager::ng_supported_backends_(
     ng_supported_backends.begin(), ng_supported_backends.end());
 
-std::atomic<int> BackendManager::ref_count_(0);
+std::map<std::string,int> BackendManager::ref_count_each_backend_;
 
 Status BackendManager::SetBackendName(const string &backend_name)
 {
@@ -65,28 +65,24 @@ void BackendManager::CreateBackendIfDoesNotExist(const string &backend_name)
         ng::runtime::Backend::create(backend_name);
     bend->backend_ptr = std::move(bend_ptr);
     BackendManager::ng_backend_map_[backend_name] = bend;
+    BackendManager::ref_count_each_backend_[backend_name] = 0;
   }
-  ref_count_++;
+  BackendManager::ref_count_each_backend_[backend_name]++;
 
   NGRAPH_VLOG(2) << "BackendManager::CreateBackendIfDoesNotExist(): " << backend_name
-            << " ref_count: " << ref_count_;
+            << " ref_count: " << BackendManager::ref_count_each_backend_[backend_name];
   }
 
 void BackendManager::ReleaseBackend(const string &backend_name)
 {
   std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_);
-  ref_count_--;
+  BackendManager::ref_count_each_backend_[backend_name]--;
   NGRAPH_VLOG(2) << "BackendManager::ReleaseBackend(): " << backend_name
-            << " ref_count: " << ref_count_;
-  if (ref_count_ == 0)
+            << " ref_count: " << BackendManager::ref_count_each_backend_[backend_name];
+  if (BackendManager::ref_count_each_backend_[backend_name] == 0 )
   {
-    // Remove all the backends
-    for (auto &backend : ng_backend_map_)
-    {
-      backend.second->backend_ptr.reset();
-    }
-    // Remove the map
-    ng_backend_map_.clear();
+    BackendManager::ng_backend_map_[backend_name]->backend_ptr.reset();
+    BackendManager::ng_backend_map_.erase(backend_name);
   }
 }
 
