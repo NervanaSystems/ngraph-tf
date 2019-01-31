@@ -145,9 +145,9 @@ def setup_venv(venv_dir):
         "termcolor>=1.1.0",
         "protobuf>=3.6.1",
         "keras_applications>=1.0.6",
-        "--no-deps",
+        "--no-deps --no-cache-dir",
         "keras_preprocessing==1.0.5",
-        "--no-deps",
+        "--no-deps --no-cache-dir",
     ]
     command_executor(package_list)
 
@@ -432,7 +432,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0-rc.1"
+    ngraph_version = "sandeep/git-d"
     tf_version = "v1.12.0"
 
     # Default directories
