@@ -19,7 +19,12 @@ import argparse
 import os
 import re
 import fnmatch
-import xmlrunner
+
+try:
+    import xmlrunner
+except:
+    os.system('pip install unittest-xml-reporting')
+    import xmlrunner
 """
 tf_unittest_runner is primarily used to run tensorflow python 
 unit tests using ngraph
