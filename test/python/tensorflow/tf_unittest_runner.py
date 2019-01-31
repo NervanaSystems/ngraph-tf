@@ -217,10 +217,8 @@ def run_test(test_list, verbosity=2):
     succeeded = []
     failures = []
     errors = []
-    with open('results.xml', 'wb') as output:
+    with open('build/junit_tensorflow_tests.xml', 'wb') as output:
         for test in test_list:
-            # test_result = unittest.TextTestRunner(verbosity=verbosity).run(
-            #     loader.loadTestsFromName(test))
             test_result = xmlrunner.XMLTestRunner(
                 verbosity=verbosity, output=output).run(
                     loader.loadTestsFromName(test))
