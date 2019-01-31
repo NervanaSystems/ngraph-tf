@@ -19,6 +19,7 @@ import argparse
 import os
 import re
 import fnmatch
+import xmlrunner
 """
 tf_unittest_runner is primarily used to run tensorflow python 
 unit tests using ngraph
@@ -54,6 +55,7 @@ def main():
     if (arguments.list_tests):
         test_list = get_test_list(arguments.tensorflow_path,
                                   arguments.list_tests)
+        print('\n'.join(test_list[0]))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
         status_list = run_test(test_list[0])
@@ -215,15 +217,19 @@ def run_test(test_list, verbosity=2):
     succeeded = []
     failures = []
     errors = []
-    for test in test_list:
-        test_result = unittest.TextTestRunner(verbosity=verbosity).run(
-            loader.loadTestsFromName(test))
-        if test_result.wasSuccessful():
-            succeeded.append(test)
-        elif test_result.failures:
-            failures.append(test)
-        elif test_result.errors:
-            errors.append(test)
+    with open('results.xml', 'wb') as output:
+        for test in test_list:
+            # test_result = unittest.TextTestRunner(verbosity=verbosity).run(
+            #     loader.loadTestsFromName(test))
+            test_result = xmlrunner.XMLTestRunner(
+                verbosity=verbosity, output=output).run(
+                    loader.loadTestsFromName(test))
+            if test_result.wasSuccessful():
+                succeeded.append(test)
+            elif test_result.failures:
+                failures.append(test)
+            elif test_result.errors:
+                errors.append(test)
     summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
     return summary
 
