@@ -20,10 +20,10 @@
 #ifndef NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
 #define NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
 
+#include <atomic>
 #include <mutex>
 #include <ostream>
 #include <vector>
-#include <atomic>
 
 #include "ngraph/ngraph.hpp"
 #include "ngraph/runtime/backend_manager.hpp"
@@ -84,7 +84,7 @@ class BackendManager {
   static unordered_set<string> ng_supported_backends_;
 
   // Map of backends and their reference counts
-  static std::map<std::string,int> ref_count_each_backend_;
+  static std::map<std::string, int> ref_count_each_backend_;
 };
 
 }  // namespace ngraph_bridge

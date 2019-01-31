@@ -236,8 +236,8 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     // Add node to graph
     Status status;
     Node* arg_node = graph.AddNode(new_arg_node_def, &status);
-    ASSERT_EQ(Status::OK(), status)
-        << "Failed to add node " << i << " named " << ip_node->name();
+    ASSERT_EQ(Status::OK(), status) << "Failed to add node " << i << " named "
+                                    << ip_node->name();
 
     // Remove the Const Node
     graph.RemoveNode(input_node[i]);
@@ -274,8 +274,8 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
                   new_ret_node_def);
     Status status;
     Node* ret_node = graph.AddNode(new_ret_node_def, &status);
-    ASSERT_EQ(Status::OK(), status)
-        << "Failed to add output " << i << " of type _Retval";
+    ASSERT_EQ(Status::OK(), status) << "Failed to add output " << i
+                                    << " of type _Retval";
 
     // Add edges from _Retval to sink
     for (int j = 0; j < dest_nodes_metadata.size(); j++) {
@@ -327,8 +327,8 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     string backend_env = std::string(ng_backend_env_value);
     bool valid_ngraph_tf_backend =
         !backend_env.empty() && BackendManager::IsSupportedBackend(backend_env);
-    ASSERT_TRUE(valid_ngraph_tf_backend)
-        << "NGRAPH_TF_BACKEND " << backend_env << " is not a supported backend";
+    ASSERT_TRUE(valid_ngraph_tf_backend) << "NGRAPH_TF_BACKEND " << backend_env
+                                         << " is not a supported backend";
     ng_backend_type = backend_env;
   }
 
