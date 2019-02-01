@@ -54,17 +54,26 @@ def main():
         '--run_tests_from_file',
         help="""Reads the test names specified in a file and runs them. 
         Eg:--run_tests_from_file=tests_to_run.txt""")
+    optional.add_argument(
+        '--xml_report',
+        help=
+        "Generates results in xml file for jenkins to populate in the test result \n"
+    )
     parser._action_groups.append(optional)
     arguments = parser.parse_args()
 
+    xml_report = arguments.xml_report
     if (arguments.list_tests):
         test_list = get_test_list(arguments.tensorflow_path,
                                   arguments.list_tests)
         print('\n'.join(test_list[0]))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
-        status_list = run_test(test_list[0])
-        print_results(status_list, test_list[1])
+        status_list = run_test(test_list[0], xml_report)
+        try:
+            print_results(status_list, test_list[1])
+        except:
+            print("XML Report generated\n")
     if (arguments.run_tests_from_file):
         all_test_list = []
         invalid_list = []
@@ -77,8 +86,11 @@ def main():
             test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
-        status_list = run_test(all_test_list)
-        print_results(status_list, invalid_list)
+        status_list = run_test(all_test_list, xml_report)
+        try:
+            print_results(status_list, invalid_list)
+        except:
+            print("XML Report generated\n")
 
 
 def get_test_list(tf_path, test_regex):
@@ -206,7 +218,7 @@ def read_tests_from_file(filename):
         ]
 
 
-def run_test(test_list, verbosity=2):
+def run_test(test_list, xml_report, verbosity=2):
     """
     Runs a specific test suite or test case given with the fully qualified 
     test name and prints stdout.
@@ -223,20 +235,26 @@ def run_test(test_list, verbosity=2):
     errors = []
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    for test in test_list:
-        names = loader.loadTestsFromName(test)
-        suite.addTest(names)
-    with open('build/junit_tensorflow_tests.xml', 'wb') as output:
-        test_result = xmlrunner.XMLTestRunner(
-            verbosity=verbosity, output=output).run(suite)
-        if test_result.wasSuccessful():
-            succeeded.append(test)
-        elif test_result.failures:
-            failures.append(test)
-        elif test_result.errors:
-            errors.append(test)
-    summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
-    return summary
+    if xml_report is not None:
+        for test in test_list:
+            names = loader.loadTestsFromName(test)
+            suite.addTest(names)
+        with open(xml_report, 'wb') as output:
+            test_result = xmlrunner.XMLTestRunner(
+                verbosity=verbosity, output=output).run(suite)
+        return None
+    else:
+        for test in test_list:
+            test_result = unittest.TextTestRunner(verbosity=verbosity).run(
+                loader.loadTestsFromName(test))
+            if test_result.wasSuccessful():
+                succeeded.append(test)
+            elif test_result.failures:
+                failures.append(test)
+            elif test_result.errors:
+                errors.append(test)
+        summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
+        return summary
 
 
 def print_results(status_list, invalid_list):
