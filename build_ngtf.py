@@ -136,14 +136,18 @@ def setup_venv(venv_dir, system):
         "pip",
         "setuptools",
         "psutil",
-        "six",
-        "numpy",
-        "wheel",
+        "six>=1.10.0",
+        "numpy>=1.13.3",
+        "absl-py>=0.1.6",
+        "astor>=0.6.0",
+        "google_pasta>=0.1.1",
+        "wheel>=0.26",
         "mock",
-        "protobuf",
-        "keras_applications==1.0.5",
+        "termcolor>=1.1.0",
+        "protobuf>=3.6.1",
+        "keras_applications>=1.0.6",
         "--no-deps",
-        "keras_preprocessing==1.0.3",
+        "keras_preprocessing==1.0.5",
         "--no-deps",
     ]
     command_executor(package_list)
@@ -441,7 +445,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0-rc.0"
+    ngraph_version = "v0.12.0-rc.1"
     tf_version = "v1.12.0"
 
     # Default directories
