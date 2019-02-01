@@ -129,7 +129,7 @@ class NGraphEncapsulateOp : public OpKernel {
     // Set the backend type for the op
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
-    BackendManager::CreateBackendIfDoesNotExist(m_op_backend_name);
+    BackendManager::CreateBackend(m_op_backend_name);
   }
 
   ~NGraphEncapsulateOp() override {

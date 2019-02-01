@@ -59,7 +59,7 @@ class BackendManager {
 
   static Status SetBackendName(const string& backend_name);
 
-  static void CreateBackendIfDoesNotExist(const string& backend_name);
+  static void CreateBackend(const string& backend_name);
 
   static void ReleaseBackend(const string& backend_name);
 

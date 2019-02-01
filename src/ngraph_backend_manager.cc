@@ -48,7 +48,7 @@ Status BackendManager::SetBackendName(const string& backend_name) {
   return Status::OK();
 }
 
-void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name) {
+void BackendManager::CreateBackend(const string& backend_name) {
   std::lock_guard<std::mutex> lock(BackendManager::ng_backend_map_mutex_);
   auto itr = BackendManager::ng_backend_map_.find(backend_name);
   // if backend does not exist create it
@@ -62,7 +62,7 @@ void BackendManager::CreateBackendIfDoesNotExist(const string& backend_name) {
   }
   BackendManager::ref_count_each_backend_[backend_name]++;
 
-  NGRAPH_VLOG(2) << "BackendManager::CreateBackendIfDoesNotExist(): "
+  NGRAPH_VLOG(2) << "BackendManager::CreateBackend(): "
                  << backend_name << " ref_count: "
                  << BackendManager::ref_count_each_backend_[backend_name];
 }
