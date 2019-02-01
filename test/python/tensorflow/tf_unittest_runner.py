@@ -218,21 +218,23 @@ def run_test(test_list, verbosity=2):
     verbosity: Python verbose logging is set to 2. You get the help string 
     of every test and the result.
     """
-    loader = unittest.TestLoader()
     succeeded = []
     failures = []
     errors = []
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    for test in test_list:
+        names = loader.loadTestsFromName(test)
+        suite.addTest(names)
     with open('build/junit_tensorflow_tests.xml', 'wb') as output:
-        for test in test_list:
-            test_result = xmlrunner.XMLTestRunner(
-                verbosity=verbosity, output=output).run(
-                    loader.loadTestsFromName(test))
-            if test_result.wasSuccessful():
-                succeeded.append(test)
-            elif test_result.failures:
-                failures.append(test)
-            elif test_result.errors:
-                errors.append(test)
+        test_result = xmlrunner.XMLTestRunner(
+            verbosity=verbosity, output=output).run(suite)
+        if test_result.wasSuccessful():
+            succeeded.append(test)
+        elif test_result.failures:
+            failures.append(test)
+        elif test_result.errors:
+            errors.append(test)
     summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
     return summary
 
