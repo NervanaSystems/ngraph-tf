@@ -62,8 +62,8 @@ void BackendManager::CreateBackend(const string& backend_name) {
   }
   BackendManager::ref_count_each_backend_[backend_name]++;
 
-  NGRAPH_VLOG(2) << "BackendManager::CreateBackend(): "
-                 << backend_name << " ref_count: "
+  NGRAPH_VLOG(2) << "BackendManager::CreateBackend(): " << backend_name
+                 << " ref_count: "
                  << BackendManager::ref_count_each_backend_[backend_name];
 }
 
