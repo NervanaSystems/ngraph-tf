@@ -223,6 +223,11 @@ def main():
     and installs it to a virtual environment that would be used by this script.
     '''
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--test_examples',
+        help="Builds and tests the examples.\n",
+        action="store_true")
+
     arguments = parser.parse_args()
 
     #-------------------------------
@@ -241,8 +246,9 @@ def main():
     # Next run Python unit tests
     run_ngtf_pytests(venv_dir, build_dir)
 
-    # Run the C++ example build/run test
-    run_cpp_example_test('build')
+    if (arguments.test_examples): 
+        # Run the C++ example build/run test
+        run_cpp_example_test('build')
 
     # Next run the TensorFlow python tests
     run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
