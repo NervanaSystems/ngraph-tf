@@ -73,7 +73,7 @@ def main():
         try:
             print_results(status_list, test_list[1])
         except:
-            print("XML Report generated\n")
+            print("XML Report generated")
     if (arguments.run_tests_from_file):
         all_test_list = []
         invalid_list = []
@@ -90,7 +90,7 @@ def main():
         try:
             print_results(status_list, invalid_list)
         except:
-            print("XML Report generated\n")
+            print("XML Report generated")
 
 
 def get_test_list(tf_path, test_regex):
