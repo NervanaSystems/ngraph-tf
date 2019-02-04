@@ -443,7 +443,7 @@ static Status TranslateBinaryOp(
 //
 //  if (n->type_string == "Add") {
 //    TF_RETURN_IF_ERROR(TranslateBinaryOp<ng::op::Add>(op, static_input_map,
-//    output_nodes_ng_op_map,entry_nodes_ng_op_map));
+//    output_nodes_ng_op_map, entry_nodes_ng_op_map));
 //  }
 //
 template <typename T>
