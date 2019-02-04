@@ -279,12 +279,20 @@ class NGraphEncapsulateOp : public OpKernel {
     //
     // TODO(amprocte): Investigate performance of the compilation cache.
     if (it == m_ng_functions.end()) {
+
+      // TODO: JIANYING
+      // Measure the total memory here first
+      // mem_usage(vm, rss);
+
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
       mem_usage(vm, rss);
+      // TODO: JIANYING
+      auto function_size = ng_function->get_graph_size()/1024.0;
+
       cout << "Resident memory = " << rss << endl;
       cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; // kb unit << endl; // kb unit
       for (shared_ptr<ng::Node> node : ng_function->get_ordered_ops()) {
@@ -310,6 +318,9 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       m_ng_functions[signature] = ng_function;
+      // Memory after: Here
+      // Mem delta - i.e., taken up by the function + other stuff
+      // Print: [NGRAPH_TF_CACHE_PROFILE] ctx->name() ctx->step_id() mem_delta ng_function->get_graph_size() 
     } else {
       ng_function = it->second;
     }
