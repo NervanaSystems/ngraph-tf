@@ -432,7 +432,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "bob/memory_usage" #"v0.12.0-rc.1"
+    ngraph_version = "master" #"v0.12.0-rc.1"
     tf_version = "v1.12.0"
 
     # Default directories

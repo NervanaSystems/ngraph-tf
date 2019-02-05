@@ -238,7 +238,7 @@ class NGraphEncapsulateOp : public OpKernel {
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(m_op_backend_name);
 
-    double vm, rss;
+    double vm, rss, vm0, rss0;
     // Get the inputs
     std::vector<TensorShape> input_shapes;
     std::stringstream signature_ss;
@@ -280,27 +280,18 @@ class NGraphEncapsulateOp : public OpKernel {
     // TODO(amprocte): Investigate performance of the compilation cache.
     if (it == m_ng_functions.end()) {
 
-      // TODO: JIANYING
       // Measure the total memory here first
-      // mem_usage(vm, rss);
+      mem_usage(vm0, rss0);
 
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
-      mem_usage(vm, rss);
-      // TODO: JIANYING
-      auto function_size = ng_function->get_graph_size()/1024.0;
+      auto function_size = ng_function->get_graph_size()/1024.0; // kb unit
 
       cout << "Resident memory = " << rss << endl;
-      cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; // kb unit << endl; // kb unit
-      for (shared_ptr<ng::Node> node : ng_function->get_ordered_ops()) {
-        //cout << node->get_name() << endl;
-        //for (auto tensor : node->liveness_new_list) {
-          //cout << tensor->get_name() << "  " << tensor->size() <<endl;
-        //}
-      }
+      cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; 
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
@@ -318,9 +309,17 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       m_ng_functions[signature] = ng_function;
-      // Memory after: Here
-      // Mem delta - i.e., taken up by the function + other stuff
-      // Print: [NGRAPH_TF_CACHE_PROFILE] ctx->name() ctx->step_id() mem_delta ng_function->get_graph_size() 
+      // Memory after
+      mem_usage(vm, rss);
+      auto delta_mem = rss - rss0;
+      cout << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
+                          << ctx->op_kernel().name() << endl;
+      cout << "Delta Resident Memory Measurment: " << delta_mem
+           << "  Function Memory Measurment: " << function_size << endl;
+      NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
+                                    << ctx->op_kernel().name();
+      NGRAPH_VLOG(1) << "Delta Resident Memory Measurment: " << delta_mem 
+                     << "  Function Memory Measurment: " << function_size;
     } else {
       ng_function = it->second;
     }
@@ -527,9 +526,6 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
 
-    //mem_usage(vm, rss);
-    //cout << "Virtual memory after = " << vm << "  Resident memory after = " << rss << endl;
- 
     // Copy value to host if backend is not CPU
     try {
       if (m_op_backend_name != "CPU") {
