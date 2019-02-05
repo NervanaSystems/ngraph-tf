@@ -707,7 +707,7 @@ static Status TranslateAvgPoolGradOp(
   NGRAPH_VLOG(3) << "ng_forward_arg_shape: " << ng::join(ng_forward_arg_shape);
 
   // TODO: change this once nGraph supports negative padding
-  // (CoordinateDiff) for Pool
+  // (CoordinateDiff) for AvgPool
   // ng::CoordinateDiff ng_padding_below{0,0};
   // ng::CoordinateDiff ng_padding_above{0,0};
   ng::Shape ng_padding_below{0, 0};
