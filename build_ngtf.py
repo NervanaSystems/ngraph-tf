@@ -424,15 +424,16 @@ def main():
     artifacts_location = 'artifacts'
 
     #install virtualenv
-    install_virtual_env(venv_dir)
+    #install_virtual_env(venv_dir)
 
     # Load the virtual env
     load_venv(venv_dir)
 
     # Setup the virtual env
-    setup_venv(venv_dir)
+    #setup_venv(venv_dir)
 
-    if (not arguments.skip_tf_build):
+    if (False):
+    #if (not arguments.skip_tf_build):
         # Download TensorFlow
         download_repo("tensorflow",
                       "https://github.com/tensorflow/tensorflow.git",
@@ -444,11 +445,13 @@ def main():
         print("Skipping the TensorFlow build")
 
     # Install tensorflow
-    cxx_abi = install_tensorflow(venv_dir, artifacts_location)
+    #cxx_abi = install_tensorflow(venv_dir, artifacts_location)
 
+    import tensorflow as tf
+    cxx_abi = str(tf.__cxx11_abi_flag__)
     # Download nGraph
-    download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
-                  ngraph_version)
+    #download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
+    #              ngraph_version)
 
     # Now build nGraph
     artifacts_location = os.path.abspath(artifacts_location)

@@ -195,6 +195,8 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
 class NGraphEncapsulationPass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
+    std::cout << "XXXX NGraphEncapsulationPass Run 1\n";
+
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphEncapsulationPass: options.graph == nullptr";

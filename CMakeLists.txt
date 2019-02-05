@@ -134,8 +134,12 @@ endif()
 
 if(APPLE)
     set(LIBNGRAPH_SO "libngraph.dylib")
+    set(LIBNGRAPH_NNPI_SO "libnnpi_backend.dylib")
+    set(LIBNGRAPH_CPU_SO "libcpu_backend.dylib")
 else()
     set(LIBNGRAPH_SO "libngraph.so")
+    set(LIBNGRAPH_NNPI_SO "libnnpi_backend.so")
+    set(LIBNGRAPH_CPU_SO "libcpu_backend.so")
 endif(APPLE)
 
 # Build options
@@ -269,6 +273,20 @@ set_target_properties(
 )
 
 add_dependencies(ngraph_lib ext_ngraph)
+
+add_library(ngraph_lib_nnpi SHARED IMPORTED)
+set_target_properties( 
+    ngraph_lib_nnpi 
+    PROPERTIES IMPORTED_LOCATION 
+    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_NNPI_SO}
+)
+
+add_library(ngraph_lib_cpu SHARED IMPORTED)
+set_target_properties( 
+    ngraph_lib_cpu 
+    PROPERTIES IMPORTED_LOCATION 
+    ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_CPU_SO}
+)
 
 # Add the directories to be built
 add_subdirectory(third-party)

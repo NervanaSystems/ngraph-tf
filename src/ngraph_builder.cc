@@ -25,6 +25,10 @@
 #include "ngraph/op/argmax.hpp"
 #include "ngraph/op/argmin.hpp"
 
+#include "ngraph/runtime/nnpi/op/space_to_depth.hpp"
+#include "ngraph/runtime/nnpi/op/depth_to_space.hpp"
+//#include "ngraph/runtime/nnpi/nnpi_quantization.hpp"
+
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb.h"
 #include "tensorflow/core/framework/tensor_shape.pb_text.h"
@@ -3106,6 +3110,66 @@ static Status TranslateSoftmaxOp(
   ng_axes_softmax.insert(rank - 1);
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax));
+  return Status::OK();
+}
+
+static Status TranslateSpaceToDepthOpNNPI(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map){
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  // Get the attributes
+  int64 block_size;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "block_size", &block_size));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  std::map<std::string, int> format_to_int_map = {
+      {"NHWC", 0}, {"NCHW", 1}, {"NCHW_VECT_C", 1}};
+
+  int height_index;
+  int width_index;
+  int channel_index;
+
+  switch (format_to_int_map[tf_data_format]) {
+    // NHWC
+    case 0:
+      height_index = 1;
+      width_index = 2;
+      channel_index = 3;
+      break;
+    // NCHW or NCHW_VEC_C
+    case 1:
+      height_index = 2;
+      width_index = 3;
+      channel_index = 1;
+      break;
+    default:
+      return errors::InvalidArgument(
+          "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VECT_C");
+  }
+
+  // Error checking: width and height must be divisible by block_size
+  if (input_shape[height_index] % block_size != 0) {
+    return errors::InvalidArgument(
+        "Input tensor's height ,", input_shape[height_index],
+        " is not divisible by block_size ", block_size);
+  }
+
+  if (input_shape[width_index] % block_size != 0) {
+    return errors::InvalidArgument(
+        "Input tensor's width ,", input_shape[width_index],
+        " is not divisible by block_size ", block_size);
+  }
+
+  //get output shape
+  ng::Shape output_shape = {input_shape[0], input_shape[1]/block_size, input_shape[2]/block_size, input_shape[3]*block_size*block_size};
+
+  //call nnpi fn
+  auto std_node = make_shared<ng::runtime::nnpi::op::SpaceToDepth>(ng_input, block_size, output_shape);
+  SaveNgOp(ng_op_map, op->name(), std_node);
   return Status::OK();
 }
 
