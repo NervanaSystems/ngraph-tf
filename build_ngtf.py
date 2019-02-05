@@ -200,6 +200,8 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
         "bazel",
         "build",
         "--config=opt",
+        "--config=mkl",
+        "--copt=\"-DINTEL_MKL_QUANTIZED\"",
         "//tensorflow/tools/pip_package:build_pip_package",
     ]
     if verbosity:
@@ -218,7 +220,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
 
     # Now build the TensorFlow C++ library
     cmd = [
-        "bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
+        "bazel", "build", "--config=opt", "--config=mkl", "--copt=\"-DINTEL_MKL_QUANTIZED\"", "//tensorflow:libtensorflow_cc.so"
     ]
     command_executor(cmd)
 
@@ -432,8 +434,8 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0"
-    tf_version = "v1.12.0"
+    ngraph_version = "nishant_quantized_concat" #"v0.12.0"
+    tf_version = "quantized_concat_part_1"
 
     # Default directories
     build_dir = 'build'
@@ -480,7 +482,7 @@ def main():
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
-                      "https://github.com/tensorflow/tensorflow.git",
+                      "https://github.com/NervanaSystems/private-tensorflow.git",
                       tf_version)
 
         # Build TensorFlow
