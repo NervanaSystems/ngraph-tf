@@ -68,6 +68,7 @@ class NGraphEncapsulateOp : public OpKernel {
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
         m_freshness_tracker(nullptr) {
+    NGRAPH_VLOG(2) << "NGraphEncapsulateOp: Name: " << name();
     GraphDef* graph_def;
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
@@ -129,7 +130,7 @@ class NGraphEncapsulateOp : public OpKernel {
     // Set the backend type for the op
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
-    BackendManager::CreateBackendIfDoesNotExist(m_op_backend_name);
+    BackendManager::CreateBackend(m_op_backend_name);
   }
 
   ~NGraphEncapsulateOp() override {
@@ -144,6 +145,10 @@ class NGraphEncapsulateOp : public OpKernel {
       // TODO(amprocte): We should be able to unref the tracker here, but it
       // seems to screw things up in the C++ unit tests.
       // m_freshness_tracker->Unref();
+
+      // Release the backend
+      BackendManager::ReleaseBackend(m_op_backend_name);
+      NGRAPH_VLOG(2) << "~NGraphEncapsulateOp()";
     }
   }
 
@@ -311,14 +316,17 @@ class NGraphEncapsulateOp : public OpKernel {
       m_ng_functions[signature] = ng_function;
       // Memory after
       mem_usage(vm, rss);
-      auto delta_mem = rss - rss0;
+      auto delta_vm_mem = vm - vm0;
+      auto delta_res_mem = rss - rss0;
       cout << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
                           << ctx->op_kernel().name() << endl;
-      cout << "Delta Resident Memory Measurment: " << delta_mem
+      cout << "Delta Virtual Memory Measurment: " << delta_vm_mem
+           << "  Delta Resident Memory Measurment: " << delta_res_mem
            << "  Function Memory Measurment: " << function_size << endl;
       NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
                                     << ctx->op_kernel().name();
-      NGRAPH_VLOG(1) << "Delta Resident Memory Measurment: " << delta_mem 
+      NGRAPH_VLOG(1) << "Delta Virtual Memory Measurment: " << delta_vm_mem 
+                     << "  Delta Resident Memory Measurment: " << delta_res_mem
                      << "  Function Memory Measurment: " << function_size;
     } else {
       ng_function = it->second;
