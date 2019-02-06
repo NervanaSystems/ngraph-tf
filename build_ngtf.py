@@ -447,7 +447,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0"
+    ngraph_version = "sandeep/distributed-mlsl-openmpi-nnp-sync"
     tf_version = "v1.12.0"
 
     # Default directories
