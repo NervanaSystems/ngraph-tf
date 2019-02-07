@@ -95,6 +95,7 @@ Status EncapsulateClusters(Graph* graph) {
 
   // Pass 1: Populate the cluster-index-to-device name map for each existing
   // cluster. PIGGYBACKING BACKEND TEST HERE, THEY WILL GET COMBINED INTO ONE
+  // All nodes in the same cluster should have same device
   for (auto node : graph->op_nodes()) {
     int cluster_idx;
 
@@ -214,8 +215,10 @@ Status EncapsulateClusters(Graph* graph) {
       ss << "ngraph_output_" << cluster_output_dt_map[src_cluster_idx].size();
       string output_name = ss.str();
 
+      // Each encapsulate is associated with an tensorflow::GraphDef*
       auto new_output_node_def =
           NGraphClusterManager::GetClusterGraph(src_cluster_idx)->add_node();
+      cout << "Adding a RETVAL:: " << output_name << "\n";
       new_output_node_def->set_name(output_name);
       new_output_node_def->set_op("_Retval");
       edge_is_retval = true;
@@ -256,6 +259,7 @@ Status EncapsulateClusters(Graph* graph) {
           NGraphClusterManager::GetClusterGraph(dst_cluster_idx)->add_node();
       new_input_node_def->set_name(new_input_name);
       new_input_node_def->set_op("_Arg");
+      cout << "Adding an ARG:: " << new_input_name << "\n";
       edge_is_arg = true;
 
       SetAttrValue(dt, &((*(new_input_node_def->mutable_attr()))["T"]));

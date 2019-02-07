@@ -90,6 +90,20 @@ class NGraphEncapsulateOp : public OpKernel {
     std::vector<const Node*> arg_nodes;
 
     for (auto node : m_graph.nodes()) {
+      std::cout << m_ngraph_cluster << ":: " << node->type_string() << ":: " << node->name() << "\n";
+      for (int kk = 0; kk < node->num_inputs(); kk++){
+        Node* input_node_;
+        node->input_node(kk, &input_node_);
+        std::cout << "   " << kk << ":: " << input_node_->type_string() << ":: " << input_node_->name() << "\n";
+      }
+      int cluster_idx__;
+      if (GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx__) ==
+        Status::OK()) {
+        cout<< "cluster_idx__: " << cluster_idx__ << "\n";
+      } else {
+        cout << "cluster_idx__: not found\n"; // Nopt found for arg and retval nodes
+      }
+
       if (node->type_string() == "_Arg") {
         arg_nodes.push_back(node);
 
@@ -331,6 +345,24 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
+      // Which encapsulate owns which Tensor?
+      // TF->E: Input tensor to E is owned by E
+      // E->TF: Output tensor from E is owned by E
+      // E1->E2: E1 owns the shared tensor
+      // TF->TF: NA
+
+      // Summary: Encapsulates own tensors. In case of conflist, the parent encapsulate owns the tensor
+      /*
+      if (parent_is_TF){
+
+      }
+
+      input_caches[i] = std::make_pair(current_src_ptr, current_tv);
+      ng_inputs.push_back(current_tv);
+      */
+
+
+
       try {
         if (m_op_backend_name == "CPU") {
           // We need to check last_tv != nullptr, since there are cases where at
@@ -531,6 +563,9 @@ class NGraphEncapsulateOp : public OpKernel {
       m_ng_functions;
   NgFunctionIOCache m_ng_function_input_cache_map;
   NgFunctionIOCache m_ng_function_output_cache_map;
+
+  std::unordered_map<int, bool> input_direct_transfer;
+  std::unordered_map<int, bool> output_direct_transfer;
 
   // Freshness tracker maintains a set of ng::functions using a particular base
   // pointer(for Tensor)
