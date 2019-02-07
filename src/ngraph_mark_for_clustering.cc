@@ -298,6 +298,8 @@ Status MarkForClustering(Graph* graph) {
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
+      confirmation_function_map["QuantizedAvgPool"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
@@ -436,6 +438,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
+      type_constraint_map["QuantizedAvgPool"]["T"] =
+          NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
