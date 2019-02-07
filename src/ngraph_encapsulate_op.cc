@@ -297,6 +297,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
       cout << "Resident memory = " << rss << endl;
       cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; 
+
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
@@ -312,8 +313,13 @@ class NGraphEncapsulateOp : public OpKernel {
                         ng_function);
 #endif
       }
-
+      // Evict the cache if the number of elements exceeds 16
+      if (m_ng_functions.size() > 16) {
+        m_ng_functions.erase(LRU.back());
+        LRU.pop_back();
+      } 
       m_ng_functions[signature] = ng_function;
+      LRU.push_front(signature);
       // Memory after
       mem_usage(vm, rss);
       auto delta_vm_mem = vm - vm0;
@@ -329,6 +335,11 @@ class NGraphEncapsulateOp : public OpKernel {
                      << "  Delta Resident Memory Measurment: " << delta_res_mem
                      << "  Function Memory Measurment: " << function_size;
     } else {
+      // Update the LRU
+      if (signature != LRU.front()) {
+        LRU.remove(signature);
+        LRU.push_front(signature); 
+      }
       ng_function = it->second;
     }
 
@@ -587,6 +598,7 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
   std::mutex m_compute_lock;
   string m_op_backend_name;
+  std::list<std::string> LRU;
 };
 
 }  // namespace ngraph_bridge
