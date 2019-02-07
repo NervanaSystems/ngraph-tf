@@ -223,9 +223,11 @@ class NGraphEncapsulateOp : public OpKernel {
     {
       std::string ignore;
       std::ifstream ifs("/proc/self/stat", std::ios_base::in);
-      ifs >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore
-      >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore
-      >> ignore >> ignore >> vsize >> rss;
+      std::string mem_in;
+      getline(ifs, mem_in);
+      vector<string> mem_str = ng::split(mem_in, ' ');
+      vsize = std::stol(mem_str[22]);
+      rss = std::stol(mem_str[23]);
     }
 
     long page_size_kb = sysconf(_SC_PAGE_SIZE) / 1024; // in case x86-64 is configured to use 2MB pages
@@ -295,9 +297,6 @@ class NGraphEncapsulateOp : public OpKernel {
 
       auto function_size = ng_function->get_graph_size()/1024.0; // kb unit
 
-      cout << "Resident memory = " << rss0 << endl;
-      cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; 
-
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
@@ -314,7 +313,6 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
       // Evict the cache if the number of elements exceeds 16
-      cout << "m_ng_functions size = " << m_ng_functions.size() << endl;
       if (m_ng_functions.size() > 16) {
         m_ng_functions.erase(LRU.back());
         LRU.pop_back();
