@@ -295,7 +295,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
       auto function_size = ng_function->get_graph_size()/1024.0; // kb unit
 
-      cout << "Resident memory = " << rss << endl;
+      cout << "Resident memory = " << rss0 << endl;
       cout << "ng_function measurement = " << ng_function->get_graph_size()/1024.0 << endl; 
 
       // Serialize to nGraph if needed
@@ -314,6 +314,7 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
       // Evict the cache if the number of elements exceeds 16
+      cout << "m_ng_functions size = " << m_ng_functions.size() << endl;
       if (m_ng_functions.size() > 16) {
         m_ng_functions.erase(LRU.back());
         LRU.pop_back();
