@@ -44,7 +44,7 @@ This will produce something like this:
         TensorFlow version: r 1.12.0
         TensorFlow version installed: 1.12.0 (v1.12.0-0-ga6d8ffae09)
         nGraph bridge built with: 1.12.0 (v1.12.0-0-ga6d8ffae09)
-        b'0.8.0'
+        b'0.10.0'
 
 Next you can try out the TensorFlow models by adding one line to your existing 
 TensorFlow model scripts and running them the usual way:
@@ -84,7 +84,7 @@ The installation prerequisites are the same as described in the TensorFlow
 
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.10.0-rc1
+        git checkout v0.10.0
 
    
 2. Next run the following Python script to build TensorFlow, nGraph and the bridge. Please use Python 3.5:
@@ -181,7 +181,11 @@ run the following model:
 
 ## Using OS X 
 
-The build and installation instructions are idential for Ubuntu 16.04 and OS X. 
+The build and installation instructions are idential for Ubuntu 16.04 and OS X. However, please
+note that the Python setup is not always the same across various Mac OS versions. TensorFlow build
+instructions recommend using homebrew and often people use pyenv. There is also Anaconda/Miniconda 
+which some users prefer. The basic criteria for building nGraph and the bridge on a Mac OS is 
+to ensure that TensorFlow is successfully built. 
 
 ## Debugging
 
