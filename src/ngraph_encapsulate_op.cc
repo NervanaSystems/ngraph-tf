@@ -34,8 +34,8 @@
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 
-#include "ngraph/runtime/interpreter/int_backend.hpp"
 #include "ngraph/runtime/cpu/cpu_backend.hpp"
+#include "ngraph/runtime/interpreter/int_backend.hpp"
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
@@ -230,8 +230,9 @@ class NGraphEncapsulateOp : public OpKernel {
       rss = std::stol(mem_str[23]);
     }
 
-    long page_size_kb = sysconf(_SC_PAGE_SIZE) / 1024; // in case x86-64 is configured to use 2MB pages
-    vm_usage = vsize / 1024.0; // unit kb
+    long page_size_kb = sysconf(_SC_PAGE_SIZE) /
+                        1024;   // in case x86-64 is configured to use 2MB pages
+    vm_usage = vsize / 1024.0;  // unit kb
     resident_set = rss * page_size_kb;
   }
 
@@ -286,7 +287,6 @@ class NGraphEncapsulateOp : public OpKernel {
     //
     // TODO(amprocte): Investigate performance of the compilation cache.
     if (it == m_ng_functions.end()) {
-
       // Measure the total memory here first
       mem_usage(vm0, rss0);
 
@@ -295,7 +295,7 @@ class NGraphEncapsulateOp : public OpKernel {
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
-      auto function_size = ng_function->get_graph_size()/1024.0; // kb unit
+      auto function_size = ng_function->get_graph_size() / 1024.0;  // kb unit
 
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
@@ -316,28 +316,29 @@ class NGraphEncapsulateOp : public OpKernel {
       if (m_ng_functions.size() > 16) {
         m_ng_functions.erase(LRU.back());
         LRU.pop_back();
-      } 
+      }
       m_ng_functions[signature] = ng_function;
       LRU.push_front(signature);
       // Memory after
       mem_usage(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-      cout << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
-                          << ctx->op_kernel().name() << endl;
+      cout << "Step_ID: " << ctx->step_id()
+           << "  NGRAPH_TF_CACHE_PROFILE: " << ctx->op_kernel().name() << endl;
       cout << "Delta Virtual Memory Measurment: " << delta_vm_mem
            << "  Delta Resident Memory Measurment: " << delta_res_mem
            << "  Function Memory Measurment: " << function_size << endl;
-      NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id() << "  NGRAPH_TF_CACHE_PROFILE: " 
-                                    << ctx->op_kernel().name();
-      NGRAPH_VLOG(1) << "Delta Virtual Memory Measurment: " << delta_vm_mem 
+      NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id()
+                     << "  NGRAPH_TF_CACHE_PROFILE: "
+                     << ctx->op_kernel().name();
+      NGRAPH_VLOG(1) << "Delta Virtual Memory Measurment: " << delta_vm_mem
                      << "  Delta Resident Memory Measurment: " << delta_res_mem
                      << "  Function Memory Measurment: " << function_size;
     } else {
       // Update the LRU
       if (signature != LRU.front()) {
         LRU.remove(signature);
-        LRU.push_front(signature); 
+        LRU.push_front(signature);
       }
       ng_function = it->second;
     }
@@ -520,7 +521,7 @@ class NGraphEncapsulateOp : public OpKernel {
         op_backend->call(op_backend->compile(ng_function), ng_outputs,
                          ng_inputs);
 
-        //op_backend->remove_compiled_function(ng_function);
+        // op_backend->remove_compiled_function(ng_function);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
