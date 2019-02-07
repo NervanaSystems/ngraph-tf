@@ -436,6 +436,86 @@ static Status TranslateBinaryOp(
       });
 }
 
+// Helper function for translating QuantizedAvgPool and QuantizedMaxPool
+static Status TranslateQuantizedPoolOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map, std::string pooling_name) {
+  bool is_quantizedAvgPool = pooling_name == "QuantizedAvgPool" ? true : false;
+  bool is_quantizedMaxPool = pooling_name == "QuantizedMaxPool" ? true : false;
+
+  // Doesn't  compile
+  // bool is_quantizedAvgPool =
+  // std::is_same<T,ng::builder::ScaledQuantizedAvgPool>::value;
+  // bool is_quantizedMaxPool =
+  // std::is_same<T,ng::builder::ScaledQuantizedMaxPool>::value;
+
+  if (!(is_quantizedAvgPool || is_quantizedMaxPool)) {
+    return errors::InvalidArgument(
+        "Expected quantized pooling type node to be ScaledQuantizedAvgPool or "
+        "ScaledQuantizedMaxPool");
+  }
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_ksize;
+  std::string tf_padding_type;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+
+  bool is_nhwc = true;  // The input data format is always NHWC
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
+                         ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph(is_nhwc, ng_input);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  // Creating and passing dummy nodes to quantized pool operation because it
+  // does
+  // not use them. If it ever starts using min/max, the dummy min-max would
+  // cause it to fail
+  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
+
+  std::shared_ptr<ng::Node> ng_quant_pool;
+  if (is_quantizedAvgPool) {
+    // QuantizeAvgPool
+    // TF doesn't include padding in avg calculation
+    ng_quant_pool = ng::builder::ScaledQuantizedAvgPool(
+        ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+        ng_padding_above, false, dummy_min, dummy_max);
+  } else {
+    // QuantizeMaxPool
+    ng_quant_pool = ng::builder::ScaledQuantizedMaxPool(
+        ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+        ng_padding_above, dummy_min, dummy_max);
+  }
+
+  BatchToTensorflow(is_nhwc, ng_quant_pool);
+  SaveNgOp(ng_op_map, op->name(), ng_quant_pool);
+  // For QuantizedAvgPool and QuantizedMaxPool input min-max remains unchanged
+  // and is just propagated along
+  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_max);
+  return Status::OK();
+}
+
 static Status TranslateAllreduceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -2632,44 +2712,8 @@ static Status TranslateQuantizeAndDequantizeV2Op(
 static Status TranslateQuantizedAvgPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
-  std::vector<int32> tf_strides;
-  std::vector<int32> tf_ksize;
-  std::string tf_padding_type;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-  bool is_nhwc = true;  // The input data format is always NHWC
-  ng::Strides ng_strides(2);
-  ng::Shape ng_image_shape(2);
-  ng::Shape ng_kernel_shape(2);
-  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
-                         ng_image_shape);
-  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
-  BatchToNGraph(is_nhwc, ng_input);
-  ng::Shape ng_padding_below{0, 0};
-  ng::Shape ng_padding_above{0, 0};
-  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-                       ng_strides, ng_padding_below, ng_padding_above);
-
-  // Creating and passing dummy nodes to ScaledQuantizedAvgPool because it does
-  // not use them. If it ever starts using min/max, the dummy min-max would
-  // cause it to fail
-  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
-  // TF doesn't include padding in avg calculation
-  std::shared_ptr<ng::Node> ng_quant_avgpool =
-      ng::builder::ScaledQuantizedAvgPool(ng_input, ng_kernel_shape, ng_strides,
-                                          ng_padding_below, ng_padding_above,
-                                          false, dummy_min, dummy_max);
-  BatchToTensorflow(is_nhwc, ng_quant_avgpool);
-  SaveNgOp(ng_op_map, op->name(), ng_quant_avgpool);
-  // For avgpool input min-max remains unchanged and is just propagated along
-  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
-  SaveNgOp(ng_op_map, op->name(), ng_min);
-  SaveNgOp(ng_op_map, op->name(), ng_max);
-  return Status::OK();
+  return TranslateQuantizedPoolOp(op, static_input_map, ng_op_map,
+                                  "QuantizedAvgPool");
 }
 
 static Status TranslateQuantizedConv(
@@ -2817,43 +2861,8 @@ static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
 static Status TranslateQuantizedMaxPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
-  std::vector<int32> tf_strides;
-  std::vector<int32> tf_ksize;
-  std::string tf_padding_type;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-  bool is_nhwc = true;  // TODO, is this correct?
-  ng::Strides ng_strides(2);
-  ng::Shape ng_image_shape(2);
-  ng::Shape ng_kernel_shape(2);
-  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
-                         ng_image_shape);
-  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
-  BatchToNGraph(is_nhwc, ng_input);
-  ng::Shape ng_padding_below{0, 0};
-  ng::Shape ng_padding_above{0, 0};
-  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-                       ng_strides, ng_padding_below, ng_padding_above);
-
-  // Creating and passing dummy nodes to ScaledQuantizedMaxPool because it does
-  // not use them. If it ever starts using min/max, the dummy min-max would
-  // cause it to fail
-  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
-  std::shared_ptr<ng::Node> ng_quant_maxpool =
-      ng::builder::ScaledQuantizedMaxPool(ng_input, ng_kernel_shape, ng_strides,
-                                          ng_padding_below, ng_padding_above,
-                                          dummy_min, dummy_max);
-  BatchToTensorflow(is_nhwc, ng_quant_maxpool);
-  SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool);
-  // For maxpool input min-max remains unchanged and is just propagated along
-  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
-  SaveNgOp(ng_op_map, op->name(), ng_min);
-  SaveNgOp(ng_op_map, op->name(), ng_max);
-  return Status::OK();
+  return TranslateQuantizedPoolOp(op, static_input_map, ng_op_map,
+                                  "QuantizedMaxPool");
 }
 
 static Status TranslateQuantizeV2Op(
