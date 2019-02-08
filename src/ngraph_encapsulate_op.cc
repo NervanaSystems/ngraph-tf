@@ -318,10 +318,10 @@ class NGraphEncapsulateOp : public OpKernel {
       mem_usage(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-      NGRAPH_VLOG(1) << "NGTF_CACHE_PROFILE: "
-                     << ctx->op_kernel().name()
+      NGRAPH_VLOG(1) << "NGTF_CACHE_PROFILE: " << ctx->op_kernel().name()
                      << "  Step_ID: " << ctx->step_id();
-      NGRAPH_VLOG(1) << "       Delta Virtual Memory Measurment: " << delta_vm_mem
+      NGRAPH_VLOG(1) << "       Delta Virtual Memory Measurment: "
+                     << delta_vm_mem
                      << "  Delta Resident Memory Measurment: " << delta_res_mem
                      << "  Function Memory Measurment: " << function_size;
       NGRAPH_VLOG(1) << "       Resident Memory: " << rss;
