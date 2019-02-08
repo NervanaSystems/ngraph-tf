@@ -223,10 +223,11 @@ class NGraphEncapsulateOp : public OpKernel {
     {
       std::string ignore;
       std::ifstream ifs("/proc/self/stat", std::ios_base::in);
-      ifs >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
-          ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
-          ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
-          ignore >> ignore >> vsize >> rss;
+      std::string mem_in;
+      getline(ifs, mem_in);
+      vector<string> mem_str = ng::split(mem_in, ' ');
+      vsize = std::stol(mem_str[22]);
+      rss = std::stol(mem_str[23]);
     }
 
     long page_size_kb = sysconf(_SC_PAGE_SIZE) /
@@ -296,9 +297,6 @@ class NGraphEncapsulateOp : public OpKernel {
 
       auto function_size = ng_function->get_graph_size() / 1024.0;  // kb unit
 
-      cout << "Resident memory = " << rss << endl;
-      cout << "ng_function measurement = "
-           << ng_function->get_graph_size() / 1024.0 << endl;
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
@@ -320,17 +318,13 @@ class NGraphEncapsulateOp : public OpKernel {
       mem_usage(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-      cout << "Step_ID: " << ctx->step_id()
-           << "  NGRAPH_TF_CACHE_PROFILE: " << ctx->op_kernel().name() << endl;
-      cout << "Delta Virtual Memory Measurment: " << delta_vm_mem
-           << "  Delta Resident Memory Measurment: " << delta_res_mem
-           << "  Function Memory Measurment: " << function_size << endl;
-      NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id()
-                     << "  NGRAPH_TF_CACHE_PROFILE: "
-                     << ctx->op_kernel().name();
-      NGRAPH_VLOG(1) << "Delta Virtual Memory Measurment: " << delta_vm_mem
+      NGRAPH_VLOG(1) << "NGTF_CACHE_PROFILE: "
+                     << ctx->op_kernel().name()
+                     << "  Step_ID: " << ctx->step_id();
+      NGRAPH_VLOG(1) << "       Delta Virtual Memory Measurment: " << delta_vm_mem
                      << "  Delta Resident Memory Measurment: " << delta_res_mem
                      << "  Function Memory Measurment: " << function_size;
+      NGRAPH_VLOG(1) << "       Resident Memory: " << rss;
     } else {
       ng_function = it->second;
     }
@@ -513,7 +507,6 @@ class NGraphEncapsulateOp : public OpKernel {
         op_backend->call(op_backend->compile(ng_function), ng_outputs,
                          ng_inputs);
 
-        // op_backend->remove_compiled_function(ng_function);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
