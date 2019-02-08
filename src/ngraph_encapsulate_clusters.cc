@@ -218,7 +218,6 @@ Status EncapsulateClusters(Graph* graph) {
       // Each encapsulate is associated with an tensorflow::GraphDef*
       auto new_output_node_def =
           NGraphClusterManager::GetClusterGraph(src_cluster_idx)->add_node();
-      cout << "Adding a RETVAL:: " << output_name << "\n";
       new_output_node_def->set_name(output_name);
       new_output_node_def->set_op("_Retval");
       edge_is_retval = true;
@@ -259,7 +258,6 @@ Status EncapsulateClusters(Graph* graph) {
           NGraphClusterManager::GetClusterGraph(dst_cluster_idx)->add_node();
       new_input_node_def->set_name(new_input_name);
       new_input_node_def->set_op("_Arg");
-      cout << "Adding an ARG:: " << new_input_name << "\n";
       edge_is_arg = true;
 
       SetAttrValue(dt, &((*(new_input_node_def->mutable_attr()))["T"]));
@@ -332,6 +330,7 @@ Status EncapsulateClusters(Graph* graph) {
     Node* n;
     Status status = NodeBuilder(ss.str(), "NGraphEncapsulate")
                         .Attr("ngraph_cluster", cluster_idx)
+                        .Attr("ngraph_cluster_broadcaster", 25)
                         .Attr("_ngraph_backend", cluster_backend)
                         .Attr("Targuments", input_types)
                         .Attr("Tresults", cluster_output_dt_map[cluster_idx])

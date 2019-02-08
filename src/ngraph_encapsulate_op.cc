@@ -33,6 +33,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
+#include "ngraph_ng_tensor_share.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -58,6 +59,7 @@ REGISTER_OP("NGraphEncapsulate")
     .Output("results: Tresults")
     .Attr("Tresults: list(type) >= 0")
     .Attr("ngraph_cluster: int")
+    .Attr("ngraph_cluster_broadcaster: int")
     .SetIsStateful()
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
@@ -72,6 +74,9 @@ class NGraphEncapsulateOp : public OpKernel {
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
     graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
+
+
+    OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster_broadcaster", &m_ngraph_cluster_broadcaster));
 
     GraphConstructorOptions opts;
     opts.allow_internal_ops = true;
@@ -90,20 +95,6 @@ class NGraphEncapsulateOp : public OpKernel {
     std::vector<const Node*> arg_nodes;
 
     for (auto node : m_graph.nodes()) {
-      std::cout << m_ngraph_cluster << ":: " << node->type_string() << ":: " << node->name() << "\n";
-      for (int kk = 0; kk < node->num_inputs(); kk++){
-        Node* input_node_;
-        node->input_node(kk, &input_node_);
-        std::cout << "   " << kk << ":: " << input_node_->type_string() << ":: " << input_node_->name() << "\n";
-      }
-      int cluster_idx__;
-      if (GetNodeAttr(node->attrs(), "_ngraph_cluster", &cluster_idx__) ==
-        Status::OK()) {
-        cout<< "cluster_idx__: " << cluster_idx__ << "\n";
-      } else {
-        cout << "cluster_idx__: not found\n"; // Nopt found for arg and retval nodes
-      }
-
       if (node->type_string() == "_Arg") {
         arg_nodes.push_back(node);
 
@@ -553,6 +544,25 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
         << m_ngraph_cluster;
+
+
+    ResourceMgr *rm = ctx->resource_manager();
+    if (m_ngraph_cluster_broadcaster == m_ngraph_cluster){
+      std::cout << "BROADCASTING FROM " << m_ngraph_cluster << "\n";
+      NGraphNgTensorShare* tmp = new NGraphNgTensorShare;
+      tmp->secret_message = "Hi from " + std::to_string(m_ngraph_cluster);
+      // TF RETURN IF ERROR
+      rm->Create("my_container", "my_name", tmp);
+    } else {
+      std::cout << "TRYING TO READ FROM " << m_ngraph_cluster << "\n";
+      NGraphNgTensorShare* tmp = nullptr;
+        Status s = rm->Lookup("my_container", "my_name", &tmp);
+        if (s.ok()) {
+         cout << "READ THIS: " << tmp->secret_message << "\n";
+       } else {
+         cout << "DID NOT MANAGE TO READ\n";
+       }
+    }
   }  // end compute
 
  private:
@@ -576,6 +586,9 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
   std::mutex m_compute_lock;
   string m_op_backend_name;
+
+  int m_ngraph_cluster_broadcaster;
+
 };
 
 }  // namespace ngraph_bridge
