@@ -2716,6 +2716,35 @@ static Status TranslateQuantizedAvgPoolOp(
                                   "QuantizedAvgPool");
 }
 
+static Status TranslateQuantizedConcatOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_input));
+
+  std::vector<int64> tf_concat_axis_vec;
+  TF_RETURN_IF_ERROR(
+      GetStaticInputVector(op, 0, static_input_map, &tf_concat_axis_vec));
+
+  // QuantizedConcat doesn't have negative concat_axis
+  int64 concat_axis = tf_concat_axis_vec[0];
+  cout << "concat_axis's " << concat_axis << endl;
+
+  ng::NodeVector ng_args;
+  auto num_of_tensors_to_concat = (op->num_inputs() - 1) / 3;
+
+  for (int i = 1; i <= num_of_tensors_to_concat; i++) {
+    shared_ptr<ng::Node> ng_arg;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_arg));
+    ng_args.push_back(ng_arg);
+  }
+
+  SaveNgOp(ng_op_map, op->name(),
+           make_shared<ng::op::QuantizedConcat>(ng_args, size_t(concat_axis)));
+
+  return Status::OK();
+}
+
 static Status TranslateQuantizedConv(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map,
@@ -4331,6 +4360,7 @@ const static std::map<
         {"Prod", TranslateProdOp},
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
         {"QuantizedAvgPool", TranslateQuantizedAvgPoolOp},
+        {"QuantizedConcat", TranslateQuantizedConcatOp},
         {"QuantizedConv2DWithBiasAndReluAndRequantize",
          TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<true>},
         {"QuantizedConv2DWithBiasAndRequantize",

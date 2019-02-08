@@ -440,6 +440,8 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
       type_constraint_map["QuantizedAvgPool"]["T"] =
           NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConcat"]["T"] =
+          NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
@@ -540,6 +542,7 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
+      set_attributes_map["QuantizeConcat"] = SetStaticInputs({0});
       set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =

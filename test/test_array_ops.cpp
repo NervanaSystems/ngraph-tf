@@ -512,6 +512,37 @@ TEST(ArrayOps, QuantizeAndDequantizeV2x8xtruexfalse) {
   opexecuter.RunTest();
 }  // end of test op QuantizeAndDequantizeV2x8xtruexfalse
 
+// CPU only supports QuantizedConcat with DT_QINT32 and DT_QUINT8
+TEST(ArrayOps, QuantizedConcat) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(A, {5, 1, 0, 1, 5, 100});
+
+  Tensor B(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(B, {5, 1, 0, 1, 5, 100});
+
+  Tensor C(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(C, {5, 1, 0, 1, 5, 100});
+
+  vector<int> static_input_indexes = {0};
+  ops::QuantizedConcat R = ops::QuantizedConcat(
+      root, 0, {A, B, C}, {-10.0f, -10.0f, -10.f}, {10.0f, 10.0f, 10.f});
+
+  vector<DataType> output_datatypes = {DT_QUINT8};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output};
+  OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  // opexecuter.RunTest();
+  vector<Tensor> tf_outputs;
+  opexecuter.ExecuteOnTF(tf_outputs);
+
+}  // end of test op QuantizedConcat
+
 // Test op: Rank Op
 TEST(ArrayOps, Rank) {
   Scope root = Scope::NewRootScope();
