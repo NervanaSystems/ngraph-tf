@@ -53,6 +53,42 @@ using NgFunctionIOCache = std::unordered_map<
 
 namespace ngraph_bridge {
 
+
+// we want RM to contain a ResourceBase. Each ResourceBase manages 1 ngraph tensor
+// Now 2 encapsulate inputs/outputs could share 1 ResourceBase
+// case 1: E1-->E2  (out of E1 shares in of E2)
+// OR
+// case 2: E1<--TF-->E2. Inputs of both E1 and E2 share a ResourceBase
+// (2 outputs will never be shared)
+
+// Plan: in the graph def of each encapsulate node, embed a string name of the ResourceBase they should use for
+// Name of resourcebase: enc1_outOrIn_idx__enc2_outOrIn_idx ... encn_outOrIn_idx
+// Each encapsulate has a list of these string names of ResourceBases in its NodeDef
+
+// In the enc kernel Compute() function:
+// read self's resourcebase names
+// see if the current tensor self is trying to read/write form exists in the name
+// if so, try to look up the ResourceBase in RM.
+// If found (and "fresh") use it, else create it
+
+// Advantages: this takes care of case 1 and case 2 both
+// Disadvantages: we are passing a lot of info in the name of the resource base... we can use multiple fields
+
+// Order of things to do:
+// * Figure out the meta data to be added to encapsulate op's nodedef
+// * In the initial rewrite/encapsulating pass add the meta data (by figuring out parents/children etc)
+// --- initially going to do case 1 only
+// * Understand the freshness tracker and how it would interact with this setup
+// * implement the Compute()
+// * run mnist_deep_simplified.py. Use verify_models to see some inference graphs run, run-all-models and some training models
+// * train an mnist to completion. See good accuracy
+// * measure time improvement
+
+// Future:
+// * think about backends that do not need the mutex lock we currently lock the Compute() call with
+// * think about the case where writing to ngraph tensors are a non blocking call.
+// In these cases will sharing ever give rise to race/deadlocks?
+
 REGISTER_OP("NGraphEncapsulate")
     .Input("args: Targuments")
     .Attr("Targuments: list(type) >= 0")
