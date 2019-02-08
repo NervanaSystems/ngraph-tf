@@ -2719,16 +2719,12 @@ static Status TranslateQuantizedAvgPoolOp(
 static Status TranslateQuantizedConcatOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_input));
-
   std::vector<int64> tf_concat_axis_vec;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 0, static_input_map, &tf_concat_axis_vec));
 
   // QuantizedConcat doesn't have negative concat_axis
   int64 concat_axis = tf_concat_axis_vec[0];
-  cout << "concat_axis's " << concat_axis << endl;
 
   ng::NodeVector ng_args;
   auto num_of_tensors_to_concat = (op->num_inputs() - 1) / 3;

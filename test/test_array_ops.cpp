@@ -537,9 +537,7 @@ TEST(ArrayOps, QuantizedConcat) {
   OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
-  // opexecuter.RunTest();
-  vector<Tensor> tf_outputs;
-  opexecuter.ExecuteOnTF(tf_outputs);
+  opexecuter.RunTest();
 
 }  // end of test op QuantizedConcat
 
