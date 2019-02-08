@@ -200,6 +200,8 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
         "bazel",
         "build",
         "--config=opt",
+        "--config=mkl",
+        '--copt="-DINTEL_MKL_QUANTIZED"',
         "//tensorflow/tools/pip_package:build_pip_package",
     ]
     if verbosity:
@@ -432,8 +434,8 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0"
-    tf_version = "v1.12.0"
+    ngraph_version = "nishant_fix_in_place"
+    tf_version = "9b5a2831c8f9b52d2a83355ce3831771324c0ab4"
 
     # Default directories
     build_dir = 'build'
@@ -470,7 +472,7 @@ def main():
         # Setup the virtual env
         setup_venv(venv_dir)
 
-    target_arch = 'native'
+    target_arch = 'broadwell'
     if (arguments.target_arch):
         target_arch = arguments.target_arch
 
