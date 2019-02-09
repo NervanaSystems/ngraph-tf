@@ -300,6 +300,10 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["QuantizedAvgPool"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConcat"] =
+          SimpleConfirmationFunction();
+      //   confirmation_function_map["QuantizedConcatV2"] =
+      //       SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
@@ -442,8 +446,8 @@ Status MarkForClustering(Graph* graph) {
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConcat"]["T"] =
           NGraphSupportedQuantizedDTypes();
-      type_constraint_map["QuantizedConcatV2"]["T"] =
-          NGraphSupportedQuantizedDTypes();
+      //   type_constraint_map["QuantizedConcatV2"]["T"] =
+      //       NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
@@ -545,6 +549,13 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantize"] = SetStaticInputs({1, 2});
       set_attributes_map["QuantizedConcat"] = SetStaticInputs({0});
+      // Adjust negative input indices.
+      //   set_attributes_map["QuantizedConcatV2"] = [](Node* n) {
+      //     auto axis_index = (n->num_inputs() - 1) / 3;
+      //     cout << "axis_index is marked " << axis_index << endl;
+      //     SetStaticInputs(n, {axis_index});
+      //     return Status::OK();
+      //   };
       set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =

@@ -435,7 +435,8 @@ def main():
 
     # Component versions
     ngraph_version = "nishant_quantized_concat" #"v0.12.0"
-    tf_version = "quantized_concat_part_1"
+    #tf_version = "quantized_concat_part_1"
+    tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
 
     # Default directories
     build_dir = 'build'
@@ -482,7 +483,7 @@ def main():
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
-                      "https://github.com/NervanaSystems/private-tensorflow.git",
+                      "https://github.com/tensorflow/tensorflow.git",
                       tf_version)
 
         # Build TensorFlow

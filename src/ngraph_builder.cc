@@ -2738,6 +2738,79 @@ static Status TranslateQuantizedConcatOp(
   SaveNgOp(ng_op_map, op->name(),
            make_shared<ng::op::QuantizedConcat>(ng_args, size_t(concat_axis)));
 
+  // // Get the input_mins
+  auto start = num_of_tensors_to_concat + 1;
+  auto end = start + num_of_tensors_to_concat;
+
+  cout << "mins " << endl;
+  cout << "start is " << start << endl;
+  cout << "end is " << end << endl;
+
+  for (int i = start; i < end; i++) {
+    shared_ptr<ng::Node> ng_input_min;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_input_min));
+    SaveNgOp(ng_op_map, op->name(), ng_input_min);
+  }
+
+  // Get the input_maxs
+  start = num_of_tensors_to_concat * 2 + 1;
+  end = start + num_of_tensors_to_concat;
+
+  cout << "maxs " << endl;
+  cout << "start is " << start << endl;
+  cout << "end is " << end << endl;
+
+  for (int j = start; j < end; j++) {
+    shared_ptr<ng::Node> ng_input_max;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, j, &ng_input_max));
+    SaveNgOp(ng_op_map, op->name(), ng_input_max);
+  }
+
+  return Status::OK();
+}
+
+static Status TranslateQuantizedConcatV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  ng::NodeVector ng_args;
+  auto num_of_tensors_to_concat = (op->num_inputs() - 1) / 3;
+
+  for (int i = 0; i < num_of_tensors_to_concat; i++) {
+    shared_ptr<ng::Node> ng_arg;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_arg));
+    ng_args.push_back(ng_arg);
+  }
+
+  std::vector<int64> tf_concat_axis_vec;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(
+      op, num_of_tensors_to_concat, static_input_map, &tf_concat_axis_vec));
+
+  // QuantizedConcat doesn't have negative concat_axis
+  int64 concat_axis = tf_concat_axis_vec[0];
+
+  SaveNgOp(ng_op_map, op->name(),
+           make_shared<ng::op::QuantizedConcat>(ng_args, size_t(concat_axis)));
+
+  // Get the input_mins
+  auto start = num_of_tensors_to_concat + 1;
+  auto end = start + num_of_tensors_to_concat;
+
+  for (int i = start; i < end; i++) {
+    shared_ptr<ng::Node> ng_input_min;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_input_min));
+    SaveNgOp(ng_op_map, op->name(), ng_input_min);
+  }
+
+  // Get the input_maxs
+  start = num_of_tensors_to_concat * 2 + 1;
+  end = start + num_of_tensors_to_concat;
+
+  for (int i = start; i < end; i++) {
+    shared_ptr<ng::Node> ng_input_max;
+    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_input_max));
+    SaveNgOp(ng_op_map, op->name(), ng_input_max);
+  }
+
   return Status::OK();
 }
 
@@ -4357,6 +4430,7 @@ const static std::map<
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
         {"QuantizedAvgPool", TranslateQuantizedAvgPoolOp},
         {"QuantizedConcat", TranslateQuantizedConcatOp},
+        //{"QuantizedConcatV2", TranslateQuantizedConcatV2Op},
         {"QuantizedConv2DWithBiasAndReluAndRequantize",
          TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<true>},
         {"QuantizedConv2DWithBiasAndRequantize",
