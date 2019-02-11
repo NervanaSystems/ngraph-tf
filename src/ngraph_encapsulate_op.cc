@@ -23,6 +23,7 @@
 #include "tensorflow/core/framework/node_def_util.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/graph_constructor.h"
 
@@ -160,58 +161,6 @@ class NGraphEncapsulateOp : public OpKernel {
     }
   }
 
-  static Status TensorToStream(std::ostream& ostream, const Tensor& tensor) {
-    const char* data = tensor.tensor_data().data();
-    int64 n_elements = tensor.NumElements();
-    switch (tensor.dtype()) {
-      case DT_HALF:
-        TensorDataToStream<Eigen::half>(ostream, n_elements, data);
-        break;
-      case DT_FLOAT:
-        TensorDataToStream<float>(ostream, n_elements, data);
-        break;
-      case DT_DOUBLE:
-        TensorDataToStream<double>(ostream, n_elements, data);
-        break;
-      case DT_UINT32:
-        TensorDataToStream<uint32>(ostream, n_elements, data);
-        break;
-      case DT_INT32:
-        TensorDataToStream<int32>(ostream, n_elements, data);
-        break;
-      case DT_UINT8:
-      case DT_QUINT8:
-        TensorDataToStream<uint8>(ostream, n_elements, data);
-        break;
-      case DT_UINT16:
-      case DT_QUINT16:
-        TensorDataToStream<uint16>(ostream, n_elements, data);
-        break;
-      case DT_INT8:
-      case DT_QINT8:
-        TensorDataToStream<int8>(ostream, n_elements, data);
-        break;
-      case DT_INT16:
-      case DT_QINT16:
-        TensorDataToStream<int16>(ostream, n_elements, data);
-        break;
-      case DT_UINT64:
-        TensorDataToStream<uint64>(ostream, n_elements, data);
-        break;
-      case DT_INT64:
-        TensorDataToStream<int64>(ostream, n_elements, data);
-        break;
-      case DT_BOOL:
-        TensorDataToStream<bool>(ostream, n_elements, data);
-        break;
-      default:
-        return errors::Internal("TensorToStream got unsupported data type ",
-                                DataType_Name(tensor.dtype()));
-        break;
-    }
-    return Status::OK();
-  }
-
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
@@ -267,20 +216,74 @@ class NGraphEncapsulateOp : public OpKernel {
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
 
+      static mutex cache_miss_log_mutex;
+      static int report_number = 0;
+
+      if (std::getenv("NGRAPH_LOG_CACHE_MISS_DETAILS") != nullptr) {
+        mutex_lock l(cache_miss_log_mutex);
+
+        vector<Node*> ordered;
+        GetReversePostOrder(m_graph, &ordered);
+
+        int i = 0;
+
+        for (const auto n : ordered) {
+          if (n->type_string() != "_Arg") {
+            continue;
+          }
+
+          std::string arg_src_node;
+          int arg_src_output;
+          std::string arg_src_op;
+
+          OP_REQUIRES_OK(ctx, GetNodeAttr(n->attrs(), "_ngraph_arg_src_node", &arg_src_node));
+          OP_REQUIRES_OK(ctx, GetNodeAttr(n->attrs(), "_ngraph_arg_src_output", &arg_src_output));
+          OP_REQUIRES_OK(ctx, GetNodeAttr(n->attrs(), "_ngraph_arg_src_op", &arg_src_op));
+
+          std::cout << "CACHE MISS ARG:" << report_number << ":" << ctx->op_kernel().name() << ":" << arg_src_node << ":" << arg_src_output << ":" << arg_src_op << ":" << input_shapes[i] << ":";
+
+          if (m_input_is_static[i]) {
+            OP_REQUIRES_OK(ctx, TensorToStream(std::cout, *static_input_map[i]));
+          }
+          else {
+            std::cout << "value irrelevant";
+          }
+
+          std::cout << std::endl << std::flush;
+
+          for (const auto e : n->out_edges()) {
+            if (e->IsControlEdge()) {
+              continue;
+            }
+            std::cout << "CACHE MISS READER:" << report_number << ":" << ctx->op_kernel().name() << ":" << e->dst()->name() << ":" << e->dst_input() << ":" << e->dst()->type_string() << ":" << input_shapes[i] << ":";
+
+            if (m_input_is_static[i]) {
+              OP_REQUIRES_OK(ctx, TensorToStream(std::cout, *static_input_map[i]));
+            }
+            else {
+              std::cout << "value irrelevant";
+            }
+
+            std::cout << std::endl << std::flush;
+          }
+
+          i++;
+        }
+        report_number++;
+      }
+
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
-        std::string file_name =
-            "tf_function_" + ctx->op_kernel().name() + ".json";
-        NgraphSerialize("tf_function_" + ctx->op_kernel().name() + ".json",
-                        ng_function);
 #if defined NGRAPH_DISTRIBUTED
         ngraph::Distributed dist;
         int Rank_ID;
         Rank_ID = dist.get_rank();
-        NgraphSerialize("tf_function_" + ctx->op_kernel().name() + "_" +
-                            to_string(Rank_ID) + ".json",
-                        ng_function);
+        std::string file_name = "tf_function_" + ctx->op_kernel().name() + "_" + to_string(Rank_ID) + "_" + to_string(std::hash<std::string>()(signature)) + ".json";
+#else
+        std::string file_name =
+            "tf_function_" + ctx->op_kernel().name() + "_" + to_string(std::hash<std::string>()(signature)) + ".json";
 #endif
+        NgraphSerialize(file_name, ng_function);
       }
 
       m_ng_functions[signature] = ng_function;

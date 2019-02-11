@@ -202,6 +202,18 @@ Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank);
 void NgraphSerialize(const std::string&,
                      const std::shared_ptr<ngraph::Function>&);
 
+template <typename T>
+void TensorDataToStream(std::ostream& ostream, int64 n_elements,
+                               const char* data) {
+  const T* data_T = reinterpret_cast<const T*>(data);
+  for (size_t i = 0; i < n_elements; i++) {
+    ostream << data_T[i] << ",";
+  }
+}
+
+// Dump a tensor's data to an output stream
+Status TensorToStream(std::ostream& ostream, const Tensor& tensor);
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

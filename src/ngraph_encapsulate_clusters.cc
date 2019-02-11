@@ -261,6 +261,9 @@ Status EncapsulateClusters(Graph* graph) {
       SetAttrValue(dt, &((*(new_input_node_def->mutable_attr()))["T"]));
       SetAttrValue(arg_index_count[dst_cluster_idx],
                    &((*(new_input_node_def->mutable_attr()))["index"]));
+      SetAttrValue(src->name(), &((*(new_input_node_def->mutable_attr()))["_ngraph_arg_src_node"]));
+      SetAttrValue(edge->src_output(), &((*(new_input_node_def->mutable_attr()))["_ngraph_arg_src_output"]));
+      SetAttrValue(src->type_string(), &((*(new_input_node_def->mutable_attr()))["_ngraph_arg_src_op"]));
 
       arg_index_count[dst_cluster_idx]++;
 
