@@ -378,22 +378,14 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> last_tv = input_caches[i].second;
 
       void* current_src_ptr = (void*)DMAHelper::base(&ctx->input(i));
-      std::shared_ptr<ng::runtime::Tensor> current_tv;
+      std::shared_ptr<ng::runtime::Tensor> current_tv =
+          get_current_tv(current_src_ptr, last_src_ptr, last_tv, false,
+                         ng_function, op_backend, ng_element_type, ng_shape);
 
-      bool need_new_tensor_creation, is_stale, is_cpu;
-      std::tie(need_new_tensor_creation, is_stale, is_cpu) =
-          get_current_tv_requirements(current_src_ptr, last_src_ptr, last_tv,
-                                      false, ng_function);
-      // create a new ng tensor or use the last one
-      std::cout << "SRC:: getting current_tv\n";
-      current_tv = need_new_tensor_creation
-                       ? op_backend->create_tensor(ng_element_type, ng_shape,
-                                                   current_src_ptr)
-                       : last_tv;
-      std::cout << "SRC:: got current_tv\n";
-      current_tv->set_stale(is_stale);
-      std::cout << "SRC:: set staleness\n";
-      if (!is_cpu && is_stale) {
+      // TODO: is_cpu should be a class member
+      bool is_cpu = m_op_backend_name == "CPU";
+
+      if (!is_cpu && current_tv->get_stale()) {
         // Fresh or stale, in case of CPU this step is never needed
         try {
           current_tv->write(
@@ -411,6 +403,7 @@ class NGraphEncapsulateOp : public OpKernel {
                           "Error in transferring tensor data to nGraph\n"));
         }
       }
+
       input_caches[i] = std::make_pair(current_src_ptr, current_tv);
       ng_inputs.push_back(current_tv);
     }  // for (int i = 0; i < input_shapes.size(); i++)
@@ -454,21 +447,9 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> last_tv = output_caches[i].second;
 
       void* current_dst_ptr = DMAHelper::base(output_tensor);
-      std::shared_ptr<ng::runtime::Tensor> current_tv;
-
-      bool need_new_tensor_creation, is_stale, is_cpu;
-      std::tie(need_new_tensor_creation, is_stale, is_cpu) =
-          get_current_tv_requirements(current_dst_ptr, last_dst_ptr, last_tv,
-                                      true, ng_function);
-      // create a new ng tensor or use the last one
-      std::cout << "DST:: getting current_tv\n";
-      current_tv = need_new_tensor_creation
-                       ? op_backend->create_tensor(ng_element_type, ng_shape,
-                                                   current_dst_ptr)
-                       : last_tv;
-      std::cout << "DST:: got current_tv\n";
-      current_tv->set_stale(is_stale);
-      std::cout << "DST:: set staleness\n";
+      std::shared_ptr<ng::runtime::Tensor> current_tv =
+          get_current_tv(current_dst_ptr, last_dst_ptr, last_tv, true,
+                         ng_function, op_backend, ng_element_type, ng_shape);
 
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
       ng_outputs.push_back(current_tv);
@@ -547,6 +528,7 @@ class NGraphEncapsulateOp : public OpKernel {
         << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
         << m_ngraph_cluster;
 
+
     ResourceMgr* rm = ctx->resource_manager();
     if (m_ngraph_cluster_broadcaster == m_ngraph_cluster) {
       std::cout << "BROADCASTING FROM " << m_ngraph_cluster << "\n";
@@ -590,14 +572,13 @@ class NGraphEncapsulateOp : public OpKernel {
 
   int m_ngraph_cluster_broadcaster;
 
-  std::tuple<bool, bool, bool> get_current_tv_requirements(
+  std::shared_ptr<ng::runtime::Tensor> get_current_tv(
       void* current_tf_ptr, void* last_tf_ptr,
-      std::shared_ptr<ng::runtime::Tensor> last_tv, bool output_tensor,
-      std::shared_ptr<ngraph::Function> ng_function) {
-    // The purpose of the following lines is to decide where we get current_tv
-    // from
-    // current_tv can either be last_tv or a new tensor
-    // also we have to decide the staleness
+      const std::shared_ptr<ng::runtime::Tensor>& last_tv,
+      const bool& output_tensor,
+      const std::shared_ptr<ngraph::Function>& ng_function,
+      ng::runtime::Backend* op_backend,
+      const ng::element::Type& ng_element_type, const ng::Shape& ng_shape) {
 
     bool tf_tensor_has_changed = current_tf_ptr != last_tf_ptr;
     bool no_ng_tensor_found = last_tv == nullptr;
@@ -615,23 +596,31 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // It is stale if a new tensor was created OR the tf tensor has changed OR
     // (tf tensor has not changed, but freshness tracker says its stale)
-        
+
     // For output tensors, it is always set stale to true
     bool is_stale;
     if (output_tensor) {
       is_stale = true;
     } else {
       is_stale = need_new_tensor_creation || tf_tensor_has_changed ||
-        (!tf_tensor_has_changed &&
-         !m_freshness_tracker->IsFresh(current_tf_ptr, ng_function));
+                 (!tf_tensor_has_changed &&
+                  !m_freshness_tracker->IsFresh(current_tf_ptr, ng_function));
     }
 
-    std::cout << "tf_tensor_has_changed: " << tf_tensor_has_changed << "\n";
-    std::cout << "no_ng_tensor_found: " << no_ng_tensor_found << "\n";
-    std::cout << "is_cpu: " << is_cpu << "\n";
-    std::cout << "is_stale: " << is_stale << "\n";
-
-    return std::make_tuple(need_new_tensor_creation, is_stale, is_cpu);
+    // create a new ng tensor or use the last one
+    std::shared_ptr<ng::runtime::Tensor> current_tv;
+    if (need_new_tensor_creation) {
+      if (is_cpu) {
+        current_tv = op_backend->create_tensor(ng_element_type, ng_shape,
+                                               current_tf_ptr);
+      } else {
+        current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
+      }
+    } else {
+      current_tv = last_tv;
+    }
+    current_tv->set_stale(is_stale);
+    return current_tv;
   }
 };
 
@@ -641,4 +630,3 @@ REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
                         ngraph_bridge::NGraphEncapsulateOp);
 
 }  // namespace tensorflow
-
