@@ -529,7 +529,7 @@ TEST(ArrayOps, QuantizedConcat) {
 
   vector<int> static_input_indexes = {0};
   ops::QuantizedConcat R = ops::QuantizedConcat(
-      root, 1, {A, B, C}, {-5.0f, -5.0f, -5.0f}, {10.0f, 10.0f, 10.0f});
+      root, 1, {A, B, C}, {-1.0f, -2.0f, -3.0f}, {4.0f, 5.0f, 6.0f});
 
   vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
 
