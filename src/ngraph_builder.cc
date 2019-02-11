@@ -2827,7 +2827,6 @@ static Status TranslateQuantizedConcat2Op(
   return Status::OK();
 }
 
-
 static Status TranslateQuantizedConcatOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
