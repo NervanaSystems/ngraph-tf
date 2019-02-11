@@ -548,7 +548,16 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantize"] = SetStaticInputs({1, 2});
-      set_attributes_map["QuantizedConcat"] = SetStaticInputs({0});
+      //set_attributes_map["QuantizedConcat"] = SetStaticInputs({0});
+      set_attributes_map["QuantizedConcat"] = [](Node* n) {
+          SetStaticInputs(n, {0}); // the axis
+           auto num_of_tensors_to_concat = (n->num_inputs() - 1) / 3;
+           // mark all mins and maxes static
+           for (int idx = num_of_tensors_to_concat + 1; idx < n->num_inputs(); idx++){
+               SetStaticInputs(n, {idx});
+           }
+           return Status::OK();
+         };
       // Adjust negative input indices.
       //   set_attributes_map["QuantizedConcatV2"] = [](Node* n) {
       //     auto axis_index = (n->num_inputs() - 1) / 3;
