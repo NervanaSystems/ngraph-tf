@@ -18,8 +18,5 @@
 using namespace std;
 namespace tensorflow {
 
-namespace ngraph_bridge {
-
-
-}
+namespace ngraph_bridge {}
 }

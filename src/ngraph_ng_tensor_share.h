@@ -17,24 +17,21 @@
 #include <unordered_map>
 #include "tensorflow/core/framework/resource_mgr.h"
 
-
 namespace tensorflow {
 
 namespace ngraph_bridge {
 
 class NGraphNgTensorShare : public ResourceBase {
  public:
-
   // Not copyable or movable.
   NGraphNgTensorShare(const NGraphNgTensorShare&) = delete;
   NGraphNgTensorShare& operator=(const NGraphNgTensorShare&) = delete;
-  NGraphNgTensorShare(){}
+  NGraphNgTensorShare() {}
 
   std::string DebugString() override { return "FreshnessTracker"; }
 
   std::string secret_message;
   // Does it need a mutex? etc
-
 };
 }
 }

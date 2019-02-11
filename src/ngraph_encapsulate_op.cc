@@ -32,8 +32,8 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
-#include "ngraph_utils.h"
 #include "ngraph_ng_tensor_share.h"
+#include "ngraph_utils.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -53,40 +53,48 @@ using NgFunctionIOCache = std::unordered_map<
 
 namespace ngraph_bridge {
 
-
-// we want RM to contain a ResourceBase. Each ResourceBase manages 1 ngraph tensor
+// we want RM to contain a ResourceBase. Each ResourceBase manages 1 ngraph
+// tensor
 // Now 2 encapsulate inputs/outputs could share 1 ResourceBase
 // case 1: E1-->E2  (out of E1 shares in of E2)
 // OR
 // case 2: E1<--TF-->E2. Inputs of both E1 and E2 share a ResourceBase
 // (2 outputs will never be shared)
 
-// Plan: in the graph def of each encapsulate node, embed a string name of the ResourceBase they should use for
+// Plan: in the graph def of each encapsulate node, embed a string name of the
+// ResourceBase they should use for
 // Name of resourcebase: enc1_outOrIn_idx__enc2_outOrIn_idx ... encn_outOrIn_idx
-// Each encapsulate has a list of these string names of ResourceBases in its NodeDef
+// Each encapsulate has a list of these string names of ResourceBases in its
+// NodeDef
 
 // In the enc kernel Compute() function:
 // read self's resourcebase names
-// see if the current tensor self is trying to read/write form exists in the name
+// see if the current tensor self is trying to read/write form exists in the
+// name
 // if so, try to look up the ResourceBase in RM.
 // If found (and "fresh") use it, else create it
 
 // Advantages: this takes care of case 1 and case 2 both
-// Disadvantages: we are passing a lot of info in the name of the resource base... we can use multiple fields
+// Disadvantages: we are passing a lot of info in the name of the resource
+// base... we can use multiple fields
 
 // Order of things to do:
 // * Figure out the meta data to be added to encapsulate op's nodedef
-// * In the initial rewrite/encapsulating pass add the meta data (by figuring out parents/children etc)
+// * In the initial rewrite/encapsulating pass add the meta data (by figuring
+// out parents/children etc)
 // --- initially going to do case 1 only
 // * Understand the freshness tracker and how it would interact with this setup
 // * implement the Compute()
-// * run mnist_deep_simplified.py. Use verify_models to see some inference graphs run, run-all-models and some training models
+// * run mnist_deep_simplified.py. Use verify_models to see some inference
+// graphs run, run-all-models and some training models
 // * train an mnist to completion. See good accuracy
 // * measure time improvement
 
 // Future:
-// * think about backends that do not need the mutex lock we currently lock the Compute() call with
-// * think about the case where writing to ngraph tensors are a non blocking call.
+// * think about backends that do not need the mutex lock we currently lock the
+// Compute() call with
+// * think about the case where writing to ngraph tensors are a non blocking
+// call.
 // In these cases will sharing ever give rise to race/deadlocks?
 
 REGISTER_OP("NGraphEncapsulate")
@@ -111,8 +119,8 @@ class NGraphEncapsulateOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
     graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
 
-
-    OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster_broadcaster", &m_ngraph_cluster_broadcaster));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster_broadcaster",
+                                          &m_ngraph_cluster_broadcaster));
 
     GraphConstructorOptions opts;
     opts.allow_internal_ops = true;
@@ -372,73 +380,36 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
-      // Which encapsulate owns which Tensor?
-      // TF->E: Input tensor to E is owned by E
-      // E->TF: Output tensor from E is owned by E
-      // E1->E2: E1 owns the shared tensor
-      // TF->TF: NA
-
-      // Summary: Encapsulates own tensors. In case of conflist, the parent encapsulate owns the tensor
-      /*
-      if (parent_is_TF){
-
-      }
-
-      input_caches[i] = std::make_pair(current_src_ptr, current_tv);
-      ng_inputs.push_back(current_tv);
-      */
-
-
-
-      try {
-        if (m_op_backend_name == "CPU") {
-          // We need to check last_tv != nullptr, since there are cases where at
-          // the first call to the ng_function, both the current_src_ptr (when
-          // the input is a 0-sized tensor) and last_src_ptr (uninitialized at
-          // the first call) are nullptr
-          if (current_src_ptr == last_src_ptr && last_tv != nullptr) {
-            // Mark each tensor as non-stale if:
-            //   1. the freshness tracker says the tensor has not changed since
-            //      the last time ng_function was called, and
-            //   2. we are using the same tensor in this argument position as
-            //      the one we used last time ng_function was called.
-            last_tv->set_stale(
-                !m_freshness_tracker->IsFresh(current_src_ptr, ng_function));
-            current_tv = last_tv;
-          } else {
-            current_tv = op_backend->create_tensor(ng_element_type, ng_shape,
-                                                   current_src_ptr);
-            current_tv->set_stale(true);
-          }
-        } else {
-          if (last_tv != nullptr) {
-            if (current_src_ptr == last_src_ptr) {
-              last_tv->set_stale(
-                  !m_freshness_tracker->IsFresh(current_src_ptr, ng_function));
-            } else {
-              last_tv->set_stale(true);
-            }
-            current_tv = last_tv;
-          } else {
-            current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
-            current_tv->set_stale(true);
-          }
-          if (current_tv->get_stale()) {
-            current_tv->write(
-                current_src_ptr, 0,
-                current_tv->get_element_count() * ng_element_type.size());
-          }
-        }  // if (m_op_backend_name == "CPU")
-      } catch (const std::exception& exp) {
-        OP_REQUIRES(
-            ctx, false,
-            errors::Internal(
-                "Caught exception while transferring tensor data to nGraph: ",
-                exp.what(), "\n"));
-      } catch (...) {
-        OP_REQUIRES(
-            ctx, false,
-            errors::Internal("Error in transferring tensor data to nGraph\n"));
+      bool need_new_tensor_creation, is_stale, is_cpu;
+      std::tie(need_new_tensor_creation, is_stale, is_cpu) =
+          get_current_tv_requirements(current_src_ptr, last_src_ptr, last_tv,
+                                      false, ng_function);
+      // create a new ng tensor or use the last one
+      std::cout << "SRC:: getting current_tv\n";
+      current_tv = need_new_tensor_creation
+                       ? op_backend->create_tensor(ng_element_type, ng_shape,
+                                                   current_src_ptr)
+                       : last_tv;
+      std::cout << "SRC:: got current_tv\n";
+      current_tv->set_stale(is_stale);
+      std::cout << "SRC:: set staleness\n";
+      if (!is_cpu && is_stale) {
+        // Fresh or stale, in case of CPU this step is never needed
+        try {
+          current_tv->write(
+              current_src_ptr, 0,
+              current_tv->get_element_count() * ng_element_type.size());
+        } catch (const std::exception& exp) {
+          OP_REQUIRES(
+              ctx, false,
+              errors::Internal(
+                  "Caught exception while transferring tensor data to nGraph: ",
+                  exp.what(), "\n"));
+        } catch (...) {
+          OP_REQUIRES(ctx, false,
+                      errors::Internal(
+                          "Error in transferring tensor data to nGraph\n"));
+        }
       }
       input_caches[i] = std::make_pair(current_src_ptr, current_tv);
       ng_inputs.push_back(current_tv);
@@ -485,26 +456,20 @@ class NGraphEncapsulateOp : public OpKernel {
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv;
 
-      if (m_op_backend_name == "CPU") {
-        // We need to check last_tv != nullptr, since there are cases where at
-        // the first call to the ng_function, both the current_dst_ptr (when the
-        // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
-        // first call) are nullptr
-        if (current_dst_ptr == last_dst_ptr && last_tv != nullptr) {
-          current_tv = last_tv;
-        } else {
-          current_tv = op_backend->create_tensor(ng_element_type, ng_shape,
-                                                 current_dst_ptr);
-        }
-      } else {
-        if (last_tv != nullptr) {
-          current_tv = last_tv;
-        } else {
-          current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
-        }
-      }  // if (m_op_backend_name == "CPU")
+      bool need_new_tensor_creation, is_stale, is_cpu;
+      std::tie(need_new_tensor_creation, is_stale, is_cpu) =
+          get_current_tv_requirements(current_dst_ptr, last_dst_ptr, last_tv,
+                                      true, ng_function);
+      // create a new ng tensor or use the last one
+      std::cout << "DST:: getting current_tv\n";
+      current_tv = need_new_tensor_creation
+                       ? op_backend->create_tensor(ng_element_type, ng_shape,
+                                                   current_dst_ptr)
+                       : last_tv;
+      std::cout << "DST:: got current_tv\n";
+      current_tv->set_stale(is_stale);
+      std::cout << "DST:: set staleness\n";
 
-      current_tv->set_stale(true);
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
       ng_outputs.push_back(current_tv);
     }
@@ -550,6 +515,7 @@ class NGraphEncapsulateOp : public OpKernel {
     // Copy value to host if backend is not CPU
     try {
       if (m_op_backend_name != "CPU") {
+        // if (true) {
         for (size_t i = 0; i < output_caches.size(); ++i) {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::Tensor> dst_tv;
@@ -581,9 +547,8 @@ class NGraphEncapsulateOp : public OpKernel {
         << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
         << m_ngraph_cluster;
 
-
-    ResourceMgr *rm = ctx->resource_manager();
-    if (m_ngraph_cluster_broadcaster == m_ngraph_cluster){
+    ResourceMgr* rm = ctx->resource_manager();
+    if (m_ngraph_cluster_broadcaster == m_ngraph_cluster) {
       std::cout << "BROADCASTING FROM " << m_ngraph_cluster << "\n";
       NGraphNgTensorShare* tmp = new NGraphNgTensorShare;
       tmp->secret_message = "Hi from " + std::to_string(m_ngraph_cluster);
@@ -592,12 +557,12 @@ class NGraphEncapsulateOp : public OpKernel {
     } else {
       std::cout << "TRYING TO READ FROM " << m_ngraph_cluster << "\n";
       NGraphNgTensorShare* tmp = nullptr;
-        Status s = rm->Lookup("my_container", "my_name", &tmp);
-        if (s.ok()) {
-         cout << "READ THIS: " << tmp->secret_message << "\n";
-       } else {
-         cout << "DID NOT MANAGE TO READ\n";
-       }
+      Status s = rm->Lookup("my_container", "my_name", &tmp);
+      if (s.ok()) {
+        cout << "READ THIS: " << tmp->secret_message << "\n";
+      } else {
+        cout << "DID NOT MANAGE TO READ\n";
+      }
     }
   }  // end compute
 
@@ -625,6 +590,49 @@ class NGraphEncapsulateOp : public OpKernel {
 
   int m_ngraph_cluster_broadcaster;
 
+  std::tuple<bool, bool, bool> get_current_tv_requirements(
+      void* current_tf_ptr, void* last_tf_ptr,
+      std::shared_ptr<ng::runtime::Tensor> last_tv, bool output_tensor,
+      std::shared_ptr<ngraph::Function> ng_function) {
+    // The purpose of the following lines is to decide where we get current_tv
+    // from
+    // current_tv can either be last_tv or a new tensor
+    // also we have to decide the staleness
+
+    bool tf_tensor_has_changed = current_tf_ptr != last_tf_ptr;
+    bool no_ng_tensor_found = last_tv == nullptr;
+    bool is_cpu = m_op_backend_name == "CPU";
+
+    // We need to check last_tv != nullptr, since there are cases where at
+    // the first call to the ng_function, both the current_dst_ptr (when the
+    // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
+    // first call) are nullptr
+    // A new tensor needs to be created for sure if no_ng_tensor_found
+    // Additionally for CPU, it needs to be created if tf_tensor_has_changed,
+    // for others, we do not create
+    bool need_new_tensor_creation =
+        no_ng_tensor_found || (is_cpu ? tf_tensor_has_changed : false);
+
+    // It is stale if a new tensor was created OR the tf tensor has changed OR
+    // (tf tensor has not changed, but freshness tracker says its stale)
+        
+    // For output tensors, it is always set stale to true
+    bool is_stale;
+    if (output_tensor) {
+      is_stale = true;
+    } else {
+      is_stale = need_new_tensor_creation || tf_tensor_has_changed ||
+        (!tf_tensor_has_changed &&
+         !m_freshness_tracker->IsFresh(current_tf_ptr, ng_function));
+    }
+
+    std::cout << "tf_tensor_has_changed: " << tf_tensor_has_changed << "\n";
+    std::cout << "no_ng_tensor_found: " << no_ng_tensor_found << "\n";
+    std::cout << "is_cpu: " << is_cpu << "\n";
+    std::cout << "is_stale: " << is_stale << "\n";
+
+    return std::make_tuple(need_new_tensor_creation, is_stale, is_cpu);
+  }
 };
 
 }  // namespace ngraph_bridge
@@ -633,3 +641,4 @@ REGISTER_KERNEL_BUILDER(Name("NGraphEncapsulate").Device(DEVICE_CPU),
                         ngraph_bridge::NGraphEncapsulateOp);
 
 }  // namespace tensorflow
+
