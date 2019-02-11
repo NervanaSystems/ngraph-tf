@@ -529,7 +529,7 @@ TEST(ArrayOps, QuantizedConcat) {
 
   vector<int> static_input_indexes = {0};
   ops::QuantizedConcat R = ops::QuantizedConcat(
-      root, 1, {A, B, C}, {-5.0f, -5.0f, -5.0f}, {10.0f, 10.0f, 10.0f});
+      root, 1, {A, B, C}, {-1.0f, -2.0f, -3.0f}, {4.0f, 5.0f, 6.0f});
 
   vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
 
@@ -538,7 +538,28 @@ TEST(ArrayOps, QuantizedConcat) {
   OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
-  opexecuter.RunTest();
+
+  vector<Tensor> tf_outputs;
+  opexecuter.ExecuteOnTF(tf_outputs);
+  cout << "size of tf results " << tf_outputs.size() << endl;
+
+  cout << "TF results " << endl;
+  for(int i = 0; i < tf_outputs.size(); i++){
+    cout << "i is " << i << endl;
+    PrintTensorAllValues(tf_outputs[i], 100);
+  }
+
+  vector<Tensor> ngraph_outputs;
+  opexecuter.ExecuteOnNGraph(ngraph_outputs);
+  cout << "size of ngraph results " << ngraph_outputs.size() << endl;;
+
+  cout << "ngraph results " << endl;
+  for(int i = 0; i < ngraph_outputs.size(); i++){
+    cout << "i is " << i << endl;
+    PrintTensorAllValues(ngraph_outputs[i], 100);
+  }
+
+  //opexecuter.RunTest();
 }  // end of test op QuantizedConcat
 
 // CPU only supports QuantizedConcatV2 with DT_QINT32 and DT_QUINT8

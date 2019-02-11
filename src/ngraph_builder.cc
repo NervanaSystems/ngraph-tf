@@ -2742,23 +2742,29 @@ static Status TranslateQuantizedConcatOp(
   auto start = num_of_tensors_to_concat + 1;
   auto end = start + num_of_tensors_to_concat;
 
-  cout << "mins " << endl;
-  cout << "start is " << start << endl;
-  cout << "end is " << end << endl;
-
-  for (int i = start; i < end; i++) {
-    shared_ptr<ng::Node> ng_input_min;
-    TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_input_min));
-    SaveNgOp(ng_op_map, op->name(), ng_input_min);
+  std::vector<float> input_mins;
+  for (int i = start ; i < end; i++) {
+      std::vector<float> tf_input_min;
+      TF_RETURN_IF_ERROR(
+      GetStaticInputVector(op, start, static_input_map, &tf_input_min));
+      input_mins.push_back(tf_input_min[0]);
   }
+  
+  ng::Shape shape(1);
+  auto min = *std::min_element(input_mins.begin(), input_mins.end());
 
+  // auto const_2 = make_shared<ng::op::Constant>(
+  //     ng_input->get_element_type(), ng::Shape{}, std::vector<std::string>{"2"});
+
+  auto ng_node = std::make_shared<ng::op::Constant>(
+      ng::element::f32, ng::Shape(), ng_args);
+  //std::shared_ptr<ng::Node> ng_node = make_shared<ng::op::Constant>("a", min);
+
+  SaveNgOp(ng_op_map, op->name(), ng_node);
+  
   // Get the input_maxs
   start = num_of_tensors_to_concat * 2 + 1;
   end = start + num_of_tensors_to_concat;
-
-  cout << "maxs " << endl;
-  cout << "start is " << start << endl;
-  cout << "end is " << end << endl;
 
   for (int j = start; j < end; j++) {
     shared_ptr<ng::Node> ng_input_max;
