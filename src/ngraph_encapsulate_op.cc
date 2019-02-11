@@ -283,7 +283,7 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
 
-      m_ng_functions[signature] = ng_function;
+      //m_ng_functions[signature] = ng_function;
     } else {
       ng_function = it->second;
     }
@@ -483,6 +483,7 @@ class NGraphEncapsulateOp : public OpKernel {
             ctx, false,
             errors::Internal("Error in executing the nGraph computation\n"));
       }
+      op_backend->remove_compiled_function(ng_function);
       BackendManager::UnlockBackend(m_op_backend_name);
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
