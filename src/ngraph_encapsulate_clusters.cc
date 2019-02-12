@@ -484,6 +484,48 @@ Status EncapsulateClusters(Graph* graph) {
     graph->RemoveNode(node);
   }
 
+
+  // Pass 7: Find enc to enc connections, or other cases like E1<--TF-->E2 where ng tensors can be shared
+  // Create a map between encapsulate id and list-of-strings.
+  // Each string is of the form: enc1_outOrIn_idx__enc2_outOrIn_idx ... encn_outOrIn_idx and represents info of 1 shared tensor
+  // Use AddAttr
+  //std::unordered_map<int, vector<string>> ng_tensor_sharing_info;
+  typedef std::tuple<int, bool, int> EncTensorInfo;  // TODO: sarkars: may need better classes and functions?
+  std::unordered_map<int, std::pair<EncTensorInfo, EncTensorInfo>> ng_tensor_sharing_info; // Only case 1 sharing: E1-->E2
+
+  auto is_encapsulate = [](Node* n){return n->type_string() == "NGraphEncapsulate";};
+  for (auto edge : graph->edges()){
+    Node* src = edge->src();
+    Node* dst = edge->dst();
+    if (is_encapsulate(src) && is_encapsulate(dst)) {
+      int src_cluster_idx, dst_cluster_idx;
+      TF_RETURN_IF_ERROR(GetNodeAttr(src->attrs(), "ngraph_cluster", &src_cluster_idx));
+      TF_RETURN_IF_ERROR(GetNodeAttr(dst->attrs(), "ngraph_cluster", &dst_cluster_idx));
+      ng_tensor_sharing_info[src_cluster_idx] = std::make_pair(std::make_tuple(src_cluster_idx, false, edge->src_output()), std::make_tuple(dst_cluster_idx, true, edge->dst_input()));
+      ng_tensor_sharing_info[dst_cluster_idx] = ng_tensor_sharing_info[src_cluster_idx];
+      // TODO: sarkars: probably a better way to do this. have a unified way to do case1/case2?
+    }
+  }
+
+  auto get_string_info = [](EncTensorInfo tpl){ //TODO: sarkars: EncTensorInfo Could be tuple<int, int, int>, etc
+    int enc_id, slot_id;
+    bool is_output;
+    std::tie(enc_id, is_output, slot_id) = tpl;
+    std::vector<int> info = {enc_id, is_output ? 1 : 0, slot_id};
+    return ng::join(info, "_") ;};
+  for (auto node : graph->op_nodes()) {
+    if (is_encapsulate(node)){
+      int cluster_idx;
+      TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_cluster", &cluster_idx));
+      auto share_info = ng_tensor_sharing_info[cluster_idx];
+      std::string information_string = get_string_info(share_info.first) + "__" + get_string_info(share_info.second);
+    }
+  }
+
+
+  
+
+
   // Pass 7 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
   // make sure we can construct a graph from it.
