@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,29 @@
  * limitations under the License.
  *******************************************************************************/
 
-#pragma once
-
-#include "tensorflow/core/graph/graph.h"
+using namespace std;
 
 namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status EncapsulateClusters(Graph* graph, int graph_id);
+class TFGraphCatalog{
+public:
+  static TFGraphCatalog& getInstance(){
+    static TFGraphCatalog instance;
+    return instance;
+  }
 
-}  // namespace ngraph_bridge
+  int getGraphID();
 
-}  // namespace tensorflow
+
+private:
+  int id = 0;
+  TFGraphCatalog()= default;
+  ~TFGraphCatalog()= default;
+  TFGraphCatalog(const TFGraphCatalog&)= delete;
+  TFGraphCatalog& operator=(const TFGraphCatalog&)= delete;
+};
+
+}
+}

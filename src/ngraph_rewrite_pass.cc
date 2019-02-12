@@ -27,6 +27,8 @@
 #include "ngraph_rewrite_for_tracking.h"
 #include "tf_graph_writer.h"
 
+#include "ngraph_tf_graph_catalog.h"
+
 #include <iomanip>
 
 #if defined NGRAPH_DISTRIBUTED
@@ -209,6 +211,7 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
 class NGraphEncapsulationPass : public NGraphRewritePass {
  public:
   Status Run(const GraphOptimizationPassOptions& options) override {
+    int graph_id = TFGraphCatalog::getInstance().getGraphID();
     // If we don't get a main graph, log that fact and bail.
     if (options.graph == nullptr) {
       NGRAPH_VLOG(0) << "NGraphEncapsulationPass: options.graph == nullptr";
@@ -253,7 +256,7 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     }
 
     // 4. Encapsulate clusters then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
+    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get(), graph_id));
     if (DumpEncapsulatedGraphs()) {
       DumpGraphs(options, idx, "encapsulated",
                  "Graph with Clusters Encapsulated");

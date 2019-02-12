@@ -104,6 +104,7 @@ REGISTER_OP("NGraphEncapsulate")
     .Attr("Tresults: list(type) >= 0")
     .Attr("ngraph_cluster: int")
     .Attr("ngraph_cluster_broadcaster: int")
+    .Attr("graph_id: int")
     .SetIsStateful()
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
@@ -118,6 +119,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
     graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
+
+    OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("graph_id", &m_graph_id));
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster_broadcaster",
                                           &m_ngraph_cluster_broadcaster));
@@ -264,6 +267,8 @@ class NGraphEncapsulateOp : public OpKernel {
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
+
+    std::cout << "------------->>>Compute in graph: " << m_graph_id << " cluster " << m_ngraph_cluster;
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 
@@ -566,6 +571,7 @@ class NGraphEncapsulateOp : public OpKernel {
   // nGraphEncapsulateOp and nGraphVariable op
   NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
+  int m_graph_id;
   std::vector<bool> m_input_is_static;
   std::mutex m_compute_lock;
   string m_op_backend_name;

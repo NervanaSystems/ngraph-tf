@@ -50,6 +50,7 @@ set(SRC
    tf_deadness_analysis.cc
    version.cc
    ngraph_ng_tensor_share.cc
+   ngraph_tf_graph_catalog.cc
 )
 
 add_library(${LIB_NAME} SHARED ${SRC})
