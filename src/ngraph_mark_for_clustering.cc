@@ -302,8 +302,8 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConcat"] =
           SimpleConfirmationFunction();
-      //   confirmation_function_map["QuantizedConcatV2"] =
-      //       SimpleConfirmationFunction();
+        confirmation_function_map["QuantizedConcatV2"] =
+            SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
@@ -446,8 +446,8 @@ Status MarkForClustering(Graph* graph) {
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConcat"]["T"] =
           NGraphSupportedQuantizedDTypes();
-      //   type_constraint_map["QuantizedConcatV2"]["T"] =
-      //       NGraphSupportedQuantizedDTypes();
+        type_constraint_map["QuantizedConcatV2"]["T"] =
+            NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
@@ -548,9 +548,8 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantize"] = SetStaticInputs({1, 2});
-      //set_attributes_map["QuantizedConcat"] = SetStaticInputs({0});
       set_attributes_map["QuantizedConcat"] = [](Node* n) {
-          SetStaticInputs(n, {0}); // the axis
+           SetStaticInputs(n, {0}); // the axis
            auto num_of_tensors_to_concat = (n->num_inputs() - 1) / 3;
            // mark all mins and maxes static
            for (int idx = num_of_tensors_to_concat + 1; idx < n->num_inputs(); idx++){
@@ -558,13 +557,19 @@ Status MarkForClustering(Graph* graph) {
            }
            return Status::OK();
          };
-      // Adjust negative input indices.
-      //   set_attributes_map["QuantizedConcatV2"] = [](Node* n) {
-      //     auto axis_index = (n->num_inputs() - 1) / 3;
-      //     cout << "axis_index is marked " << axis_index << endl;
-      //     SetStaticInputs(n, {axis_index});
-      //     return Status::OK();
-      //   };
+        set_attributes_map["QuantizedConcatV2"] = [](Node* n) {
+          auto num_of_tensors_to_concat = (n->num_inputs() - 1) / 3;
+          // mark axis, all mins and maxes static
+          std::vector<int> static_input_vec;
+          for (int idx = num_of_tensors_to_concat; idx < n->num_inputs(); idx++){
+               cout << "num inputs is " << n->num_inputs() <<" set static input " << idx << "for op " << n->type_string() <<endl;
+               static_input_vec.push_back(idx);
+               //SetStaticInputs(n, {idx});
+           }
+           cout << "the size of the static input vec is " << static_input_vec.size() << endl;
+           SetStaticInputs(n, static_input_vec);
+           return Status::OK();
+        };
       set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SetStaticInputs({3, 4, 5, 6, 7, 8});
       set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =
