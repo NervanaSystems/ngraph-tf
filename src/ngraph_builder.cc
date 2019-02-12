@@ -440,14 +440,8 @@ static Status TranslateBinaryOp(
 static Status TranslateQuantizedPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map, std::string pooling_name) {
-  bool is_quantizedAvgPool = pooling_name == "QuantizedAvgPool" ? true : false;
-  bool is_quantizedMaxPool = pooling_name == "QuantizedMaxPool" ? true : false;
-
-  // Doesn't  compile
-  // bool is_quantizedAvgPool =
-  // std::is_same<T,ng::builder::ScaledQuantizedAvgPool>::value;
-  // bool is_quantizedMaxPool =
-  // std::is_same<T,ng::builder::ScaledQuantizedMaxPool>::value;
+  bool is_quantizedAvgPool = pooling_name == "QuantizedAvgPool";
+  bool is_quantizedMaxPool = pooling_name == "QuantizedMaxPool";
 
   if (!(is_quantizedAvgPool || is_quantizedMaxPool)) {
     return errors::InvalidArgument(
