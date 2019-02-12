@@ -598,6 +598,7 @@ class NGraphEncapsulateOp : public OpKernel {
       ng::runtime::Backend* op_backend,
       const ng::element::Type& ng_element_type, const ng::Shape& ng_shape) {
 
+    // NOTE: we assume that TF's pointers WILL change if it actually changes values. ie, it will not reuse the same space if its rewritten it
     bool tf_tensor_has_changed = current_tf_ptr != last_tf_ptr;
     bool no_ng_tensor_found = last_tv == nullptr;
     bool is_cpu = m_op_backend_name == "CPU";
@@ -634,7 +635,6 @@ class NGraphEncapsulateOp : public OpKernel {
       } else {
         current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
       }
-
     } else {
       current_tv = last_tv;
     }
@@ -650,58 +650,6 @@ class NGraphEncapsulateOp : public OpKernel {
       const std::shared_ptr<ngraph::Function>& ng_function,
       ng::runtime::Backend* op_backend,
       const ng::element::Type& ng_element_type, const ng::Shape& ng_shape) {
-
-    bool tf_tensor_has_changed = current_tf_ptr != last_tf_ptr;
-    bool no_ng_tensor_found = last_tv == nullptr;
-    bool is_cpu = m_op_backend_name == "CPU";
-
-   
-    bool need_new_tensor_creation =
-        no_ng_tensor_found || (is_cpu ? tf_tensor_has_changed : false);
-
-    // It is stale if a new tensor was created OR the tf tensor has changed OR
-    // (tf tensor has not changed, but freshness tracker says its stale)
-
-    // For output tensors, it is always set stale to true
-    bool is_stale;
-    if (output_tensor) {
-      is_stale = true;
-    } else {
-      is_stale = need_new_tensor_creation || tf_tensor_has_changed ||
-                 (!tf_tensor_has_changed &&
-                  !m_freshness_tracker->IsFresh(current_tf_ptr, ng_function));
-    }
-
-    // create a new ng tensor or use the last one
-    std::shared_ptr<ng::runtime::Tensor> current_tv;
-
-    // bool tensor_found_in_catalog = ...
-    // bool tensor_is_shared_in_catalog = ...
-    if (need_new_tensor_creation) {
-      if (is_cpu) {
-        current_tv = op_backend->create_tensor(ng_element_type, ng_shape,
-                                               current_tf_ptr);
-      } else {
-        current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
-      }
-
-    } else {
-      
-      //if (found_in_graph_catalog) {
-        // current_tv = read from graph catalog
-      //} else {
-      current_tv = last_tv;
-      // if (tensor_is_shared_in_catalog)
-      //     put in graph catalog
-      // }
-
-      // Note that input/output cache and graph catalogs are still separate (for now)
-      // inp/out caches are strictly for sharing tensors for a particular ng_function of an encapsulates particular input or input, across iterations
-      // graph_catalog (may need a better name, tensor_catalog?) is for sharing between encapsulates in the same run
-    }
-    current_tv->set_stale(is_stale);
-    return current_tv;
-
 
 
     // Note that the catalog should not be "key"ed with ng_functions like in/out caches
@@ -728,12 +676,15 @@ class NGraphEncapsulateOp : public OpKernel {
     // Now we try to see if we can get the tensor from the catalog
     
     if (not_found_fresh_in_cache_hence_check_in_catalog) {
-      // hard. find_in_catalog needs to be implemented. catalog needs to be designed
+      // hard. find_in_rm needs to be implemented. catalog/resourcebase needs to be designed
       bool tensor_is_tracked_in_catalog = ...; // hard. catalog needs to be designed
-      bool found = tensor_is_tracked_in_catalog ? find_in_catalog() : false;
+      bool found = tensor_is_tracked_in_catalog ? find_in_rm() : false;
+      if (tensor_is_tracked_in_catalog){
+        Tid repr_tid = get_representative_tensor_id_from_catalog();
+      }
       if (found) {
-        // hard. get_tensor_from_catalog needs to be implemented. catalog needs to be designed
-        current_tv = get_tensor_from_catalog();
+        // hard. get_tensor_from_rm needs to be implemented. catalog/resourcebase needs to be designed
+        current_tv = get_tensor_from_rm(repr_tid);
       } else {
         // create new tensor
         if (is_cpu) {
@@ -743,7 +694,7 @@ class NGraphEncapsulateOp : public OpKernel {
         }
 
         if (tensor_is_tracked_in_catalog){
-          save_in_catalog()
+          save_in_rm(repr_tid, current_tv)
           // save in catalog so that other sharers can access it? <<< // TODO
           // saving should be mutex locked
         }
@@ -752,7 +703,7 @@ class NGraphEncapsulateOp : public OpKernel {
       // at this point we have decided to use the TV if it is found in the cache AND it is fresh (from the previous iteration)
 
       // Use the tensor as is from the cache
-      // store in catalog? <<< // TODO: do we need to store in catalog??
+      // store in catalog? <<< // TODO: do we need to store in catalog?? yes, I think
       // Relevant code here
       // current_tv = last_tv;
       // current_tv->set_stale(is_stale);

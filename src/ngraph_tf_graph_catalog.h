@@ -69,6 +69,8 @@ public:
 
   bool tensorIsTracked(Tid tensor_id);
 
+  // If Catalog is made a pure information carrying class, then this function would return the Tid of the representative tensor.
+  // which would be used to query the resource manager
   ng::runtime::Tensor getTensorFromCatalog(Tid tensor_id){
       // if tensor is not found, throw an error
       Tid* p_ng_tensor;
