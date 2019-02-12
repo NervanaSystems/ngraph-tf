@@ -386,6 +386,8 @@ class NGraphEncapsulateOp : public OpKernel {
       std::shared_ptr<ng::runtime::Tensor> current_tv =
           get_current_tv(current_src_ptr, last_src_ptr, last_tv, false,
                          ng_function, op_backend, ng_element_type, ng_shape);
+      // currently get_current_tv deals with input_caches etc
+      // it reuses an ng_tensor (not the values, just the space) 
 
       // TODO: is_cpu should be a class member
       bool is_cpu = m_op_backend_name == "CPU";
@@ -435,6 +437,7 @@ class NGraphEncapsulateOp : public OpKernel {
       }
       TensorShape tf_shape(dims);
       Tensor* output_tensor = nullptr;
+      // Do we still need to allocate in Enc->Enc case? need to run and see
       OP_REQUIRES_OK(ctx, ctx->allocate_output(i, tf_shape, &output_tensor));
 
       // Make sure the nGraph-inferred element type agrees with what TensorFlow
@@ -450,6 +453,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
       void* last_dst_ptr = output_caches[i].first;
       std::shared_ptr<ng::runtime::Tensor> last_tv = output_caches[i].second;
+      // Note that the output cache is ng_function specific,
+      // which means last_tv and current_tv are sure to be of same shapes
 
       void* current_dst_ptr = DMAHelper::base(output_tensor);
       std::shared_ptr<ng::runtime::Tensor> current_tv =
@@ -507,6 +512,13 @@ class NGraphEncapsulateOp : public OpKernel {
           std::shared_ptr<ng::runtime::Tensor> dst_tv;
           std::tie(dst_ptr, dst_tv) = output_caches[i];
           auto ng_element_type = dst_tv->get_element_type();
+          // only output to TF if:
+          // Enc->TF
+          //  |
+          //  v
+          //  Enc
+          // Only copy data on the slot where TF might be reading from
+
           dst_tv->read(dst_ptr, 0,
                        dst_tv->get_element_count() * ng_element_type.size());
         }
@@ -622,11 +634,129 @@ class NGraphEncapsulateOp : public OpKernel {
       } else {
         current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
       }
+
     } else {
       current_tv = last_tv;
     }
     current_tv->set_stale(is_stale);
     return current_tv;
+  }
+
+
+  std::shared_ptr<ng::runtime::Tensor> get_current_tv_2(
+      void* current_tf_ptr, void* last_tf_ptr,
+      const std::shared_ptr<ng::runtime::Tensor>& last_tv,
+      const bool& output_tensor,
+      const std::shared_ptr<ngraph::Function>& ng_function,
+      ng::runtime::Backend* op_backend,
+      const ng::element::Type& ng_element_type, const ng::Shape& ng_shape) {
+
+    bool tf_tensor_has_changed = current_tf_ptr != last_tf_ptr;
+    bool no_ng_tensor_found = last_tv == nullptr;
+    bool is_cpu = m_op_backend_name == "CPU";
+
+   
+    bool need_new_tensor_creation =
+        no_ng_tensor_found || (is_cpu ? tf_tensor_has_changed : false);
+
+    // It is stale if a new tensor was created OR the tf tensor has changed OR
+    // (tf tensor has not changed, but freshness tracker says its stale)
+
+    // For output tensors, it is always set stale to true
+    bool is_stale;
+    if (output_tensor) {
+      is_stale = true;
+    } else {
+      is_stale = need_new_tensor_creation || tf_tensor_has_changed ||
+                 (!tf_tensor_has_changed &&
+                  !m_freshness_tracker->IsFresh(current_tf_ptr, ng_function));
+    }
+
+    // create a new ng tensor or use the last one
+    std::shared_ptr<ng::runtime::Tensor> current_tv;
+
+    // bool tensor_found_in_catalog = ...
+    // bool tensor_is_shared_in_catalog = ...
+    if (need_new_tensor_creation) {
+      if (is_cpu) {
+        current_tv = op_backend->create_tensor(ng_element_type, ng_shape,
+                                               current_tf_ptr);
+      } else {
+        current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
+      }
+
+    } else {
+      
+      //if (found_in_graph_catalog) {
+        // current_tv = read from graph catalog
+      //} else {
+      current_tv = last_tv;
+      // if (tensor_is_shared_in_catalog)
+      //     put in graph catalog
+      // }
+
+      // Note that input/output cache and graph catalogs are still separate (for now)
+      // inp/out caches are strictly for sharing tensors for a particular ng_function of an encapsulates particular input or input, across iterations
+      // graph_catalog (may need a better name, tensor_catalog?) is for sharing between encapsulates in the same run
+    }
+    current_tv->set_stale(is_stale);
+    return current_tv;
+
+
+
+    // Note that the catalog should not be "key"ed with ng_functions like in/out caches
+    // The could be "key"ed with shapes
+    
+    bool is_found_in_cache = ...; // Easy // Is it present in the input or output cache?
+    bool not_found_fresh_in_cache_hence_check_in_catalog;
+    if (is_found_in_cache) {
+      bool is_stale = ...; // Easy
+      // Found in cache and is fresh. Meaning we are reusing the value from last iteration
+      if (is_stale){
+        // It is not fresh, meaning that we can still reuse the space, but not the values
+        not_found_fresh_in_cache_hence_check_in_catalog = true;
+      } else {
+        not_found_fresh_in_cache_hence_check_in_catalog = false;
+      }
+    } else {
+      // Not found in cache. That means we have never seen a ng_function of this size
+      not_found_fresh_in_cache_hence_check_in_catalog = true;
+    }
+    // Summary of above if-else
+    bool not_found_fresh_in_cache_hence_check_in_catalog = is_found_in_cache ? is_stale : true;
+
+    // Now we try to see if we can get the tensor from the catalog
+    
+    if (not_found_fresh_in_cache_hence_check_in_catalog) {
+      // hard. find_in_catalog needs to be implemented. catalog needs to be designed
+      bool tensor_is_tracked_in_catalog = ...; // hard. catalog needs to be designed
+      bool found = tensor_is_tracked_in_catalog ? find_in_catalog() : false;
+      if (found) {
+        // hard. get_tensor_from_catalog needs to be implemented. catalog needs to be designed
+        current_tv = get_tensor_from_catalog();
+      } else {
+        // create new tensor
+        if (is_cpu) {
+          current_tv = op_backend->create_tensor(ng_element_type, ng_shape, current_tf_ptr);
+        } else {
+          current_tv = op_backend->create_tensor(ng_element_type, ng_shape);
+        }
+
+        if (tensor_is_tracked_in_catalog){
+          save_in_catalog()
+          // save in catalog so that other sharers can access it? <<< // TODO
+          // saving should be mutex locked
+        }
+      }
+    } else {
+      // at this point we have decided to use the TV if it is found in the cache AND it is fresh (from the previous iteration)
+
+      // Use the tensor as is from the cache
+      // store in catalog? <<< // TODO: do we need to store in catalog??
+      // Relevant code here
+      // current_tv = last_tv;
+      // current_tv->set_stale(is_stale);
+    }
   }
 };
 

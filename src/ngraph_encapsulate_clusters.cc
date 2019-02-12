@@ -487,12 +487,14 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
 
 
   // Pass 7: Find enc to enc connections, or other cases like E1<--TF-->E2 where ng tensors can be shared
-  // Create a map between encapsulate id and list-of-strings.
-  // Each string is of the form: enc1_outOrIn_idx__enc2_outOrIn_idx ... encn_outOrIn_idx and represents info of 1 shared tensor
-  // Use AddAttr
-  //std::unordered_map<int, vector<string>> ng_tensor_sharing_info;
-  typedef std::tuple<int, bool, int> EncTensorInfo;  // TODO: sarkars: may need better classes and functions?
-  std::unordered_map<int, std::pair<EncTensorInfo, EncTensorInfo>> ng_tensor_sharing_info; // Only case 1 sharing: E1-->E2
+
+  // may union find here.
+
+  auto get_string_info = [](int enc_id,  bool is_output, int slot_id){
+    std::vector<int> info = {enc_id, is_output ? 1 : 0, slot_id};
+    return ng::join(info, "_") ;};
+
+  std::unordered_map<string, int> ng_tensor_sharing_info;
 
   auto is_encapsulate = [](Node* n){return n->type_string() == "NGraphEncapsulate";};
   for (auto edge : graph->edges()){
@@ -502,18 +504,16 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
       int src_cluster_idx, dst_cluster_idx;
       TF_RETURN_IF_ERROR(GetNodeAttr(src->attrs(), "ngraph_cluster", &src_cluster_idx));
       TF_RETURN_IF_ERROR(GetNodeAttr(dst->attrs(), "ngraph_cluster", &dst_cluster_idx));
-      ng_tensor_sharing_info[src_cluster_idx] = std::make_pair(std::make_tuple(src_cluster_idx, false, edge->src_output()), std::make_tuple(dst_cluster_idx, true, edge->dst_input()));
-      ng_tensor_sharing_info[dst_cluster_idx] = ng_tensor_sharing_info[src_cluster_idx];
+
+      string key_src = get_string_info(src_cluster_idx, true, edge->src_output());
+      string key_dst = get_string_info(dst_cluster_idx, false, edge->src_output());
+      std::make_tuple(dst_cluster_idx, true, edge->dst_input());
+      auto it = ng_tensor_sharing_info.find(std::make_tuple(src_cluster_idx, false, edge->src_output()));
       // TODO: sarkars: probably a better way to do this. have a unified way to do case1/case2?
     }
   }
 
-  auto get_string_info = [](EncTensorInfo tpl){ //TODO: sarkars: EncTensorInfo Could be tuple<int, int, int>, etc
-    int enc_id, slot_id;
-    bool is_output;
-    std::tie(enc_id, is_output, slot_id) = tpl;
-    std::vector<int> info = {enc_id, is_output ? 1 : 0, slot_id};
-    return ng::join(info, "_") ;};
+  
   for (auto node : graph->op_nodes()) {
     if (is_encapsulate(node)){
       int cluster_idx;
