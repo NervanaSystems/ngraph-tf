@@ -313,7 +313,13 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
       // Evict the cache if the number of elements exceeds 16
-      if (m_ng_functions.size() > 16) {
+      const char* cache_depth_specified =
+          std::getenv("NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH");
+      if (cache_depth_specified != nullptr) {
+        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(cache_depth_specified);
+      }
+      if (m_ng_functions.size() > NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH) {
+        op_backend->remove_compiled_function(m_ng_functions[LRU.back()]);
         m_ng_functions.erase(LRU.back());
         LRU.pop_back();
       }
@@ -323,17 +329,16 @@ class NGraphEncapsulateOp : public OpKernel {
       mem_usage(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-      cout << "Step_ID: " << ctx->step_id()
-           << "  NGRAPH_TF_CACHE_PROFILE: " << ctx->op_kernel().name() << endl;
-      cout << "Delta Virtual Memory Measurment: " << delta_vm_mem
-           << "  Delta Resident Memory Measurment: " << delta_res_mem
-           << "  Function Memory Measurment: " << function_size << endl;
-      NGRAPH_VLOG(1) << "Step_ID: " << ctx->step_id()
-                     << "  NGRAPH_TF_CACHE_PROFILE: "
-                     << ctx->op_kernel().name();
-      NGRAPH_VLOG(1) << "Delta Virtual Memory Measurment: " << delta_vm_mem
-                     << "  Delta Resident Memory Measurment: " << delta_res_mem
-                     << "  Function Memory Measurment: " << function_size;
+
+      NGRAPH_VLOG(1) << "NGRAPH_TF_CACHE_PROFILE: " << ctx->op_kernel().name()
+                     << "  Step_ID: " << ctx->step_id()
+                     << "  Delta VM: " << delta_vm_mem
+                     << "  Delta RSS: " << delta_res_mem
+                     << "  Function name:  " << ng_function->get_name()
+                     << "  Function Memory Measurment:  " << function_size
+                     << "  Total RSS in KB:  " << rss
+                     << "  Total VM in KB:  " << vm
+                     << "  Cache length: " << m_ng_functions.size() << endl;
     } else {
       // Update the LRU
       if (signature != LRU.front()) {
@@ -521,7 +526,6 @@ class NGraphEncapsulateOp : public OpKernel {
         op_backend->call(op_backend->compile(ng_function), ng_outputs,
                          ng_inputs);
 
-        // op_backend->remove_compiled_function(ng_function);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
@@ -599,6 +603,7 @@ class NGraphEncapsulateOp : public OpKernel {
   std::mutex m_compute_lock;
   string m_op_backend_name;
   std::list<std::string> LRU;
+  int NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = 16;
 };
 
 }  // namespace ngraph_bridge
