@@ -432,7 +432,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "484c0a0de9ae00aa13c7ecdcb3b33a136970c1c1" #"v0.12.0-rc.1"
+    ngraph_version = "v0.14.0-rc.0" #"484c0a0de9ae00aa13c7ecdcb3b33a136970c1c1" #"v0.12.0-rc.1"
     tf_version = "v1.12.0"
 
     # Default directories
