@@ -34,7 +34,7 @@
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 
-#include "ngraph/runtime/cpu/cpu_backend.hpp"
+#include "ngraph/runtime/backend.hpp"
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
 #if defined NGRAPH_DISTRIBUTED
@@ -223,7 +223,6 @@ class NGraphEncapsulateOp : public OpKernel {
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(m_op_backend_name);
 
-    long vm, rss, vm0, rss0;
     // Get the inputs
     std::vector<TensorShape> input_shapes;
     std::stringstream signature_ss;
@@ -265,6 +264,8 @@ class NGraphEncapsulateOp : public OpKernel {
     // TODO(amprocte): Investigate performance of the compilation cache.
     if (it == m_ng_functions.end()) {
       // Measure the total memory here first
+      long vm, rss, vm0, rss0;
+
       MemoryProfile(vm0, rss0);
 
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
@@ -290,18 +291,18 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
       // Evict the cache if the number of elements exceeds 16
-      const char* cache_depth_specified =
+      const char* m_cache_depth_specified =
           std::getenv("NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH");
-      if (cache_depth_specified != nullptr) {
-        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(cache_depth_specified);
+      if (m_cache_depth_specified != nullptr) {
+        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(m_cache_depth_specified);
       }
       if (m_ng_functions.size() >= NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH) {
-        op_backend->remove_compiled_function(m_ng_functions[LRU.back()]);
-        m_ng_functions.erase(LRU.back());
-        LRU.pop_back();
+        op_backend->remove_compiled_function(m_ng_functions[m_lru.back()]);
+        m_ng_functions.erase(m_lru.back());
+        m_lru.pop_back();
       }
       m_ng_functions[signature] = ng_function;
-      LRU.push_front(signature);
+      m_lru.push_front(signature);
       // Memory after
       MemoryProfile(vm, rss);
       auto delta_vm_mem = vm - vm0;
@@ -317,10 +318,10 @@ class NGraphEncapsulateOp : public OpKernel {
                      << "  Total VM in KB:  " << vm
                      << "  Cache length: " << m_ng_functions.size() << endl;
     } else {
-      // Update the LRU
-      if (signature != LRU.front()) {
-        LRU.remove(signature);
-        LRU.push_front(signature);
+      // Update the lru list
+      if (signature != m_lru.front()) {
+        m_lru.remove(signature);
+        m_lru.push_front(signature);
       }
       ng_function = it->second;
     }
@@ -579,7 +580,7 @@ class NGraphEncapsulateOp : public OpKernel {
   std::vector<bool> m_input_is_static;
   std::mutex m_compute_lock;
   string m_op_backend_name;
-  std::list<std::string> LRU;
+  std::list<std::string> m_lru;
   int NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = 16;
 };
 
