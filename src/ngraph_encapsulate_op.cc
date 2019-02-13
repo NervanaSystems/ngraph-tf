@@ -473,6 +473,8 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     // Mark input tensors as fresh for the next time around.
+    // Note: these ng_tensors are being marked fresh so that in the next
+    // iteration if this encapsulate finds the tensor fresh, then it will use it
     for (int i = 0; i < input_shapes.size(); i++) {
       void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       m_freshness_tracker->MarkFresh(src_ptr, ng_function);
@@ -516,8 +518,7 @@ class NGraphEncapsulateOp : public OpKernel {
     bool is_cpu = m_op_backend_name == "CPU";
 
     // We need to check last_ng_tensor != nullptr, since there are cases where
-    // at
-    // the first call to the ng_function, both the current_dst_ptr (when the
+    // at the first call to the ng_function, both current_dst_ptr (when the
     // output is a 0-sized tensor) and last_dst_ptr (uninitialized at the
     // first call) are nullptr
     // A new tensor needs to be created for sure if no_ng_tensor_found
@@ -534,8 +535,7 @@ class NGraphEncapsulateOp : public OpKernel {
     // (tf tensor has not changed, but freshness tracker says its stale)
     bool is_stale;
     if (output_tensor) {
-      // For output tensors, it is always set stale to true
-      is_stale = true;
+      is_stale = true;  // For output tensors, it is always set stale to true
     } else {
       is_stale = need_new_tensor_creation || tf_tensor_has_changed ||
                  (!tf_tensor_has_changed &&
