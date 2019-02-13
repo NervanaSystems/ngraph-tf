@@ -204,7 +204,7 @@ void NgraphSerialize(const std::string&,
 
 // Collect the total memory usage through /proc/self/stat
 void MemoryProfile(long&, long&);
-     
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
