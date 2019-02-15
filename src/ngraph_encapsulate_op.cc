@@ -35,7 +35,7 @@
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/backend.hpp"
-#include "ngraph/runtime/interpreter/int_backend.hpp"
+//#include "ngraph/runtime/interpreter/int_backend.hpp"
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
@@ -68,7 +68,14 @@ class NGraphEncapsulateOp : public OpKernel {
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
         m_freshness_tracker(nullptr) {
-    NGRAPH_VLOG(2) << "NGraphEncapsulateOp: Name: " << name();
+    my_instance_id_ = instance_id_;
+    instance_id_++;
+
+    NGRAPH_VLOG(2) << "NGraphEncapsulateOp: " << my_instance_id_
+                   << " Name: " << name();
+
+    std::cout << "NGraphEncapsulateOp: " << my_instance_id_
+              << " Name: " << name() << std::endl;
     GraphDef* graph_def;
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
@@ -213,6 +220,29 @@ class NGraphEncapsulateOp : public OpKernel {
     return Status::OK();
   }
 
+  void mem_usage(double& vm_usage, double& resident_set) {
+    vm_usage = 0;
+    resident_set = 0;
+
+    // the two fields we want
+    unsigned long vsize;
+    long rss;
+    {
+      std::string ignore;
+      std::ifstream ifs("/proc/self/stat", std::ios_base::in);
+      std::string mem_in;
+      getline(ifs, mem_in);
+      vector<string> mem_str = ng::split(mem_in, ' ');
+      vsize = std::stol(mem_str[22]);
+      rss = std::stol(mem_str[23]);
+    }
+
+    long page_size_kb = sysconf(_SC_PAGE_SIZE) /
+                        1024;  // in case x86-64 is configured to use 2MB pages
+    vm_usage = vsize / 1024;   // unit kb
+    resident_set = rss * page_size_kb;
+  }
+
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
@@ -248,6 +278,7 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     std::shared_ptr<ngraph::Function> ng_function;
+    std::shared_ptr<ngraph::Function> evicted_ng_function;
     std::string signature = signature_ss.str();
 
     if (NGRAPH_VLOG_IS_ON(5)) {
@@ -265,7 +296,6 @@ class NGraphEncapsulateOp : public OpKernel {
     if (it == m_ng_functions.end()) {
       // Measure the total memory here first
       long vm, rss, vm0, rss0;
-
       MemoryProfile(vm0, rss0);
 
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
@@ -291,14 +321,34 @@ class NGraphEncapsulateOp : public OpKernel {
 #endif
       }
       // Evict the cache if the number of elements exceeds 16
-      const char* m_cache_depth_specified =
+      const char* cache_depth_specified =
           std::getenv("NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH");
-      if (m_cache_depth_specified != nullptr) {
-        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(m_cache_depth_specified);
+      if (cache_depth_specified != nullptr) {
+        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(cache_depth_specified);
       }
       if (m_ng_functions.size() >= NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH) {
-        op_backend->remove_compiled_function(m_ng_functions[m_lru.back()]);
+        evicted_ng_function = m_ng_functions[m_lru.back()];
         m_ng_functions.erase(m_lru.back());
+
+        // Call delete function here pf he erased func
+        op_backend->remove_compiled_function(evicted_ng_function);
+
+        // Now clean the input cache
+        std::vector<std::pair<void*, std::shared_ptr<ng::runtime::Tensor>>>&
+            input_caches = m_ng_function_input_cache_map[evicted_ng_function];
+        for (auto& next_input : input_caches) {
+          next_input.second.reset();
+        }
+        m_ng_function_input_cache_map.erase(evicted_ng_function);
+
+        // Clean the output cache
+        std::vector<std::pair<void*, std::shared_ptr<ng::runtime::Tensor>>>&
+            output_caches = m_ng_function_output_cache_map[evicted_ng_function];
+        for (auto& next_output : output_caches) {
+          next_output.second.reset();
+        }
+        m_ng_function_output_cache_map.erase(evicted_ng_function);
+
         m_lru.pop_back();
       }
       m_ng_functions[signature] = ng_function;
@@ -307,18 +357,17 @@ class NGraphEncapsulateOp : public OpKernel {
       MemoryProfile(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-
-      NGRAPH_VLOG(1) << "NGRAPH_TF_CACHE_PROFILE: " << ctx->op_kernel().name()
-                     << "  Step_ID: " << ctx->step_id()
-                     << "  Delta VM: " << delta_vm_mem
+      NGRAPH_VLOG(1) << "NGRAPH_TF_CACHE_PROFILE: OP_ID: " << my_instance_id_
+                     << " Step_ID: " << ctx->step_id()
+                     << " Cache length: " << m_ng_functions.size()
+                     << "  Function: " << ctx->op_kernel().name()
+                     << " Delta VM: " << delta_vm_mem
                      << "  Delta RSS: " << delta_res_mem
-                     << "  Function name:  " << ng_function->get_name()
-                     << "  Function Memory Measurment:  " << function_size
-                     << "  Total RSS in KB:  " << rss
-                     << "  Total VM in KB:  " << vm
-                     << "  Cache length: " << m_ng_functions.size() << endl;
+                     << "  Function size: " << function_size
+                     << " KB Total RSS: " << rss / (1024 * 1024) << " GB "
+                     << " VM: " << vm / (1024 * 1024) << " GB" << endl;
     } else {
-      // Update the lru list
+      // Update the m_lru
       if (signature != m_lru.front()) {
         m_lru.remove(signature);
         m_lru.push_front(signature);
@@ -582,7 +631,11 @@ class NGraphEncapsulateOp : public OpKernel {
   string m_op_backend_name;
   std::list<std::string> m_lru;
   int NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = 16;
+  static int instance_id_;
+  int my_instance_id_{0};
 };
+
+int NGraphEncapsulateOp::instance_id_ = 0;
 
 }  // namespace ngraph_bridge
 
