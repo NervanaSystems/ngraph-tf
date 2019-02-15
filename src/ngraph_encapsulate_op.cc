@@ -463,8 +463,8 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
-        op_backend->call(op_backend->compile(ng_function), ng_outputs,
-                         ng_inputs);
+        auto exec = op_backend->compile(ng_function);
+        exec->call(ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
