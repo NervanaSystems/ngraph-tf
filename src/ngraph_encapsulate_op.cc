@@ -35,7 +35,6 @@
 #include "ngraph_utils.h"
 
 #include "ngraph/runtime/backend.hpp"
-//#include "ngraph/runtime/interpreter/int_backend.hpp"
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"
