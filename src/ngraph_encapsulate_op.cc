@@ -284,10 +284,16 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       m_ng_functions[signature] = ng_function;
+      NGRAPH_VLOG(1)<<"Setting Function name for cluster "<< m_ngraph_cluster;
+      ng_function->set_name("NGTF_Encapsulate_" + m_ngraph_cluster);
     } else {
       ng_function = it->second;
     }
 
+    
+    
+    NGRAPH_VLOG(1)<<"NG Function Name for cluster: "<<m_ngraph_cluster << " : "<<  ng_function->get_friendly_name();
+    
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got graph for cluster "
                    << m_ngraph_cluster;
 

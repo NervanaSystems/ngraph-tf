@@ -442,7 +442,18 @@ static Status TranslateAllreduceOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::AllReduce>(ng_input));
+  //Get the corresponding TF op to ng_input
+  //Set name of the ng input node same as TF op
+  Node* tf_input;
+  TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+  ng_input->set_name(tf_input->name());
+
+  auto ng_all_reduce = make_shared<ng::op::AllReduce>(ng_input);
+  ng_all_reduce->set_name(op->name());
+  SaveNgOp(ng_op_map, op->name(), ng_all_reduce);
+  NGRAPH_VLOG(1)<<"Translating All Reduce Op";
+  NGRAPH_VLOG(1)<<"AllReduce ng-op "<< ng_input->get_friendly_name();
+  NGRAPH_VLOG(1)<<"AllReduce input ng-op "<<ng_all_reduce->get_friendly_name();
   return Status::OK();
 }
 
