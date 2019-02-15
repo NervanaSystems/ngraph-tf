@@ -324,8 +324,8 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, num
     ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
     if (len(ngtf_wheel_files) != 1):
         print("Multiple Python whl files exist. Please remove old wheels")
-        for whl in nnp_wheel_files:
-            print(whl)
+        for whl in ngtf_wheel_files:
+            print("Existing Wheel: " + whl)
         raise Exception("Error getting the ngraph-tf wheel file")
 
     output_wheel = ngtf_wheel_files[0]
@@ -444,7 +444,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.12.0-rc.1"
+    ngraph_version = "v0.14.0-rc.0" 
     tf_version = "v1.12.0"
 
     # Default directories
@@ -533,9 +533,9 @@ def main():
             ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
         if (arguments.distributed_build): 
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=TRUE"])
         else:
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=FALSE"])
 
         build_ngraph("./ngraph", ngraph_cmake_flags, arguments.jobs, verbosity)
 
