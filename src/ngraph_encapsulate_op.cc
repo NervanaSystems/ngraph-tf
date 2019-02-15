@@ -63,14 +63,17 @@ REGISTER_OP("NGraphEncapsulate")
 
 class NGraphEncapsulateOp : public OpKernel {
  public:
+  //---------------------------------------------------------------------------
+  //  NGraphEncapsulateOp::ctor
+  //---------------------------------------------------------------------------
   explicit NGraphEncapsulateOp(OpKernelConstruction* ctx)
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
         m_freshness_tracker(nullptr) {
-    my_instance_id_ = instance_id_;
-    instance_id_++;
+    my_instance_id = s_instance_count;
+    s_instance_count++;
 
-    NGRAPH_VLOG(1) << "NGraphEncapsulateOp: " << my_instance_id_
+    NGRAPH_VLOG(1) << "NGraphEncapsulateOp: " << my_instance_id
                    << " Name: " << name();
 
     GraphDef* graph_def;
@@ -137,6 +140,9 @@ class NGraphEncapsulateOp : public OpKernel {
     BackendManager::CreateBackend(m_op_backend_name);
   }
 
+  //---------------------------------------------------------------------------
+  //  ~NGraphEncapsulateOp()
+  //---------------------------------------------------------------------------
   ~NGraphEncapsulateOp() override {
     // If the kernel goes away, we must de-register all of its cached
     // functions
@@ -165,6 +171,9 @@ class NGraphEncapsulateOp : public OpKernel {
     }
   }
 
+  //---------------------------------------------------------------------------
+  //  TensorToStream
+  //---------------------------------------------------------------------------
   static Status TensorToStream(std::ostream& ostream, const Tensor& tensor) {
     const char* data = tensor.tensor_data().data();
     int64 n_elements = tensor.NumElements();
@@ -217,30 +226,9 @@ class NGraphEncapsulateOp : public OpKernel {
     return Status::OK();
   }
 
-  void mem_usage(double& vm_usage, double& resident_set) {
-    vm_usage = 0;
-    resident_set = 0;
-
-    // the two fields we want
-    unsigned long vsize;
-    long rss;
-    {
-      std::string ignore;
-      std::ifstream ifs("/proc/self/stat", std::ios_base::in);
-      std::string mem_in;
-      getline(ifs, mem_in);
-      vector<string> mem_str = ng::split(mem_in, ' ');
-      vsize = std::stol(mem_str[22]);
-      rss = std::stol(mem_str[23]);
-    }
-
-    long page_size_kb = sysconf(_SC_PAGE_SIZE) /
-                        1024;  // in case x86-64 is configured to use 2MB pages
-    vm_usage = vsize / 1024;   // unit kb
-    resident_set = rss * page_size_kb;
-  }
-
-  // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
+  //---------------------------------------------------------------------------
+  // OpKernel::Compute
+  //---------------------------------------------------------------------------
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
@@ -319,10 +307,10 @@ class NGraphEncapsulateOp : public OpKernel {
       const char* cache_depth_specified =
           std::getenv("NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH");
       if (cache_depth_specified != nullptr) {
-        NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = atoi(cache_depth_specified);
+        my_function_cache_depth_in_items = atoi(cache_depth_specified);
       }
 
-      if (m_ng_functions.size() >= NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH) {
+      if (m_ng_functions.size() >= my_function_cache_depth_in_items) {
         int input_tensors_bytes_free = 0;
         evicted_ng_function = m_ng_functions[m_lru.back()];
         m_ng_functions.erase(m_lru.back());
@@ -350,7 +338,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
         m_ng_function_output_cache_map.erase(evicted_ng_function);
         m_lru.pop_back();
-        NGRAPH_VLOG(1) << "NGRAPH_TF_MEM_PROFILE:  OP_ID: " << my_instance_id_
+        NGRAPH_VLOG(1) << "NGRAPH_TF_MEM_PROFILE:  OP_ID: " << my_instance_id
                        << " Step_ID: " << ctx->step_id()
                        << " Cluster: " << ctx->op_kernel().name()
                        << " Input Tensors freed: "
@@ -364,7 +352,7 @@ class NGraphEncapsulateOp : public OpKernel {
       MemoryProfile(vm, rss);
       auto delta_vm_mem = vm - vm0;
       auto delta_res_mem = rss - rss0;
-      NGRAPH_VLOG(1) << "NGRAPH_TF_CACHE_PROFILE: OP_ID: " << my_instance_id_
+      NGRAPH_VLOG(1) << "NGRAPH_TF_CACHE_PROFILE: OP_ID: " << my_instance_id
                      << " Step_ID: " << ctx->step_id()
                      << " Cache length: " << m_ng_functions.size()
                      << "  Cluster: " << ctx->op_kernel().name()
@@ -589,7 +577,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     long vm, rss;
     MemoryProfile(vm, rss);
-    NGRAPH_VLOG(1) << "NGRAPH_TF_MEM_PROFILE:  OP_ID: " << my_instance_id_
+    NGRAPH_VLOG(1) << "NGRAPH_TF_MEM_PROFILE:  OP_ID: " << my_instance_id
                    << " Step_ID: " << ctx->step_id()
                    << " Cluster: " << ctx->op_kernel().name()
                    << " Input Tensors created: "
@@ -655,12 +643,12 @@ class NGraphEncapsulateOp : public OpKernel {
   std::mutex m_compute_lock;
   string m_op_backend_name;
   std::list<std::string> m_lru;
-  int NGRAPH_TF_FUNCTION_CACHE_ITEM_DEPTH = 16;
-  static int instance_id_;
-  int my_instance_id_{0};
+  int my_function_cache_depth_in_items = 16;
+  static int s_instance_count;
+  int my_instance_id{0};
 };
 
-int NGraphEncapsulateOp::instance_id_ = 0;
+int NGraphEncapsulateOp::s_instance_count = 0;
 
 }  // namespace ngraph_bridge
 
