@@ -35,7 +35,7 @@ Before running the application, set the `LD_LIBRARY_PATH` (or `DYLD_LIBRARY_PATH
 Where `NGRAPH_TF_DIR` should point to the directory where ngraph-tf was cloned.
 
 :warning: Note: If this example is built on CentOS then the library directory 
-if `lib64` - so please set the `LD_LIBRARY_PATH` accordingly
+is `lib64` - so please set the `LD_LIBRARY_PATH` accordingly
 
 Next run the executable `./hello_tf`
 

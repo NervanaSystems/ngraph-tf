@@ -241,24 +241,23 @@ def main():
     venv_dir = 'build/venv-tf-py3'
 
     # First run the C++ gtests
-    #run_ngtf_gtests(build_dir)
+    run_ngtf_gtests(build_dir)
 
     # Next run Python unit tests
     load_venv(venv_dir)
-    #run_ngtf_pytests(venv_dir, build_dir)
+    run_ngtf_pytests(venv_dir, build_dir)
 
     if (arguments.test_examples): 
         # Run the C++ example build/run test
         run_cpp_example_test('build')
 
     # Next run the TensorFlow python tests
-    #run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
+    run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
 
     # Finally run Resnet50 based training and inferences
-    #run_resnet50(build_dir)
+    run_resnet50(build_dir)
 
     os.chdir(root_pwd)
-
 
 if __name__ == '__main__':
     main()
