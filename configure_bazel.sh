@@ -39,3 +39,10 @@ write_action_env_to_bazelrc "TF_SHARED_LIBRARY_DIR" ${TF_LFLAGS:2}
 
 # Write the CXX ABI to the file 
 echo "CXX_ABI = ['-D_GLIBCXX_USE_CXX11_ABI=$TF_CXX_ABI']" > cxx_abi_option.bzl
+
+# Create symbolic links to WORKSPACE and BUILD so that this directory
+# is now ready to run bazel based builds
+ln -s bazel/BUILD .
+ln -s bazel/WORKSPACE .
+ln -s bazel/tf_configure .
+
