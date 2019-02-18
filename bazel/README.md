@@ -25,7 +25,7 @@ This will produce the following binary files:
 
 ### How to use the C++ library
 
-The C++ library `libngraph_bridge.so` can be used with a TensorFlow C++ application as described in the examples/tf_cpp_examples directory. Basic steps are the following:
+The C++ library `libngraph_bridge.so` can be used with a TensorFlow C++ application as described in the examples/tf_cpp_examples ([TensorFlow C++ example]) directory. Basic steps are the following:
 
 1. Get a copy of the TensorFlow C++ library by building one. Use [Option 2] to build all the necessary libraries as described in the [TensorFlow C++ example]  
 
@@ -37,8 +37,9 @@ The C++ library `libngraph_bridge.so` can be used with a TensorFlow C++ applicat
 
 ## Build the Python wheel
 
-Coming up soon. For now please use the cmake based build system described in the main README.md
+Coming up soon. For now please use the cmake based build system described in the [main README]
 
 [build preperation]: ../README.md#prepare-the-build-environment
 [Option 2]: ../README.md#option-2-build-ngraph-bridge-from-source
 [TensorFlow C++ example]: ../examples/tf_cpp_examples/README.md
+[main README]: ../README.md
