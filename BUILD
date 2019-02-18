@@ -1,3 +1,5 @@
+load("//:cxx_abi_option.bzl", "CXX_ABI")
+
 cc_binary(
     name = 'libngraph_bridge.so',
     srcs = [
@@ -51,11 +53,10 @@ cc_binary(
     copts = [
         "-pthread", 
         "-std=c++11", 
-        "-D_GLIBCXX_USE_CXX11_ABI=1",
         '-D SHARED_LIB_PREFIX=\\"lib\\"',
         '-D SHARED_LIB_SUFFIX=\\".so\\"',
         "-I logging",
         "-I external/ngraph/src",
-    ],
+    ] + CXX_ABI,
     visibility = ["//visibility:public"],
 )

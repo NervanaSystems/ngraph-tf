@@ -1,6 +1,7 @@
 licenses(["notice"])  # 3-Clause BSD
-
 exports_files(["LICENSE"])
+
+load("@ngraph_bridge//:cxx_abi_option.bzl", "CXX_ABI")
 
 cc_library(
     name = "ngraph_headers",
@@ -31,6 +32,9 @@ cc_library(
         "src/ngraph/pass/*.hpp",
         "src/ngraph/runtime/*.cpp",
         "src/ngraph/type/*.cpp",
+        ],
+        exclude = [
+        "src/ngraph/ngraph.cpp",
     ]),
     deps = [
         ":ngraph_headers",
@@ -44,7 +48,7 @@ cc_library(
         '-D NGRAPH_VERSION=\\"0.14.0-rc.1\\"',
         "-D NGRAPH_DEX_ONLY",
         '-D PROJECT_ROOT_DIR=\\"\\"',
-    ],
+    ] + CXX_ABI,
     visibility = ["//visibility:public"],
     alwayslink = 1,
 )
@@ -69,7 +73,7 @@ cc_binary(
         '-D NGRAPH_VERSION=\\"0.14.0-rc.1\\"',
         "-D NGRAPH_DEX_ONLY",
         '-D PROJECT_ROOT_DIR=\\"\\"',
-    ],
+    ] + CXX_ABI,
     linkshared = 1,
     visibility = ["//visibility:public"],
 )

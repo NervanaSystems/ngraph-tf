@@ -30,9 +30,12 @@ else
 fi
 
 TF_CFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))') )
-echo $TF_CFLAGS
 TF_LFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))') )
-echo $TF_LFLAGS
+TF_CXX_ABI=( $(python -c 'import tensorflow as tf; print(" ".join(str(tf.__cxx11_abi_flag__)))') )
+
 
 write_action_env_to_bazelrc "TF_HEADER_DIR" ${TF_CFLAGS:2}
 write_action_env_to_bazelrc "TF_SHARED_LIBRARY_DIR" ${TF_LFLAGS:2}
+
+# Write the CXX ABI to the file 
+echo "CXX_ABI = ['-D_GLIBCXX_USE_CXX11_ABI=$TF_CXX_ABI']" > cxx_abi_option.bzl

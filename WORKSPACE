@@ -1,3 +1,4 @@
+workspace(name = "ngraph_bridge")
 load("//tf_configure:tf_configure.bzl", "tf_configure")
 
 tf_configure(
@@ -18,10 +19,10 @@ new_http_archive(
 new_http_archive(
     name = "nlohmann_json_lib",
     build_file = "nlohmann_json.BUILD",
-    sha256 = "9f3549824af3ca7e9707a2503959886362801fb4926b869789d6929098a79e47",
-    strip_prefix = "json-3.1.1",
+    sha256 = "e0b1fc6cc6ca05706cce99118a87aca5248bd9db3113e703023d23f044995c1d",
+    strip_prefix = "json-3.5.0",
     urls = [
-        "https://mirror.bazel.build/github.com/nlohmann/json/archive/v3.1.1.tar.gz",
-        "https://github.com/nlohmann/json/archive/v3.1.1.tar.gz",
+        "https://mirror.bazel.build/github.com/nlohmann/json/archive/v3.5.0.tar.gz",
+        "https://github.com/nlohmann/json/archive/v3.5.0.tar.gz",
     ],
 )
