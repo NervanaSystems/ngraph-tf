@@ -22,14 +22,7 @@ The application links with the following dynamic shared object (DSO) libraries
 2. libtensorflow_framework.so
 3. libtensorflow_cc.so
 
-
 ## Build the example
-
-### Update the Makefile
-
-If you are using clang or gcc 4.8 to build ngraph-tf then change the `CXX_ABI_FLAG` value to 0. Also, change the `NGRAPH_TF_DIR` pointing to the location of the `ngraph-tf` on your system as appropriate.
-
-### Build
 
 Run the `make` command to build the application that will produce the executable: `hello_tf`.
 
@@ -40,6 +33,9 @@ Before running the application, set the `LD_LIBRARY_PATH` (or `DYLD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$NGRAPH_TF_DIR/build/artifacts/lib:$NGRAPH_TF_DIR/build/artifacts/tensorflow
 
 Where `NGRAPH_TF_DIR` should point to the directory where ngraph-tf was cloned.
+
+:warning: Note: If this example is built on CentOS then the library directory 
+if `lib64` - so please set the `LD_LIBRARY_PATH` accordingly
 
 Next run the executable `./hello_tf`
 
