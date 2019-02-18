@@ -53,8 +53,9 @@ cc_binary(
     copts = [
         "-pthread", 
         "-std=c++11", 
-        '-D SHARED_LIB_PREFIX=\\"lib\\"',
-        '-D SHARED_LIB_SUFFIX=\\".so\\"',
+        "-DNDEBUG",
+        "-D SHARED_LIB_PREFIX=\\"lib\\"",
+        "-D SHARED_LIB_SUFFIX=\\".so\\"",
         "-I logging",
         "-I external/ngraph/src",
     ] + CXX_ABI,
