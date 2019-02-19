@@ -643,7 +643,8 @@ class NGraphEncapsulateOp : public OpKernel {
                    << time_func_create_or_lookup << " Create-and-copy-tensors: "
                    << time_create_or_lookup_tensors
                    << " Execute: " << time_execute_function
-                   << " Copy-outputs-to-host: " << time_copy_output_tensors_to_host;
+                   << " Copy-outputs-to-host: "
+                   << time_copy_output_tensors_to_host;
   }  // end compute
 
  private:
