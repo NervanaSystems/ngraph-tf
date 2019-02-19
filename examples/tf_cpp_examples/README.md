@@ -6,7 +6,7 @@ The application is linked with TensorFlow C++ library and nGraph-TensorFlow brid
 
 ## prerequisites
 
-The example application requires nGraph-TensorFlow bridge to be built first. Build the ngraph-tf by executing `build_gtf.py` as per the [Option 2] instructions in the main readme. All the files needed to build this example application are located in the ngraph-tf/build directory.
+The example application requires nGraph-TensorFlow bridge to be built first. Build the ngraph-tf by executing `build_ngtf.py` as per the [Option 2] instructions in the main readme. All the files needed to build this example application are located in the ngraph-tf/build directory.
 
 ### Dependencies
 
