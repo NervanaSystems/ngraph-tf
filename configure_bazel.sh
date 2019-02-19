@@ -21,7 +21,7 @@ function write_action_env_to_bazelrc() {
   write_to_bazelrc "build --action_env $1=\"$2\""
 }
 
-rm .bazelrc
+rm -f .bazelrc
 if python -c "import tensorflow" &> /dev/null; then
     echo 'using installed tensorflow'
 else
@@ -42,7 +42,7 @@ echo "CXX_ABI = ['-D_GLIBCXX_USE_CXX11_ABI=$TF_CXX_ABI']" > cxx_abi_option.bzl
 
 # Create symbolic links to WORKSPACE and BUILD so that this directory
 # is now ready to run bazel based builds
-ln -s bazel/BUILD .
-ln -s bazel/WORKSPACE .
-ln -s bazel/tf_configure .
+ln -sf bazel/BUILD .
+ln -sf bazel/WORKSPACE .
+ln -sf bazel/tf_configure .
 

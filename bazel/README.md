@@ -4,7 +4,7 @@ This directory contains scripts necessary to build the nGraph TensorFlow bridge 
 
 :warning: This is experimental and will change over time. 
 
-## prerequisites
+## Prerequisites
 
 Please ensure that bazel and Python is installed on your system and you are able to build TensorFlow from source (though not needed for building the bridge). Please see the [build preperation] for details.
 

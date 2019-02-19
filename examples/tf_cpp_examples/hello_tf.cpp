@@ -97,8 +97,7 @@ int main(int argc, char** argv) {
 
   const char* backend = "INTERPRETER";
 
-  if ( argc > 1 )
-  {
+  if (argc > 1) {
     backend = argv[1];
   }
 
