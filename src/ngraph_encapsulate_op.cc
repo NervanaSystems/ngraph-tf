@@ -599,7 +599,7 @@ class NGraphEncapsulateOp : public OpKernel {
                    << m_ngraph_cluster;
 
     // Copy value to host if backend is not CPU
-    Timer copy_tensors_to_host;
+    Timer copy_output_tensors_to_host;
 
     try {
       if (m_op_backend_name != "CPU") {
@@ -629,7 +629,8 @@ class NGraphEncapsulateOp : public OpKernel {
       void* src_ptr = (void*)DMAHelper::base(&ctx->input(i));
       m_freshness_tracker->MarkFresh(src_ptr, ng_function);
     }
-    int time_copy_tensors_to_host = copy_tensors_to_host.ElapsedInMS();
+    int time_copy_output_tensors_to_host =
+        copy_output_tensors_to_host.ElapsedInMS();
 
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute done marking fresh for cluster "
@@ -639,10 +640,10 @@ class NGraphEncapsulateOp : public OpKernel {
                    << " Cluster: " << ctx->op_kernel().name()
                    << " Time-Compute: " << compute_time.ElapsedInMS()
                    << " Function-Create-or-Lookup: "
-                   << time_func_create_or_lookup
-                   << " Create-tensors: " << time_create_or_lookup_tensors
+                   << time_func_create_or_lookup << " Create-and-copy-tensors: "
+                   << time_create_or_lookup_tensors
                    << " Execute: " << time_execute_function
-                   << " Copy-to-host: " << time_copy_tensors_to_host;
+                   << " Copy-outputs-to-host: " << time_copy_output_tensors_to_host;
   }  // end compute
 
  private:
