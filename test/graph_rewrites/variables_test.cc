@@ -38,22 +38,21 @@ namespace testing {
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 #define ASSERT_NOT_OK(x) ASSERT_NE((x), ::tensorflow::Status::OK());
 
-
 TEST(Variables, SmallGraph) {
   Scope root = Scope::NewRootScope();
 
-  PartialTensorShape varShape({2,2});
+  PartialTensorShape varShape({2, 2});
   auto var = ops::Variable(root.WithOpName("Var1"), varShape, DT_FLOAT);
-  auto init_value = ops::Const(root, {{0.f, 0.f},{0.f,0.f}});
+  auto init_value = ops::Const(root, {{0.f, 0.f}, {0.f, 0.f}});
   auto var_assign = ops::Assign(root, var, init_value);
 
-//   TensorShape constShape({2,2});
-//   initializer_list<float> value({1.0f ,1.0f ,1.0f ,1.0f}); 
-   auto c = ops::Const(root, {{1.f, 1.f},{1.f,1.f}});
+  //   TensorShape constShape({2,2});
+  //   initializer_list<float> value({1.0f ,1.0f ,1.0f ,1.0f});
+  auto c = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
 
-   auto add = ops::Add(root, var, c);
+  auto add = ops::Add(root, var, c);
 
-   auto assign = ops::Assign(root, var, add);
+  auto assign = ops::Assign(root, var, add);
 
   // Turn off optimizations so that all the nodes are processed
   tensorflow::SessionOptions options;
@@ -73,19 +72,23 @@ TEST(Variables, SmallGraph) {
 
   std::vector<tensorflow::Tensor> outputs;
 
-  session.Run({var_assign,}, &outputs);
+  session.Run(
+      {
+          var_assign,
+      },
+      &outputs);
   std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
-  for(int i=0; i<10; i++){
+  for (int i = 0; i < 10; i++) {
     session.Run({assign}, &outputs);
     // Print the output
-    std::cout << "itr: " << i <<" ,Result: " << outputs[0].matrix<float>() << std::endl;  
+    std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
+              << std::endl;
   }
 
   session.Run({var}, &outputs);
   std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
-
 }
 
-} // namespace testing
-} // namespace ngraph_bridge
-} // namespace tensorflow
+}  // namespace testing
+}  // namespace ngraph_bridge
+}  // namespace tensorflow

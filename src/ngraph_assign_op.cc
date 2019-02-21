@@ -20,15 +20,15 @@
 #include "tensorflow/core/framework/resource_mgr.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 
-#include "tensorflow/core/platform/default/logging.h"
-#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_types.h"
+#include "tensorflow/core/platform/default/logging.h"
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 
-#include "ngraph_freshness_tracker.h"
-#include "ngraph_utils.h"
 #include "ngraph/runtime/backend.hpp"
 #include "ngraph_backend_manager.h"
+#include "ngraph_freshness_tracker.h"
+#include "ngraph_utils.h"
 #include "ngraph_utils.h"
 
 using namespace std;
@@ -87,8 +87,8 @@ class NGraphAssignOp : public OpKernel {
                     errors::InvalidArgument(
                         "Assign requires shapes of both tensors to match. "
                         "lhs shape= ",
-                        old_lhs.shape().DebugString(),
-                        " rhs shape= ", rhs.shape().DebugString()));
+                        old_lhs.shape().DebugString(), " rhs shape= ",
+                        rhs.shape().DebugString()));
       }
 
       // In the code below we try to minimize the amount of memory allocation
@@ -112,7 +112,7 @@ class NGraphAssignOp : public OpKernel {
                                      /* lock_held */ true);
         }
         if (use_exclusive_lock_) {
-          //Copy(context, &reshaped_old_lhs, rhs);
+          // Copy(context, &reshaped_old_lhs, rhs);
           return;
         }
       } else {
@@ -138,7 +138,7 @@ class NGraphAssignOp : public OpKernel {
         context->clear_recorded_memory();
         context->replace_ref_input(0, *copyTensor, /* lock_held */ true);
         if (use_exclusive_lock_) {
-          //Copy(context, copyTensor, rhs);
+          // Copy(context, copyTensor, rhs);
           return;
         }
       }
@@ -148,18 +148,16 @@ class NGraphAssignOp : public OpKernel {
     // matches the left hand side's shape. We have been told to do the
     // copy outside the lock.
     Tensor old_unlocked_lhs = context->mutable_input(0, /* lock_held */ false);
-    //Copy(context, &old_unlocked_lhs, rhs);
+    // Copy(context, &old_unlocked_lhs, rhs);
   }
 
-//   virtual void Copy(OpKernelContext* context, Tensor* lhs,
-//                     const Tensor& rhs) = 0;
+  //   virtual void Copy(OpKernelContext* context, Tensor* lhs,
+  //                     const Tensor& rhs) = 0;
 
   bool use_exclusive_lock_;
   bool validate_shape_;
   bool relax_constraints_;
 };
-
-
 
 REGISTER_OP("NGraphAssign")
     .Input("ref: Ref(T)")
@@ -168,7 +166,6 @@ REGISTER_OP("NGraphAssign")
     .Attr("T: type")
     .Attr("validate_shape: bool = true")
     .Attr("use_locking: bool = true");
-
 
 REGISTER_KERNEL_BUILDER(Name("NGraphAssign").Device(DEVICE_CPU),
                         NGraphAssignOp);

@@ -39,9 +39,8 @@ namespace ngraph_bridge {
 // NGraphVariableMap : Map of Variable names and their backend tensors
 //
 ---------------------------------------------------*/
-static unordered_map<string, shared_ptr<ngraph::runtime::Tensor>> ng_variable_map_;
-
-
+static unordered_map<string, shared_ptr<ngraph::runtime::Tensor>>
+    ng_variable_map_;
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 

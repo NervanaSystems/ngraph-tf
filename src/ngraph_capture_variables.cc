@@ -115,16 +115,37 @@ Status CaptureVariables(Graph* graph) {
         DataType dtype;
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
         Node* replacement;
-        NGRAPH_VLOG(1) << "Got dtype";
+        NGRAPH_VLOG(1) << "Got dtype" << DataTypeString(dtype);
 
+        NodeBuilder::NodeOut input_ref;
+        NodeBuilder::NodeOut input_val;
+
+        for (auto edge : node->in_edges()) {
+          if (edge == NULL) {
+            NGRAPH_VLOG(1) << "Found null edge: ";
+            continue;
+          }
+          NGRAPH_VLOG(1) << "Found in edge: " << edge->src()->name();
+          NGRAPH_VLOG(1) << "Found in edge: " << edge->src()->type_string();
+          NGRAPH_VLOG(1) << "Found in edge: " << edge->DebugString();
+          // Check REF TYPE RATHER THAN NAME
+          if (edge->src()->type_string() == "NGraphVariable" ||
+              edge->src()->type_string() == "VariableV2") {
+            input_ref = NodeBuilder::NodeOut(edge->src(), edge->src_output());
+          } else {
+            input_val = NodeBuilder::NodeOut(edge->src(), edge->src_output());
+          }
+        }
+        NGRAPH_VLOG(1) << "Found inputs";
         // TODO(amprocte): Do we need to copy "_" attributes?
         TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "NGraphAssign")
-                                  .Attr("validate_shape", true)
-                                  .Attr("use_locking", true)
-                                  .Attr("T", dtype)
-                                  .Input(inputs)
-                                  .Device(node->assigned_device_name())
-                                  .Finalize(graph, &replacement));
+                               .Attr("validate_shape", true)
+                               .Attr("use_locking", true)
+                               .Attr("T", dtype)
+                               .Input(input_ref)
+                               .Input(input_val)
+                               .Device(node->assigned_device_name())
+                               .Finalize(graph, &replacement));
         NGRAPH_VLOG(1) << "Constructed Node Def";
 
         replacement->set_assigned_device_name(node->assigned_device_name());
@@ -142,12 +163,17 @@ Status CaptureVariables(Graph* graph) {
           NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
           graph->AddEdge(edge->src(), edge->src_output(), replacement,
                          edge->dst_input());
+
+          NGRAPH_VLOG(4) << "Added Edge: ";
           graph->RemoveEdge(edge);
+          NGRAPH_VLOG(4) << "Removed Edge: ";
         }
 
+        NGRAPH_VLOG(4) << "Getting out edges: ";
         for (auto edge : node->out_edges()) {
           edges.push_back(edge);
         }
+        NGRAPH_VLOG(4) << "Got out edges: ";
 
         for (auto edge : edges) {
           NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
@@ -157,6 +183,7 @@ Status CaptureVariables(Graph* graph) {
         }
 
         replaced_nodes.push_back(node);
+        NGRAPH_VLOG(1) << "Replaced";
       }
     }
   }

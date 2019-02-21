@@ -83,8 +83,7 @@ class NGraphVariableOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(NGraphVariableOp);
 };
 
-
-//RemoveRefType
+// RemoveRefType
 // inline DataType RemoveRefType(DataType dtype) {
 //   DCHECK(IsRefType(dtype));
 //   return static_cast<DataType>(dtype - kDataTypeRefOffset);
@@ -98,7 +97,8 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  NGRAPH_VLOG(1)<< "Constructor " << def().name() << ": just looking? " << just_looking_;
+  NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
+                 << just_looking_;
 }
 
 NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
@@ -106,7 +106,7 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // (Changes: Renamed from VariableOp, modified to pass TensorShape to NGraphVar
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
-  NGRAPH_VLOG(1)<< "Compute " << def().name();
+  NGRAPH_VLOG(1) << "Compute " << def().name();
   mutex_lock l(init_mu_);
   if (!initialized_) {
     OP_REQUIRES_OK(ctx, cinfo_.Init(ctx->resource_manager(), def(),
@@ -122,13 +122,13 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   // If "container" has a resource "name", returns it in
   // "*resource". Otherwise, invokes creator() to create the resource.
   // The caller takes the ownership of one ref on "*resource".
-  // 
+  //
 
   // Here uses the Resource Manager's default container
   NGraphVar* var;
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
-  
+
   // Output a reference to our tensor, so it may be updated.
   //
   // As long as the resource manager hasn't been cleared the ref we return
