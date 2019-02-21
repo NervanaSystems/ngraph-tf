@@ -159,15 +159,15 @@ Status CaptureVariables(Graph* graph) {
 
         // Though edges will be removed when we remove the node
         // we specifically remove the edges to be sure
-        for (auto edge : node->in_edges()) {
-          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-          graph->AddEdge(edge->src(), edge->src_output(), replacement,
-                         edge->dst_input());
+        // for (auto edge : node->in_edges()) {
+        //   NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+        //   graph->AddEdge(edge->src(), edge->src_output(), replacement,
+        //                  edge->dst_input());
 
-          NGRAPH_VLOG(4) << "Added Edge: ";
-          graph->RemoveEdge(edge);
-          NGRAPH_VLOG(4) << "Removed Edge: ";
-        }
+        //   NGRAPH_VLOG(4) << "Added Edge: ";
+        //   graph->RemoveEdge(edge);
+        //   NGRAPH_VLOG(4) << "Removed Edge: ";
+        // }
 
         NGRAPH_VLOG(4) << "Getting out edges: ";
         for (auto edge : node->out_edges()) {
