@@ -73,7 +73,7 @@ cc_binary(
         "-Wformat",
         "-Wformat-security",
         "-Wformat",
-        "-fstack-protector-strong",
+        "-fstack-protector-all",
         "-D NDEBUG",
         '-D SHARED_LIB_PREFIX=\\"lib\\"',
         '-D SHARED_LIB_SUFFIX=\\".so\\"',
