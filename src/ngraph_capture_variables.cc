@@ -48,7 +48,7 @@ Status CaptureVariables(Graph* graph) {
   for (auto node : graph->op_nodes()) {
     if (NGraphPlacementRequested(node)) {
       if (node->type_string() == "VariableV2") {
-        NGRAPH_VLOG(4) << "Capturing: " << node->name();
+        NGRAPH_VLOG(1) << "Capturing: " << node->name();
 
         TensorShape shape;
         DataType dtype;
@@ -76,6 +76,56 @@ Status CaptureVariables(Graph* graph) {
                                .Attr("shared_name", shared_name)
                                .Device(node->assigned_device_name())
                                .Finalize(graph, &replacement));
+
+        replacement->set_assigned_device_name(node->assigned_device_name());
+
+        std::vector<const Edge*> edges;
+
+        // Add edge from the input nodes (to the variable node (VariableV2))
+        // to the replacement node (NGraphVariable)
+        NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
+                       << replacement->DebugString();
+
+        // Though edges will be removed when we remove the node
+        // we specifically remove the edges to be sure
+        for (auto edge : node->in_edges()) {
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          graph->AddEdge(edge->src(), edge->src_output(), replacement,
+                         edge->dst_input());
+          graph->RemoveEdge(edge);
+        }
+
+        for (auto edge : node->out_edges()) {
+          edges.push_back(edge);
+        }
+
+        for (auto edge : edges) {
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          graph->AddEdge(replacement, edge->src_output(), edge->dst(),
+                         edge->dst_input());
+          graph->RemoveEdge(edge);
+        }
+
+        replaced_nodes.push_back(node);
+      }
+
+      else if (node->type_string() == "Assign") {
+        NGRAPH_VLOG(1) << "Capturing: " << node->name();
+
+        DataType dtype;
+        TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
+        Node* replacement;
+        NGRAPH_VLOG(1) << "Got dtype";
+
+        // TODO(amprocte): Do we need to copy "_" attributes?
+        TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "NGraphAssign")
+                                  .Attr("validate_shape", true)
+                                  .Attr("use_locking", true)
+                                  .Attr("T", dtype)
+                                  .Input(inputs)
+                                  .Device(node->assigned_device_name())
+                                  .Finalize(graph, &replacement));
+        NGRAPH_VLOG(1) << "Constructed Node Def";
 
         replacement->set_assigned_device_name(node->assigned_device_name());
 

@@ -24,11 +24,6 @@
 
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
-#include "ngraph/runtime/backend.hpp"
-#include "ngraph_backend_manager.h"
-
-using namespace std;
-namespace ng = ngraph;
 
 namespace tensorflow {
 
@@ -48,61 +43,27 @@ namespace ngraph_bridge {
 // THIS CLASS IS NOT BEING USED ANYWHERE
 class NGraphVar : public ResourceBase {
  public:
-  explicit NGraphVar(DataType dtype, TensorShape shape, string BackendName)
-      : tf_tensor_(dtype, shape),
-      ng_backend_name_(BackendName) {
-
-        // TF datatype to nGraph element type
-        ng::element::Type ng_element_type;
-        TFDataTypeToNGraphElementType(dtype,&ng_element_type);
-
-        // TF TensorShape to nGraphShape
-        ng::Shape ng_shape(shape.dims());
-        for (int j = 0; j < shape.dims(); ++j) {
-          ng_shape[j] = shape.dim_size(j);
-         }
-        
-        NGRAPH_VLOG(1)<<"Created ng shape and ng element";
-
-        //Create Backend
-        BackendManager::CreateBackend(ng_backend_name_);
-        ng::runtime::Backend* op_backend =
-        BackendManager::GetBackend(ng_backend_name_);
-        NGRAPH_VLOG(1)<<"Created ng backend";
-
-        // Create nGTensor
-        void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
-        ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape,
-                                                   current_src_ptr);
-        NGRAPH_VLOG(1)<<"Created ng tensor";
-      }
+  explicit NGraphVar(DataType dtype, TensorShape shape)
+      : tensor_(dtype, shape) {}
   // Not copyable or movable.
   NGraphVar(const NGraphVar&) = delete;
   NGraphVar& operator=(const NGraphVar&) = delete;
 
   mutex* mu() { return &mu_; }
-  Tensor* tensor() { return &tf_tensor_; }
-  shared_ptr<ngraph::runtime::Tensor> ng_tensor() {return ng_tensor_;};
+  Tensor* tensor() { return &tensor_; }
 
   string DebugString() override {
-    return strings::StrCat(DataTypeString(tf_tensor_.dtype()), "/",
-                           tf_tensor_.shape().DebugString());
+    return strings::StrCat(DataTypeString(tensor_.dtype()), "/",
+                           tensor_.shape().DebugString());
   }
 
  private:
   mutex mu_;
-  Tensor tf_tensor_;
-  shared_ptr<ngraph::runtime::Tensor> ng_tensor_;
-  string ng_backend_name_;
-  
+  Tensor tensor_;
+
   ~NGraphVar() override {}
 };
 
-/* -------------------------------------------------
-//
-// NGraphVariableOp
-//
----------------------------------------------------*/
 class NGraphVariableOp : public OpKernel {
  public:
   explicit NGraphVariableOp(OpKernelConstruction* context);
@@ -114,7 +75,7 @@ class NGraphVariableOp : public OpKernel {
   TensorShape shape_;
   bool just_looking_;
   NGraphFreshnessTracker* tracker_;
-  string ng_backend_name_;
+
   mutex init_mu_;
   ContainerInfo cinfo_ GUARDED_BY(init_mu_);
   bool initialized_ GUARDED_BY(init_mu_){false};
@@ -133,7 +94,6 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
     : OpKernel(context),
       tracker_(nullptr),
       just_looking_(false),
-      ng_backend_name_("CPU"), // can be through an attribute like encapsulate
       dtype_(RemoveRefType(context->output_type(0))) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
@@ -154,9 +114,8 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     initialized_ = true;
   }
   auto creator = [this](NGraphVar** var) {
-    *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
+    *var = new NGraphVar(dtype_, shape_);
     //(*var)->tensor()->set_shape(shape_);
-    ng_variable_map_[def().name()]= (*var)->ng_tensor();
     return Status::OK();
   };
 
