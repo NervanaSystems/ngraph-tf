@@ -227,10 +227,10 @@ def run_bazel_build_test(venv_dir, build_dir):
     command_executor(['bash', 'configure_bazel.sh'])
 
     # Build the bridge
-    command_executor(['bazel', 'build', 'libngraph_bridge.so'])
+    command_executor(['bazel', 'build', '-s', 'libngraph_bridge.so'])
     
     # Build the backend
-    command_executor(['bazel', 'build', '@ngraph//:libinterpreter_backend.so'])
+    command_executor(['bazel', 'build', '-s', '@ngraph//:libinterpreter_backend.so'])
 
     # Return to the original directory
     os.chdir(root_pwd)
