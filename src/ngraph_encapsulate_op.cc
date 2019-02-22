@@ -291,6 +291,48 @@ class NGraphEncapsulateOp : public OpKernel {
 
       auto function_size = ng_function->get_graph_size() / 1024;  // kb unit
 
+      // Get the serialized ops and stored them to a vector and 
+      // then add control dependency to the stored allreduce ops
+      vector<shared_ptr<ng::Node>> allreduce_op_list;
+      cout << ng_function->get_name() << " start\n";
+      cout << "=====================================================================\n";
+      for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
+        if (node->get_name().compare(0, 9, "AllReduce") == 0) {
+          allreduce_op_list.push_back(node);
+        }
+        cout << node->get_name() << "(";
+        vector<string> inputs;
+        for (const ng::descriptor::Input& input : node->get_inputs()) {
+          inputs.push_back(input.get_tensor().get_name());
+        }
+        cout << ng::join(inputs);
+        cout << ")   [ ";
+
+        vector<string> dependencies;
+        for (auto nd : node->get_control_dependencies()) {
+          dependencies.push_back(nd->get_name());
+        }
+        cout << ng::join(dependencies);
+        cout << "] -> "; 
+
+        vector<string> outputs;
+        for (size_t i = 0; i < node->get_output_size(); ++i) {
+          outputs.push_back(node->get_output_tensor(i).get_name());
+        }
+        cout << ng::join(outputs);
+        cout << "\n";
+      }
+      cout << "=====================================================================\n";
+      cout << ng_function->get_name() << " end\n";
+      // Add control dependency in for the allreduce ops
+      if (allreduce_op_list.size() > 1) {
+        for (size_t i = 1; i < allreduce_op_list.size(); ++i) {
+          auto pre_node = allreduce_op_list[i-1];
+          auto cur_node = allreduce_op_list[i];
+          cur_node->add_control_dependency(pre_node);
+        }
+      }
+
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
