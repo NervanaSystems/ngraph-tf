@@ -189,6 +189,7 @@ def train_mnist_cnn(FLAGS):
                 #tf.summary.scalar('Training accuracy', train_accuracy)
                 print('step %d, training accuracy %g, %g sec to evaluate' %
                       (i, train_accuracy, time.time() - t))
+                saver.save(sess, FLAGS.model_dir + "model.ckpt")
             t = time.time()
             _, summary, loss = sess.run([train_step, merged, cross_entropy],
                                         feed_dict={
@@ -214,7 +215,7 @@ def train_mnist_cnn(FLAGS):
         })
         print('test accuracy %g' % test_accuracy)
         print('saving models')
-        saver.save(sess, FLAGS.model_dir + "model.ckpt")
+        
         return loss_values, test_accuracy
 
 

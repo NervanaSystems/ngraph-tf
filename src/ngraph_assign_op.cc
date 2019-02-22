@@ -48,18 +48,18 @@ namespace ngraph_bridge {
 class NGraphAssignOp : public OpKernel {
  public:
   explicit NGraphAssignOp(OpKernelConstruction* context) : OpKernel(context) {
-    OP_REQUIRES_OK(context,
-                   context->GetAttr("use_locking", &use_exclusive_lock_));
-    OP_REQUIRES_OK(context,
-                   context->GetAttr("validate_shape", &validate_shape_));
-    OP_REQUIRES(context, IsRefType(context->input_type(0)),
-                errors::InvalidArgument("lhs input needs to be a ref type"));
-    if (!context
-             ->GetAttr("_grappler_relax_allocator_constraints",
-                       &relax_constraints_)
-             .ok()) {
-      relax_constraints_ = false;
-    }
+    // OP_REQUIRES_OK(context,
+    //                context->GetAttr("use_locking", &use_exclusive_lock_));
+    // OP_REQUIRES_OK(context,
+    //                context->GetAttr("validate_shape", &validate_shape_));
+    // OP_REQUIRES(context, IsRefType(context->input_type(0)),
+    //             errors::InvalidArgument("lhs input needs to be a ref type"));
+    // if (!context
+    //          ->GetAttr("_grappler_relax_allocator_constraints",
+    //                    &relax_constraints_)
+    //          .ok()) {
+    //   relax_constraints_ = false;
+    // }
   }
 
   void Compute(OpKernelContext* context) override {
@@ -68,95 +68,24 @@ class NGraphAssignOp : public OpKernel {
     // We always return the input ref.
     context->forward_ref_input_to_ref_output(0, 0);
 
-    // We can't always know how this value will be used downstream, so make
-    // conservative assumptions in specifying constraints on the memory
-    // allocation attributes, unless the Grappler graph analysis determined that
-    // it was safe not to.
-    AllocatorAttributes attr;
-    if (!relax_constraints_) {
-      attr.set_gpu_compatible(true);
-      attr.set_nic_compatible(true);
+    // get the nGraphTensor
+    //string ng_variable_name = context->
+    auto itr = BackendManager::ng_variable_map_.find("Var1");
+    NGRAPH_VLOG(1)<<"In map ? "<<(itr==BackendManager::ng_variable_map_.end() ? "No " : "Yes");
+
+    NGRAPH_VLOG(1)<<" Map size "<<BackendManager::ng_variable_map_.size();
+    for(auto it: BackendManager::ng_variable_map_){
+      NGRAPH_VLOG(1)<<"Key "<<it.first <<" Val "<<it.second;
     }
+    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = BackendManager::ng_variable_map_["Var1"];
+    
+    NGRAPH_VLOG(1)<<"In Assign Kernel : is Var ng-Tenssor null "<<(ng_tensor_to_assign==NULL? "Yes": "No");
+    void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
+    ng_tensor_to_assign->write(tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() * ng_tensor_to_assign->get_element_type().size());
 
-    {
-      mutex_lock l(*context->input_ref_mutex(0));
-      const Tensor& old_lhs = context->mutable_input(0, /* lock_held */ true);
-      const bool same_shape = old_lhs.shape().IsSameSize(rhs.shape());
-      if (validate_shape_) {
-        OP_REQUIRES(context, same_shape,
-                    errors::InvalidArgument(
-                        "Assign requires shapes of both tensors to match. "
-                        "lhs shape= ",
-                        old_lhs.shape().DebugString(), " rhs shape= ",
-                        rhs.shape().DebugString()));
-      }
-
-      // In the code below we try to minimize the amount of memory allocation
-      // and copying by trying the following two shortcuts:
-      // 1. If the lhs is initialized and has the same number of elements as
-      //    the rhs we can avoid a memory allocation.
-      // 2. If we can reuse the rhs buffer we avoid both a memory allocation
-      //    and copying.
-
-      // 1. Try to copy into an existing buffer.
-      if (old_lhs.IsInitialized() &&
-          old_lhs.shape().num_elements() == rhs.shape().num_elements()) {
-        // The existing lhs tensor has already been initialized and the right
-        // hand side can fit in the underlying buffer.
-        Tensor reshaped_old_lhs;
-        if (same_shape) {
-          reshaped_old_lhs = old_lhs;
-        } else {
-          CHECK(reshaped_old_lhs.CopyFrom(old_lhs, rhs.shape()));
-          context->replace_ref_input(0, reshaped_old_lhs,
-                                     /* lock_held */ true);
-        }
-        if (use_exclusive_lock_) {
-          // Copy(context, &reshaped_old_lhs, rhs);
-          return;
-        }
-      } else {
-        // 2. Try to reuse the rhs.
-        std::unique_ptr<Tensor> input_alias = context->forward_input(
-            1, OpKernelContext::Params::kNoReservation /*output_index*/,
-            rhs.dtype(), rhs.shape(), DEVICE_MEMORY, attr);
-        if (input_alias != nullptr) {
-          // Update the ref to point to the new buffer.
-          context->replace_ref_input(0, *input_alias, /* lock_held */ true);
-          return;
-        }
-
-        // Otherwise, create a new persistent tensor whose shape matches the
-        // right hand side, hand off to lhs and copy the rhs into it.
-        PersistentTensor copy;
-        Tensor* copyTensor = nullptr;
-        OP_REQUIRES_OK(
-            context, context->allocate_persistent(old_lhs.dtype(), rhs.shape(),
-                                                  &copy, &copyTensor, attr));
-        // We track memory of variables in variable ops instead of in this
-        // assign op.
-        context->clear_recorded_memory();
-        context->replace_ref_input(0, *copyTensor, /* lock_held */ true);
-        if (use_exclusive_lock_) {
-          // Copy(context, copyTensor, rhs);
-          return;
-        }
-      }
-    }
-
-    // The tensor has already been initialized and the right hand side
-    // matches the left hand side's shape. We have been told to do the
-    // copy outside the lock.
-    Tensor old_unlocked_lhs = context->mutable_input(0, /* lock_held */ false);
-    // Copy(context, &old_unlocked_lhs, rhs);
+    NGRAPH_VLOG(1)<<"In Assign Kernel : Print NG Tensor ";
+    PrintNGTensor(ng_tensor_to_assign);
   }
-
-  //   virtual void Copy(OpKernelContext* context, Tensor* lhs,
-  //                     const Tensor& rhs) = 0;
-
-  bool use_exclusive_lock_;
-  bool validate_shape_;
-  bool relax_constraints_;
 };
 
 REGISTER_OP("NGraphAssign")

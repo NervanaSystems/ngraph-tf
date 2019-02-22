@@ -69,9 +69,9 @@ class NGraphVar : public ResourceBase {
     NGRAPH_VLOG(1) << "Created ng backend";
 
     // Create nGTensor
-    void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
+    //void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
     ng_tensor_ =
-        op_backend->create_tensor(ng_element_type, ng_shape, current_src_ptr);
+        op_backend->create_tensor(ng_element_type, ng_shape);
     NGRAPH_VLOG(1) << "Created ng tensor";
   }
   // Not copyable or movable.
@@ -108,6 +108,7 @@ class NGraphVariableOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override;
 
  private:
+ int graph_id;
   DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
@@ -154,7 +155,9 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
-    ng_variable_map_[def().name()] = (*var)->ng_tensor();
+    BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
+    NGRAPH_VLOG(1)<<"In Variable Compute "<<def().name();
+    NGRAPH_VLOG(1)<<"Is Null "<< (BackendManager::ng_variable_map_[def().name()]==NULL? "Yes" : "No");
     return Status::OK();
   };
 
@@ -167,6 +170,12 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGraphVar* var;
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
+
+  NGRAPH_VLOG(1)<<"Print ng-tensor";
+  PrintNGTensor(var->ng_tensor());
+
+  NGRAPH_VLOG(1) << "Print tf-tensor";
+  PrintTFTensor(*(var->tensor()));
 
   // Output a reference to our tensor, so it may be updated.
   //
@@ -231,7 +240,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   var->Unref();
 }
 
-REGISTER_OP("NGraphVariable")
+REGISTER_OP("NGraphVariable") 
     .Output("ref: Ref(dtype)")
     .Attr("shape: shape")
     .Attr("dtype: type")
