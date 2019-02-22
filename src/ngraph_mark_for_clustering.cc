@@ -239,6 +239,7 @@ Status MarkForClustering(Graph* graph) {
         string mode;
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "mode", &mode));
         *result = (mode.compare("SCALED") == 0);
+        *result = true;
         return Status::OK();
       };
       confirmation_function_map["Equal"] = SimpleConfirmationFunction();
@@ -257,6 +258,7 @@ Status MarkForClustering(Graph* graph) {
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
         return Status::OK();
       };
+      confirmation_function_map["_FusedConv2D"] = SimpleConfirmationFunction();
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
 #if defined NGRAPH_DISTRIBUTED
@@ -403,6 +405,7 @@ Status MarkForClustering(Graph* graph) {
       // DT_FLOAT
       type_constraint_map["FusedBatchNormV2"]["T"] = {DT_FLOAT};
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["_FusedConv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
 #if defined NGRAPH_DISTRIBUTED
@@ -528,7 +531,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["ConcatV2"] = SetStaticInputs({-1});
       set_attributes_map["Conv2DBackpropFilter"] = SetStaticInputs({1});
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
-      set_attributes_map["Dequantize"] = SetStaticInputs({1, 2});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
       set_attributes_map["Max"] = SetStaticInputs({1});
@@ -537,7 +539,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
-      set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
       set_attributes_map["Split"] = SetStaticInputs({0});
