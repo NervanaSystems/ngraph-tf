@@ -43,7 +43,7 @@ TEST(Variables, SmallGraph) {
 
   PartialTensorShape varShape({2, 2});
   auto var = ops::Variable(root.WithOpName("Var1"), varShape, DT_FLOAT);
-  auto init_value = ops::Const(root, {{0.f, 0.f}, {0.f, 0.f}});
+  auto init_value = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
   auto var_assign = ops::Assign(root, var, init_value);
 
   //   TensorShape constShape({2,2});
