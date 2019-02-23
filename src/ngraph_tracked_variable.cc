@@ -108,10 +108,11 @@ class NGraphVariableOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override;
 
  private:
- int graph_id;
+  int graph_id;
   DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
+  bool convert_to_tf_tensor; 
   NGraphFreshnessTracker* tracker_;
   string ng_backend_name_;
   mutex init_mu_;
@@ -135,6 +136,9 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
       dtype_(RemoveRefType(context->output_type(0))) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
+  OP_REQUIRES_OK(context, context->GetAttr("_convert_to_tf_tensor", &convert_to_tf_tensor));
+  cout << "IN tracked variable getting convert_to_tf attribtue " << convert_to_tf_tensor <<endl;
+
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
   NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
                  << just_looking_;
@@ -174,8 +178,17 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1)<<"Print ng-tensor";
   PrintNGTensor(var->ng_tensor());
 
+  auto tf_tensor = var->tensor();
+   
+   auto ng_tensor_to_assign = var->ng_tensor();
+   if(convert_to_tf_tensor){
+     cout << "copy to tf tensor " << endl;
+     void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
+    ng_tensor_to_assign->read(tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() * ng_tensor_to_assign->get_element_type().size());
+  }
+
   NGRAPH_VLOG(1) << "Print tf-tensor";
-  //PrintTFTensor(*(var->tensor()));
+  PrintTFTensor(*(var->tensor()));
 
   // Output a reference to our tensor, so it may be updated.
   //

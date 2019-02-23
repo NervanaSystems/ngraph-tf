@@ -54,8 +54,11 @@ Status RewriteForTracking(Graph* graph) {
 
         TensorShape shape;
         DataType dtype;
+        bool convert_to_tf;
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "shape", &shape));
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "dtype", &dtype));
+        TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf));
+
 
         std::string container;
         std::string shared_name;
@@ -72,7 +75,7 @@ Status RewriteForTracking(Graph* graph) {
 
         // TODO(amprocte): Do we need to copy "_" attributes?
         TF_RETURN_IF_ERROR(
-            NodeBuilder(graph->NewName(node->name() + "/peek"),
+            NodeBuilder(node->name(),
                         "NGraphVariable")
                 .Attr("shape", shape)
                 .Attr("dtype", dtype)
@@ -80,6 +83,7 @@ Status RewriteForTracking(Graph* graph) {
                 .Attr("shared_name",
                       (shared_name.empty() ? node->name() : shared_name))
                 .Attr("just_looking", true)
+                .Attr("_convert_to_tf_tensor", convert_to_tf)
                 .Device(node->assigned_device_name())
                 .Finalize(graph, &replacement));
 

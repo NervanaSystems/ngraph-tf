@@ -234,7 +234,7 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     }
 
     // 1. Mark for clustering then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get()));
+    TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get(),idx));
     if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "marked", "Graph Marked for Clustering");
     }

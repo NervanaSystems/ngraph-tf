@@ -44,7 +44,7 @@ namespace ngraph_bridge {
 // "_ngraph_marked_for_clustering" set to "true". Additional metadata (Static
 // Inputs) for the op is also set.
 
-static int graph_id = 0; // assign NGraphVariable graph_id attribute
+//static int graph_id = 0; // assign NGraphVariable graph_id attribute
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 using TypeConstraintMap =
@@ -131,7 +131,7 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 //
 // Main entry point for the marking pass.
 //
-Status MarkForClustering(Graph* graph) {
+Status MarkForClustering(Graph* graph, int graph_id) {
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:
@@ -568,7 +568,7 @@ Status MarkForClustering(Graph* graph) {
   vector<Node*> add_attributes;
 
 
-  graph_id++; // increment the graph_id counter
+  //graph_id++; // increment the graph_id counter
   cout << "graph_id is "<< graph_id << endl; 
 
   for (auto node : graph->op_nodes()) {
@@ -634,29 +634,17 @@ Status MarkForClustering(Graph* graph) {
   
   for(auto node : add_attributes){
       cout << "node in vector name " << node->name() << endl;
-        //  if(graph_id > 1){
-        //   cout << " checking attribute of the same variable" << endl;
-        //   int id;
-        //   if(GetNodeAttr(node->attrs(), "_graph_id", &id) !=  Status::OK()){
-        //       cout << "not ok status " << endl;
-        //   }
-        //   TF_RETURN_IF_ERROR(
-        //     GetNodeAttr(node->attrs(), "_graph_id", &id));
-        //   cout << "after get attributes " << endl;
-        //   cout << " id is " << id << endl;
-
-          bool convert_to_tf_tensor;
-          //TF_RETURN_IF_ERROR(
-            // if(GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor) != Status::OK()){
-            //     cout << "status not ok " << endl;
-            // }
-            // cout << "after get attributes " << endl;
-            // cout << "convert_to_tf_tensor " << convert_to_tf_tensor << endl;
-         //}
 
         cout << "       Assigning attribute " << endl; 
         node->AddAttr("_graph_id",graph_id);
-        node->AddAttr("_convert_to_tf_tensor", true);
+        if(graph_id == 3){
+            node->AddAttr("_convert_to_tf_tensor", true);
+            cout << "assign convert_to_tf true " << endl;
+            //node->set_name("changed");
+        }else{
+            node->AddAttr("_convert_to_tf_tensor", false);
+            cout << "assign convert_to_tf false " << endl;
+        }
         cout << "       Assigning attribute with graph_id successful " << graph_id << endl;
 
         cout << "checking in the same graph " << endl;
