@@ -2795,7 +2795,7 @@ static Status TranslateQuantizeV2Op(
 
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
+  
   // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_EVEN is supported, for now.
   // Support other modes later
   ng::op::Quantize::RoundMode ng_round_mode =
