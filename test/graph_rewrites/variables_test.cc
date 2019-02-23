@@ -77,16 +77,17 @@ TEST(Variables, SmallGraph1) {
           var_assign,
       },
       &outputs);
-  std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
+  //std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
   for (int i = 0; i < 10; i++) {
     session.Run({assign}, &outputs);
-    // Print the output
-    std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
-              << std::endl;
+    // Print the output,
+    // right now prints out the TF tensor
+    //std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
+             // << std::endl;
   }
 
   session.Run({var}, &outputs);
-  std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
+  //std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
 }
 
 TEST(Variables, WeirdGraph2) {
@@ -132,12 +133,13 @@ TEST(Variables, WeirdGraph2) {
   for (int i = 0; i < 10; i++) {
     session.Run({assign2}, &outputs);
     // Print the output
-    std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
-              << std::endl;
+    // right now print the output tensor of tf_tensor
+    // std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
+    //           << std::endl;
   }
 
   session.Run({var}, &outputs);
-  std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
+  //std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
 
 }
 

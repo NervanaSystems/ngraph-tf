@@ -574,26 +574,8 @@ Status MarkForClustering(Graph* graph) {
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
     
-    cout << "------------------ " << endl;
-    cout << "node name " << node->name() << endl;
-
-    // if(node->name() == "Var1" && graph_id > 0){
-    //     cout << "Found Var1" << endl;
-    //     int id;
-    //     TF_RETURN_IF_ERROR(
-    //         GetNodeAttr(node->attrs(), "_graph_id", &id));
-    //     cout << "id is " << id << endl;
-    //     bool convert_to_tf_tensor;
-    //     TF_RETURN_IF_ERROR(
-    //         GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor));
-    //     cout << "convert_to_tf_tensor " << convert_to_tf_tensor << endl;
-    // }
-
     if(node-> type_string() == "NGraphVariable"){
         add_attributes.push_back(node);
-
-
-      
     }
 
     do {
@@ -649,15 +631,15 @@ Status MarkForClustering(Graph* graph) {
                      << node->type_string() << "]";
     }
   }
-
+  
   for(auto node : add_attributes){
       cout << "node in vector name " << node->name() << endl;
-         if(graph_id > 1){
-          cout << " checking attribute of the same variable" << endl;
-          int id;
-          if(GetNodeAttr(node->attrs(), "_graph_id", &id) !=  Status::OK()){
-              cout << "not ok status " << endl;
-          }
+        //  if(graph_id > 1){
+        //   cout << " checking attribute of the same variable" << endl;
+        //   int id;
+        //   if(GetNodeAttr(node->attrs(), "_graph_id", &id) !=  Status::OK()){
+        //       cout << "not ok status " << endl;
+        //   }
         //   TF_RETURN_IF_ERROR(
         //     GetNodeAttr(node->attrs(), "_graph_id", &id));
         //   cout << "after get attributes " << endl;
@@ -665,12 +647,12 @@ Status MarkForClustering(Graph* graph) {
 
           bool convert_to_tf_tensor;
           //TF_RETURN_IF_ERROR(
-            if(GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor) != Status::OK()){
-                cout << "status not ok " << endl;
-            }
+            // if(GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor) != Status::OK()){
+            //     cout << "status not ok " << endl;
+            // }
             // cout << "after get attributes " << endl;
             // cout << "convert_to_tf_tensor " << convert_to_tf_tensor << endl;
-         }
+         //}
 
         cout << "       Assigning attribute " << endl; 
         node->AddAttr("_graph_id",graph_id);
@@ -686,8 +668,6 @@ Status MarkForClustering(Graph* graph) {
         TF_RETURN_IF_ERROR(
             GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &tmp_value));
         cout << "bool value just after AddAttr is " << tmp_value << endl;
-
-
   }
 
 

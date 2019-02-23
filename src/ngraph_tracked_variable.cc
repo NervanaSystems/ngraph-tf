@@ -172,7 +172,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
   NGRAPH_VLOG(1)<<"Print ng-tensor";
-  //PrintNGTensor(var->ng_tensor());
+  PrintNGTensor(var->ng_tensor());
 
   NGRAPH_VLOG(1) << "Print tf-tensor";
   //PrintTFTensor(*(var->tensor()));
