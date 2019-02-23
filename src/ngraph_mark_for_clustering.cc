@@ -44,6 +44,8 @@ namespace ngraph_bridge {
 // "_ngraph_marked_for_clustering" set to "true". Additional metadata (Static
 // Inputs) for the op is also set.
 
+static int graph_id = 0; // assign NGraphVariable graph_id attribute
+
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 using TypeConstraintMap =
     std::map<std::string, std::map<std::string, gtl::ArraySlice<DataType>>>;
@@ -563,8 +565,36 @@ Status MarkForClustering(Graph* graph) {
   std::unordered_map<string, int> fail_confirmation_histogram;
   std::unordered_map<string, int> fail_constraint_histogram;
   vector<Node*> nodes_marked_for_clustering;
+  vector<Node*> add_attributes;
+
+
+  graph_id++; // increment the graph_id counter
+  cout << "graph_id is "<< graph_id << endl; 
+
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
+    
+    cout << "------------------ " << endl;
+    cout << "node name " << node->name() << endl;
+
+    // if(node->name() == "Var1" && graph_id > 0){
+    //     cout << "Found Var1" << endl;
+    //     int id;
+    //     TF_RETURN_IF_ERROR(
+    //         GetNodeAttr(node->attrs(), "_graph_id", &id));
+    //     cout << "id is " << id << endl;
+    //     bool convert_to_tf_tensor;
+    //     TF_RETURN_IF_ERROR(
+    //         GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor));
+    //     cout << "convert_to_tf_tensor " << convert_to_tf_tensor << endl;
+    // }
+
+    if(node-> type_string() == "NGraphVariable"){
+        add_attributes.push_back(node);
+
+
+      
+    }
 
     do {
       // check placement
@@ -619,6 +649,47 @@ Status MarkForClustering(Graph* graph) {
                      << node->type_string() << "]";
     }
   }
+
+  for(auto node : add_attributes){
+      cout << "node in vector name " << node->name() << endl;
+         if(graph_id > 1){
+          cout << " checking attribute of the same variable" << endl;
+          int id;
+          if(GetNodeAttr(node->attrs(), "_graph_id", &id) !=  Status::OK()){
+              cout << "not ok status " << endl;
+          }
+        //   TF_RETURN_IF_ERROR(
+        //     GetNodeAttr(node->attrs(), "_graph_id", &id));
+        //   cout << "after get attributes " << endl;
+        //   cout << " id is " << id << endl;
+
+          bool convert_to_tf_tensor;
+          //TF_RETURN_IF_ERROR(
+            if(GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &convert_to_tf_tensor) != Status::OK()){
+                cout << "status not ok " << endl;
+            }
+            // cout << "after get attributes " << endl;
+            // cout << "convert_to_tf_tensor " << convert_to_tf_tensor << endl;
+         }
+
+        cout << "       Assigning attribute " << endl; 
+        node->AddAttr("_graph_id",graph_id);
+        node->AddAttr("_convert_to_tf_tensor", true);
+        cout << "       Assigning attribute with graph_id successful " << graph_id << endl;
+
+        cout << "checking in the same graph " << endl;
+        int tmp;
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(node->attrs(), "_graph_id", &tmp));
+        cout << "graph_id just after AddAttr is " << tmp << endl;
+        bool tmp_value;
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &tmp_value));
+        cout << "bool value just after AddAttr is " << tmp_value << endl;
+
+
+  }
+
 
   if (config::IsLoggingPlacement()) {
     std::cout << "\n=============New sub-graph logs=============\n";

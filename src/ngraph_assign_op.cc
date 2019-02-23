@@ -84,7 +84,7 @@ class NGraphAssignOp : public OpKernel {
     ng_tensor_to_assign->write(tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() * ng_tensor_to_assign->get_element_type().size());
 
     NGRAPH_VLOG(1)<<"In Assign Kernel : Print NG Tensor ";
-    PrintNGTensor(ng_tensor_to_assign);
+    //PrintNGTensor(ng_tensor_to_assign);
   }
 };
 
