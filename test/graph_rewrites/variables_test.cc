@@ -49,16 +49,14 @@ TEST(Variables, SmallGraph1) {
   //   TensorShape constShape({2,2});
   //   initializer_list<float> value({1.0f ,1.0f ,1.0f ,1.0f});
   auto c = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
-    auto s = ops::Const(root, 1.f);
-      auto d = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
-
-
+  auto s = ops::Const(root, 1.f);
+  auto d = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
 
   auto add = ops::Add(root, var, c);
 
   auto assign = ops::Assign(root, var, add);
 
-  auto where = ops::ApplyGradientDescent(root, var,s,d);
+  auto apply_gradient_descent = ops::ApplyGradientDescent(root, var,s,d);
 
   // Turn off optimizations so that all the nodes are processed
   tensorflow::SessionOptions options;
@@ -75,17 +73,16 @@ TEST(Variables, SmallGraph1) {
       << std::endl;
 
   ClientSession session(root, options);
-
   std::vector<tensorflow::Tensor> outputs;
-
- 
 
   session.Run(
       {
           var_assign,
       },
       &outputs);
+
   std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
+
   for (int i = 0; i < 10; i++) {
     session.Run({assign}, &outputs);
     // Print the output,
@@ -93,15 +90,15 @@ TEST(Variables, SmallGraph1) {
     std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
              << std::endl;
   }
-   session.Run({where}, &outputs);
+  session.Run({apply_gradient_descent}, &outputs);
 
+ // this apply_gradient_descent result should be {{10.0,10.0},{10.0,10.0}}
  std::cout << "ApplyGradientDescent value " << outputs[0].matrix<float>()
              << std::endl;
 
   session.Run({var}, &outputs);
   std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
-  
-  
+
 }
 
 TEST(Variables, WeirdGraph2) {
