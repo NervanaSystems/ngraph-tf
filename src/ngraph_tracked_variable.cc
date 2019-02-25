@@ -81,6 +81,7 @@ class NGraphVar : public ResourceBase {
   mutex* mu() { return &mu_; }
   Tensor* tensor() { return &tf_tensor_; }
   shared_ptr<ngraph::runtime::Tensor> ng_tensor() { return ng_tensor_; };
+  void set_ng_tensor(shared_ptr<ngraph::runtime::Tensor> t){ cout << "Setting ng_tensor " << endl; ng_tensor_ = t;}
 
   string DebugString() override {
     return strings::StrCat(DataTypeString(tf_tensor_.dtype()), "/",
@@ -137,6 +138,11 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   OP_REQUIRES_OK(context, context->GetAttr("_convert_to_tf_tensor", &convert_to_tf_tensor));
+  // if(convert_to_tf_tensor){
+  //     cout << "convert_to_tf_tensor is true " << endl;
+  //     (*var)->ng_tensor() = BackendManager::ng_variable_map_["Var1"];
+  //     //BackendManager::ng_variable_map_[def().name()] = BackendManager::ng_variable_map_["Var1"];
+  //   }
   cout << "IN tracked variable getting convert_to_tf attribtue " << convert_to_tf_tensor <<endl;
 
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
@@ -158,10 +164,16 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   }
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
+    cout << "creating new var " << endl;
     //(*var)->tensor()->set_shape(shape_);
+    if(convert_to_tf_tensor){
+      cout << "getting the existing ng_tensor " << BackendManager::ng_variable_map_["Var1"] << endl;
+      (*var)->set_ng_tensor(BackendManager::ng_variable_map_["Var1"]);
+    }
+    cout << "ng_tensor_address in tracked_variable " << BackendManager::ng_variable_map_[def().name()] << endl;
     BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
-    NGRAPH_VLOG(1)<<"In Variable Compute "<<def().name();
-    NGRAPH_VLOG(1)<<"Is Null "<< (BackendManager::ng_variable_map_[def().name()]==NULL? "Yes" : "No");
+    NGRAPH_VLOG(1)<<"In Variable Compute "<< def().name();
+     NGRAPH_VLOG(1)<<"Is Null "<< (BackendManager::ng_variable_map_[def().name()]==NULL? "Yes" : "No");
     return Status::OK();
   };
 

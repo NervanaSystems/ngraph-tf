@@ -433,7 +433,7 @@ def main():
 
     # Component versions
     ngraph_version = "v0.12.0"
-    tf_version = "v1.12.0"
+    tf_version = "v1.13.0-rc2"
 
     # Default directories
     build_dir = 'build'

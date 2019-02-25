@@ -638,9 +638,12 @@ Status MarkForClustering(Graph* graph, int graph_id) {
         cout << "       Assigning attribute " << endl; 
         node->AddAttr("_graph_id",graph_id);
         if(graph_id == 3){
+            cout << "Changing the variable name in marking " << endl;
+            node->set_name("NameResetInMarking");
+            cout << "Node new name is " << node->name() << endl;
+            cout << "ng_tensor_address of "<< node->name() << " is "<< BackendManager::ng_variable_map_[node->name()] << endl;
             node->AddAttr("_convert_to_tf_tensor", true);
             cout << "assign convert_to_tf true " << endl;
-            //node->set_name("changed");
         }else{
             node->AddAttr("_convert_to_tf_tensor", false);
             cout << "assign convert_to_tf false " << endl;
