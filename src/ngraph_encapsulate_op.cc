@@ -454,10 +454,10 @@ class NGraphEncapsulateOp : public OpKernel {
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
         << m_ngraph_cluster;
 
-    if(m_ngraph_cluster==1){
-      ng_inputs[0]=BackendManager::ng_variable_map_["Var1"];
+    if (m_ngraph_cluster == 1) {
+      ng_inputs[0] = BackendManager::ng_variable_map_["Var1"];
     }
-    
+
     // Execute the nGraph function.
     {
       // mutex_lock l(s_ng_backend_mutex);

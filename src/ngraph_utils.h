@@ -43,7 +43,7 @@ namespace ngraph_bridge {
 ---------------------------------------------------*/
 
 void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor);
-void PrintTFTensor(Tensor &T1);
+void PrintTFTensor(Tensor& T1);
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 

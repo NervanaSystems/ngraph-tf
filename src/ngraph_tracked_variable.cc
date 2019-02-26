@@ -68,10 +68,7 @@ class NGraphVar : public ResourceBase {
         BackendManager::GetBackend(ng_backend_name_);
     NGRAPH_VLOG(1) << "Created ng backend";
 
-    // Create nGTensor
-    //void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
-    ng_tensor_ =
-        op_backend->create_tensor(ng_element_type, ng_shape);
+    ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape);
     NGRAPH_VLOG(1) << "Created ng tensor";
   }
   // Not copyable or movable.
@@ -81,7 +78,11 @@ class NGraphVar : public ResourceBase {
   mutex* mu() { return &mu_; }
   Tensor* tensor() { return &tf_tensor_; }
   shared_ptr<ngraph::runtime::Tensor> ng_tensor() { return ng_tensor_; };
-  void set_ng_tensor(shared_ptr<ngraph::runtime::Tensor> t){ cout << "Setting ng_tensor " << endl; ng_tensor_ = t;}
+  // Use the ng_tensor before the NGraphVariable gets renamed
+  void set_ng_tensor(shared_ptr<ngraph::runtime::Tensor> t) {
+    cout << "Setting ng_tensor " << endl;
+    ng_tensor_ = t;
+  }
 
   string DebugString() override {
     return strings::StrCat(DataTypeString(tf_tensor_.dtype()), "/",
@@ -113,7 +114,7 @@ class NGraphVariableOp : public OpKernel {
   DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
-  bool convert_to_tf_tensor; 
+  bool convert_to_tf_tensor;
   NGraphFreshnessTracker* tracker_;
   string ng_backend_name_;
   mutex init_mu_;
@@ -137,13 +138,16 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
       dtype_(RemoveRefType(context->output_type(0))) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
-  OP_REQUIRES_OK(context, context->GetAttr("_convert_to_tf_tensor", &convert_to_tf_tensor));
+  OP_REQUIRES_OK(context, context->GetAttr("_convert_to_tf_tensor",
+                                           &convert_to_tf_tensor));
   // if(convert_to_tf_tensor){
   //     cout << "convert_to_tf_tensor is true " << endl;
   //     (*var)->ng_tensor() = BackendManager::ng_variable_map_["Var1"];
-  //     //BackendManager::ng_variable_map_[def().name()] = BackendManager::ng_variable_map_["Var1"];
+  //     //BackendManager::ng_variable_map_[def().name()] =
+  //     BackendManager::ng_variable_map_["Var1"];
   //   }
-  cout << "IN tracked variable getting convert_to_tf attribtue " << convert_to_tf_tensor <<endl;
+  cout << "IN tracked variable getting convert_to_tf attribtue "
+       << convert_to_tf_tensor << endl;
 
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
   NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
@@ -166,14 +170,19 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     cout << "creating new var " << endl;
     //(*var)->tensor()->set_shape(shape_);
-    if(convert_to_tf_tensor){
-      cout << "getting the existing ng_tensor " << BackendManager::ng_variable_map_["Var1"] << endl;
+    if (convert_to_tf_tensor) {
+      cout << "getting the existing ng_tensor "
+           << BackendManager::ng_variable_map_["Var1"] << endl;
       (*var)->set_ng_tensor(BackendManager::ng_variable_map_["Var1"]);
     }
-    cout << "ng_tensor_address in tracked_variable " << BackendManager::ng_variable_map_[def().name()] << endl;
+    cout << "ng_tensor_address in tracked_variable "
+         << BackendManager::ng_variable_map_[def().name()] << endl;
     BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
-    NGRAPH_VLOG(1)<<"In Variable Compute "<< def().name();
-     NGRAPH_VLOG(1)<<"Is Null "<< (BackendManager::ng_variable_map_[def().name()]==NULL? "Yes" : "No");
+    NGRAPH_VLOG(1) << "In Variable Compute " << def().name();
+    NGRAPH_VLOG(1) << "Is Null "
+                   << (BackendManager::ng_variable_map_[def().name()] == NULL
+                           ? "Yes"
+                           : "No");
     return Status::OK();
   };
 
@@ -187,16 +196,18 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
-  NGRAPH_VLOG(1)<<"Print ng-tensor";
+  NGRAPH_VLOG(1) << "Print ng-tensor";
   PrintNGTensor(var->ng_tensor());
 
   auto tf_tensor = var->tensor();
-   
-   auto ng_tensor_to_assign = var->ng_tensor();
-   if(convert_to_tf_tensor){
-     cout << "copy to tf tensor " << endl;
-     void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
-    ng_tensor_to_assign->read(tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() * ng_tensor_to_assign->get_element_type().size());
+
+  auto ng_tensor_to_assign = var->ng_tensor();
+  if (convert_to_tf_tensor) {
+    cout << "copy to tf tensor " << endl;
+    void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
+    ng_tensor_to_assign->read(
+        tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
+                           ng_tensor_to_assign->get_element_type().size());
   }
 
   NGRAPH_VLOG(1) << "Print tf-tensor";
@@ -265,7 +276,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   var->Unref();
 }
 
-REGISTER_OP("NGraphVariable") 
+REGISTER_OP("NGraphVariable")
     .Output("ref: Ref(dtype)")
     .Attr("shape: shape")
     .Attr("dtype: type")

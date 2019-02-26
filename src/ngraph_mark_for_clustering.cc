@@ -44,7 +44,7 @@ namespace ngraph_bridge {
 // "_ngraph_marked_for_clustering" set to "true". Additional metadata (Static
 // Inputs) for the op is also set.
 
-//static int graph_id = 0; // assign NGraphVariable graph_id attribute
+// static int graph_id = 0; // assign NGraphVariable graph_id attribute
 
 using ConfirmationFunction = std::function<Status(Node*, bool*)>;
 using TypeConstraintMap =
@@ -567,15 +567,14 @@ Status MarkForClustering(Graph* graph, int graph_id) {
   vector<Node*> nodes_marked_for_clustering;
   vector<Node*> add_attributes;
 
-
-  //graph_id++; // increment the graph_id counter
-  cout << "graph_id is "<< graph_id << endl; 
+  // graph_id++; // increment the graph_id counter
+  cout << "graph_id is " << graph_id << endl;
 
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
-    
-    if(node-> type_string() == "NGraphVariable"){
-        add_attributes.push_back(node);
+
+    if (node->type_string() == "NGraphVariable") {
+      add_attributes.push_back(node);
     }
 
     do {
@@ -631,36 +630,36 @@ Status MarkForClustering(Graph* graph, int graph_id) {
                      << node->type_string() << "]";
     }
   }
-  
-  for(auto node : add_attributes){
-      cout << "node in vector name " << node->name() << endl;
 
-        cout << "       Assigning attribute " << endl; 
-        node->AddAttr("_graph_id",graph_id);
-        if(graph_id == 3){
-            cout << "Changing the variable name in marking " << endl;
-            node->set_name("NameResetInMarking");
-            cout << "Node new name is " << node->name() << endl;
-            cout << "ng_tensor_address of "<< node->name() << " is "<< BackendManager::ng_variable_map_[node->name()] << endl;
-            node->AddAttr("_convert_to_tf_tensor", true);
-            cout << "assign convert_to_tf true " << endl;
-        }else{
-            node->AddAttr("_convert_to_tf_tensor", false);
-            cout << "assign convert_to_tf false " << endl;
-        }
-        cout << "       Assigning attribute with graph_id successful " << graph_id << endl;
+  for (auto node : add_attributes) {
+    cout << "node in vector name " << node->name() << endl;
 
-        cout << "checking in the same graph " << endl;
-        int tmp;
-        TF_RETURN_IF_ERROR(
-            GetNodeAttr(node->attrs(), "_graph_id", &tmp));
-        cout << "graph_id just after AddAttr is " << tmp << endl;
-        bool tmp_value;
-        TF_RETURN_IF_ERROR(
-            GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &tmp_value));
-        cout << "bool value just after AddAttr is " << tmp_value << endl;
+    cout << "       Assigning attribute " << endl;
+    node->AddAttr("_graph_id", graph_id);
+    if (graph_id == 3) {
+      cout << "Changing the variable name in marking " << endl;
+      node->set_name("NameResetInMarking");
+      cout << "Node new name is " << node->name() << endl;
+      cout << "ng_tensor_address of " << node->name() << " is "
+           << BackendManager::ng_variable_map_[node->name()] << endl;
+      node->AddAttr("_convert_to_tf_tensor", true);
+      cout << "assign convert_to_tf true " << endl;
+    } else {
+      node->AddAttr("_convert_to_tf_tensor", false);
+      cout << "assign convert_to_tf false " << endl;
+    }
+    cout << "       Assigning attribute with graph_id successful " << graph_id
+         << endl;
+
+    cout << "checking in the same graph " << endl;
+    int tmp;
+    TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "_graph_id", &tmp));
+    cout << "graph_id just after AddAttr is " << tmp << endl;
+    bool tmp_value;
+    TF_RETURN_IF_ERROR(
+        GetNodeAttr(node->attrs(), "_convert_to_tf_tensor", &tmp_value));
+    cout << "bool value just after AddAttr is " << tmp_value << endl;
   }
-
 
   if (config::IsLoggingPlacement()) {
     std::cout << "\n=============New sub-graph logs=============\n";

@@ -56,7 +56,7 @@ TEST(Variables, SmallGraph1) {
 
   auto assign = ops::Assign(root, var, add);
 
-  auto apply_gradient_descent = ops::ApplyGradientDescent(root, var,s,d);
+  auto apply_gradient_descent = ops::ApplyGradientDescent(root, var, s, d);
 
   // Turn off optimizations so that all the nodes are processed
   tensorflow::SessionOptions options;
@@ -88,17 +88,16 @@ TEST(Variables, SmallGraph1) {
     // Print the output,
     // right now prints out the TF tensor
     std::cout << "itr: " << i << " ,Result: " << outputs[0].matrix<float>()
-             << std::endl;
+              << std::endl;
   }
   session.Run({apply_gradient_descent}, &outputs);
 
- // this apply_gradient_descent result should be {{10.0,10.0},{10.0,10.0}}
- std::cout << "ApplyGradientDescent value " << outputs[0].matrix<float>()
-             << std::endl;
+  // this apply_gradient_descent result should be {{10.0,10.0},{10.0,10.0}}
+  std::cout << "ApplyGradientDescent value " << outputs[0].matrix<float>()
+            << std::endl;
 
   session.Run({var}, &outputs);
   std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
-
 }
 
 TEST(Variables, WeirdGraph2) {
@@ -139,8 +138,8 @@ TEST(Variables, WeirdGraph2) {
 
   std::vector<tensorflow::Tensor> outputs;
 
-  session.Run({var_assign},&outputs);
- std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
+  session.Run({var_assign}, &outputs);
+  std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
   for (int i = 0; i < 10; i++) {
     session.Run({assign2}, &outputs);
     // Print the output
@@ -150,8 +149,7 @@ TEST(Variables, WeirdGraph2) {
   }
 
   session.Run({var}, &outputs);
-  //std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
-
+  // std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
 }
 
 TEST(Variables, SmallGraph2) {
@@ -192,8 +190,8 @@ TEST(Variables, SmallGraph2) {
 
   std::vector<tensorflow::Tensor> outputs;
 
-  session.Run({var_assign},&outputs);
- std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
+  session.Run({var_assign}, &outputs);
+  std::cout << "initialize var: " << outputs[0].matrix<float>() << std::endl;
   for (int i = 0; i < 10; i++) {
     session.Run({assign2}, &outputs);
     // Print the output
@@ -203,16 +201,7 @@ TEST(Variables, SmallGraph2) {
 
   session.Run({var}, &outputs);
   std::cout << "Final var: " << outputs[0].matrix<float>() << std::endl;
-
 }
-
-
-
-
-
-
-
-
 
 }  // namespace testing
 }  // namespace ngraph_bridge

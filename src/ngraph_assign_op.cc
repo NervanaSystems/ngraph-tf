@@ -69,21 +69,27 @@ class NGraphAssignOp : public OpKernel {
     context->forward_ref_input_to_ref_output(0, 0);
 
     // get the nGraphTensor
-    //string ng_variable_name = context->
+    // string ng_variable_name = context->
     auto itr = BackendManager::ng_variable_map_.find("Var1");
-    NGRAPH_VLOG(1)<<"In map ? "<<(itr==BackendManager::ng_variable_map_.end() ? "No " : "Yes");
+    NGRAPH_VLOG(1) << "In map ? "
+                   << (itr == BackendManager::ng_variable_map_.end() ? "No "
+                                                                     : "Yes");
 
-    NGRAPH_VLOG(1)<<" Map size "<<BackendManager::ng_variable_map_.size();
-    for(auto it: BackendManager::ng_variable_map_){
-      NGRAPH_VLOG(1)<<"Key "<<it.first <<" Val "<<it.second;
+    NGRAPH_VLOG(1) << " Map size " << BackendManager::ng_variable_map_.size();
+    for (auto it : BackendManager::ng_variable_map_) {
+      NGRAPH_VLOG(1) << "Key " << it.first << " Val " << it.second;
     }
-    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = BackendManager::ng_variable_map_["Var1"];
-    
-    NGRAPH_VLOG(1)<<"In Assign Kernel : is Var ng-Tenssor null "<<(ng_tensor_to_assign==NULL? "Yes": "No");
-    void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
-    ng_tensor_to_assign->write(tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() * ng_tensor_to_assign->get_element_type().size());
+    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign =
+        BackendManager::ng_variable_map_["Var1"];
 
-    NGRAPH_VLOG(1)<<"In Assign Kernel : Print NG Tensor ";
+    NGRAPH_VLOG(1) << "In Assign Kernel : is Var ng-Tenssor null "
+                   << (ng_tensor_to_assign == NULL ? "Yes" : "No");
+    void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
+    ng_tensor_to_assign->write(
+        tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
+                           ng_tensor_to_assign->get_element_type().size());
+
+    NGRAPH_VLOG(1) << "In Assign Kernel : Print NG Tensor ";
     PrintNGTensor(ng_tensor_to_assign);
   }
 };
