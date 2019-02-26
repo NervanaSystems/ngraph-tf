@@ -67,13 +67,11 @@ class NGraphVar : public ResourceBase {
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(ng_backend_name_);
     NGRAPH_VLOG(1) << "Created ng backend";
-
-    // Create nGTensor
-    //void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
     ng_tensor_ =
         op_backend->create_tensor(ng_element_type, ng_shape);
-    NGRAPH_VLOG(1) << "Created ng tensor";
+    NGRAPH_VLOG(1) << "Created ng backend tensor";
   }
+
   // Not copyable or movable.
   NGraphVar(const NGraphVar&) = delete;
   NGraphVar& operator=(const NGraphVar&) = delete;
@@ -150,12 +148,14 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1) << "Compute " << def().name();
+
   mutex_lock l(init_mu_);
   if (!initialized_) {
     OP_REQUIRES_OK(ctx, cinfo_.Init(ctx->resource_manager(), def(),
                                     true /* use name() */));
     initialized_ = true;
   }
+  
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
