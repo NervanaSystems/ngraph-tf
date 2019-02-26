@@ -92,7 +92,7 @@ TEST(Variables, SmallGraph1) {
   }
   session.Run({apply_gradient_descent}, &outputs);
 
- // this apply_gradient_descent result should be {{10.0,10.0},{10.0,10.0}}
+ // this apply_gradient_descent result should be {10.0,10.0},{10.0,10.0}}
  std::cout << "ApplyGradientDescent value " << outputs[0].matrix<float>()
              << std::endl;
 
