@@ -432,7 +432,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "780ef08c54456d686bd5e1ff596c67db14e81c94"
+    ngraph_version = "d3453447883fe48e63126316d5da72fcbd47dded"
     tf_version = "v1.12.0"
 
     # Default directories
@@ -521,9 +521,9 @@ def main():
             ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
         if (arguments.distributed_build): 
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=TRUE"])
         else:
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=FALSE"])
 
         build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
 
