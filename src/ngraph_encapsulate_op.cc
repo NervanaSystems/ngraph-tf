@@ -67,7 +67,7 @@ class NGraphEncapsulateOp : public OpKernel {
       : OpKernel(ctx),
         m_graph(OpRegistry::Global()),
         m_freshness_tracker(nullptr) {
-    NGRAPH_VLOG(2) << "NGraphEncapsulateOp: Name: " << name();
+    NGRAPH_VLOG(7) << "NGraphEncapsulateOp: Name: " << name();
     GraphDef* graph_def;
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
