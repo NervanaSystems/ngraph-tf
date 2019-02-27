@@ -544,19 +544,19 @@ TEST(ArrayOps, QuantizedConcat) {
   opexecuter.ExecuteOnNGraph(ngraph_results);
 
   cout << "ngraph results " << endl;
-  for(auto i: ngraph_results){
-    PrintTensorAllValues(i,100);
+  for (auto i : ngraph_results) {
+    PrintTensorAllValues(i, 100);
   }
 
   vector<Tensor> tf_results;
   opexecuter.ExecuteOnTF(tf_results);
-  
+
   cout << "TF results " << endl;
-  for(auto i: tf_results){
-    PrintTensorAllValues(i,100);
+  for (auto i : tf_results) {
+    PrintTensorAllValues(i, 100);
   }
 
-  //opexecuter.RunTest();
+  // opexecuter.RunTest();
 }  // end of test op QuantizedConcat
 
 // Test op: Rank Op
