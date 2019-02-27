@@ -33,6 +33,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
+#include "ngraph_var.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -454,8 +455,26 @@ class NGraphEncapsulateOp : public OpKernel {
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
         << m_ngraph_cluster;
 
-    if (m_ngraph_cluster == 1 || m_ngraph_cluster == 2) {
-      ng_inputs[0] = BackendManager::ng_variable_map_["Var1"];
+    NGRAPH_VLOG(1)<<"Check if encapsulate's context's resource manager can get Var1";
+
+    NGraphVar* var;
+    if(ctx->resource_manager()->Lookup<NGraphVar>(
+                 ctx->resource_manager()->default_container(),
+                 "Var1", &var) == Status::OK()){
+                    NGRAPH_VLOG(1)<<"Found var in encapsulate";
+                 }
+                 else{
+                   NGRAPH_VLOG(1)<<" Not Found var in encapsulate";
+                 }
+
+    if(var->need_sync_ng_tensor()){
+      NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
+      WriteNGTensor(var->ng_tensor(), var->tensor());
+      //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
+    }
+    if (m_ngraph_cluster == 1) {
+      //ng_inputs[0] = BackendManager::ng_variable_map_["Var1"];
+      ng_inputs[0] = var->ng_tensor();
     }
 
     // Execute the nGraph function.

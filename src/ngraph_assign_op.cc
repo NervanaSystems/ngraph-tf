@@ -29,6 +29,7 @@
 #include "ngraph_backend_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
+#include "ngraph_var.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -78,16 +79,32 @@ class NGraphAssignOp : public OpKernel {
     NGRAPH_VLOG(1)<<"Copy to TF "<< PrintBool(copy_to_tf_);
     NGRAPH_VLOG(1)<<"Just Looking " << PrintBool(just_looking_);
 
+
+    NGRAPH_VLOG(1)<<"Check if assign's context's resource manager can get Var1";
+
+    NGraphVar* var;
+    if(context->resource_manager()->Lookup<NGraphVar>(
+                 context->resource_manager()->default_container(),
+                 "Var1", &var) == Status::OK()){
+                    NGRAPH_VLOG(1)<<"Found var in assign";
+                 }
+                 else{
+                   NGRAPH_VLOG(1)<<" Not Found var in assign";
+                 }
+
+    
     const Tensor& rhs = context->input(1);
 
     // We always return the input ref.
     context->forward_ref_input_to_ref_output(0, 0);
 
     // get the nGraphTensor
-    // string ng_variable_name = context->
-    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign =
-        BackendManager::ng_variable_map_["Var1"];
+    // shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign =
+    //     BackendManager::ng_variable_map_["Var1"];
 
+    // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
+    
+    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
     void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
     ng_tensor_to_assign->write(
         tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
@@ -121,6 +138,7 @@ class NGraphAssignOp : public OpKernel {
 
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
+        var->sync_ng_tensor(true);
       }
     }
   }

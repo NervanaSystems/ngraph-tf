@@ -26,7 +26,7 @@
 #include "ngraph_backend_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
-
+#include "ngraph_var.h"
 using namespace std;
 namespace ng = ngraph;
 
@@ -45,55 +45,7 @@ namespace ngraph_bridge {
 // (Changes: Renamed from LegacyVar, modified to take a TensorShape in
 // constructor.)
 
-// THIS CLASS IS NOT BEING USED ANYWHERE
-class NGraphVar : public ResourceBase {
- public:
-  explicit NGraphVar(DataType dtype, TensorShape shape, string BackendName)
-      : tf_tensor_(dtype, shape), ng_backend_name_(BackendName) {
-    // TF datatype to nGraph element type
-    ng::element::Type ng_element_type;
-    TFDataTypeToNGraphElementType(dtype, &ng_element_type);
 
-    // TF TensorShape to nGraphShape
-    ng::Shape ng_shape(shape.dims());
-    for (int j = 0; j < shape.dims(); ++j) {
-      ng_shape[j] = shape.dim_size(j);
-    }
-
-    NGRAPH_VLOG(1) << "Created ng shape and ng element";
-
-    // Create Backend
-    BackendManager::CreateBackend(ng_backend_name_);
-    ng::runtime::Backend* op_backend =
-        BackendManager::GetBackend(ng_backend_name_);
-    NGRAPH_VLOG(1) << "Created ng backend";
-
-    // Create nGTensor
-    // void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
-    ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape);
-    NGRAPH_VLOG(1) << "Created ng tensor";
-  }
-  // Not copyable or movable.
-  NGraphVar(const NGraphVar&) = delete;
-  NGraphVar& operator=(const NGraphVar&) = delete;
-
-  mutex* mu() { return &mu_; }
-  Tensor* tensor() { return &tf_tensor_; }
-  shared_ptr<ngraph::runtime::Tensor> ng_tensor() { return ng_tensor_; };
-
-  string DebugString() override {
-    return strings::StrCat(DataTypeString(tf_tensor_.dtype()), "/",
-                           tf_tensor_.shape().DebugString());
-  }
-
- private:
-  mutex mu_;
-  Tensor tf_tensor_;
-  shared_ptr<ngraph::runtime::Tensor> ng_tensor_;
-  string ng_backend_name_;
-
-  ~NGraphVar() override {}
-};
 
 /* -------------------------------------------------
 //
@@ -151,6 +103,28 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1) << "Compute " << def().name();
   mutex_lock l(init_mu_);
   if (!initialized_) {
+    // Analyze the node attribute of 'ndef' and decides the container and
+    // resource name the kernel should use for accessing the shared
+    // resource.
+    //
+    // 'ndef' is expected to have node attribute "container" and
+    // "shared_name". Returns non-OK if they are not provided or they are
+    // invalid.
+    //
+    // The policy is as following:
+    // * If the attribute "container" is non-empty, it is used as is.
+    //   Otherwise, uses the resource manager's default container.
+    // * If the attribute "shared_name" is non-empty, it is used as is.
+    //   Otherwise, if "use_node_name_as_default" is true, the kernel's
+    //   node name is used as the resource name. Otherwise, a string
+    //   unique to this process is used.
+    
+    // API: Status Init(ResourceMgr* rmgr, const NodeDef& ndef,
+    //          bool use_node_name_as_default);
+    //
+    //  
+    // We Use context's resource manager's default container
+    // And shared name is same as node_name
     OP_REQUIRES_OK(ctx, cinfo_.Init(ctx->resource_manager(), def(),
                                     true /* use name() */));
     initialized_ = true;
@@ -159,11 +133,6 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
     BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
-    NGRAPH_VLOG(1) << "In Variable Compute " << def().name();
-    NGRAPH_VLOG(1) << "Is Null "
-                   << (BackendManager::ng_variable_map_[def().name()] == NULL
-                           ? "Yes"
-                           : "No");
     return Status::OK();
   };
 
@@ -183,6 +152,12 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1) << "Print tf-tensor";
   PrintTFTensor(*(var->tensor()));
 
+  if(var->need_sync_ng_tensor()){
+    NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
+    WriteNGTensor(var->ng_tensor(), var->tensor());
+    //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
+  }
+  
   // Output a reference to our tensor, so it may be updated.
   //
   // As long as the resource manager hasn't been cleared the ref we return
@@ -232,9 +207,10 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
 
     if (just_looking_) {
       // Some tf op will just use the val
-
     } else {
-      // Some tf op might update the ng-tensor value so mark it stale
+      // Some tf op might update the tf-tensor
+      // So we need to sync_it_later
+      var->sync_ng_tensor(true);
     }
   }
 
