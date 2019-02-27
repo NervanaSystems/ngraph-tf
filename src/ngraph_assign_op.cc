@@ -101,15 +101,25 @@ class NGraphAssignOp : public OpKernel {
     // get the nGraphTensor
     // shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign =
     //     BackendManager::ng_variable_map_["Var1"];
-
+        shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
+  
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
-    
-    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
-    void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
-    ng_tensor_to_assign->write(
+  
+    bool temp_check = (def().name() == "Assign_1/peek/non_ng_outputs");
+    if(temp_check){
+      // Value is from encap
+      string ng_op_string = "NGraphEncapsulate" + to_string(1) +"_" +to_string(0);
+      NGRAPH_VLOG(1)<<"Directly assigning from" <<ng_op_string;
+      auto ng_val = BackendManager::ng_output_map_[ng_op_string];
+      ng_tensor_to_assign->copy_from(*ng_val);
+    }
+    else{ 
+      void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
+      ng_tensor_to_assign->write(
         tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
                            ng_tensor_to_assign->get_element_type().size());
-
+    }
+    
     NGRAPH_VLOG(1) << " Print NG Tensor ";
     PrintNGTensor(ng_tensor_to_assign);
     

@@ -449,6 +449,10 @@ class NGraphEncapsulateOp : public OpKernel {
       current_tv->set_stale(true);
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
       ng_outputs.push_back(current_tv);
+      //Update the output map
+      string ng_op_string = "NGraphEncapsulate" + to_string(m_ngraph_cluster) +"_" +to_string(i);
+      BackendManager::ng_output_map_[ng_op_string]=current_tv;
+
     }
 
     NGRAPH_VLOG(4)
@@ -510,7 +514,7 @@ class NGraphEncapsulateOp : public OpKernel {
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
-
+    
     // Copy value to host if backend is not CPU
     try {
       if (m_op_backend_name != "CPU") {

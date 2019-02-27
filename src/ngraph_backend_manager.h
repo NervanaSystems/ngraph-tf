@@ -75,6 +75,9 @@ class BackendManager {
   ~BackendManager();
   static unordered_map<string, shared_ptr<ngraph::runtime::Tensor>>
       ng_variable_map_;
+  static unordered_map<string, shared_ptr<ngraph::runtime::Tensor>>
+      ng_output_map_;
+
 
  private:
   static string ng_backend_name_;  // currently set backend name

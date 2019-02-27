@@ -39,6 +39,11 @@ unordered_set<string> BackendManager::ng_supported_backends_(
 std::map<std::string, int> BackendManager::ref_count_each_backend_;
 unordered_map<string, shared_ptr<ngraph::runtime::Tensor>>
     BackendManager::ng_variable_map_;
+
+unordered_map<string, shared_ptr<ngraph::runtime::Tensor>>
+    BackendManager::ng_output_map_;
+
+
 Status BackendManager::SetBackendName(const string& backend_name) {
   std::lock_guard<std::mutex> lock(BackendManager::ng_backend_name_mutex_);
   if (backend_name.empty() || !IsSupportedBackend(backend_name)) {
