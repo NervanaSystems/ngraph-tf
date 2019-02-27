@@ -115,7 +115,6 @@ Status CaptureVariables(Graph* graph) {
         DataType dtype;
         TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
         Node* replacement;
-        
 
         NodeBuilder::NodeOut input_ref;
         NodeBuilder::NodeOut input_val;
@@ -125,7 +124,7 @@ Status CaptureVariables(Graph* graph) {
             NGRAPH_VLOG(1) << "Found null edge: ";
             continue;
           }
-          
+
           // Check REF TYPE RATHER THAN NAME
           if (edge->src()->type_string() == "NGraphVariable" ||
               edge->src()->type_string() == "VariableV2") {

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/framework/attr_value_util.h"
 #include "tensorflow/core/framework/graph.pb.h"
@@ -28,7 +29,6 @@
 #include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/platform/default/logging.h"
 #include "tensorflow/core/platform/protobuf.h"
-#include "tensorflow/core/common_runtime/dma_helper.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -37,23 +37,48 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-
-void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor){
+void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor) {
   DataType dtype(DT_FLOAT);
-  TensorShape tshape({2,2});
+  TensorShape tshape({2, 2});
   Tensor tf_temp_tensor(dtype, tshape);
   void* current_dst_ptr = DMAHelper::base(&tf_temp_tensor);
-  ng_tensor->read(current_dst_ptr, 0,
-                      ng_tensor->get_element_count() * ng_tensor->get_element_type().size());
-  LOG(INFO) << "all tensor values" << (tf_temp_tensor).SummarizeValue(64) << endl;
+  ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
+                                          ng_tensor->get_element_type().size());
+  LOG(INFO) << "all tensor values" << (tf_temp_tensor).SummarizeValue(64)
+            << endl;
 }
 
-
-void PrintTFTensor(Tensor &T1){
+void PrintTFTensor(Tensor& T1) {
   LOG(INFO) << "all tensor values" << (T1).SummarizeValue(64) << endl;
 }
 
+std::string DebugNode(Node* node) {
+  std::string pp = node->name();
+  pp += "[" + node->type_string() + "]";
+  return pp;
+  // NGRAPH_VLOG(1)<< node->name() <<"["<<node->type_string()<<"]";
+}
 
+std::string PrintBool(bool var){
+  return (var ? "Yes" : "No" );
+}
+
+
+
+void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
+                  Tensor* tf_tensor) {
+  void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
+  ng_tensor->read(tf_src_ptr, 0, ng_tensor->get_element_count() *
+                                     ng_tensor->get_element_type().size());
+}
+
+// Write into this ng_tensor from tf_tensor
+void WriteNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
+                   Tensor* tf_tensor) {
+  void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
+  ng_tensor->write(tf_src_ptr, 0, ng_tensor->get_element_count() *
+                                      ng_tensor->get_element_type().size());
+}
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
   auto node_def = ctx->def();

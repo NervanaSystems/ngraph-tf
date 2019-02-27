@@ -69,9 +69,8 @@ class NGraphVar : public ResourceBase {
     NGRAPH_VLOG(1) << "Created ng backend";
 
     // Create nGTensor
-    //void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
-    ng_tensor_ =
-        op_backend->create_tensor(ng_element_type, ng_shape);
+    // void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
+    ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape);
     NGRAPH_VLOG(1) << "Created ng tensor";
   }
   // Not copyable or movable.
@@ -108,10 +107,11 @@ class NGraphVariableOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override;
 
  private:
- int graph_id;
+  int graph_id;
   DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
+  bool copy_to_tf_;
   NGraphFreshnessTracker* tracker_;
   string ng_backend_name_;
   mutex init_mu_;
@@ -131,13 +131,16 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
     : OpKernel(context),
       tracker_(nullptr),
       just_looking_(false),
+      copy_to_tf_(false),
       ng_backend_name_("CPU"),  // can be through an attribute like encapsulate
       dtype_(RemoveRefType(context->output_type(0))) {
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
+  OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
+  //  NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
   NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
-                 << just_looking_;
+                 << just_looking_ << " ,copy-to-tf " << copy_to_tf_;
 }
 
 NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
@@ -156,8 +159,11 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
     BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
-    NGRAPH_VLOG(1)<<"In Variable Compute "<<def().name();
-    NGRAPH_VLOG(1)<<"Is Null "<< (BackendManager::ng_variable_map_[def().name()]==NULL? "Yes" : "No");
+    NGRAPH_VLOG(1) << "In Variable Compute " << def().name();
+    NGRAPH_VLOG(1) << "Is Null "
+                   << (BackendManager::ng_variable_map_[def().name()] == NULL
+                           ? "Yes"
+                           : "No");
     return Status::OK();
   };
 
@@ -171,7 +177,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
-  NGRAPH_VLOG(1)<<"Print ng-tensor";
+  NGRAPH_VLOG(1) << "Print ng-tensor";
   PrintNGTensor(var->ng_tensor());
 
   NGRAPH_VLOG(1) << "Print tf-tensor";
@@ -215,6 +221,23 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
                    << DMAHelper::base(var->tensor());
   }
 
+  if (copy_to_tf_) {
+    ReadNGTensor(var->ng_tensor(), var->tensor());
+    NGRAPH_VLOG(1) << "Copying to TF Tensor";
+    NGRAPH_VLOG(1) << "Print ng-tensor";
+    PrintNGTensor(var->ng_tensor());
+
+    NGRAPH_VLOG(1) << "Print tf-tensor";
+    PrintTFTensor(*(var->tensor()));
+
+    if (just_looking_) {
+      // Some tf op will just use the val
+
+    } else {
+      // Some tf op might update the ng-tensor value so mark it stale
+    }
+  }
+
   if (!just_looking_) {
     if (NGRAPH_VLOG_IS_ON(5)) {
       NGRAPH_VLOG(5) << "Variable " << ctx->op_kernel().name() << ": marking "
@@ -240,11 +263,12 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   var->Unref();
 }
 
-REGISTER_OP("NGraphVariable") 
+REGISTER_OP("NGraphVariable")
     .Output("ref: Ref(dtype)")
     .Attr("shape: shape")
     .Attr("dtype: type")
     .Attr("just_looking: bool = false")
+    .Attr("copy_to_tf: bool = false")
     .Attr("container: string = ''")
     .Attr("shared_name: string = ''")
     .SetIsStateful()

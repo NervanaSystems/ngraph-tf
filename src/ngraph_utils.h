@@ -20,13 +20,13 @@
 #include <ostream>
 #include <sstream>
 
-#include "ngraph/ngraph.hpp"
-
+#include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/platform/tensor_coding.h"
 #include "tensorflow/core/util/saved_tensor_slice_util.h"
 
+#include "ngraph/ngraph.hpp"
 #include "ngraph/serializer.hpp"
 #include "ngraph_log.h"
 
@@ -43,7 +43,16 @@ namespace ngraph_bridge {
 ---------------------------------------------------*/
 
 void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor);
-void PrintTFTensor(Tensor &T1);
+void PrintTFTensor(Tensor& T1);
+std::string DebugNode(Node* node);
+// Read from this ng_tensor into tf_tensor
+void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor, Tensor* tf_tensor);
+
+std::string PrintBool(bool var);
+
+// Write into this ng_tensor from tf_tensor
+void WriteNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
+                   Tensor* tf_tensor);
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 
