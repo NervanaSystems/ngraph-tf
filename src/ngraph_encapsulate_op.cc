@@ -463,8 +463,9 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
-        std::shared_ptr<ngraph::runtime::Executable> compiled_exec = op_backend->compile(ng_function);
-        compiled_exec -> call(ng_outputs, ng_inputs);
+        std::shared_ptr<ngraph::runtime::Executable> compiled_exec =
+            op_backend->compile(ng_function);
+        compiled_exec->call(ng_outputs, ng_inputs);
         // op_backend->call(op_backend->compile(ng_function), ng_outputs,
         //                  ng_inputs);
       } catch (const std::exception& exp) {

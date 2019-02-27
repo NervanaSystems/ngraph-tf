@@ -2775,23 +2775,26 @@ static Status TranslateQuantizedConcatOpHelper(
                              static_input_map, &max_tmp));
     cout << "min in iter is " << idx << " " << min_tmp[0] << endl;
     cout << "max in iter is " << idx << " " << max_tmp[0] << endl;
-    
+
     all_mins[idx] = min_tmp[0];
     all_maxs[idx] = max_tmp[0];
 
-    auto min_node = make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_tmp);
-    auto max_node = make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_tmp);
+    auto min_node =
+        make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_tmp);
+    auto max_node =
+        make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_tmp);
 
-    ng_all_mins.push_back(std::make_shared<ngraph::op::Reshape>(min_node, ngraph::AxisVector{},
-                                                ngraph::Shape{1}));
-    ng_all_maxs.push_back(std::make_shared<ngraph::op::Reshape>(max_node, ngraph::AxisVector{},
-                                                ngraph::Shape{1}));
+    ng_all_mins.push_back(std::make_shared<ngraph::op::Reshape>(
+        min_node, ngraph::AxisVector{}, ngraph::Shape{1}));
+    ng_all_maxs.push_back(std::make_shared<ngraph::op::Reshape>(
+        max_node, ngraph::AxisVector{}, ngraph::Shape{1}));
   }
 
   // // return the min among the input_mins, and the max among the input_maxs
   // // TODO: TF has a different way of determine the output_min and output_max
   // // TF reference:
-  // // https://github.com/tensorflow/tensorflow/blob/86950c2c440be956a9fcb3a25868a1df15444467/tensorflow/core/kernels/quantized_concat_op.cc#L78
+  // //
+  // https://github.com/tensorflow/tensorflow/blob/86950c2c440be956a9fcb3a25868a1df15444467/tensorflow/core/kernels/quantized_concat_op.cc#L78
   std::vector<float> min_of_mins(
       1, *std::min_element(all_mins.begin(), all_mins.end()));
   std::vector<float> max_of_maxs(
@@ -2807,8 +2810,12 @@ static Status TranslateQuantizedConcatOpHelper(
       make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
 
   // construct input parameter to ngraph ScaledQuantizedConcat op
-  // auto min = std::make_shared<ngraph::op::Min>(std::make_shared<ngraph::op::Concat>(all_mins, 0), ngraph::AxisSet{0});
-  // auto max = std::make_shared<ngraph::op::Max>(std::make_shared<ngraph::op::Concat>(all_maxs, 0), ngraph::AxisSet{0});
+  // auto min =
+  // std::make_shared<ngraph::op::Min>(std::make_shared<ngraph::op::Concat>(all_mins,
+  // 0), ngraph::AxisSet{0});
+  // auto max =
+  // std::make_shared<ngraph::op::Max>(std::make_shared<ngraph::op::Concat>(all_maxs,
+  // 0), ngraph::AxisSet{0});
 
   // shared_ptr<ng::Node> ng_mins = make_shared<ng::op::Constant>(
   //     ng::element::f32, ng::Shape{all_mins.size()}, all_mins);

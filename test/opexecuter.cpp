@@ -395,8 +395,9 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   NGRAPH_VLOG(5) << " Executing on nGraph ";
   BackendManager::LockBackend(ng_backend_type);
   try {
-    std::shared_ptr<ngraph::runtime::Executable> compiled_exec = backend->compile(ng_function);
-    compiled_exec -> call(ng_op_tensors, ng_ip_tensors);
+    std::shared_ptr<ngraph::runtime::Executable> compiled_exec =
+        backend->compile(ng_function);
+    compiled_exec->call(ng_op_tensors, ng_ip_tensors);
   } catch (const std::exception& exp) {
     BackendManager::UnlockBackend(ng_backend_type);
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
