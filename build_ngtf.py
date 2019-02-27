@@ -434,7 +434,9 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "nishant_quantized_concat" #"v0.12.0"
+    #ngraph_version = "nishant_quantized_concat" #"v0.12.0"
+    #ngraph_version = "b9ff5d1fda7cd749bec891b63aa1faa4378d47fb" #"v0.12.0"
+    ngraph_version = "65141c5f6f796d6f4fe9fe3865af0f73d80892fc"
     #tf_version = "quantized_concat_part_1"
     tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
 

@@ -2759,12 +2759,11 @@ static Status TranslateQuantizedConcatOpHelper(
   int64 concat_axis = tf_concat_axis_vec[0];
 
   // Get input_mins and input_maxs
-  // std::vector<float> all_mins(num_of_tensors_to_concat),
-  //     all_maxs(num_of_tensors_to_concat);
+  std::vector<float> all_mins(num_of_tensors_to_concat),
+      all_maxs(num_of_tensors_to_concat);
 
-  // ng::NodeVector all_mins(size_t(num_of_tensors_to_concat)),
-  //     all_maxs(size_t(num_of_tensors_to_concat));
-  ng::NodeVector all_mins, all_maxs;
+  // Construct input parameters to ScaledQuantizedConcat op
+  ng::NodeVector ng_all_mins, ng_all_maxs;
   std::vector<float> min_tmp, max_tmp;
 
   // Collect the N input mins and input maxs
@@ -2774,27 +2773,42 @@ static Status TranslateQuantizedConcatOpHelper(
     TF_RETURN_IF_ERROR(
         GetStaticInputVector(op, 2 * num_of_tensors_to_concat + 1 + idx,
                              static_input_map, &max_tmp));
-    all_mins.push_back(make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_tmp));
-    all_maxs.push_back(make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_tmp));
+    cout << "min in iter is " << idx << " " << min_tmp[0] << endl;
+    cout << "max in iter is " << idx << " " << max_tmp[0] << endl;
+    
+    all_mins[idx] = min_tmp[0];
+    all_maxs[idx] = max_tmp[0];
+
+    auto min_node = make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_tmp);
+    auto max_node = make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_tmp);
+
+    ng_all_mins.push_back(std::make_shared<ngraph::op::Reshape>(min_node, ngraph::AxisVector{},
+                                                ngraph::Shape{1}));
+    ng_all_maxs.push_back(std::make_shared<ngraph::op::Reshape>(max_node, ngraph::AxisVector{},
+                                                ngraph::Shape{1}));
   }
+
   // // return the min among the input_mins, and the max among the input_maxs
   // // TODO: TF has a different way of determine the output_min and output_max
   // // TF reference:
   // // https://github.com/tensorflow/tensorflow/blob/86950c2c440be956a9fcb3a25868a1df15444467/tensorflow/core/kernels/quantized_concat_op.cc#L78
-  // std::vector<float> min_of_mins(
-  //     1, *std::min_element(all_mins.begin(), all_mins.end()));
-  // std::vector<float> max_of_maxs(
-  //     1, *std::max_element(all_maxs.begin(), all_maxs.end()));
+  std::vector<float> min_of_mins(
+      1, *std::min_element(all_mins.begin(), all_mins.end()));
+  std::vector<float> max_of_maxs(
+      1, *std::max_element(all_maxs.begin(), all_maxs.end()));
+
+  cout << "min of mins " << min_of_mins[0] << endl;
+  cout << "max of maxs " << max_of_maxs[0] << endl;
 
   // // construct output_min and output_max
-  // shared_ptr<ng::Node> ng_min_of_mins =
-  //     make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_of_mins);
-  // shared_ptr<ng::Node> ng_max_of_maxs =
-  //     make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
+  shared_ptr<ng::Node> ng_min_of_mins =
+      make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_of_mins);
+  shared_ptr<ng::Node> ng_max_of_maxs =
+      make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
 
   // construct input parameter to ngraph ScaledQuantizedConcat op
-  auto min = std::make_shared<ngraph::op::Min>(std::make_shared<ngraph::op::Concat>(all_mins, 0), ngraph::AxisSet{0});
-  auto max = std::make_shared<ngraph::op::Max>(std::make_shared<ngraph::op::Concat>(all_maxs, 0), ngraph::AxisSet{0});
+  // auto min = std::make_shared<ngraph::op::Min>(std::make_shared<ngraph::op::Concat>(all_mins, 0), ngraph::AxisSet{0});
+  // auto max = std::make_shared<ngraph::op::Max>(std::make_shared<ngraph::op::Concat>(all_maxs, 0), ngraph::AxisSet{0});
 
   // shared_ptr<ng::Node> ng_mins = make_shared<ng::op::Constant>(
   //     ng::element::f32, ng::Shape{all_mins.size()}, all_mins);
@@ -2802,11 +2816,11 @@ static Status TranslateQuantizedConcatOpHelper(
   //     ng::element::f32, ng::Shape{all_maxs.size()}, all_maxs);
 
   auto ng_qconcat = ng::builder::ScaledQuantizedConcat(
-      ng_args, size_t(concat_axis), all_mins, all_maxs);
+      ng_args, size_t(concat_axis), ng_all_mins, ng_all_maxs);
 
   SaveNgOp(ng_op_map, op->name(), ng_qconcat);
-  SaveNgOp(ng_op_map, op->name(), min);
-  SaveNgOp(ng_op_map, op->name(), max);
+  SaveNgOp(ng_op_map, op->name(), ng_min_of_mins);
+  SaveNgOp(ng_op_map, op->name(), ng_max_of_maxs);
   return Status::OK();
 }
 
