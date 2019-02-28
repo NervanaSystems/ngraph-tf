@@ -432,7 +432,7 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "d3453447883fe48e63126316d5da72fcbd47dded"
+    ngraph_version = "avijit/add_diag_4_distributed_debugging"
     tf_version = "v1.12.0"
 
     # Default directories
