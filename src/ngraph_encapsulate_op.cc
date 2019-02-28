@@ -319,7 +319,7 @@ class NGraphEncapsulateOp : public OpKernel {
         m_ng_functions.erase(m_lru.back());
 
         // Call delete function here pf he erased func
-        auto exec = op_backend->compile(evicted_ng_function);
+        auto exec = m_exec_map.find(evicted_ng_function)->second;
         op_backend->remove_compiled_function(exec);
 
         // Now clean the input cache
@@ -351,6 +351,7 @@ class NGraphEncapsulateOp : public OpKernel {
                        << output_tensors_bytes_free / (1024 * 1024) << " MB";
       }
       m_ng_functions[signature] = ng_function;
+      m_exec_map[ng_function] = op_backend->compile(ng_function);
       m_lru.push_front(signature);
       // Memory after
       MemoryProfile(vm, rss);
@@ -516,7 +517,7 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
-        auto exec = op_backend->compile(ng_function);
+        auto exec = m_exec_map.find(ng_function)->second;
         exec->call(ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
@@ -611,6 +612,10 @@ class NGraphEncapsulateOp : public OpKernel {
 
   std::unordered_map<std::string, std::shared_ptr<ngraph::Function>>
       m_ng_functions;
+  std::unordered_map<std::shared_ptr<ngraph::Function>,
+                     std::shared_ptr<ngraph::runtime::Executable>>
+      m_exec_map;
+
   NgFunctionIOCache m_ng_function_input_cache_map;
   NgFunctionIOCache m_ng_function_output_cache_map;
 
