@@ -38,7 +38,7 @@ namespace testing {
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 #define ASSERT_NOT_OK(x) ASSERT_NE((x), ::tensorflow::Status::OK());
 
-//Simple Graph
+// Simple Graph
 TEST(Variables, SmallGraph1) {
   Scope root = Scope::NewRootScope();
 
@@ -63,7 +63,7 @@ TEST(Variables, SmallGraph1) {
       ->set_constant_folding(tensorflow::RewriterConfig::OFF);
 
   // Run on nGraph
-  ActivateNGraph();   
+  ActivateNGraph();
   ClientSession ng_session(root, options);
   std::vector<tensorflow::Tensor> ng_outputs1;
   std::vector<tensorflow::Tensor> ng_outputs2;
@@ -74,7 +74,8 @@ TEST(Variables, SmallGraph1) {
           var_assign,
       },
       &ng_outputs1);
-  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>()
+            << std::endl;
   for (int i = 0; i < 10; i++) {
     ng_session.Run({assign}, &ng_outputs2);
     // Print the output
@@ -83,10 +84,9 @@ TEST(Variables, SmallGraph1) {
   }
 
   ng_session.Run({var}, &ng_outputs3);
-  std::cout << "Final var: " << ng_outputs3[0].matrix<float>() << std::endl;   
+  std::cout << "Final var: " << ng_outputs3[0].matrix<float>() << std::endl;
 
-
-  // Run on TF   
+  // Run on TF
   DeactivateNGraph();
   ClientSession tf_session(root, options);
   std::vector<tensorflow::Tensor> tf_outputs1;
@@ -98,7 +98,8 @@ TEST(Variables, SmallGraph1) {
           var_assign,
       },
       &tf_outputs1);
-  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>()
+            << std::endl;
   for (int i = 0; i < 10; i++) {
     tf_session.Run({assign}, &tf_outputs2);
     // Print the output
@@ -107,16 +108,14 @@ TEST(Variables, SmallGraph1) {
   }
 
   tf_session.Run({var}, &tf_outputs3);
-  std::cout << "Final var: " << tf_outputs3[0].matrix<float>() << std::endl;   
+  std::cout << "Final var: " << tf_outputs3[0].matrix<float>() << std::endl;
 
   Compare(tf_outputs1, ng_outputs1);
   Compare(tf_outputs2, ng_outputs2);
   Compare(tf_outputs3, ng_outputs3);
-
-
 }
 
-//Graph with 2 Assigns
+// Graph with 2 Assigns
 TEST(Variables, SmallGraph2) {
   Scope root = Scope::NewRootScope();
 
@@ -144,16 +143,16 @@ TEST(Variables, SmallGraph2) {
       ->mutable_rewrite_options()
       ->set_constant_folding(tensorflow::RewriterConfig::OFF);
 
-
-// Run on nGraph
-  ActivateNGraph();   
+  // Run on nGraph
+  ActivateNGraph();
   ClientSession ng_session(root, options);
   std::vector<tensorflow::Tensor> ng_outputs1;
   std::vector<tensorflow::Tensor> ng_outputs2;
   std::vector<tensorflow::Tensor> ng_outputs3;
 
   ng_session.Run({var_assign}, &ng_outputs1);
-  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>()
+            << std::endl;
 
   for (int i = 0; i < 10; i++) {
     ng_session.Run({assign2}, &ng_outputs2);
@@ -165,7 +164,7 @@ TEST(Variables, SmallGraph2) {
   ng_session.Run({var}, &ng_outputs3);
   std::cout << "Final var: " << ng_outputs3[0].matrix<float>() << std::endl;
 
-// Run on TF   
+  // Run on TF
   DeactivateNGraph();
   ClientSession tf_session(root, options);
   std::vector<tensorflow::Tensor> tf_outputs1;
@@ -177,7 +176,8 @@ TEST(Variables, SmallGraph2) {
           var_assign,
       },
       &tf_outputs1);
-  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>()
+            << std::endl;
   for (int i = 0; i < 10; i++) {
     tf_session.Run({assign2}, &tf_outputs2);
     // Print the output
@@ -186,16 +186,14 @@ TEST(Variables, SmallGraph2) {
   }
 
   tf_session.Run({var}, &tf_outputs3);
-  std::cout << "Final var: " << tf_outputs3[0].matrix<float>() << std::endl;   
+  std::cout << "Final var: " << tf_outputs3[0].matrix<float>() << std::endl;
 
   Compare(tf_outputs1, ng_outputs1);
   Compare(tf_outputs2, ng_outputs2);
   Compare(tf_outputs3, ng_outputs3);
-
-
 }
 
-//Graph withApplyGradientDescent which is currently not supported
+// Graph withApplyGradientDescent which is currently not supported
 TEST(Variables, SmallGraph3) {
   Scope root = Scope::NewRootScope();
 
@@ -222,9 +220,9 @@ TEST(Variables, SmallGraph3) {
   options.config.mutable_graph_options()
       ->mutable_rewrite_options()
       ->set_constant_folding(tensorflow::RewriterConfig::OFF);
-  
+
   // Run on nGraph
-  ActivateNGraph();  
+  ActivateNGraph();
   ClientSession ng_session(root, options);
   std::vector<tensorflow::Tensor> ng_outputs1;
   std::vector<tensorflow::Tensor> ng_outputs2;
@@ -238,7 +236,8 @@ TEST(Variables, SmallGraph3) {
       },
       &ng_outputs1);
 
-  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << ng_outputs1[0].matrix<float>()
+            << std::endl;
 
   for (int i = 0; i < 10; i++) {
     ng_session.Run({assign}, &ng_outputs2);
@@ -253,7 +252,7 @@ TEST(Variables, SmallGraph3) {
   std::cout << "ApplyGradientDescent value " << ng_outputs3[0].matrix<float>()
             << std::endl;
 
-   for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 10; i++) {
     ng_session.Run({assign}, &ng_outputs4);
     // Print the output
     std::cout << "itr: " << i << " ,Result: " << ng_outputs4[0].matrix<float>()
@@ -262,9 +261,9 @@ TEST(Variables, SmallGraph3) {
 
   ng_session.Run({var}, &ng_outputs5);
   std::cout << "Final var: " << ng_outputs5[0].matrix<float>() << std::endl;
- 
+
   // Run on TF
-  DeactivateNGraph();  
+  DeactivateNGraph();
   ClientSession tf_session(root, options);
   std::vector<tensorflow::Tensor> tf_outputs1;
   std::vector<tensorflow::Tensor> tf_outputs2;
@@ -278,7 +277,8 @@ TEST(Variables, SmallGraph3) {
       },
       &tf_outputs1);
 
-  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>() << std::endl;
+  std::cout << "initialize var: " << tf_outputs1[0].matrix<float>()
+            << std::endl;
 
   for (int i = 0; i < 10; i++) {
     tf_session.Run({assign}, &tf_outputs2);
@@ -293,7 +293,7 @@ TEST(Variables, SmallGraph3) {
   std::cout << "ApplyGradientDescent value " << tf_outputs3[0].matrix<float>()
             << std::endl;
 
-   for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 10; i++) {
     tf_session.Run({assign}, &tf_outputs4);
     // Print the output
     std::cout << "itr: " << i << " ,Result: " << tf_outputs4[0].matrix<float>()
@@ -308,10 +308,9 @@ TEST(Variables, SmallGraph3) {
   Compare(tf_outputs3, ng_outputs3);
   Compare(tf_outputs4, ng_outputs4);
   Compare(tf_outputs5, ng_outputs5);
-
 }
 
-//Graph with 2 variables 
+// Graph with 2 variables
 TEST(Variables, SmallGraph4) {
   Scope root = Scope::NewRootScope();
 
@@ -324,18 +323,15 @@ TEST(Variables, SmallGraph4) {
   auto init_value2 = ops::Const(root, {{123.f, 34.f}, {0.f, 112121.f}});
   auto var2_assign = ops::Assign(root, var2, init_value2);
 
-
   auto s = ops::Const(root, 1.f);
   auto d = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
-
-
 
   auto add = ops::Add(root, var1, var2);
   auto assign = ops::Assign(root, var1, add);
   auto apply_gradient_descent = ops::ApplyGradientDescent(root, var2, s, d);
   auto mul = ops::Mul(root, var1, var2);
   auto assign2 = ops::Assign(root, var2, mul);
-  auto mul2= ops::Mul(root, var1, var2);
+  auto mul2 = ops::Mul(root, var1, var2);
 
   // Turn off optimizations so that all the nodes are processed
   tensorflow::SessionOptions options;
@@ -345,9 +341,9 @@ TEST(Variables, SmallGraph4) {
   options.config.mutable_graph_options()
       ->mutable_rewrite_options()
       ->set_constant_folding(tensorflow::RewriterConfig::OFF);
-  
+
   // Run on nGraph
-  ActivateNGraph();  
+  ActivateNGraph();
   ClientSession ng_session(root, options);
   std::vector<tensorflow::Tensor> ng_outputs1;
   std::vector<tensorflow::Tensor> ng_outputs2;
@@ -355,11 +351,7 @@ TEST(Variables, SmallGraph4) {
   std::vector<tensorflow::Tensor> ng_outputs4;
   std::vector<tensorflow::Tensor> ng_outputs5;
 
-  ng_session.Run(
-      {
-          var1_assign,var2_assign
-      },
-      &ng_outputs1);
+  ng_session.Run({var1_assign, var2_assign}, &ng_outputs1);
 
   for (int i = 0; i < 10; i++) {
     ng_session.Run({assign}, &ng_outputs2);
@@ -369,19 +361,18 @@ TEST(Variables, SmallGraph4) {
               << std::endl;
   }
 
-  for(int i=0; i<5; i++){
-  ng_session.Run({apply_gradient_descent}, &ng_outputs3);
+  for (int i = 0; i < 5; i++) {
+    ng_session.Run({apply_gradient_descent}, &ng_outputs3);
   }
-  
+
   for (int i = 0; i < 10; i++) {
     ng_session.Run({mul2}, &ng_outputs4);
-    
   }
 
   ng_session.Run({var1, var2}, &ng_outputs5);
- 
+
   // Run on TF
-  DeactivateNGraph();  
+  DeactivateNGraph();
   ClientSession tf_session(root, options);
   std::vector<tensorflow::Tensor> tf_outputs1;
   std::vector<tensorflow::Tensor> tf_outputs2;
@@ -389,23 +380,18 @@ TEST(Variables, SmallGraph4) {
   std::vector<tensorflow::Tensor> tf_outputs4;
   std::vector<tensorflow::Tensor> tf_outputs5;
 
-  tf_session.Run(
-      {
-          var1_assign,var2_assign
-      },
-      &tf_outputs1);
+  tf_session.Run({var1_assign, var2_assign}, &tf_outputs1);
 
   for (int i = 0; i < 10; i++) {
     tf_session.Run({assign}, &tf_outputs2);
   }
 
-  for(int i=0; i<5; i++){
-  tf_session.Run({apply_gradient_descent}, &tf_outputs3);
+  for (int i = 0; i < 5; i++) {
+    tf_session.Run({apply_gradient_descent}, &tf_outputs3);
   }
-  
+
   for (int i = 0; i < 10; i++) {
     tf_session.Run({mul2}, &tf_outputs4);
-    
   }
 
   tf_session.Run({var1, var2}, &tf_outputs5);
@@ -415,12 +401,7 @@ TEST(Variables, SmallGraph4) {
   Compare(tf_outputs3, ng_outputs3);
   Compare(tf_outputs4, ng_outputs4);
   Compare(tf_outputs5, ng_outputs5);
-
 }
-
-
-
-
 
 }  // namespace testing
 }  // namespace ngraph_bridge

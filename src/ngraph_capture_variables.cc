@@ -74,7 +74,7 @@ Status CaptureVariables(Graph* graph) {
                                .Attr("dtype", dtype)
                                .Attr("container", container)
                                .Attr("shared_name", shared_name)
-                               .Attr("ngraph_graph_id",0)
+                               .Attr("ngraph_graph_id", 0)
                                .Device(node->assigned_device_name())
                                .Finalize(graph, &replacement));
 
@@ -140,7 +140,7 @@ Status CaptureVariables(Graph* graph) {
                                .Attr("validate_shape", true)
                                .Attr("use_locking", true)
                                .Attr("T", dtype)
-                               .Attr("ngraph_graph_id",0)
+                               .Attr("ngraph_graph_id", 0)
                                .Input(input_ref)
                                .Input(input_val)
                                .Device(node->assigned_device_name())

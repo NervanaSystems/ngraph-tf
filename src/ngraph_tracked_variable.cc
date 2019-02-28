@@ -45,8 +45,6 @@ namespace ngraph_bridge {
 // (Changes: Renamed from LegacyVar, modified to take a TensorShape in
 // constructor.)
 
-
-
 /* -------------------------------------------------
 //
 // NGraphVariableOp
@@ -92,7 +90,9 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
   //  NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  NGRAPH_VLOG(1) << "Constructor " << "Graph_id " << ng_graph_id_ << " ,Node Name: "<< def().name() << ": just looking? "
+  NGRAPH_VLOG(1) << "Constructor "
+                 << "Graph_id " << ng_graph_id_
+                 << " ,Node Name: " << def().name() << ": just looking? "
                  << just_looking_ << " ,copy-to-tf " << copy_to_tf_;
 }
 
@@ -120,11 +120,11 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     //   Otherwise, if "use_node_name_as_default" is true, the kernel's
     //   node name is used as the resource name. Otherwise, a string
     //   unique to this process is used.
-    
+
     // API: Status Init(ResourceMgr* rmgr, const NodeDef& ndef,
     //          bool use_node_name_as_default);
     //
-    //  
+    //
     // We Use context's resource manager's default container
     // And shared name is same as node_name
     OP_REQUIRES_OK(ctx, cinfo_.Init(ctx->resource_manager(), def(),
@@ -135,7 +135,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
-    //BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
+    // BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
     return Status::OK();
   };
 
@@ -155,12 +155,13 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1) << "Print tf-tensor";
   PrintTFTensor(*(var->tensor()));
 
-  if(var->need_sync_ng_tensor()){
+  if (var->need_sync_ng_tensor()) {
     NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
     WriteNGTensor(var->ng_tensor(), var->tensor());
-    //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
+    // TODO: Is it safe to set sync as false after this sync, or should it be
+    // synced everytime
   }
-  
+
   // Output a reference to our tensor, so it may be updated.
   //
   // As long as the resource manager hasn't been cleared the ref we return

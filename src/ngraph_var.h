@@ -36,12 +36,13 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-
 // THIS CLASS IS NOT BEING USED ANYWHERE
 class NGraphVar : public ResourceBase {
  public:
   explicit NGraphVar(DataType dtype, TensorShape shape, string BackendName)
-      : tf_tensor_(dtype, shape), ng_backend_name_(BackendName), sync_ng_tensor_(false) {
+      : tf_tensor_(dtype, shape),
+        ng_backend_name_(BackendName),
+        sync_ng_tensor_(false) {
     // TF datatype to nGraph element type
     ng::element::Type ng_element_type;
     TFDataTypeToNGraphElementType(dtype, &ng_element_type);
@@ -51,7 +52,6 @@ class NGraphVar : public ResourceBase {
     for (int j = 0; j < shape.dims(); ++j) {
       ng_shape[j] = shape.dim_size(j);
     }
-
 
     // Create Backend
     BackendManager::CreateBackend(ng_backend_name_);
@@ -75,8 +75,8 @@ class NGraphVar : public ResourceBase {
                            tf_tensor_.shape().DebugString());
   }
 
-  bool need_sync_ng_tensor(){return sync_ng_tensor_;}
-  void sync_ng_tensor(bool sync_ng_tensor){sync_ng_tensor_ = sync_ng_tensor;}
+  bool need_sync_ng_tensor() { return sync_ng_tensor_; }
+  void sync_ng_tensor(bool sync_ng_tensor) { sync_ng_tensor_ = sync_ng_tensor; }
 
  private:
   mutex mu_;
@@ -84,12 +84,11 @@ class NGraphVar : public ResourceBase {
   shared_ptr<ngraph::runtime::Tensor> ng_tensor_;
   string ng_backend_name_;
   // sync from tf to ng
-  bool sync_ng_tensor_; 
+  bool sync_ng_tensor_;
   ~NGraphVar() override {}
 };
 
-} // namespace ng-bridge
-} // namespace tf
+}  // namespace ng-bridge
+}  // namespace tf
 
 #endif
-

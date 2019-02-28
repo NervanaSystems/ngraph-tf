@@ -27,10 +27,10 @@
 
 #include "ngraph/runtime/backend.hpp"
 #include "ngraph_backend_manager.h"
+#include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
-#include "ngraph_catalog.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -78,29 +78,28 @@ class NGraphAssignOp : public OpKernel {
   }
 
   void Compute(OpKernelContext* context) override {
-    NGRAPH_VLOG(1)<< "In Assign Kernel "<< def().name();
-    NGRAPH_VLOG(1)<<"Copy to TF "<< PrintBool(copy_to_tf_);
-    NGRAPH_VLOG(1)<<"Just Looking " << PrintBool(just_looking_);
+    NGRAPH_VLOG(1) << "In Assign Kernel " << def().name();
+    NGRAPH_VLOG(1) << "Copy to TF " << PrintBool(copy_to_tf_);
+    NGRAPH_VLOG(1) << "Just Looking " << PrintBool(just_looking_);
 
-
-    bool ref_exists = NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
-    if(!ref_exists){
-    OP_REQUIRES(context, ref_exists,
-                    errors::Internal(
-                        "Caught exception : RefInput to NGAssign not found \n"));
+    bool ref_exists =
+        NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
+    if (!ref_exists) {
+      OP_REQUIRES(context, ref_exists,
+                  errors::Internal(
+                      "Caught exception : RefInput to NGAssign not found \n"));
     }
-    string get_ref_var_name = NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+    string get_ref_var_name =
+        NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
     NGraphVar* var;
-    if(context->resource_manager()->Lookup<NGraphVar>(
-                 context->resource_manager()->default_container(),
-                 get_ref_var_name, &var) == Status::OK()){
-                    NGRAPH_VLOG(1)<<"Found var in assign";
-                 }
-                 else{
-                   NGRAPH_VLOG(1)<<" Not Found var in assign";
-                 }
+    if (context->resource_manager()->Lookup<NGraphVar>(
+            context->resource_manager()->default_container(), get_ref_var_name,
+            &var) == Status::OK()) {
+      NGRAPH_VLOG(1) << "Found var in assign";
+    } else {
+      NGRAPH_VLOG(1) << " Not Found var in assign";
+    }
 
-    
     const Tensor& rhs = context->input(1);
 
     // We always return the input ref.
@@ -108,27 +107,28 @@ class NGraphAssignOp : public OpKernel {
 
     // get the nGraphTensor
     shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
-  
+
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
-  
+
     // bool temp_check = (def().name() == "Assign_1/peek/non_ng_outputs");
     // if(temp_check){
     //   // Value is from encap
-    //   string ng_op_string = "NGraphEncapsulate" + to_string(1) +"_" +to_string(0);
+    //   string ng_op_string = "NGraphEncapsulate" + to_string(1) +"_"
+    //   +to_string(0);
     //   NGRAPH_VLOG(1)<<"Directly assigning from" <<ng_op_string;
     //   auto ng_val = BackendManager::ng_output_map_[ng_op_string];
     //   ng_tensor_to_assign->copy_from(*ng_val);
     // }
-    // else{ 
-      void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
-      ng_tensor_to_assign->write(
+    // else{
+    void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
+    ng_tensor_to_assign->write(
         tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
                            ng_tensor_to_assign->get_element_type().size());
     // }
-    
+
     NGRAPH_VLOG(1) << " Print NG Tensor ";
     PrintNGTensor(ng_tensor_to_assign);
-    
+
     mutex_lock l(*context->input_ref_mutex(0));
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
 
@@ -137,10 +137,10 @@ class NGraphAssignOp : public OpKernel {
 
     if (copy_to_tf_) {
       // update the tf tensor
-      //mutex_lock l(*context->input_ref_mutex(0));
+      // mutex_lock l(*context->input_ref_mutex(0));
       // const Tensor& old_lhs = context->mutable_input(0, /* lock_held */
       // true);
-      //Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
+      // Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
       NGRAPH_VLOG(1) << "Copying to TF Tensor";
       NGRAPH_VLOG(1) << "Print ng-tensor";

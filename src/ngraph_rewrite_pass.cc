@@ -22,10 +22,10 @@
 #include "ngraph_capture_variables.h"
 #include "ngraph_deassign_clusters.h"
 #include "ngraph_encapsulate_clusters.h"
+#include "ngraph_enter_in_catalog.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
-#include "ngraph_enter_in_catalog.h"
 #include "tf_graph_writer.h"
 
 #include <iomanip>
@@ -268,13 +268,11 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     }
 
     // Enter in catalog then.
-    TF_RETURN_IF_ERROR(EnterInCatalog(options.graph->get(),idx));
-    // if (DumpTrackedGraphs()) {
-    //   DumpGraphs(options, idx, "catalog",
-    //              "Graph with Variables Rewritten for Tracking");
-    // }
-
-    
+    TF_RETURN_IF_ERROR(EnterInCatalog(options.graph->get(), idx));
+    if (DumpCatalogedGraphs()) {
+      DumpGraphs(options, idx, "cataloged",
+                 "Graph with Variables Inputs Entered in Catalog");
+    }
 
     return Status::OK();
   }
@@ -303,6 +301,11 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
   static bool DumpTrackedGraphs() {
     return DumpAllGraphs() ||
            std::getenv("NGRAPH_TF_DUMP_TRACKED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpCatalogedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_CATALOGED_GRAPHS") != nullptr;
   }
 };
 

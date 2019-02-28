@@ -45,10 +45,10 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
   if (GetNodeAttr(node->attrs(), "shared_name", &shared_name) != Status::OK()) {
     shared_name = "";
   }
-  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) != Status::OK()) {
+  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) !=
+      Status::OK()) {
     graph_id = 0;
   }
-
 
   // NGRAPHVARIABLE
   TF_RETURN_IF_ERROR(
@@ -60,7 +60,7 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
                 (shared_name.empty() ? node->name() : shared_name))
           .Attr("just_looking", just_looking)
           .Attr("copy_to_tf", !outputs_ng_supported)
-          .Attr("ngraph_graph_id",graph_id)
+          .Attr("ngraph_graph_id", graph_id)
           .Device(node->assigned_device_name())
           .Finalize(graph, &(*replacement)));
 
@@ -90,7 +90,8 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
 
   int graph_id;
-  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) != Status::OK()) {
+  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) !=
+      Status::OK()) {
     graph_id = 0;
   }
 
@@ -123,7 +124,7 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
                          .Finalize(graph, &(*replacement)));
 
   (*replacement)->set_assigned_device_name(node->assigned_device_name());
-return Status::OK();
+  return Status::OK();
 }
 
 //
@@ -163,8 +164,10 @@ Status RewriteForTracking(Graph* graph) {
       }
 
       NGRAPH_VLOG(1) << "Just Looking: " << PrintBool(just_looking);
-      NGRAPH_VLOG(1) << "Outputs supported by nGraph: " << PrintBool(outputs_ng_supported);
-      NGRAPH_VLOG(1) << "Requires Replacement "<< PrintBool(just_looking || !outputs_ng_supported);
+      NGRAPH_VLOG(1) << "Outputs supported by nGraph: "
+                     << PrintBool(outputs_ng_supported);
+      NGRAPH_VLOG(1) << "Requires Replacement "
+                     << PrintBool(just_looking || !outputs_ng_supported);
 
       if (just_looking || !outputs_ng_supported) {
         Node* replacement;
@@ -190,17 +193,16 @@ Status RewriteForTracking(Graph* graph) {
                               just_looking, outputs_ng_supported);
         }
 
-        
         std::vector<const Edge*> edges;
         for (auto edge : node->out_edges()) {
           edges.push_back(edge);
         }
-        
+
         for (auto edge : edges) {
           graph->AddEdge(replacement, edge->src_output(), edge->dst(),
                          edge->dst_input());
           graph->RemoveEdge(edge);
-          //NGRAPH_VLOG(1) << "REMOVED: " << edge->DebugString();
+          // NGRAPH_VLOG(1) << "REMOVED: " << edge->DebugString();
         }
 
         replaced_nodes.push_back(node);

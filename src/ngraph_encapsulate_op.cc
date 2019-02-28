@@ -28,13 +28,13 @@
 
 #include "ngraph_backend_manager.h"
 #include "ngraph_builder.h"
+#include "ngraph_catalog.h"
 #include "ngraph_cluster_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
-#include "ngraph_catalog.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -218,7 +218,7 @@ class NGraphEncapsulateOp : public OpKernel {
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
-    
+
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 
@@ -453,34 +453,37 @@ class NGraphEncapsulateOp : public OpKernel {
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
       ng_outputs.push_back(current_tv);
       // //Update the output map
-      // string ng_op_string = "NGraphEncapsulate" + to_string(m_ngraph_cluster) +"_" +to_string(i);
+      // string ng_op_string = "NGraphEncapsulate" + to_string(m_ngraph_cluster)
+      // +"_" +to_string(i);
       // BackendManager::ng_output_map_[ng_op_string]=current_tv;
-
     }
 
-    for(int input_index=0; input_index< input_shapes.size() ; input_index++){
-      bool ref_exists = NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), input_index);
+    for (int input_index = 0; input_index < input_shapes.size();
+         input_index++) {
+      bool ref_exists =
+          NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), input_index);
 
-      if(!ref_exists){
+      if (!ref_exists) {
         continue;
       }
-      string get_ref_var_name = NGraphCatalog::GetInputSharedName(m_graph_id, def().name(), input_index);
+      string get_ref_var_name = NGraphCatalog::GetInputSharedName(
+          m_graph_id, def().name(), input_index);
       NGraphVar* var;
-      if(ctx->resource_manager()->Lookup<NGraphVar>(
-                  ctx->resource_manager()->default_container(),
-                  get_ref_var_name, &var) == Status::OK()){
-                      NGRAPH_VLOG(1)<<"Found var in encapsulate";
-                  }
-                  else{
-                    NGRAPH_VLOG(1)<<" Not Found var in encapsulate";
-                  }
+      if (ctx->resource_manager()->Lookup<NGraphVar>(
+              ctx->resource_manager()->default_container(), get_ref_var_name,
+              &var) == Status::OK()) {
+        NGRAPH_VLOG(1) << "Found var in encapsulate";
+      } else {
+        NGRAPH_VLOG(1) << " Not Found var in encapsulate";
+      }
 
-      if(var->need_sync_ng_tensor()){
+      if (var->need_sync_ng_tensor()) {
         NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
         WriteNGTensor(var->ng_tensor(), var->tensor());
-        //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
+        // TODO: Is it safe to set sync as false after this sync, or should it
+        // be synced everytime
       }
-   
+
       ng_inputs[input_index] = var->ng_tensor();
       var->Unref();
     }
@@ -489,7 +492,6 @@ class NGraphEncapsulateOp : public OpKernel {
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
         << m_ngraph_cluster;
 
-    
     // Execute the nGraph function.
     {
       // mutex_lock l(s_ng_backend_mutex);
@@ -523,7 +525,7 @@ class NGraphEncapsulateOp : public OpKernel {
     }
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute call done for cluster "
                    << m_ngraph_cluster;
-    
+
     // Copy value to host if backend is not CPU
     try {
       if (m_op_backend_name != "CPU") {

@@ -45,7 +45,7 @@ void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor) {
   ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
                                           ng_tensor->get_element_type().size());
   NGRAPH_VLOG(5) << "all tensor values" << (tf_temp_tensor).SummarizeValue(64)
-            << endl;
+                 << endl;
 }
 
 void PrintTFTensor(Tensor& T1) {
@@ -59,12 +59,10 @@ std::string DebugNode(Node* node) {
   // NGRAPH_VLOG(1)<< node->name() <<"["<<node->type_string()<<"]";
 }
 
-std::string PrintBool(bool var){
-  return (var ? "Yes" : "No" );
-}
+std::string PrintBool(bool var) { return (var ? "Yes" : "No"); }
 
-bool IsNGVariableType(string node_type){
-  return (node_type=="NGraphVariable" || node_type=="NGraphAssign");
+bool IsNGVariableType(string node_type) {
+  return (node_type == "NGraphVariable" || node_type == "NGraphAssign");
 }
 
 void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,

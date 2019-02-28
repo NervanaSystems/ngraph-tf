@@ -17,9 +17,9 @@
 #define NGRAPH_TF_ENTER_IN_CATALOG_H_
 #pragma once
 
-#include "tensorflow/core/graph/graph.h"
-#include "ngraph_catalog.h"
 #include "ngraph/ngraph.hpp"
+#include "ngraph_catalog.h"
+#include "tensorflow/core/graph/graph.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -30,11 +30,9 @@ namespace ngraph_bridge {
 
 // 1. Populate the input_variable_map
 // 2. Attach Graph Ids to the node
-Status EnterInCatalog(Graph* graph , int graph_id);
+Status EnterInCatalog(Graph* graph, int graph_id);
 
-
-
-} // ngraph_bridge
-} // tensorflow
+}  // ngraph_bridge
+}  // tensorflow
 
 #endif
