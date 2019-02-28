@@ -17,18 +17,19 @@
 // The backend manager class is a singelton class that interfaces with the
 // bridge to provide necessary backend
 
-#ifndef NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
-#define NGRAPH_TF_BRIDGE_BACKEND_MANAGER_H_
+#ifndef NGRAPH_TF_CATALOG_H_
+#define NGRAPH_TF_CATALOG_H_
 
 #include <atomic>
 #include <mutex>
 #include <ostream>
 #include <vector>
 
+#include "tensorflow/core/lib/core/errors.h"
 #include "ngraph/ngraph.hpp"
 #include "ngraph/runtime/backend_manager.hpp"
 #include "ngraph_log.h"
-#include "tensorflow/core/lib/core/errors.h"
+
 
 using namespace std;
 namespace ng = ngraph;
@@ -37,14 +38,50 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+class GraphCatalog{
+    public:
+    // Map keeps track of nodes whose input is a variable tensor
+    // Will be used by Assign and Encap
+    // Map of 
+    // Key string : nodename + _ + input_index
+    // Value : variable shared_name
+    unordered_map<string, string> input_variable_map;
+
+    // Map keeps track of nodes whose input is a ng tensor
+    // Will be used by only by Assign if the value is from encap
+    // Map of 
+    // Key string : nodename + _ + input_index
+    // Value : ng_tensor
+    unordered_map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map;
+
+    // Map keeps track of encap nodes whose output is used as a value to assign
+    // Map of
+    // Key string: nodename +  _ + output_index
+    // Value : ng_tensor
+    unordered_map<string, shared_ptr<ng::runtime::Tensor>> output_map;
+};
+
+
 class NGraphCatalog {
+    
+public:
 
+    // Map keeps track of nodes whose input is a variable tensor
+    // Will be used by Assign and Encap
+    // Map of 
+    // Key string : GraphId + _ + nodename + _ + input_index
+    // Value : variable shared_name
+// LOCK?
+static unordered_map<string, string> input_variable_map_;
+static string GetInputSharedName(int graphid, string node_name, int input_index);
+static string CreateNodeKey(int graph_id, string node_name, int inp_index);
+static void AddCatalog(string key, string val);
 
-
-
-
-
-}
+static bool ExistsInCatalog(string key);
+static bool ExistsInCatalog(int graphid, string node_name, int input_index);
+};
 
 } // ngraph_bridge
 } // tensorflow
+
+#endif

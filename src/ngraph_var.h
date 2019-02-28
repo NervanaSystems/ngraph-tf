@@ -52,18 +52,15 @@ class NGraphVar : public ResourceBase {
       ng_shape[j] = shape.dim_size(j);
     }
 
-    NGRAPH_VLOG(1) << "Created ng shape and ng element";
 
     // Create Backend
     BackendManager::CreateBackend(ng_backend_name_);
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(ng_backend_name_);
-    NGRAPH_VLOG(1) << "Created ng backend";
 
     // Create nGTensor
     // void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
     ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape);
-    NGRAPH_VLOG(1) << "Created ng tensor";
   }
   // Not copyable or movable.
   NGraphVar(const NGraphVar&) = delete;
@@ -86,6 +83,7 @@ class NGraphVar : public ResourceBase {
   Tensor tf_tensor_;
   shared_ptr<ngraph::runtime::Tensor> ng_tensor_;
   string ng_backend_name_;
+  // sync from tf to ng
   bool sync_ng_tensor_; 
   ~NGraphVar() override {}
 };

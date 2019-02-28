@@ -30,6 +30,7 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
+#include "ngraph_catalog.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -49,6 +50,7 @@ class NGraphAssignOp : public OpKernel {
  private:
   bool just_looking_;
   bool copy_to_tf_;
+  int ng_graph_id_;
   // bool use_exclusive_lock_;
   // bool validate_shape_;
   // bool relax_constraints_;
@@ -62,6 +64,7 @@ class NGraphAssignOp : public OpKernel {
     //                context->GetAttr("validate_shape", &validate_shape_));
     OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
     OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
+    OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
     NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
                    << just_looking_ << " ,copy-to-tf " << copy_to_tf_;
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
@@ -80,12 +83,17 @@ class NGraphAssignOp : public OpKernel {
     NGRAPH_VLOG(1)<<"Just Looking " << PrintBool(just_looking_);
 
 
-    NGRAPH_VLOG(1)<<"Check if assign's context's resource manager can get Var1";
-
+    bool ref_exists = NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
+    if(!ref_exists){
+    OP_REQUIRES(context, ref_exists,
+                    errors::Internal(
+                        "Caught exception : RefInput to NGAssign not found \n"));
+    }
+    string get_ref_var_name = NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
     NGraphVar* var;
     if(context->resource_manager()->Lookup<NGraphVar>(
                  context->resource_manager()->default_container(),
-                 "Var1", &var) == Status::OK()){
+                 get_ref_var_name, &var) == Status::OK()){
                     NGRAPH_VLOG(1)<<"Found var in assign";
                  }
                  else{
@@ -99,26 +107,24 @@ class NGraphAssignOp : public OpKernel {
     context->forward_ref_input_to_ref_output(0, 0);
 
     // get the nGraphTensor
-    // shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign =
-    //     BackendManager::ng_variable_map_["Var1"];
-        shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
+    shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
   
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
   
-    bool temp_check = (def().name() == "Assign_1/peek/non_ng_outputs");
-    if(temp_check){
-      // Value is from encap
-      string ng_op_string = "NGraphEncapsulate" + to_string(1) +"_" +to_string(0);
-      NGRAPH_VLOG(1)<<"Directly assigning from" <<ng_op_string;
-      auto ng_val = BackendManager::ng_output_map_[ng_op_string];
-      ng_tensor_to_assign->copy_from(*ng_val);
-    }
-    else{ 
+    // bool temp_check = (def().name() == "Assign_1/peek/non_ng_outputs");
+    // if(temp_check){
+    //   // Value is from encap
+    //   string ng_op_string = "NGraphEncapsulate" + to_string(1) +"_" +to_string(0);
+    //   NGRAPH_VLOG(1)<<"Directly assigning from" <<ng_op_string;
+    //   auto ng_val = BackendManager::ng_output_map_[ng_op_string];
+    //   ng_tensor_to_assign->copy_from(*ng_val);
+    // }
+    // else{ 
       void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
       ng_tensor_to_assign->write(
         tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
                            ng_tensor_to_assign->get_element_type().size());
-    }
+    // }
     
     NGRAPH_VLOG(1) << " Print NG Tensor ";
     PrintNGTensor(ng_tensor_to_assign);
@@ -151,6 +157,9 @@ class NGraphAssignOp : public OpKernel {
         var->sync_ng_tensor(true);
       }
     }
+
+    // Unref Var
+    var->Unref();
   }
 };
 
@@ -162,7 +171,8 @@ REGISTER_OP("NGraphAssign")
     .Attr("validate_shape: bool = true")
     .Attr("use_locking: bool = true")
     .Attr("just_looking: bool = false")
-    .Attr("copy_to_tf: bool = false");
+    .Attr("copy_to_tf: bool = false")
+    .Attr("ngraph_graph_id: int");
 
 REGISTER_KERNEL_BUILDER(Name("NGraphAssign").Device(DEVICE_CPU),
                         NGraphAssignOp);

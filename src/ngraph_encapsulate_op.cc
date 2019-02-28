@@ -34,6 +34,7 @@
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
+#include "ngraph_catalog.h"
 
 #include "ngraph/runtime/interpreter/int_backend.hpp"
 
@@ -59,6 +60,7 @@ REGISTER_OP("NGraphEncapsulate")
     .Output("results: Tresults")
     .Attr("Tresults: list(type) >= 0")
     .Attr("ngraph_cluster: int")
+    .Attr("ngraph_graph_id: int")
     .SetIsStateful()
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
@@ -77,7 +79,7 @@ class NGraphEncapsulateOp : public OpKernel {
     GraphConstructorOptions opts;
     opts.allow_internal_ops = true;
     OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
-
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("ngraph_graph_id", &m_graph_id));
     //
     // Initialize the "m_input_is_static" vector as follows:
     // (1) create m_input_is_static with n+1 elements, where n is the max arg
@@ -216,6 +218,7 @@ class NGraphEncapsulateOp : public OpKernel {
   // TODO(amprocte): this needs to be made thread-safe (compilation cache OK?).
   void Compute(OpKernelContext* ctx) override {
     std::lock_guard<std::mutex> lock(m_compute_lock);
+    
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
 
@@ -449,38 +452,44 @@ class NGraphEncapsulateOp : public OpKernel {
       current_tv->set_stale(true);
       output_caches[i] = std::make_pair(current_dst_ptr, current_tv);
       ng_outputs.push_back(current_tv);
-      //Update the output map
-      string ng_op_string = "NGraphEncapsulate" + to_string(m_ngraph_cluster) +"_" +to_string(i);
-      BackendManager::ng_output_map_[ng_op_string]=current_tv;
+      // //Update the output map
+      // string ng_op_string = "NGraphEncapsulate" + to_string(m_ngraph_cluster) +"_" +to_string(i);
+      // BackendManager::ng_output_map_[ng_op_string]=current_tv;
 
+    }
+
+    for(int input_index=0; input_index< input_shapes.size() ; input_index++){
+      bool ref_exists = NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), input_index);
+
+      if(!ref_exists){
+        continue;
+      }
+      string get_ref_var_name = NGraphCatalog::GetInputSharedName(m_graph_id, def().name(), input_index);
+      NGraphVar* var;
+      if(ctx->resource_manager()->Lookup<NGraphVar>(
+                  ctx->resource_manager()->default_container(),
+                  get_ref_var_name, &var) == Status::OK()){
+                      NGRAPH_VLOG(1)<<"Found var in encapsulate";
+                  }
+                  else{
+                    NGRAPH_VLOG(1)<<" Not Found var in encapsulate";
+                  }
+
+      if(var->need_sync_ng_tensor()){
+        NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
+        WriteNGTensor(var->ng_tensor(), var->tensor());
+        //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
+      }
+   
+      ng_inputs[input_index] = var->ng_tensor();
+      var->Unref();
     }
 
     NGRAPH_VLOG(4)
         << "NGraphEncapsulateOp::Compute allocated result tensors for cluster "
         << m_ngraph_cluster;
 
-    NGRAPH_VLOG(1)<<"Check if encapsulate's context's resource manager can get Var1";
-
-    NGraphVar* var;
-    if(ctx->resource_manager()->Lookup<NGraphVar>(
-                 ctx->resource_manager()->default_container(),
-                 "Var1", &var) == Status::OK()){
-                    NGRAPH_VLOG(1)<<"Found var in encapsulate";
-                 }
-                 else{
-                   NGRAPH_VLOG(1)<<" Not Found var in encapsulate";
-                 }
-
-    if(var->need_sync_ng_tensor()){
-      NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
-      WriteNGTensor(var->ng_tensor(), var->tensor());
-      //TODO: Is it safe to set sync as false after this sync, or should it be synced everytime
-    }
-    if (m_ngraph_cluster == 1) {
-      //ng_inputs[0] = BackendManager::ng_variable_map_["Var1"];
-      ng_inputs[0] = var->ng_tensor();
-    }
-
+    
     // Execute the nGraph function.
     {
       // mutex_lock l(s_ng_backend_mutex);
@@ -565,6 +574,7 @@ class NGraphEncapsulateOp : public OpKernel {
   // nGraphEncapsulateOp and nGraphVariable op
   NGraphFreshnessTracker* m_freshness_tracker;
   int m_ngraph_cluster;
+  int m_graph_id;
   std::vector<bool> m_input_is_static;
   std::mutex m_compute_lock;
   string m_op_backend_name;

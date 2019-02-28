@@ -25,6 +25,7 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
+#include "ngraph_enter_in_catalog.h"
 #include "tf_graph_writer.h"
 
 #include <iomanip>
@@ -265,6 +266,15 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
       DumpGraphs(options, idx, "tracked",
                  "Graph with Variables Rewritten for Tracking");
     }
+
+    // Enter in catalog then.
+    TF_RETURN_IF_ERROR(EnterInCatalog(options.graph->get(),idx));
+    // if (DumpTrackedGraphs()) {
+    //   DumpGraphs(options, idx, "catalog",
+    //              "Graph with Variables Rewritten for Tracking");
+    // }
+
+    
 
     return Status::OK();
   }

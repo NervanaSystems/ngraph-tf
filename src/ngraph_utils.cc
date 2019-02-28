@@ -44,12 +44,12 @@ void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor) {
   void* current_dst_ptr = DMAHelper::base(&tf_temp_tensor);
   ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
                                           ng_tensor->get_element_type().size());
-  LOG(INFO) << "all tensor values" << (tf_temp_tensor).SummarizeValue(64)
+  NGRAPH_VLOG(5) << "all tensor values" << (tf_temp_tensor).SummarizeValue(64)
             << endl;
 }
 
 void PrintTFTensor(Tensor& T1) {
-  LOG(INFO) << "all tensor values" << (T1).SummarizeValue(64) << endl;
+  NGRAPH_VLOG(5) << "all tensor values" << (T1).SummarizeValue(64) << endl;
 }
 
 std::string DebugNode(Node* node) {
@@ -63,7 +63,9 @@ std::string PrintBool(bool var){
   return (var ? "Yes" : "No" );
 }
 
-
+bool IsNGVariableType(string node_type){
+  return (node_type=="NGraphVariable" || node_type=="NGraphAssign");
+}
 
 void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
                   Tensor* tf_tensor) {

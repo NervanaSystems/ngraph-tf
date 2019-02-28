@@ -37,10 +37,12 @@ set(SRC
    ngraph_builder.cc
    ngraph_backend_manager.cc
    ngraph_capture_variables.cc
+   ngraph_catalog.cc
    ngraph_cluster_manager.cc
    ngraph_deassign_clusters.cc
    ngraph_encapsulate_clusters.cc
    ngraph_encapsulate_op.cc
+   ngraph_enter_in_catalog.cc
    ngraph_freshness_tracker.cc
    ngraph_mark_for_clustering.cc
    ngraph_rewrite_for_tracking.cc

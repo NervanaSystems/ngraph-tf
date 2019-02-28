@@ -56,6 +56,8 @@ void WriteNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 
+bool IsNGVariableType(string node_type);
+
 // Taken from: tensorflow/core/grappler/optimizers/arithmetic_optimizer.cc
 // Extract values from a Const op to `values`. Returns true if succeeds.
 //

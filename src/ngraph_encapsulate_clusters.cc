@@ -329,6 +329,7 @@ Status EncapsulateClusters(Graph* graph) {
     Status status = NodeBuilder(ss.str(), "NGraphEncapsulate")
                         .Attr("ngraph_cluster", cluster_idx)
                         .Attr("_ngraph_backend", cluster_backend)
+                        .Attr("ngraph_graph_id", 0)
                         .Attr("Targuments", input_types)
                         .Attr("Tresults", cluster_output_dt_map[cluster_idx])
                         .Device(device_name_map[cluster_idx])

@@ -38,12 +38,18 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
 
   std::string container;
   std::string shared_name;
+  int graph_id;
   if (GetNodeAttr(node->attrs(), "container", &container) != Status::OK()) {
     container = "";
   }
   if (GetNodeAttr(node->attrs(), "shared_name", &shared_name) != Status::OK()) {
     shared_name = "";
   }
+  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) != Status::OK()) {
+    graph_id = 0;
+  }
+
+
   // NGRAPHVARIABLE
   TF_RETURN_IF_ERROR(
       NodeBuilder(node_new_name, node->type_string())
@@ -54,6 +60,7 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
                 (shared_name.empty() ? node->name() : shared_name))
           .Attr("just_looking", just_looking)
           .Attr("copy_to_tf", !outputs_ng_supported)
+          .Attr("ngraph_graph_id",graph_id)
           .Device(node->assigned_device_name())
           .Finalize(graph, &(*replacement)));
 
@@ -81,6 +88,12 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
                            bool outputs_ng_supported) {
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
+
+  int graph_id;
+  if (GetNodeAttr(node->attrs(), "ngraph_graph_id", &graph_id) != Status::OK()) {
+    graph_id = 0;
+  }
+
   NodeBuilder::NodeOut input_ref;
   NodeBuilder::NodeOut input_val;
   for (auto edge : node->in_edges()) {
@@ -103,6 +116,7 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
                          .Attr("T", dtype)
                          .Attr("just_looking", just_looking)
                          .Attr("copy_to_tf", !outputs_ng_supported)
+                         .Attr("ngraph_graph_id", graph_id)
                          .Input(input_ref)
                          .Input(input_val)
                          .Device(node->assigned_device_name())

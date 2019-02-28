@@ -59,7 +59,7 @@ class NGraphVariableOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override;
 
  private:
-  int graph_id;
+  int ng_graph_id_;
   DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
@@ -89,9 +89,10 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
+  OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
   //  NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
+  NGRAPH_VLOG(1) << "Constructor " << "Graph_id " << ng_graph_id_ << " ,Node Name: "<< def().name() << ": just looking? "
                  << just_looking_ << " ,copy-to-tf " << copy_to_tf_;
 }
 
@@ -101,6 +102,7 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(1) << "Compute " << def().name();
+  NGRAPH_VLOG(1) << "Graph ID " << ng_graph_id_;
   mutex_lock l(init_mu_);
   if (!initialized_) {
     // Analyze the node attribute of 'ndef' and decides the container and
@@ -129,10 +131,11 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
                                     true /* use name() */));
     initialized_ = true;
   }
+
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
     //(*var)->tensor()->set_shape(shape_);
-    BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
+    //BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
     return Status::OK();
   };
 
@@ -247,6 +250,7 @@ REGISTER_OP("NGraphVariable")
     .Attr("copy_to_tf: bool = false")
     .Attr("container: string = ''")
     .Attr("shared_name: string = ''")
+    .Attr("ngraph_graph_id: int")
     .SetIsStateful()
     .SetShapeFn(shape_inference::ExplicitShape);
 
