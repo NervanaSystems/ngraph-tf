@@ -33,6 +33,10 @@
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+#if defined(NGRAPH_DISTRIBUTED)
+#include <mpi.h>
+#endif
+
 using namespace std;
 namespace ng = ngraph;
 
@@ -4210,6 +4214,12 @@ Status Builder::TranslateGraph(
       tf_ret_vals.push_back(n);
     } else {
       tf_ops.push_back(n);
+      #if defined(NGRAPH_DISTRIBUTED)
+      if ( n->type_string() == "HorovodAllreduce") {
+        NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << mpi_rank << "]: " << n->name();
+      }
+      #endif
+
     }
   }
 
