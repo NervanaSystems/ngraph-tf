@@ -149,11 +149,11 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
-  NGRAPH_VLOG(1) << "Print ng-tensor";
-  PrintNGTensor(var->ng_tensor());
+  // NGRAPH_VLOG(1) << "Print ng-tensor";
+  // PrintNGTensor(var->ng_tensor());
 
-  NGRAPH_VLOG(1) << "Print tf-tensor";
-  PrintTFTensor(*(var->tensor()));
+  // NGRAPH_VLOG(1) << "Print tf-tensor";
+  // PrintTFTensor(*(var->tensor()));
 
   if (var->need_sync_ng_tensor()) {
     NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
@@ -203,11 +203,11 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   if (copy_to_tf_) {
     ReadNGTensor(var->ng_tensor(), var->tensor());
     NGRAPH_VLOG(1) << "Copying to TF Tensor";
-    NGRAPH_VLOG(1) << "Print ng-tensor";
-    PrintNGTensor(var->ng_tensor());
+    // NGRAPH_VLOG(1) << "Print ng-tensor";
+    // PrintNGTensor(var->ng_tensor());
 
-    NGRAPH_VLOG(1) << "Print tf-tensor";
-    PrintTFTensor(*(var->tensor()));
+    // NGRAPH_VLOG(1) << "Print tf-tensor";
+    // PrintTFTensor(*(var->tensor()));
 
     if (just_looking_) {
       // Some tf op will just use the val

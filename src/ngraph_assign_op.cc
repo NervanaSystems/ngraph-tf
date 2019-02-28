@@ -127,13 +127,13 @@ class NGraphAssignOp : public OpKernel {
     // }
 
     NGRAPH_VLOG(1) << " Print NG Tensor ";
-    PrintNGTensor(ng_tensor_to_assign);
+    //PrintNGTensor(ng_tensor_to_assign);
 
     mutex_lock l(*context->input_ref_mutex(0));
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
 
     NGRAPH_VLOG(1) << " Print TF Tensor ";
-    PrintTFTensor(old_lhs);
+    //PrintTFTensor(old_lhs);
 
     if (copy_to_tf_) {
       // update the tf tensor
