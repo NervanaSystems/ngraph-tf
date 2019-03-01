@@ -552,8 +552,6 @@ class NGraphEncapsulateOp : public OpKernel {
         ng_exec->call(ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
-        // TODO: This does not work now, need to change NgraphSerialize to use
-        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
@@ -563,8 +561,6 @@ class NGraphEncapsulateOp : public OpKernel {
                         exp.what(), "\n"));
       } catch (...) {
         BackendManager::UnlockBackend(m_op_backend_name);
-        // TODO: This does not work now, need to change NgraphSerialize to use
-        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
