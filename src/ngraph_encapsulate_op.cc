@@ -304,7 +304,7 @@ class NGraphEncapsulateOp : public OpKernel {
         Rank_ID = dist.get_rank();
         NgraphSerialize("tf_function_" + ctx->op_kernel().name() + "_" +
                             to_string(Rank_ID) + ".json",
-                        ng_exec);
+                        ng_function);
 #endif
       }
       // Evict the cache if the number of elements exceeds the limit
@@ -350,7 +350,9 @@ class NGraphEncapsulateOp : public OpKernel {
                        << " Output Tensors freed: "
                        << output_tensors_bytes_free / (1024 * 1024) << " MB";
       }
+      ng_exec = op_backend->compile(ng_function);
       m_ng_exec_map[signature] = ng_exec;
+
       m_lru.push_front(signature);
       // Memory after
       MemoryProfile(vm, rss);
