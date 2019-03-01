@@ -318,6 +318,7 @@ class NGraphEncapsulateOp : public OpKernel {
         int input_tensors_bytes_free = 0;
         evicted_ng_exec = m_ng_exec_map[m_lru.back()];
         m_ng_exec_map.erase(m_lru.back());
+        m_ng_function_map.erase(evicted_ng_exec);
 
         // Call delete function here pf he erased func
         op_backend->remove_compiled_function(evicted_ng_exec);
@@ -381,6 +382,8 @@ class NGraphEncapsulateOp : public OpKernel {
       BackendManager::UnlockBackend(m_op_backend_name);
 
       m_ng_exec_map[signature] = ng_exec;
+      // caching ng_function to serialize to ngraph if needed
+      m_ng_function_map[ng_exec] = ng_function;
 
       m_lru.push_front(signature);
       // Memory after
@@ -648,6 +651,9 @@ class NGraphEncapsulateOp : public OpKernel {
 
   std::unordered_map<std::string, std::shared_ptr<ngraph::runtime::Executable>>
       m_ng_exec_map;
+  std::unordered_map<std::shared_ptr<ngraph::runtime::Executable>,
+                     std::shared_ptr<ngraph::Function>>
+      m_ng_function_map;
 
   NgFunctionIOCache m_ng_exec_input_cache_map;
   NgFunctionIOCache m_ng_exec_output_cache_map;
