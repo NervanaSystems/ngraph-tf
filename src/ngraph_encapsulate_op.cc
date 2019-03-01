@@ -350,7 +350,27 @@ class NGraphEncapsulateOp : public OpKernel {
                        << " Output Tensors freed: "
                        << output_tensors_bytes_free / (1024 * 1024) << " MB";
       }
-      ng_exec = op_backend->compile(ng_function);
+
+      try {
+        ng_exec = op_backend->compile(ng_function);
+      } catch (const std::exception& exp) {
+        BackendManager::UnlockBackend(m_op_backend_name);
+        NgraphSerialize(
+            "tf_function_error_" + ctx->op_kernel().name() + ".json",
+            ng_function);
+        OP_REQUIRES(
+            ctx, false,
+            errors::Internal("Caught exception while compiling op_backend: ",
+                             exp.what(), "\n"));
+      } catch (...) {
+        BackendManager::UnlockBackend(m_op_backend_name);
+        NgraphSerialize(
+            "tf_function_error_" + ctx->op_kernel().name() + ".json",
+            ng_function);
+        OP_REQUIRES(ctx, false,
+                    errors::Internal("Error in compiling op_backend\n"));
+      }
+
       m_ng_exec_map[signature] = ng_exec;
 
       m_lru.push_front(signature);
