@@ -359,6 +359,7 @@ class NGraphEncapsulateOp : public OpKernel {
       try {
         ng_exec = op_backend->compile(ng_function);
       } catch (const std::exception& exp) {
+        ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
@@ -551,6 +552,7 @@ class NGraphEncapsulateOp : public OpKernel {
       try {
         ng_exec->call(ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
+        ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
