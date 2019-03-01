@@ -21,6 +21,9 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+// ngraph backend api change returns executable, so changing function to
+// executable
+
 void NGraphFreshnessTracker::MarkFresh(
     const void* base_pointer,
     std::shared_ptr<ngraph::runtime::Executable> user) {

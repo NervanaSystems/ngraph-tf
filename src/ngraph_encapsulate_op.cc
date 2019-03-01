@@ -351,10 +351,16 @@ class NGraphEncapsulateOp : public OpKernel {
                        << output_tensors_bytes_free / (1024 * 1024) << " MB";
       }
 
+      BackendManager::LockBackend(m_op_backend_name);
+      NGRAPH_VLOG(4)
+          << "NGraphEncapsulateOp::Compute call starting for cluster "
+          << m_ngraph_cluster;
       try {
         ng_exec = op_backend->compile(ng_function);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
+        // TODO: This does not work now, need to change NgraphSerialize to use
+        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
@@ -364,12 +370,15 @@ class NGraphEncapsulateOp : public OpKernel {
                              exp.what(), "\n"));
       } catch (...) {
         BackendManager::UnlockBackend(m_op_backend_name);
+        // TODO: This does not work now, need to change NgraphSerialize to use
+        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
         OP_REQUIRES(ctx, false,
                     errors::Internal("Error in compiling op_backend\n"));
       }
+      BackendManager::UnlockBackend(m_op_backend_name);
 
       m_ng_exec_map[signature] = ng_exec;
 
@@ -483,11 +492,14 @@ class NGraphEncapsulateOp : public OpKernel {
 
     std::vector<std::pair<void*, std::shared_ptr<ng::runtime::Tensor>>>&
         output_caches = m_ng_exec_output_cache_map[ng_exec];
-    output_caches.resize(ng_function->get_output_size());
+    output_caches.resize(ng_exec->get_results().size());
 
-    for (auto i = 0; i < ng_function->get_output_size(); i++) {
-      auto ng_shape = ng_function->get_output_shape(i);
-      auto ng_element_type = ng_function->get_output_element_type(i);
+    // ngraph executable returns get_results, using that to get the tensor shape
+    // and element type.
+    for (auto i = 0; i < ng_exec->get_results().size(); i++) {
+      auto ng_element = ng_exec->get_results()[i];
+      auto ng_shape = ng_element->get_shape();
+      auto ng_element_type = ng_element->get_element_type();
 
       // Create the TF output tensor
       vector<int64> dims;
@@ -541,6 +553,8 @@ class NGraphEncapsulateOp : public OpKernel {
         ng_exec->call(ng_outputs, ng_inputs);
       } catch (const std::exception& exp) {
         BackendManager::UnlockBackend(m_op_backend_name);
+        // TODO: This does not work now, need to change NgraphSerialize to use
+        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
@@ -550,6 +564,8 @@ class NGraphEncapsulateOp : public OpKernel {
                         exp.what(), "\n"));
       } catch (...) {
         BackendManager::UnlockBackend(m_op_backend_name);
+        // TODO: This does not work now, need to change NgraphSerialize to use
+        // executable
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
             ng_function);
