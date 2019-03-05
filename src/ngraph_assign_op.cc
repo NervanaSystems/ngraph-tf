@@ -62,11 +62,15 @@ class NGraphAssignOp : public OpKernel {
     //                context->GetAttr("use_locking", &use_exclusive_lock_));
     // OP_REQUIRES_OK(context,
     //                context->GetAttr("validate_shape", &validate_shape_));
+
     OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
     OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
-    NGRAPH_VLOG(1) << "Constructor " << def().name() << ": just looking? "
-                   << just_looking_ << " ,copy-to-tf " << copy_to_tf_;
+
+    NGRAPH_VLOG(1) << "Constructing NGraphAssign " << def().name()
+                   << ": just looking? " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_;
+
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
     // if (!context
@@ -127,13 +131,13 @@ class NGraphAssignOp : public OpKernel {
     // }
 
     NGRAPH_VLOG(1) << " Print NG Tensor ";
-    //PrintNGTensor(ng_tensor_to_assign);
+    // PrintNGTensor(ng_tensor_to_assign);
 
     mutex_lock l(*context->input_ref_mutex(0));
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
 
     NGRAPH_VLOG(1) << " Print TF Tensor ";
-    //PrintTFTensor(old_lhs);
+    // PrintTFTensor(old_lhs);
 
     if (copy_to_tf_) {
       // update the tf tensor

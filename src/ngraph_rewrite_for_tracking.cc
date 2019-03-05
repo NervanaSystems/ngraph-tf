@@ -27,10 +27,11 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-//
 Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
                              std::string node_new_name, bool just_looking,
                              bool outputs_ng_supported) {
+  NGRAPH_VLOG(1) << "Replacing NGraphVariable " << node->name();
+
   TensorShape shape;
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "shape", &shape));
@@ -86,6 +87,8 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
 Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
                            std::string node_new_name, bool just_looking,
                            bool outputs_ng_supported) {
+  NGRAPH_VLOG(1) << "Replacing NGraphAssign " << node->name();
+
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
 
@@ -97,11 +100,13 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
 
   NodeBuilder::NodeOut input_ref;
   NodeBuilder::NodeOut input_val;
+
   for (auto edge : node->in_edges()) {
     if (edge == NULL) {
-      NGRAPH_VLOG(1) << "Found null edge: ";
+      NGRAPH_VLOG(1) << "Replacing NGraphAssign, found null edge: ";
       continue;
     }
+
     // Check REF TYPE RATHER THAN NAME
     if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
         IsRefType(edge->dst()->input_type(edge->dst_input()))) {
@@ -138,7 +143,7 @@ Status RewriteForTracking(Graph* graph) {
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "NGraphVariable" ||
         node->type_string() == "NGraphAssign") {
-      NGRAPH_VLOG(1) << "Checking: " << DebugNode(node);
+      NGRAPH_VLOG(1) << "Checking: " << DebugNode(node) << " " << node->name();
 
       bool just_looking = true;
       bool outputs_ng_supported = true;
@@ -149,10 +154,12 @@ Status RewriteForTracking(Graph* graph) {
         if (dst->IsOp() && !edge->IsControlEdge() &&
             (ng_supported_ops.find(dst->type_string()) ==
              ng_supported_ops.end())) {
+          NGRAPH_VLOG(1) << "Dst node ngraph doesn't support ";
           outputs_ng_supported = false;
           break;
         }
       }
+
       // If any of the nodes reading from this Variable node read the data as
       // reference then we dont track it, else we do
       for (auto edge : node->out_edges()) {
@@ -202,12 +209,13 @@ Status RewriteForTracking(Graph* graph) {
           graph->AddEdge(replacement, edge->src_output(), edge->dst(),
                          edge->dst_input());
           graph->RemoveEdge(edge);
-          // NGRAPH_VLOG(1) << "REMOVED: " << edge->DebugString();
         }
 
         replaced_nodes.push_back(node);
       } else {
-        NGRAPH_VLOG(1) << "Not just looking: " << node->name();
+        NGRAPH_VLOG(1)
+            << "No replacement (not just looking and all outputs ng support): "
+            << node->name();
       }
     }
   }

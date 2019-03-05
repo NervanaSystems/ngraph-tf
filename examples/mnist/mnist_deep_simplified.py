@@ -64,7 +64,7 @@ def deepnn(x):
     # First convolutional layer - maps one grayscale image to 32 feature maps.
     with tf.name_scope('conv1'):
         W_conv1 = weight_variable([5, 5, 1, 32], "W_conv1")
-        b_conv1 = bias_variable([32])
+        b_conv1 = bias_variable([32], "Bias_conv1")
         h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
 
     # Pooling layer - downsamples by 2X.
@@ -74,7 +74,7 @@ def deepnn(x):
     # Second convolutional layer -- maps 32 feature maps to 64.
     with tf.name_scope('conv2'):
         W_conv2 = weight_variable([5, 5, 32, 64], "W_conv2")
-        b_conv2 = bias_variable([64])
+        b_conv2 = bias_variable([64],"Bias_conv2")
         h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 
     # Second pooling layer.
@@ -85,7 +85,7 @@ def deepnn(x):
     # is down to 7x7x64 feature maps -- maps this to 1024 features.
     with tf.name_scope('fc1'):
         W_fc1 = weight_variable([7 * 7 * 64, 1024], "W_fc1")
-        b_fc1 = bias_variable([1024])
+        b_fc1 = bias_variable([1024], "Bias_fc1")
 
         h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
@@ -93,7 +93,7 @@ def deepnn(x):
     # Map the 1024 features to 10 classes, one for each digit
     with tf.name_scope('fc2'):
         W_fc2 = weight_variable([1024, 10], "W_fc2")
-        b_fc2 = bias_variable([10])
+        b_fc2 = bias_variable([10], "Bias_fc2")
 
         # y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
         y_conv = tf.matmul(h_fc1, W_fc2) + b_fc2
@@ -114,13 +114,15 @@ def max_pool_2x2(x):
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
     initial = tf.get_variable(name, shape)
-    return tf.Variable(initial)
+    return initial
+    #return tf.Variable(initial)
 
 
-def bias_variable(shape):
+def bias_variable(shape, name):
     """bias_variable generates a bias variable of a given shape."""
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    return tf.get_variable(name,shape)
+    #return tf.Variable(shape,name)
+
 
 
 def train_mnist_cnn(FLAGS):
@@ -214,7 +216,7 @@ def train_mnist_cnn(FLAGS):
         })
         print('test accuracy %g' % test_accuracy)
         print('saving models')
-        saver.save(sess, FLAGS.model_dir + "model.ckpt")
+        #saver.save(sess, FLAGS.model_dir + "model.ckpt")
         return loss_values, test_accuracy
 
 

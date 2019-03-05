@@ -58,7 +58,7 @@ def deepnn(x):
     # Fully connected Layer 1 
     with tf.name_scope('fc1'):
         W_fc1 = weight_variable([784, 10], "W_fc1")
-        b_fc1 = bias_variable([10])
+        b_fc1 = bias_variable([10],"bias")
 
         #h_pool1_flat = tf.reshape(h_pool1, [-1, 14 * 14 * 32])
         y_conv = tf.matmul(x, W_fc1) + b_fc1
@@ -68,15 +68,18 @@ def deepnn(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    #initial = tf.get_variable(name, shape)
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    initial = tf.get_variable(name, shape)
+    #initial = tf.constant(0.1, shape=shape)
+    #return tf.Variable(initial)
+    return initial
 
 
-def bias_variable(shape):
+def bias_variable(shape, name):
     """bias_variable generates a bias variable of a given shape."""
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    #initial = tf.constant(0.1, shape=shape)
+    initial = tf.get_variable(name, shape)
+    #return tf.Variable(initial)
+    return initial
 
 
 def train_mnist_cnn(FLAGS):
@@ -109,8 +112,8 @@ def train_mnist_cnn(FLAGS):
             labels=y_, logits=y_conv)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
-    with tf.name_scope('adam_optimizer'):
-        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    with tf.name_scope('gradient_descent'):
+        train_step = tf.train.GradientDescentOptimizer(1e-4).minimize(cross_entropy)
 
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
@@ -142,10 +145,10 @@ def train_mnist_cnn(FLAGS):
                     y_: batch[1],
                     keep_prob: 1.0
                 })
-                #tf.summary.scalar('Training accuracy', train_accuracy)
+                tf.summary.scalar('Training accuracy', train_accuracy)
                 print('step %d, training accuracy %g, %g sec to evaluate' %
                       (i, train_accuracy, time.time() - t))
-                saver.save(sess, FLAGS.model_dir + "model.ckpt")
+                # saver.save(sess, FLAGS.model_dir + "model.ckpt")
             t = time.time()
             _, summary, loss = sess.run([train_step, merged, cross_entropy],
                                         feed_dict={
@@ -156,7 +159,7 @@ def train_mnist_cnn(FLAGS):
             loss_values.append(loss)
             print('step %d, loss %g, %g sec for training step' %
                   (i, loss, time.time() - t))
-            train_writer.add_summary(summary, i)
+            # train_writer.add_summary(summary, i)
 
         print("Training finished. Running test")
 

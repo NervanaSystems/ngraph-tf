@@ -66,7 +66,7 @@ class NGraphVariableOp : public OpKernel {
   string ng_backend_name_;
   mutex init_mu_;
   ContainerInfo cinfo_ GUARDED_BY(init_mu_);
-  bool initialized_ GUARDED_BY(init_mu_) {false};
+  bool initialized_ GUARDED_BY(init_mu_){false};
 
   TF_DISALLOW_COPY_AND_ASSIGN(NGraphVariableOp);
 };
@@ -154,12 +154,12 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
 
   // NGRAPH_VLOG(1) << "Print tf-tensor";
   // PrintTFTensor(*(var->tensor()));
-  bool just_synced= false;
+  bool just_synced = false;
   if (var->need_sync_ng_tensor()) {
     NGRAPH_VLOG(1) << "ng tensor behind, needs to sync with tf-tensor";
     WriteNGTensor(var->ng_tensor(), var->tensor());
     var->sync_ng_tensor(false);
-    just_synced=true;
+    just_synced = true;
     // TODO: Is it safe to set sync as false after this sync, or should it be
     // synced everytime
   }
@@ -203,10 +203,9 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   }
 
   if (copy_to_tf_) {
-    if(!just_synced){
-       ReadNGTensor(var->ng_tensor(), var->tensor());
-       NGRAPH_VLOG(1) << "Copying to TF Tensor";
-   
+    if (!just_synced) {
+      ReadNGTensor(var->ng_tensor(), var->tensor());
+      NGRAPH_VLOG(1) << "Copying to TF Tensor";
     }
     // NGRAPH_VLOG(1) << "Print ng-tensor";
     // PrintNGTensor(var->ng_tensor());

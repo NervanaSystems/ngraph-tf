@@ -87,6 +87,7 @@ Status CaptureVariables(Graph* graph) {
         NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
                        << replacement->DebugString();
 
+        // TODO(Mingshan): Variable doesn't have input edges, need to confirm
         // Though edges will be removed when we remove the node
         // we specifically remove the edges to be sure
         for (auto edge : node->in_edges()) {
@@ -122,7 +123,7 @@ Status CaptureVariables(Graph* graph) {
 
         for (auto edge : node->in_edges()) {
           if (edge == NULL) {
-            NGRAPH_VLOG(1) << "Found null edge: ";
+            NGRAPH_VLOG(1) << "Capturing Assign op, but found null edge: ";
             continue;
           }
 
@@ -134,7 +135,8 @@ Status CaptureVariables(Graph* graph) {
             input_val = NodeBuilder::NodeOut(edge->src(), edge->src_output());
           }
         }
-        NGRAPH_VLOG(1) << "Found inputs";
+
+        NGRAPH_VLOG(1) << "Found inputs for NGraphAssign";
         // TODO(amprocte): Do we need to copy "_" attributes?
         TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "NGraphAssign")
                                .Attr("validate_shape", true)
@@ -145,28 +147,17 @@ Status CaptureVariables(Graph* graph) {
                                .Input(input_val)
                                .Device(node->assigned_device_name())
                                .Finalize(graph, &replacement));
-        NGRAPH_VLOG(1) << "Constructed Node Def";
+
+        NGRAPH_VLOG(1) << "Successfully constructed NGraphAssign Node Def";
 
         replacement->set_assigned_device_name(node->assigned_device_name());
 
         std::vector<const Edge*> edges;
 
-        // Add edge from the input nodes (to the variable node (VariableV2))
-        // to the replacement node (NGraphVariable)
+        // Add edge from the input nodes (to the Assign node)
+        // to the replacement node (NGraphAssign)
         NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
                        << replacement->DebugString();
-
-        // Though edges will be removed when we remove the node
-        // we specifically remove the edges to be sure
-        // for (auto edge : node->in_edges()) {
-        //   NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-        //   graph->AddEdge(edge->src(), edge->src_output(), replacement,
-        //                  edge->dst_input());
-
-        //   NGRAPH_VLOG(4) << "Added Edge: ";
-        //   graph->RemoveEdge(edge);
-        //   NGRAPH_VLOG(4) << "Removed Edge: ";
-        // }
 
         NGRAPH_VLOG(4) << "Getting out edges: ";
         for (auto edge : node->out_edges()) {
