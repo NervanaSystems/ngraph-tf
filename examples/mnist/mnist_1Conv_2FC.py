@@ -38,6 +38,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 import tensorflow as tf
 import ngraph_bridge
+seed=1
+tf.random.set_random_seed(seed)
 
 FLAGS = None
 
@@ -55,29 +57,63 @@ def deepnn(x):
     digits 0-9). The scalar placeholder is meant for the probability of dropout. Since we don't
     use a dropout layer in this script, this placeholder is of no relavance and acts as a dummy.
   """
-    # Fully connected Layer 1 
+    # Reshape to use within a convolutional neural net.
+    # Last dimension is for "features" - there is only one here, since images are
+    # grayscale -- it would be 3 for an RGB image, 4 for RGBA, etc.
+    with tf.name_scope('reshape'):
+        x_image = tf.reshape(x, [-1, 28, 28, 1])
+
+    # First convolutional layer - maps one grayscale image to 32 feature maps.
+    with tf.name_scope('conv1'):
+        W_conv1 = weight_variable([5, 5, 1, 32], "W_conv1")
+        b_conv1 = bias_variable([32], "B_conv1")
+        h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+
+    # Pooling layer - downsamples by 2X.
+    with tf.name_scope('pool1'):
+        h_pool1 = max_pool_2x2(h_conv1)
+
+
+    # Fully connected layer 1 -- after 2 round of downsampling, our 28x28 image
+    # is down to 7x7x64 feature maps -- maps this to 1024 features.
     with tf.name_scope('fc1'):
-        W_fc1 = weight_variable([784, 10], "Weight_fc1")
-        b_fc1 = bias_variable([10], "Bias_fc1")
+        W_fc1 = weight_variable([14 * 14 * 32, 1024], "W_fc1")
+        b_fc1 = bias_variable([1024], "B_fc1")
 
-        #h_pool1_flat = tf.reshape(h_pool1, [-1, 14 * 14 * 32])
-        y_conv = tf.matmul(x, W_fc1) + b_fc1
+        h_pool2_flat = tf.reshape(h_pool1, [-1, 14 * 14 * 32])
+        h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
+    # Map the 1024 features to 10 classes, one for each digit
+    with tf.name_scope('fc2'):
+        W_fc2 = weight_variable([1024, 10], "W_fc2")
+        b_fc2 = bias_variable([10], "B_fc2")
+
+        # y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+        y_conv = tf.matmul(h_fc1, W_fc2) + b_fc2
     return y_conv, tf.placeholder(tf.float32)
+
+
+def conv2d(x, W):
+    """conv2d returns a 2d convolution layer with full stride."""
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
+
+def max_pool_2x2(x):
+    """max_pool_2x2 downsamples a feature map by 2X."""
+    return tf.nn.max_pool(
+        x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    initializer = tf.constant(0.1, shape=shape)
-    initial = tf.get_variable(name, initializer=initializer)
-    #initial = tf.constant(0.1, shape=shape)
+    initial = tf.get_variable(name, shape)
     return initial
 
 
 def bias_variable(shape, name):
     """bias_variable generates a bias variable of a given shape."""
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial,name=name)
+    return tf.Variable(initial, name)
 
 
 def train_mnist_cnn(FLAGS):
@@ -110,8 +146,8 @@ def train_mnist_cnn(FLAGS):
             labels=y_, logits=y_conv)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
-    with tf.name_scope('gradient_Descent'):
-        train_step = tf.train.GradientDescentOptimizer(1e-2).minimize(cross_entropy)
+    with tf.name_scope('adam_optimizer'):
+        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
@@ -131,6 +167,7 @@ def train_mnist_cnn(FLAGS):
     saver = tf.train.Saver()
 
     with tf.Session(config=config) as sess:
+
         sess.run(tf.global_variables_initializer())
         train_loops = FLAGS.train_loop_count
         loss_values = []
@@ -143,10 +180,9 @@ def train_mnist_cnn(FLAGS):
                     y_: batch[1],
                     keep_prob: 1.0
                 })
-                tf.summary.scalar('Training accuracy', train_accuracy)
+                #tf.summary.scalar('Training accuracy', train_accuracy)
                 print('step %d, training accuracy %g, %g sec to evaluate' %
                       (i, train_accuracy, time.time() - t))
-                # saver.save(sess, FLAGS.model_dir + "model.ckpt")
             t = time.time()
             _, summary, loss = sess.run([train_step, merged, cross_entropy],
                                         feed_dict={
@@ -157,7 +193,7 @@ def train_mnist_cnn(FLAGS):
             loss_values.append(loss)
             print('step %d, loss %g, %g sec for training step' %
                   (i, loss, time.time() - t))
-            # train_writer.add_summary(summary, i)
+            train_writer.add_summary(summary, i)
 
         print("Training finished. Running test")
 
@@ -171,8 +207,7 @@ def train_mnist_cnn(FLAGS):
             keep_prob: 1.0
         })
         print('test accuracy %g' % test_accuracy)
-        print('saving models')
-        
+        saver.save(sess, FLAGS.model_dir)
         return loss_values, test_accuracy
 
 
@@ -191,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train_loop_count',
         type=int,
-        default=100,
+        default=1000,
         help='Number of training iterations')
 
     parser.add_argument('--batch_size', type=int, default=50, help='Batch Size')

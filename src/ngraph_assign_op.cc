@@ -73,12 +73,6 @@ class NGraphAssignOp : public OpKernel {
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
-    // if (!context
-    //          ->GetAttr("_grappler_relax_allocator_constraints",
-    //                    &relax_constraints_)
-    //          .ok()) {
-    //   relax_constraints_ = false;
-    // }
   }
 
   void Compute(OpKernelContext* context) override {
