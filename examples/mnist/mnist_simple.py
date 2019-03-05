@@ -57,8 +57,8 @@ def deepnn(x):
   """
     # Fully connected Layer 1 
     with tf.name_scope('fc1'):
-        W_fc1 = weight_variable([784, 10], "W_fc1")
-        b_fc1 = bias_variable([10])
+        W_fc1 = weight_variable([784, 10], "Weight_fc1")
+        b_fc1 = bias_variable([10], "Bias_fc1")
 
         #h_pool1_flat = tf.reshape(h_pool1, [-1, 14 * 14 * 32])
         y_conv = tf.matmul(x, W_fc1) + b_fc1
@@ -68,15 +68,16 @@ def deepnn(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    #initial = tf.get_variable(name, shape)
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    initializer = tf.constant(0.1, shape=shape)
+    initial = tf.get_variable(name, initializer=initializer)
+    #initial = tf.constant(0.1, shape=shape)
+    return initial
 
 
-def bias_variable(shape):
+def bias_variable(shape, name):
     """bias_variable generates a bias variable of a given shape."""
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    return tf.Variable(initial,name=name)
 
 
 def train_mnist_cnn(FLAGS):
@@ -109,8 +110,8 @@ def train_mnist_cnn(FLAGS):
             labels=y_, logits=y_conv)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
-    with tf.name_scope('adam_optimizer'):
-        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    with tf.name_scope('gradient_Descent'):
+        train_step = tf.train.GradientDescentOptimizer(1e-2).minimize(cross_entropy)
 
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
@@ -134,7 +135,7 @@ def train_mnist_cnn(FLAGS):
         train_loops = FLAGS.train_loop_count
         loss_values = []
         for i in range(train_loops):
-            batch = mnist.train.next_batch(FLAGS.batch_size)
+            batch = mnist.train.next_batch(FLAGS.batch_size, shuffle=False)
             if i % 10 == 0:
                 t = time.time()
                 train_accuracy = accuracy.eval(feed_dict={

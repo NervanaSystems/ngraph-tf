@@ -39,6 +39,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
 import ngraph_bridge
 
+seed=1
+tf.random.set_random_seed(seed)
 FLAGS = None
 
 
@@ -113,8 +115,9 @@ def max_pool_2x2(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    initial = tf.get_variable(name, shape)
-    return tf.Variable(initial)
+    #nitializer = tf.constant(0.1, shape=shape)
+    initial = tf.get_variable(name, shape=shape)
+    return initial
 
 
 def bias_variable(shape):
@@ -178,7 +181,7 @@ def train_mnist_cnn(FLAGS):
         train_loops = FLAGS.train_loop_count
         loss_values = []
         for i in range(train_loops):
-            batch = mnist.train.next_batch(FLAGS.batch_size)
+            batch = mnist.train.next_batch(FLAGS.batch_size, shuffle=False)
             if i % 10 == 0:
                 t = time.time()
                 train_accuracy = accuracy.eval(feed_dict={
@@ -216,7 +219,6 @@ def train_mnist_cnn(FLAGS):
         print('saving models')
         saver.save(sess, FLAGS.model_dir + "model.ckpt")
         return loss_values, test_accuracy
-
 
 def main(_):
     train_mnist_cnn(FLAGS)
