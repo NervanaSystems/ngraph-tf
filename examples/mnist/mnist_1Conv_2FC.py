@@ -113,7 +113,7 @@ def weight_variable(shape, name):
 def bias_variable(shape, name):
     """bias_variable generates a bias variable of a given shape."""
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial, name)
+    return tf.Variable(initial, name=name)
 
 
 def train_mnist_cnn(FLAGS):
@@ -173,7 +173,7 @@ def train_mnist_cnn(FLAGS):
         loss_values = []
         for i in range(train_loops):
             batch = mnist.train.next_batch(FLAGS.batch_size, shuffle=False)
-            if i % 10 == 0:
+            if i % 5 == 0:
                 t = time.time()
                 train_accuracy = accuracy.eval(feed_dict={
                     x: batch[0],

@@ -165,8 +165,10 @@ Status RewriteForTracking(Graph* graph) {
       for (auto edge : node->out_edges()) {
         if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
             IsRefType(edge->dst()->input_type(edge->dst_input()))) {
-          just_looking = false;
-          break;
+              if(!IsNGVariableType(edge->dst()->type_string())){
+                  just_looking = false;
+                  break;
+              }
         }
       }
 

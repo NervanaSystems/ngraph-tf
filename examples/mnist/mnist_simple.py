@@ -40,6 +40,8 @@ import tensorflow as tf
 import ngraph_bridge
 
 FLAGS = None
+seed=1
+tf.random.set_random_seed(seed)
 
 
 def deepnn(x):
@@ -68,8 +70,7 @@ def deepnn(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    initializer = tf.constant(0.1, shape=shape)
-    initial = tf.get_variable(name, initializer=initializer)
+    initial = tf.get_variable(name, shape)
     #initial = tf.constant(0.1, shape=shape)
     return initial
 
@@ -110,8 +111,8 @@ def train_mnist_cnn(FLAGS):
             labels=y_, logits=y_conv)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
-    with tf.name_scope('gradient_Descent'):
-        train_step = tf.train.GradientDescentOptimizer(1e-2).minimize(cross_entropy)
+    with tf.name_scope('AdamOptimizer'):
+        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
     with tf.name_scope('accuracy'):
         correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
