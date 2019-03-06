@@ -44,7 +44,7 @@ def command_executor(cmd, verbose=False, msg=None, stdout=None):
         raise Exception("Error running command: " + cmd)
 
 
-def build_ngraph(src_location, cmake_flags, verbose):
+def build_ngraph(src_location, cmake_flags, num_cores, verbose):
     pwd = os.getcwd()
 
     src_location = os.path.abspath(src_location)
@@ -70,7 +70,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
     command_executor(cmake_cmd, verbose=True)
 
     import psutil
-    num_cores = str(psutil.cpu_count(logical=True))
+    num_cores = num_cores or str(psutil.cpu_count(logical=True))
     cmd = ["make", "-j" + num_cores, "install"]
     if verbose:
         cmd.extend(['VERBOSE=1'])
@@ -155,7 +155,7 @@ def setup_venv(venv_dir):
     command_executor(["pip", "list"])
 
 
-def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
+def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, num_cores, verbosity):
 
     base = sys.prefix
     python_lib_path = os.path.join(base, 'lib', 'python%s' % sys.version[:3],
@@ -204,6 +204,8 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     ]
     if verbosity:
         cmd.extend(['-s'])
+    if num_cores:
+        cmd.extend(["--jobs=" + str(num_cores)])
 
     command_executor(cmd)
 
@@ -278,7 +280,7 @@ def install_tensorflow(venv_dir, artifacts_dir):
     return str(cxx_abi)
 
 
-def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
+def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, num_cores,
                     verbose):
     pwd = os.getcwd()
 
@@ -311,7 +313,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
     command_executor(cmake_cmd)
 
     import psutil
-    num_cores = str(psutil.cpu_count(logical=True))
+    num_cores = num_cores or str(psutil.cpu_count(logical=True))
     make_cmd = ["make", "-j" + num_cores, "install"]
     if verbose:
         make_cmd.extend(['VERBOSE=1'])
@@ -417,7 +419,17 @@ def main():
         help="Builds a distributed version of the nGraph components\n",
         action="store_true")
 
+    parser.add_argument(
+        '-j', '--jobs',
+        metavar='N',
+        help=
+        "run N jobs in parallel; infinite jobs with no arg\n",
+    )
+
     arguments = parser.parse_args()
+
+    if (arguments.jobs):
+        print("Running %s jobs in parallel\n" % arguments.jobs)
 
     if (arguments.debug_build):
         print("Building in DEBUG mode\n")
@@ -485,7 +497,7 @@ def main():
 
         # Build TensorFlow
         build_tensorflow(venv_dir, "tensorflow", artifacts_location,
-                         target_arch, verbosity)
+                         target_arch, arguments.jobs, verbosity)
 
         # Install tensorflow
         cxx_abi = install_tensorflow(venv_dir, artifacts_location)
@@ -525,7 +537,7 @@ def main():
         else:
             ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=FALSE"])
 
-        build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
+        build_ngraph("./ngraph", ngraph_cmake_flags, arguments.jobs, verbosity)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
@@ -549,7 +561,7 @@ def main():
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
-                                ngraph_tf_cmake_flags, verbosity)
+                                ngraph_tf_cmake_flags, arguments.jobs, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
 
