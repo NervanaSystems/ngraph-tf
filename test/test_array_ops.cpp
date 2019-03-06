@@ -531,7 +531,7 @@ TEST(ArrayOps, QuantizedConcat) {
 
   // TODO: right now assumes input mins/maxs all have the same value
   ops::QuantizedConcat R = ops::QuantizedConcat(
-      root, 1, {A, B, C}, {-3.0f, -3.0f, -3.0f}, {1.0f, 2.0f, 1.0f});
+      root, 1, {A, B, C}, {1.0f, -1.0f, -1.0f}, {3.0f, 3.0f, 3.0f});
 
   vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
 
