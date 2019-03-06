@@ -309,10 +309,14 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       // For diagnosis
+#if defined NGRAPH_DISTRIBUTED
+      ngraph::Distributed dist;
+      int Rank_ID;
+      Rank_ID = dist.get_rank();
       cout << ng_function->get_name() << " start\n";
       cout << "=====================================================================\n";
       for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) { 
-        cout << node->get_name() << "(";
+        cout << "NGTF_Rank: "<<Rank_ID<<"  "<<node->get_name() << "(";
         vector<string> inputs;
         for (const ng::descriptor::Input& input : node->get_inputs()) {
           inputs.push_back(input.get_tensor().get_name());
@@ -336,7 +340,7 @@ class NGraphEncapsulateOp : public OpKernel {
       }
       cout << "=====================================================================\n";
       cout << ng_function->get_name() << " end\n";
-
+#endif
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =
