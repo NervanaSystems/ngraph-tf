@@ -521,9 +521,9 @@ def main():
             ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
         if (arguments.distributed_build): 
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=TRUE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OMPI"])
         else:
-            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=FALSE"])
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OFF"])
 
         build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
 
