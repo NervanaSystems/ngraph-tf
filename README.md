@@ -37,14 +37,14 @@ a variety of nGraph-enabled backends: CPU, GPU, and custom silicon like the
    
 4. Test the installation by running the following command:
 
-        python -c "import tensorflow as tf; print('TensorFlow version: r',tf.__version__);import ngraph_bridge; print(ngraph_bridge.__version__)"
+        python -c "import tensorflow as tf; print('TensorFlow version: ',tf.__version__);import ngraph_bridge; print(ngraph_bridge.__version__)"
 
 This will produce something like this:
 
-        TensorFlow version: r 1.12.0
-        TensorFlow version installed: 1.12.0 (v1.12.0-0-ga6d8ffae09)
-        nGraph bridge built with: 1.12.0 (v1.12.0-0-ga6d8ffae09)
-        b'0.10.0'
+        TensorFlow version:  1.12.0
+        nGraph bridge version: b'0.11.0'
+        nGraph version used for this build: b'0.14.0+56a54ca'
+        TensorFlow version used for this build: v1.12.0-0-ga6d8ffae09
 
 Next you can try out the TensorFlow models by adding one line to your existing 
 TensorFlow model scripts and running them the usual way:
@@ -53,7 +53,7 @@ TensorFlow model scripts and running them the usual way:
 
 Note: The version of the ngraph-tensorflow-bridge is not going to be exactly the same as when you build from source. This is due to delay in the source release and publishing the corresponding Python wheel. 
 
-### Option 2: Build nGraph bridge from source using TensorFlow source
+### Option 2: Build nGraph bridge from source
 
 To use the latest version, or to run unit tests, or if you are planning to contribute, install the nGraph 
 bridge using the TensorFlow source tree as follows: 
@@ -84,7 +84,7 @@ The installation prerequisites are the same as described in the TensorFlow
 
         git clone https://github.com/NervanaSystems/ngraph-tf.git
         cd ngraph-tf
-        git checkout v0.10.0
+        git checkout v0.11.0
 
    
 2. Next run the following Python script to build TensorFlow, nGraph and the bridge. Please use Python 3.5:
@@ -183,9 +183,9 @@ run the following model:
 
 The build and installation instructions are idential for Ubuntu 16.04 and OS X. However, please
 note that the Python setup is not always the same across various Mac OS versions. TensorFlow build
-instructions recommend using homebrew and often people use pyenv. There is also Anaconda/Miniconda 
-which some users prefer. The basic criteria for building nGraph and the bridge on a Mac OS is 
-to ensure that TensorFlow is successfully built. 
+instructions recommend using Homebrew and often people use Pyenv. There is also Anaconda/Miniconda 
+which some users prefer. Ensure that you can build TenorFlow successfully on OS X with a suitable 
+Python environment prior to building nGraph.  
 
 ## Debugging
 
