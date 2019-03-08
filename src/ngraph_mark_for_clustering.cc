@@ -287,6 +287,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["PreventGradient"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Prod"] = SimpleConfirmationFunction();
+      confirmation_function_map["Rank"] = SimpleConfirmationFunction();
       confirmation_function_map["QuantizeAndDequantizeV2"] = [](Node* n,
                                                                 bool* result) {
         // accept only when num_bits == 8 and range is given
@@ -527,7 +528,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["ConcatV2"] = SetStaticInputs({-1});
       set_attributes_map["Conv2DBackpropFilter"] = SetStaticInputs({1});
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
-      set_attributes_map["Dequantize"] = SetStaticInputs({1, 2});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
       set_attributes_map["Max"] = SetStaticInputs({1});
@@ -536,16 +536,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
-      set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
-          SetStaticInputs({3, 4, 5, 6, 7, 8});
-      set_attributes_map["QuantizedConv2DWithBiasAndRequantize"] =
-          SetStaticInputs({3, 4, 5, 6, 7, 8});
-      set_attributes_map
-          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
-              SetStaticInputs({3, 4, 5, 6, 7, 8, 10, 11});
-      set_attributes_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
-          SetStaticInputs({3, 4, 5, 6, 7, 8, 10, 11});
-      set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
       set_attributes_map["Split"] = SetStaticInputs({0});

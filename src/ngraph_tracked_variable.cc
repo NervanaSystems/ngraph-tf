@@ -149,8 +149,8 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
-  NGRAPH_VLOG(1)<<def().name() <<" TF Tensor Intialized "<<PrintBool(var->tensor()->IsInitialized());
-
+  NGRAPH_VLOG(1) << def().name() << " TF Tensor Intialized "
+                 << PrintBool(var->tensor()->IsInitialized());
 
   // NGRAPH_VLOG(1) << "Print ng-tensor";
   // PrintNGTensor(var->ng_tensor());
