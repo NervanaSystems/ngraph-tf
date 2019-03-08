@@ -89,7 +89,6 @@ void OpExecuter::ValidateGraph(const Graph& graph,
                                const vector<string> allowed_nodes) {
   NGRAPH_VLOG(5) << "Validate graph";
   bool found_test_op = false;
-  Node* test_op;
   for (Node* node : graph.nodes()) {
     if (node->IsSource() || node->IsSink()) {
       continue;
@@ -97,9 +96,8 @@ void OpExecuter::ValidateGraph(const Graph& graph,
       // only one node of type test_op
       ASSERT_FALSE(found_test_op) << "Only one op of type " << test_op_type_
                                   << " should exist in the graph. Found nodes "
-                                  << node->name() << " and " << test_op->name();
+                                  << node->name() << " and " << node->name();
       found_test_op = true;
-      test_op = node;
     } else {
       ASSERT_TRUE(node->type_string() == allowed_nodes[0])
           << "Op of type " << node->type_string()
@@ -355,10 +353,12 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
         << ng_et;
 
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs[i]);
-    auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
-
+    std::shared_ptr<ngraph::runtime::Tensor> result;
     if (ng_backend_type != "CPU") {
+      result = backend->create_tensor(ng_et, ng_shape);
       result->write(src_ptr, 0, result->get_element_count() * ng_et.size());
+    } else {
+      result = backend->create_tensor(ng_et, ng_shape, src_ptr);
     }
 
     ng_ip_tensors.push_back(result);
