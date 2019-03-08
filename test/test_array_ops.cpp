@@ -535,7 +535,7 @@ TEST(ArrayOps, QuantizedConcat) {
 
   // TODO: right now assumes input mins/maxs all have the same value
   ops::QuantizedConcat R = ops::QuantizedConcat(
-      root, 1, {A, B, C}, {1.0f, -1.0f, -1.0f}, {3.0f, 3.0f, 3.0f});
+      root, 1, {A, B, C}, {-1.0f, -1.0f, -1.0f}, {3.0f, 3.0f, 3.0f});
 
   vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
 
@@ -544,23 +544,23 @@ TEST(ArrayOps, QuantizedConcat) {
   OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
-  vector<Tensor> ngraph_results;
-  opexecuter.ExecuteOnNGraph(ngraph_results);
+  //vector<Tensor> ngraph_results;
+  //opexecuter.ExecuteOnNGraph(ngraph_results);
 
-  cout << "ngraph results " << endl;
-  for (auto i : ngraph_results) {
-    PrintTensorAllValues(i, 100);
-  }
+  //cout << "ngraph results " << endl;
+  //for (auto i : ngraph_results) {
+  //  PrintTensorAllValues(i, 100);
+  //}
 
-  vector<Tensor> tf_results;
-  opexecuter.ExecuteOnTF(tf_results);
+  //vector<Tensor> tf_results;
+  //opexecuter.ExecuteOnTF(tf_results);
 
-  cout << "TF results " << endl;
-  for (auto i : tf_results) {
-    PrintTensorAllValues(i, 100);
-  }
+  //cout << "TF results " << endl;
+  //for (auto i : tf_results) {
+  //  PrintTensorAllValues(i, 100);
+  //}
 
-  // opexecuter.RunTest();
+  opexecuter.RunTest();
 }  // end of test op QuantizedConcat
 
 // Test op: Rank Op

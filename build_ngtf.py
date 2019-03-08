@@ -199,7 +199,8 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     cmd = [
         "bazel",
         "build",
-        "--config=opt",
+        #"--config=opt",
+        "-c opt",
         "--config=mkl",
         "--copt=\"-DINTEL_MKL_QUANTIZED\"",
         "//tensorflow/tools/pip_package:build_pip_package",
@@ -221,6 +222,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     # Now build the TensorFlow C++ library
     cmd = [
         "bazel", "build", "--config=opt", "--config=mkl", "--copt=\"-DINTEL_MKL_QUANTIZED\"", "//tensorflow:libtensorflow_cc.so"
+        #"bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
     ]
     command_executor(cmd)
 
@@ -437,10 +439,12 @@ def main():
     #ngraph_version = "nishant_quantized_concat" #"v0.12.0"
     #ngraph_version = "b9ff5d1fda7cd749bec891b63aa1faa4378d47fb" #"v0.12.0"
     #ngraph_version = "65141c5f6f796d6f4fe9fe3865af0f73d80892fc"
-    ngraph_version = "v0.15.0-rc.1"
+    #ngraph_version = "v0.15.0-rc.1"
+    ngraph_version = "b9ff5d1fda7cd749bec891b63aa1faa4378d47fb" #"v0.12.0"
 
     #tf_version = "quantized_concat_part_1"
-    tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
+    #tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
+    tf_version = "int8-master"
 
     # Default directories
     build_dir = 'build'
@@ -487,7 +491,8 @@ def main():
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
-                      "https://github.com/tensorflow/tensorflow.git",
+  		      "https://github.com/NervanaSystems/private-tensorflow.git",
+                      #"https://github.com/tensorflow/tensorflow.git",
                       tf_version)
 
         # Build TensorFlow
