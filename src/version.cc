@@ -28,7 +28,7 @@
 // The version suffix is used for pre-release version numbers
 // For example before v0.7.0 we may do a pre-release i.e., a release
 // candidate such as v0.7.0-rc0
-// The code in master will always have the last released vrsion number 
+// The code in master will always have the last released version number
 // with a suffix of '-master'
 #define NG_TF_VERSION_SUFFIX "-master"
 
