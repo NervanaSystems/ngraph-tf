@@ -18,15 +18,11 @@
 #ifndef NGRAPH_TF_NGRAPHOPTIMIZER_H_
 #define NGRAPH_TF_NGRAPHOPTIMIZER_H_
 
-#include "tensorflow/core/grappler/optimizers/custom_graph_optimizer.h"
-
-#include "tf_graph_writer.h"
-
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/graph/graph.h"
-
 #include "tensorflow/core/graph/graph_constructor.h"
 #include "tensorflow/core/graph/graph_def_builder.h"
+#include "tensorflow/core/grappler/optimizers/custom_graph_optimizer.h"
 
 #include "ngraph_api.h"
 #include "ngraph_assign_clusters.h"
@@ -47,26 +43,27 @@ namespace ngraph_bridge {
 // Custom Grappler Optimizer for NGraph-TF
 class NgraphOptimizer : public tensorflow::grappler::CustomGraphOptimizer {
  public:
+  NgraphOptimizer() = default;
+  ~NgraphOptimizer() override = default;
 
-    NgraphOptimizer() = default;
-    ~NgraphOptimizer() override = default;
+  string name() const override { return "NgraphOptimizer"; };
 
-    string name() const override { return "NgraphOptimizer"; };
+  Status Init(
+      const tensorflow::RewriterConfig_CustomGraphOptimizer* config) override {
+    return Status::OK();
+  }
 
-    Status Init(
-        const tensorflow::RewriterConfig_CustomGraphOptimizer* config) override {
-        return Status::OK();
-    }
+  Status Optimize(tensorflow::grappler::Cluster* cluster,
+                  const tensorflow::grappler::GrapplerItem& item,
+                  GraphDef* output) override;
 
-    Status Optimize(tensorflow::grappler::Cluster* cluster, const tensorflow::grappler::GrapplerItem& item,
-        GraphDef* output) override;
-
-    void Feedback(tensorflow::grappler::Cluster* cluster, const tensorflow::grappler::GrapplerItem& item,
-        const GraphDef& optimize_output, double result) override;
+  void Feedback(tensorflow::grappler::Cluster* cluster,
+                const tensorflow::grappler::GrapplerItem& item,
+                const GraphDef& optimize_output, double result) override;
 
  protected:
-  void DumpGraphs(Graph &graph, int idx,
-                  std::string filename_prefix, std::string title);
+  void DumpGraphs(Graph& graph, int idx, std::string filename_prefix,
+                  std::string title);
 
  private:
   static std::string DotFilename(std::string kind, int idx) {
@@ -114,6 +111,36 @@ class NgraphOptimizer : public tensorflow::grappler::CustomGraphOptimizer {
            std::getenv("NGRAPH_TF_DUMP_CAPTURED_GRAPHS") != nullptr;
   }
 
+  static bool DumpUnmarkedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_UNMARKED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpMarkedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpClusteredGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpDeclusteredGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_DECLUSTERED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpEncapsulatedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr;
+  }
+
+  static bool DumpTrackedGraphs() {
+    return DumpAllGraphs() ||
+           std::getenv("NGRAPH_TF_DUMP_TRACKED_GRAPHS") != nullptr;
+  }
+
   static int s_serial_counter GUARDED_BY(s_serial_counter_mutex);
   static mutex s_serial_counter_mutex;
 };
@@ -121,8 +148,7 @@ class NgraphOptimizer : public tensorflow::grappler::CustomGraphOptimizer {
 int NgraphOptimizer::s_serial_counter = 0;
 mutex NgraphOptimizer::s_serial_counter_mutex;
 
-
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
-#endif  // NGRAPH_TF_OPTIMIZER_H_
+#endif  // NGRAPH_TF_NGRAPHOPTIMIZER_H_
