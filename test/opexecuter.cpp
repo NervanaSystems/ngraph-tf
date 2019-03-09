@@ -95,8 +95,8 @@ void OpExecuter::ValidateGraph(const Graph& graph,
     } else if (node->type_string() == test_op_type_) {
       // only one node of type test_op
       ASSERT_FALSE(found_test_op) << "Only one op of type " << test_op_type_
-                                  << " should exist in the graph. Found nodes "
-                                  << node->name() << " and " << node->name();
+                                  << " should exist in the graph. Found duplicate node: "
+                                  << node->name();
       found_test_op = true;
     } else {
       ASSERT_TRUE(node->type_string() == allowed_nodes[0])

@@ -403,7 +403,7 @@ def main():
         help=
         "nGraph backends will include nVidia GPU.\n"
         "Note: You need to have CUDA headers and libraries available on the build system.\n",
-        action="store_false"
+        action="store_true"
     )
 
     parser.add_argument(
