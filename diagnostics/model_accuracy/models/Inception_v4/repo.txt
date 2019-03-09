@@ -1,2 +1,0 @@
-https://github.com/tensorflow/models.git
-5fd32ef62e37a8124bf8849f7bea65fbd8cd7bdd

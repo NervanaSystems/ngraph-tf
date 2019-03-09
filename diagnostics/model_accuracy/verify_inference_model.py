@@ -34,90 +34,94 @@ def command_executor(cmd, verbose=False, msg=None, stdout=None):
 
 
 def download_repo(repo, target_name=None, version='master'):
-    # First download to a temp folder
-    command_executor("git clone " + repo + " " +
-                     ("" if target_name is None else target_name))
-    command_executor("git fetch")
-    # Next goto this folder nd determine the name of the root folder
+    # First download repo
+    command_executor("git clone " + repo)
+
+    # # Apply patch to use ngraph_bridge
+    # pwd = os.getcwd()
+    # os.chdir(pwd + "/models/")
+    # command_executor('git apply ' + pwd + '/ngraph_inference.patch')
+    # os.chdir(pwd)
+
+
+def run_inference(model_name):
+    parameters = '[{"model_type" : "Image Recognition", "model_name" : "Inception_v4","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt"}, {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt"}, {"model_type" : "Image Recognition", "model_name" : "ResNet50_v1","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/resnet_v1_50.ckpt"}, {"model_type" : "Object Detection", "model_name" : "SSD-MobileNet_v1", "CHECKPOINT" : "/nfs/site/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/ssd_mobilenet_v1_coco_2018_01_28/"}]'
+    data = json.loads(parameters)
+
     pwd = os.getcwd()
-    # Go to the tree
-    os.chdir(target_name)
-    # checkout the specified branch
-    command_executor("git checkout " + version)
+    for i, d in enumerate(data):
+        if (model_name in data[i]["model_name"] and
+                data[i]["model_type"] == "Image Recognition"):
+            CHECKPOINT = data[i]["CHECKPOINT"]
+            DATASET_DIR = data[i]["DATASET"]
+            os.chdir(pwd + "/models/research/slim")
+            command_executor("export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`")
+            command_executor('git apply ' + pwd + '/image_recognition.patch')
+            if (model_name == "Inception_v4"):
+                command_executor(
+                    "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py --alsologtostderr --checkpoint_path="
+                    + CHECKPOINT + " --dataset_dir=" + DATASET_DIR +
+                    " --dataset_name=imagenet --dataset_split_name=validation --model_name=inception_v4"
+                )
+            if (model_name == "MobileNet_v1"):
+                command_executor(
+                    "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py --alsologtostderr --checkpoint_path="
+                    + CHECKPOINT + " --dataset_dir=" + DATASET_DIR +
+                    " --dataset_name=imagenet --dataset_split_name=validation --model_name=mobilenet_v1"
+                )
+            if (model_name == "ResNet50_v1"):
+                command_executor(
+                    "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py --alsologtostderr --checkpoint_path="
+                    + CHECKPOINT + " --dataset_dir=" + DATASET_DIR +
+                    " --dataset_name=imagenet --dataset_split_name=validation --model_name=resnet_v1_50 --labels_offset=1"
+                )
+            os.chdir(pwd)
+        if (model_name in data[i]["model_name"] and
+                data[i]["model_type"] == "Object Detection"):
+            CHECKPOINT = data[i]["CHECKPOINT"]
+            os.chdir(pwd + "/models/research/object_detection")
+            command_executor("export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`")
+            command_executor('git apply ' + pwd + '/object_detection.patch')
+            command_executor(
+                "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python model_main.py --logtostderr --pipeline_config_path=samples/configs/ssd_mobilenet_v1_coco.config --checkpoint_path="
+                + CHECKPOINT + "--run_once=True")
+            os.chdir(pwd)
+        else:
+            print(
+                "Please give a valid Model name. \nAvailble models are Inception_v4, MobileNet_v1, SSD-MobileNet_v1, ResNet50_v1"
+            )
+
     os.chdir(pwd)
 
 
-def run_inference(model_dir):
-    #TODO: assert TF version. Some models may not run on TF1.12 etc
-    model_dir = os.path.abspath(model_dir)
+def check_accuracy(model):
+    #check if the accuracy of the model inference matches with the published numbers
+    accuracy = {"Inception_v4": 80.2, "SSD-MobileNet_v1": 26.3}
 
-    use_ngraph_models_repo = not os.path.isfile(model_dir + '/repo.txt')
-    if use_ngraph_models_repo:
-        repo_dl_loc = os.path.abspath(
-            model_dir + '/../../../..')  #this is path to ngraph-models root
-        assert repo_dl_loc.split('/')[-1] == 'ngraph-models'
-    else:
-        repo_info = [
-            line.strip()
-            for line in open(model_dir + '/repo.txt').readlines()
-            if len(line.strip()) > 0
-        ]
-        repo_name = repo_info[0]
-        repo_version = repo_info[1] if len(repo_info) == 2 else 'master'
-        repo_dl_loc = model_dir + '/downloaded_model'
-        #TODO: download only when needed?
-        download_repo(repo_name, repo_dl_loc, repo_version)
+    line = sys.stdin.readline()
+    while line:
+        print(line.rstrip())
 
-    cwd = os.getcwd()
-    os.chdir(repo_dl_loc)
-    if os.path.isfile(model_dir + '/getting_repo_ready.sh'):
-        command_executor(model_dir + '/getting_repo_ready.sh')
+    # Look for Accuracy
+    is_match = re.search('Accuracy', line)
 
-    # To generate the patch use: git diff > ngraph_inference.patch
-    if os.path.isfile(model_dir + '/ngraph_inference.patch'):  #/foo/bar/.git
-        command_executor('git apply ' + model_dir + '/ngraph_inference.patch')
+    for k in accuracy:
+        for v in accuracy[k]:
+            if is_match in v:
+                print(model + "Accuracy matches")
+            else:
+                print(model + "Accuracy does not match")
 
-    #It is assumed that we need to be in the "model repo" for run_inference to run
-    #run_inference is written assuming we are currently in the downloaded repo
-    for flname in os.listdir(
-            model_dir):  # The model folder can have multiple tests
-        if flname.startswith('inference') and 'disabled' not in flname:
-            command_executor(
-                model_dir + '/' + flname, msg="Running test config: " + flname)
-    command_executor('git reset --hard')  # remove applied patch (if any)
-    # TODO: each inference.sh could have its own ngraph_inference.patch
-    os.chdir(cwd)
+    #line = sys.stdin.readline()
 
-
-def check_functional(model_dir):
-    #check if there exists a check_functional.sh in the model folder
-    #if not, then use run_functional
-    pass
-
-
-# TODO: what of same model but different configs?
-# TODO: what if the same repo supports multiple models?
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description=
-        'Accuracy verification for TF models using ngraph. Performs 2 types of tests. A) inference and B) functional'
-    )
+        description='Accuracy verification for TF models using ngraph.')
 
-    parser.add_argument(
-        '--inference',
-        action='store_true',
-        help='perform inference using ngraph (inference)')
-    parser.add_argument(
-        '--functional',
-        action='store_true',
-        help='perform type b tests (functional)')
-    parser.add_argument(
-        '--models',
-        action='store',
-        type=str,
-        help='comma separated list of model names',
-        default='')
+    parser.add_argument('--model_name', help='Model name to run inference')
+
+    repo = "https://github.com/tensorflow/models.git"
 
     cwd = os.getcwd()
     # This script must be run from this location
@@ -125,22 +129,5 @@ if __name__ == '__main__':
         cwd.split('/')[-3:]) == 'ngraph-tf/diagnostics/model_accuracy'
 
     args = parser.parse_args()
-
-    if not (args.inference or args.functional):
-        print(
-            "No type of test enabled. Please choose --inference, --functional or both"
-        )
-        sys.exit(0)
-
-    model_list = os.listdir(
-        'models') if args.models == '' else args.models.split(',')
-
-    for model_name in model_list:
-        print('Testing model: ' + model_name)
-        if args.inference:
-            run_inference('./models/' + model_name)
-        if args.functional:
-            print('Functional tests not implemented yet!!')
-
-# Sample run script:
-# python test_main.py --inference --models Inception_v4
+    download_repo(repo)
+    run_inference(args.model_name)

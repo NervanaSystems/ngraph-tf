@@ -1,0 +1,12 @@
+diff --git a/research/object_detection/model_main.py b/research/object_detection/model_main.py
+index 5e8db1e5..74f20cf0 100644
+--- a/research/object_detection/model_main.py
++++ b/research/object_detection/model_main.py
+@@ -21,6 +21,7 @@ from __future__ import print_function
+ from absl import flags
+ 
+ import tensorflow as tf
++import ngraph_bridge
+ 
+ from object_detection import model_hparams
+ from object_detection import model_lib
