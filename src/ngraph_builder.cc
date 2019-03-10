@@ -2766,15 +2766,13 @@ static Status TranslateQuantizedConcatOpHelper(
   ng::NodeVector ng_all_mins, ng_all_maxs;
   std::vector<float> min_tmp, max_tmp;
 
-  // Collect the N input mins and input maxs
+  // Collect the N input mins and input maxes
   for (int idx = 0; idx < num_of_tensors_to_concat; idx++) {
     TF_RETURN_IF_ERROR(GetStaticInputVector(
         op, num_of_tensors_to_concat + 1 + idx, static_input_map, &min_tmp));
     TF_RETURN_IF_ERROR(
         GetStaticInputVector(op, 2 * num_of_tensors_to_concat + 1 + idx,
                              static_input_map, &max_tmp));
-    cout << "min in iter is " << idx << " " << min_tmp[0] << endl;
-    cout << "max in iter is " << idx << " " << max_tmp[0] << endl;
 
     all_mins[idx] = min_tmp[0];
     all_maxs[idx] = max_tmp[0];
@@ -2790,37 +2788,43 @@ static Status TranslateQuantizedConcatOpHelper(
         max_node, ngraph::AxisVector{}, ngraph::Shape{1}));
   }
 
-  // // return the min among the input_mins, and the max among the input_maxs
-  // // TODO: TF has a different way of determine the output_min and output_max
-  // // TF reference:
-  // //
+  // TODO: NGraph supports varying input mins/maxes, but NG and TF result
+  // disagrees
+  // check if all the elements in in all_mins are the same
+  if (std::adjacent_find(all_mins.begin(), all_mins.end(),
+                         std::not_equal_to<float>()) == all_mins.end()) {
+    NGRAPH_VLOG(3)
+        << "QuantizedConat op: All elements in the input_mins are the same";
+  } else {
+    return errors::InvalidArgument(
+        "QuantizedConat Op: All elements in input_mins need to be the same");
+  }
+
+  // check if all the elements in in all_maxes are the same
+  if (std::adjacent_find(all_maxs.begin(), all_maxs.end(),
+                         std::not_equal_to<float>()) == all_maxs.end()) {
+    NGRAPH_VLOG(3)
+        << "QuantizedConat op: All elements in the input_maxes are the same";
+  } else {
+    return errors::InvalidArgument(
+        "QuantizedConat Op: All elements in the input_maxes need to be the "
+        "same");
+  }
+
+  // return the min among the input_mins, and the max among the input_maxs
+  // TODO: TF has a different way of determine the output_min and output_max
+  // TF reference:
   // https://github.com/tensorflow/tensorflow/blob/86950c2c440be956a9fcb3a25868a1df15444467/tensorflow/core/kernels/quantized_concat_op.cc#L78
   std::vector<float> min_of_mins(
       1, *std::min_element(all_mins.begin(), all_mins.end()));
   std::vector<float> max_of_maxs(
       1, *std::max_element(all_maxs.begin(), all_maxs.end()));
 
-  cout << "min of mins " << min_of_mins[0] << endl;
-  cout << "max of maxs " << max_of_maxs[0] << endl;
-
-  // // construct output_min and output_max
+  // construct output_min and output_max
   shared_ptr<ng::Node> ng_min_of_mins =
       make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_of_mins);
   shared_ptr<ng::Node> ng_max_of_maxs =
       make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
-
-  // construct input parameter to ngraph ScaledQuantizedConcat op
-  // auto min =
-  // std::make_shared<ngraph::op::Min>(std::make_shared<ngraph::op::Concat>(all_mins,
-  // 0), ngraph::AxisSet{0});
-  // auto max =
-  // std::make_shared<ngraph::op::Max>(std::make_shared<ngraph::op::Concat>(all_maxs,
-  // 0), ngraph::AxisSet{0});
-
-  // shared_ptr<ng::Node> ng_mins = make_shared<ng::op::Constant>(
-  //     ng::element::f32, ng::Shape{all_mins.size()}, all_mins);
-  // shared_ptr<ng::Node> ng_maxs = make_shared<ng::op::Constant>(
-  //     ng::element::f32, ng::Shape{all_maxs.size()}, all_maxs);
 
   auto ng_qconcat = ng::builder::ScaledQuantizedConcat(
       ng_args, size_t(concat_axis), ng_all_mins, ng_all_maxs);

@@ -443,8 +443,8 @@ def main():
     ngraph_version = "b9ff5d1fda7cd749bec891b63aa1faa4378d47fb" #"v0.12.0"
 
     #tf_version = "quantized_concat_part_1"
-    #tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
-    tf_version = "int8-master"
+    tf_version = "86950c2c440be956a9fcb3a25868a1df15444467"
+    #tf_version = "int8-master"
 
     # Default directories
     build_dir = 'build'
@@ -491,8 +491,8 @@ def main():
     if not use_prebuilt_binaries:
         # Download TensorFlow
         download_repo("tensorflow",
-  		      "https://github.com/NervanaSystems/private-tensorflow.git",
-                      #"https://github.com/tensorflow/tensorflow.git",
+  		      #"https://github.com/NervanaSystems/private-tensorflow.git",
+                      "https://github.com/tensorflow/tensorflow.git",
                       tf_version)
 
         # Build TensorFlow
