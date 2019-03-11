@@ -293,7 +293,7 @@ class NGraphEncapsulateOp : public OpKernel {
       auto function_size = ng_function->get_graph_size() / 1024;  // kb unit
 
       // Get the serialized ops and stored the allreduce ops to a vector and
-      vector<shared_ptr<ng::Node>> allreduce_op_list;
+      ng::NodeVector allreduce_op_list;
       for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
         if (node->get_name().compare(0, 9, "AllReduce") == 0) {
           allreduce_op_list.push_back(node);
