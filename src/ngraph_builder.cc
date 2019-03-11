@@ -4203,7 +4203,7 @@ Status Builder::TranslateGraph(
     } else {
       tf_ops.push_back(n);
 #if defined(NGRAPH_DISTRIBUTED)
-      ngraph::Distributed dist; 
+      ngraph::Distributed dist;
       int rank_id;
       rank_id = dist.get_rank();
       if (n->type_string() == "HorovodAllreduce") {
