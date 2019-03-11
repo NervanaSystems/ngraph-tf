@@ -332,10 +332,11 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       // Sort the allreduce ops according to the TF names
-      std::sort(allreduce_op_list.begin(), allreduce_op_list.end(),
-                [](shared_ptr<ng::Node>& x, shared_ptr<ng::Node>& y) {
-                  return x->get_friendly_name() < y->get_friendly_name();
-                });
+      std::sort(
+          allreduce_op_list.begin(), allreduce_op_list.end(),
+          [](const shared_ptr<ng::Node>& x, const shared_ptr<ng::Node>& y) {
+            return x->get_friendly_name() < y->get_friendly_name();
+          });
       // Add control dependency in for the allreduce ops
       if (allreduce_op_list.size() > 1) {
         for (size_t i = 1; i < allreduce_op_list.size(); ++i) {
