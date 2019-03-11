@@ -33,6 +33,10 @@
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+#if defined(NGRAPH_DISTRIBUTED)
+#include <mpi.h>
+#endif
+
 using namespace std;
 namespace ng = ngraph;
 
@@ -447,7 +451,16 @@ static Status TranslateAllreduceOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::AllReduce>(ng_input));
+  // Get the corresponding TF op to ng_input
+  // Set name of the ng input node same as TF op
+  Node* tf_input;
+  TF_RETURN_IF_ERROR(op->input_node(0, &tf_input));
+  ng_input->set_friendly_name(tf_input->name());
+
+  auto ng_all_reduce = make_shared<ng::op::AllReduce>(ng_input);
+  ng_all_reduce->set_friendly_name(op->name());
+  SaveNgOp(ng_op_map, op->name(), ng_all_reduce);
+
   return Status::OK();
 }
 
@@ -2913,84 +2926,14 @@ static Status TranslateQuantizedMaxPoolOp(
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
-
-  std::vector<float> ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
-        ng_min.size());
-  }
-  if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
-        ng_max.size());
-  }
-
-  if (ng_min[0] > ng_max[0]) {
-    return errors::InvalidArgument(
-        "Expected QuantizeV2's min <= max but got, "
-        "min = ",
-        ng_min[0], " and max = ", ng_max[0]);
-  }
-
-  string mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
-
-  // TODO: Since, currently only ng::ROUND_NEAREST_TOWARD_INFINITY is supported,
-  // just reading this value here, but not using it for now.
-  string round_mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
 
-  int num_bits;
-  bool unsigned_type;
-  switch (dtype) {
-    case DT_QINT8:
-      num_bits = 8;
-      unsigned_type = false;
-      break;
-    case DT_QUINT8:
-      num_bits = 8;
-      unsigned_type = true;
-      break;
-    default:
-      return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
-          DataTypeString(dtype));
-  }
-
-  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/quantize_op.cc#L107
-  // Form this line here, we see that min and max is a single value.
-  // Hence picking only the first element from the ng_min, ng_max vectors
-
-  float ng_scale_val;
-  int ng_offset_val;
-  try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type,
-                             (mode.compare("SCALED") == 0), ng_min[0],
-                             ng_max[0], &ng_scale_val, &ng_offset_val);
-  } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
-  }
-
-  auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
-
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
-  // Cast offset appropriately? Currently using int
-  auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
 
   // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_EVEN is supported, for now.
   // Support other modes later
@@ -2998,95 +2941,24 @@ static Status TranslateQuantizeV2Op(
       ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_EVEN;
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
-                                         ng::AxisSet(), ng_round_mode));
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_min[0]})));
-  // TODO: For quantizev2 revisit output min-max (which would change in case
-  // input min-max are too close. For now just propagating inputs
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_max[0]})));
+           ng::builder::ScaledQuantize(ng_input, ng_min, ng_max, ng_et,
+                                       ng::AxisSet(), ng_round_mode));
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_max);
+
   return Status::OK();
 }
 
 static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
-  std::vector<float> ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "Dequantize Op: Min must be scalar. Got a vector of size, ",
-        ng_min.size());
-  }
-  if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "Dequantize Op: Max must be scalar. Got a vector of size, ",
-        ng_max.size());
-  }
-
-  if (ng_min[0] > ng_max[0]) {
-    return errors::InvalidArgument(
-        "Expected Dequantize's min <= max but got, "
-        "min = ",
-        ng_min[0], " and max = ", ng_max[0]);
-  }
-
-  string mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
-
-  int num_bits;
-  bool unsigned_type;
-  switch (dtype) {
-    case DT_QINT8:
-      num_bits = 8;
-      unsigned_type = false;
-      break;
-    case DT_QUINT8:
-      num_bits = 8;
-      unsigned_type = true;
-      break;
-    default:
-      return errors::InvalidArgument(
-          "Expected Dequantize's datatype to be of int8 or uint8 but got ",
-          dtype);
-  }
-
-  float ng_scale_val;
-  int ng_offset_val;
-  try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type,
-                             (mode.compare("SCALED") == 0), ng_min[0],
-                             ng_max[0], &ng_scale_val, &ng_offset_val);
-  } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
-  }
-
-  auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
-
-  ng::element::Type ng_et;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
-  // Cast offset appropriately? Currently using int
-  auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
-
+  // TF only dequantizes to fp32
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset,
-                                           ng::element::f32, ng::AxisSet()));
+           ng::builder::ScaledDequantize(ng_input, ng_min, ng_max,
+                                         ng::element::f32, ng::AxisSet()));
   return Status::OK();
 }
 
@@ -4440,6 +4312,18 @@ Status Builder::TranslateGraph(
   vector<const Node*> tf_ret_vals;
   vector<const Node*> tf_ops;
 
+#if defined(NGRAPH_DISTRIBUTED)
+  int flag = 0;
+  int mpi_rank = -1;
+  bool mpi_initialized = false;
+  MPI_Initialized(&flag);
+  if (!flag) {
+    MPI_Init(NULL, NULL);
+    mpi_initialized = true;
+  }
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+#endif
+
   for (const auto n : ordered) {
     if (n->IsSink() || n->IsSource()) {
       continue;
@@ -4457,8 +4341,23 @@ Status Builder::TranslateGraph(
       tf_ret_vals.push_back(n);
     } else {
       tf_ops.push_back(n);
+#if defined(NGRAPH_DISTRIBUTED)
+      if (n->type_string() == "HorovodAllreduce") {
+        NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << mpi_rank << "]: " << n->name();
+      }
+#endif
     }
   }
+
+#if defined(NGRAPH_DISTRIBUTED)
+  if (mpi_initialized) {
+    int flag = 0;
+    MPI_Initialized(&flag);
+    if (flag) {
+      MPI_Finalize();
+    }
+  }
+#endif
 
   //
   // The op map holds a mapping from TensorFlow op names (strings) to
