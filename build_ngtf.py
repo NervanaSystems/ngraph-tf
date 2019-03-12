@@ -111,8 +111,9 @@ def load_venv(venv_dir):
     return venv_dir
 
 
-def setup_venv(venv_dir):
-    load_venv(venv_dir)
+def setup_venv(venv_dir, system):
+    if not system:
+        load_venv(venv_dir)
 
     print("PIP location")
     call(['which', 'pip'])
@@ -245,10 +246,11 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     os.chdir(pwd)
 
 
-def install_tensorflow(venv_dir, artifacts_dir):
+def install_tensorflow(venv_dir, artifacts_dir, system):
 
-    # Load the virtual env
-    load_venv(venv_dir)
+    if not system:
+        # Load the virtual env
+        load_venv(venv_dir)
 
     # Install tensorflow pip
     tf_pip = os.path.join(os.path.abspath(artifacts_dir), "tensorflow")
@@ -282,8 +284,9 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
                     verbose):
     pwd = os.getcwd()
 
-    # Load the virtual env
-    load_venv(venv_dir)
+    if not system:
+        # Load the virtual env
+        load_venv(venv_dir)
 
     command_executor(["pip", "list"])
 
@@ -344,9 +347,10 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
     return output_wheel
 
 
-def install_ngraph_tf(venv_dir, ngtf_pip_whl):
-    # Load the virtual env
-    load_venv(venv_dir)
+def install_ngraph_tf(venv_dir, ngtf_pip_whl, system):
+    if not system:
+        # Load the virtual env
+        load_venv(venv_dir)
 
     command_executor(["pip", "install", "-U", ngtf_pip_whl])
 
@@ -426,6 +430,11 @@ def main():
         help="Builds a distributed version of the nGraph components\n",
         action="store_true")
 
+    parser.add_argument(
+        '--system',
+        help="install on system (or current) python environment\n"
+        action="store_true")
+
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
@@ -436,6 +445,10 @@ def main():
         print("Building in with VERBOSE output messages\n")
         verbosity = True
 
+    system = False
+    if arguments.system:
+        print("use system (or current venv) Python for install target\n")
+        system = True
     #-------------------------------
     # Recipe
     #-------------------------------
@@ -468,16 +481,17 @@ def main():
     artifacts_location = os.path.abspath(artifacts_location)
     print("ARTIFACTS location: " + artifacts_location)
 
-    if not use_prebuilt_binaries:
+    if not use_prebuilt_binaries and not system:
         #install virtualenv
         install_virtual_env(venv_dir)
 
     # Load the virtual env
-    load_venv(venv_dir)
+    if not system:
+        load_venv(venv_dir)
 
     if not use_prebuilt_binaries:
         # Setup the virtual env
-        setup_venv(venv_dir)
+        setup_venv(venv_dir, system)
 
     target_arch = 'native'
     if (arguments.target_arch):
@@ -497,7 +511,7 @@ def main():
                          target_arch, verbosity)
 
         # Install tensorflow
-        cxx_abi = install_tensorflow(venv_dir, artifacts_location)
+        cxx_abi = install_tensorflow(venv_dir, artifacts_location, system)
     else:
         print("Skipping the TensorFlow build")
         import tensorflow as tf
@@ -562,12 +576,12 @@ def main():
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
-                                ngraph_tf_cmake_flags, verbosity)
+                                ngraph_tf_cmake_flags, verbosity, system)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
 
     # Run a quick test
-    install_ngraph_tf(venv_dir, os.path.join(artifacts_location, ng_tf_whl))
+    install_ngraph_tf(venv_dir, os.path.join(artifacts_location, ng_tf_whl), system)
 
     os.chdir(pwd)
 
