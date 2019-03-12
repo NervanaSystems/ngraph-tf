@@ -2723,6 +2723,7 @@ static Status TranslateQuantizedConcatOpHelper(
     value_start_index = 1;
   } else if (op_name == "QuantizedConcatV2") {
     axis_index = num_of_tensors_to_concat;
+    cout << "Mingshan QuantizedConcatV2 axis_index is " << axis_index << endl;
     value_start_index = 0;
   } else {
     return errors::InvalidArgument(
@@ -2754,6 +2755,8 @@ static Status TranslateQuantizedConcatOpHelper(
   std::vector<int64> tf_concat_axis_vec;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, axis_index, static_input_map,
                                           &tf_concat_axis_vec));
+  cout << "Mingshan QuantizedConcatV2 tf_concat_axis_vec is "
+       << tf_concat_axis_vec[0] << endl;
 
   // QuantizedConcat doesn't have negative concat_axis
   int64 concat_axis = tf_concat_axis_vec[0];
@@ -2788,6 +2791,9 @@ static Status TranslateQuantizedConcatOpHelper(
         max_node, ngraph::AxisVector{}, ngraph::Shape{1}));
   }
 
+  cout << "Mingshan QuantizedConcatV2 collect all_mins and all_maxes done "
+       << endl;
+
   // TODO: NGraph supports varying input mins/maxes, but NG and TF result
   // disagrees
   // check if all the elements in in all_mins are the same
@@ -2795,6 +2801,9 @@ static Status TranslateQuantizedConcatOpHelper(
                          std::not_equal_to<float>()) == all_mins.end()) {
     NGRAPH_VLOG(3)
         << "QuantizedConat op: All elements in the input_mins are the same";
+    cout << "Mingshan QuantizedConcatV2 all_mins and all_mins are the same "
+         << endl;
+
   } else {
     return errors::InvalidArgument(
         "QuantizedConat Op: All elements in input_mins need to be the same");
@@ -2805,6 +2814,9 @@ static Status TranslateQuantizedConcatOpHelper(
                          std::not_equal_to<float>()) == all_maxs.end()) {
     NGRAPH_VLOG(3)
         << "QuantizedConat op: All elements in the input_maxes are the same";
+    cout << "Mingshan QuantizedConcatV2 all_maxes and all_maxs are the same "
+         << endl;
+
   } else {
     return errors::InvalidArgument(
         "QuantizedConat Op: All elements in the input_maxes need to be the "
@@ -2826,8 +2838,11 @@ static Status TranslateQuantizedConcatOpHelper(
   shared_ptr<ng::Node> ng_max_of_maxs =
       make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
 
+  cout << "Mingshan QuantizedConcatV2 construct output min max done" << endl;
+
   auto ng_qconcat = ng::builder::ScaledQuantizedConcat(
       ng_args, size_t(concat_axis), ng_all_mins, ng_all_maxs);
+  cout << "Mingshan QuantizedConcatV2 calling scaledQC done " << endl;
 
   SaveNgOp(ng_op_map, op->name(), ng_qconcat);
   SaveNgOp(ng_op_map, op->name(), ng_min_of_mins);
@@ -2917,6 +2932,7 @@ template <bool IsRelu>
 static Status TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+  cout << "Mingshan enter TranslateQConv2DWithBiasReluRequantized " << endl;
   auto create_quantized_conv_node = [](
       std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides,
       ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below,

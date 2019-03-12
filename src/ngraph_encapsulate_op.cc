@@ -353,12 +353,14 @@ class NGraphEncapsulateOp : public OpKernel {
       }
 
       BackendManager::LockBackend(m_op_backend_name);
-      NGRAPH_VLOG(4)
-          << "NGraphEncapsulateOp::Compute call starting for cluster "
-          << m_ngraph_cluster;
+
       try {
+        cout << "Mingshan compiling function " << endl;
         ng_exec = op_backend->compile(ng_function);
+        cout << "Mingshan compile function done " << endl;
+
       } catch (const std::exception& exp) {
+        cout << "Mingshan catch exception here " << endl;
         ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
@@ -369,6 +371,8 @@ class NGraphEncapsulateOp : public OpKernel {
             errors::Internal("Caught exception while compiling op_backend: ",
                              exp.what(), "\n"));
       } catch (...) {
+        cout << "Mingshan catch sth here " << endl;
+
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
