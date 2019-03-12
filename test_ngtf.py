@@ -271,9 +271,9 @@ def main():
     build_dir = 'build'
     venv_dir = 'build/venv-tf-py3'
 
-    #if (platform.system() != 'Darwin'):
+    if (platform.system() != 'Darwin'):
         # Run the bazel based buil
-        #run_bazel_build_test(venv_dir, build_dir)
+        run_bazel_build_test(venv_dir, build_dir)
 
     # First run the C++ gtests
     run_ngtf_gtests(build_dir,None)
