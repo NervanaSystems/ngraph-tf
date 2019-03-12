@@ -38,10 +38,13 @@ def run_ngtf_gtests(build_dir, filters):
 
     # First run the C++ gtests
     os.chdir(os.path.join(build_dir, "test"))
-    cmd = ['./gtest_ngtf']
     if (filters != None):
-        cmd.extend('--gtest_filter=' + filter)
-    command_executor(cmd)
+        gtest_filters = "--gtest_filter=" + filters
+        cmd = ['./gtest_ngtf', gtest_filters]
+    else:
+        cmd = ['./gtest_ngtf']
+
+    command_executor(cmd, verbose=True)
 
     os.chdir(root_pwd)
 
@@ -268,9 +271,9 @@ def main():
     build_dir = 'build'
     venv_dir = 'build/venv-tf-py3'
 
-    if (platform.system() != 'Darwin'):
+    #if (platform.system() != 'Darwin'):
         # Run the bazel based buil
-        run_bazel_build_test(venv_dir, build_dir)
+        #run_bazel_build_test(venv_dir, build_dir)
 
     # First run the C++ gtests
     run_ngtf_gtests(build_dir,None)
@@ -280,11 +283,11 @@ def main():
         os.environ['NGRAPH_TF_BACKEND'] = 'GPU'
         run_ngtf_gtests(
             build_dir, 
-            '-ArrayOps.Quanti*:ArrayOps.Dequant*:BackendManager.BackendAssignment:'
-            'MathOps.AnyKeepDims:MathOps.AnyNegativeAxis:MathOps.AnyPositiveAxis:'
-            'MathOps.AllKeepDims:MathOps.AllNegativeAxis:MathOps.AllPositiveAxis:'
-            'NNOps.Qu*:NNOps.SoftmaxZeroDimTest*:'
-            'NNOps.SparseSoftmaxCrossEntropyWithLogits'
+            str("-ArrayOps.Quanti*:ArrayOps.Dequant*:BackendManager.BackendAssignment:"
+            "MathOps.AnyKeepDims:MathOps.AnyNegativeAxis:MathOps.AnyPositiveAxis:"
+            "MathOps.AllKeepDims:MathOps.AllNegativeAxis:MathOps.AllPositiveAxis:"
+            "NNOps.Qu*:NNOps.SoftmaxZeroDimTest*:"
+            "NNOps.SparseSoftmaxCrossEntropyWithLogits")
         )
 
     os.environ['NGRAPH_TF_BACKEND'] = 'CPU'
