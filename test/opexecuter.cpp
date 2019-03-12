@@ -14,6 +14,7 @@
  * limitations under the License.
  *******************************************************************************/
 #include "opexecuter.h"
+#include <cstdlib>
 
 using namespace std;
 namespace ng = ngraph;
@@ -135,6 +136,16 @@ void OpExecuter::RunTest(const string& ng_backend_name, float rtol,
   ExecuteOnNGraph(ngraph_outputs, ng_backend_name);
   vector<Tensor> tf_outputs;
   ExecuteOnTF(tf_outputs);
+
+  // Override the test result tolerance
+  if (std::getenv("NGRAPH_TF_UTEST_RTOL") != nullptr) {
+    rtol = std::atof(std::getenv("NGRAPH_TF_UTEST_RTOL"));
+  }
+
+  if (std::getenv("NGRAPH_TF_UTEST_ATOL") != nullptr) {
+    atol = std::atof(std::getenv("NGRAPH_TF_UTEST_ATOL"));
+  }
+
   Compare(tf_outputs, ngraph_outputs, rtol, atol);
 }
 
