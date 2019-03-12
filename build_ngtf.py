@@ -414,8 +414,9 @@ def main():
 
     parser.add_argument(
         '--distributed_build',
+        type=str,
         help="Builds a distributed version of the nGraph components\n",
-        action="store_true")
+        action="store")
 
     arguments = parser.parse_args()
 
@@ -520,8 +521,10 @@ def main():
         if (arguments.debug_build):
             ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-        if (arguments.distributed_build): 
+        if (arguments.distributed_build=="OMPI"): 
             ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OMPI"])
+        elif (arguments.distributed_build=="MLSL"): 
+            ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=MLSL"])
         else:
             ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OFF"])
 
@@ -542,7 +545,7 @@ def main():
     if (arguments.debug_build):
         ngraph_tf_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-    if (arguments.distributed_build):
+    if ((arguments.distributed_build=="OMPI") or (arguments.distributed_build=="MLSL")):
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
     else:
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
