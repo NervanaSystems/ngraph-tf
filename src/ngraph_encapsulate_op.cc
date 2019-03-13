@@ -289,6 +289,7 @@ class NGraphEncapsulateOp : public OpKernel {
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
+      ng_function->set_friendly_name("enc_" + to_string(m_ngraph_cluster));
 
       auto function_size = ng_function->get_graph_size() / 1024;  // kb unit
 

@@ -288,6 +288,99 @@ TEST(MathOps, AllPositiveAxis) {
   opexecuter.RunTest();
 }  // end of test op All
 
+// Test op: Sum with & without keep dims & with both positive & negative axis
+TEST(MathOps, Sum) {
+  int dim1 = 2;
+  int dim2 = 2;
+
+  std::vector<int> v = {1, 2, 3, 4};
+  Tensor A(DT_INT32, TensorShape({dim1, dim2}));
+  vector<bool> v_keep_dims = {true, false};
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> v_axis = {-1, 0, 1};
+  for (auto axis : v_axis) {
+    for (auto keep_dims : v_keep_dims) {
+      Scope root = Scope::NewRootScope();
+      auto keep_dims_attr = ops::Sum::Attrs().KeepDims(keep_dims);
+
+      AssignInputValues<int>(A, v);
+
+      vector<int> static_input_indexes = {1};
+      vector<DataType> output_datatypes = {DT_INT32};
+
+      auto R = ops::Sum(root, A, axis, keep_dims_attr);
+      std::vector<Output> sess_run_fetchoutputs = {R};
+      OpExecuter opexecuter(root, "Sum", static_input_indexes, output_datatypes,
+                            sess_run_fetchoutputs);
+
+      opexecuter.RunTest();
+    }
+  }
+}
+
+// Test op: Mean with & without keep dims & with both positive & negative axis
+TEST(MathOps, Mean) {
+  int dim1 = 2;
+  int dim2 = 2;
+
+  std::vector<int> v = {1, 2, 3, 4};
+  Tensor A(DT_INT32, TensorShape({dim1, dim2}));
+  vector<bool> v_keep_dims = {true, false};
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> v_axis = {-1, 0, 1};
+  for (auto axis : v_axis) {
+    for (auto keep_dims : v_keep_dims) {
+      Scope root = Scope::NewRootScope();
+      auto keep_dims_attr = ops::Mean::Attrs().KeepDims(keep_dims);
+
+      AssignInputValues<int>(A, v);
+
+      vector<int> static_input_indexes = {1};
+      vector<DataType> output_datatypes = {DT_INT32};
+
+      auto R = ops::Mean(root, A, axis, keep_dims_attr);
+      std::vector<Output> sess_run_fetchoutputs = {R};
+      OpExecuter opexecuter(root, "Mean", static_input_indexes,
+                            output_datatypes, sess_run_fetchoutputs);
+
+      opexecuter.RunTest();
+    }
+  }
+}
+
+// Test op: Prod with & without keep dims & with both positive & negative axis
+TEST(MathOps, Prod) {
+  int dim1 = 2;
+  int dim2 = 2;
+
+  std::vector<int> v = {1, 2, 3, 4};
+  Tensor A(DT_INT32, TensorShape({dim1, dim2}));
+  vector<bool> v_keep_dims = {true, false};
+  // axis at which the dimension will be inserted
+  // should be -rank <= axis < rank
+  vector<int> v_axis = {-1, 0, 1};
+  for (auto axis : v_axis) {
+    for (auto keep_dims : v_keep_dims) {
+      Scope root = Scope::NewRootScope();
+      auto keep_dims_attr = ops::Prod::Attrs().KeepDims(keep_dims);
+
+      AssignInputValues<int>(A, v);
+
+      vector<int> static_input_indexes = {1};
+      vector<DataType> output_datatypes = {DT_INT32};
+
+      auto R = ops::Prod(root, A, axis, keep_dims_attr);
+      std::vector<Output> sess_run_fetchoutputs = {R};
+      OpExecuter opexecuter(root, "Prod", static_input_indexes,
+                            output_datatypes, sess_run_fetchoutputs);
+
+      opexecuter.RunTest();
+    }
+  }
+}
+
 // ArgMax test for negative dimension
 TEST(MathOps, ArgMaxNeg) {
   Scope root = Scope::NewRootScope();
