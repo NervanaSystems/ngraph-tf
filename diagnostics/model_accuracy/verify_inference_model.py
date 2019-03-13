@@ -18,11 +18,9 @@ from subprocess import check_output, call, Popen, PIPE, STDOUT
 import re
 import json, shlex, os, argparse, sys
 
-
 def parse_json(json_file_name):
     with open(json_file_name) as f:
         return json.load(f)
-
 
 def command_executor(cmd, verbose=True, msg=None):
     if verbose or msg is not None:
@@ -32,8 +30,6 @@ def command_executor(cmd, verbose=True, msg=None):
     ps = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     so, se = ps.communicate()
     return so
-    #TODO: make this function more robust
-
 
 def download_repo(repo, target_name=None, version='master'):
     # First download repo
@@ -42,7 +38,6 @@ def download_repo(repo, target_name=None, version='master'):
 
 def run_inference(model_name):
     parameters = '[{"model_type" : "Image Recognition", "model_name" : "Inception_v4","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt"}, {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt"}, {"model_type" : "Image Recognition", "model_name" : "ResNet50_v1","DATASET" : "/mnt/data/TF_ImageNet_latest/","CHECKPOINT" : "/nfs/site/home/skantama/validation/models/research/checkpoints/resnet_v1_50.ckpt"}, {"model_type" : "Object Detection", "model_name" : "SSD-MobileNet_v1", "CHECKPOINT" : "/nfs/site/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/ssd_mobilenet_v1_coco_2018_01_28/"}]'
-
     try:
         data = json.loads(parameters)
     except:
@@ -100,7 +95,6 @@ def run_inference(model_name):
         )
         sys.exit(0)
 
-
 def check_accuracy(model, p):
     #check if the accuracy of the model inference matches with the published numbers
     accuracy = '[{"model_name" : "Inception_v4", "accuracy" : "0.95194"}, {"model_name" : "ResNet50_v1", "accuracy" : "0.752"}, {"model_name" : "MobileNet_v1", "accuracy" : "0.71018"}]'
@@ -126,13 +120,11 @@ def check_accuracy(model, p):
                 print("\nResult:Model Accuracy is not as expected for " +
                       model + ' ' + top1_accuracy)
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Accuracy verification for TF models using ngraph.')
 
     parser.add_argument('--model_name', help='Model name to run inference')
-
     cwd = os.getcwd()
     # This script must be run from this location
     assert '/'.join(
