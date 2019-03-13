@@ -18,9 +18,11 @@ from subprocess import check_output, call, Popen, PIPE, STDOUT
 import re
 import json, shlex, os, argparse, sys
 
+
 def parse_json(json_file_name):
     with open(json_file_name) as f:
         return json.load(f)
+
 
 def command_executor(cmd, verbose=True, msg=None):
     if verbose or msg is not None:
@@ -30,6 +32,7 @@ def command_executor(cmd, verbose=True, msg=None):
     ps = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     so, se = ps.communicate()
     return so
+
 
 def download_repo(repo, target_name=None, version='master'):
     # First download repo
@@ -95,6 +98,7 @@ def run_inference(model_name):
         )
         sys.exit(0)
 
+
 def check_accuracy(model, p):
     #check if the accuracy of the model inference matches with the published numbers
     accuracy = '[{"model_name" : "Inception_v4", "accuracy" : "0.95194"}, {"model_name" : "ResNet50_v1", "accuracy" : "0.752"}, {"model_name" : "MobileNet_v1", "accuracy" : "0.71018"}]'
@@ -119,6 +123,7 @@ def check_accuracy(model, p):
             else:
                 print("\nResult:Model Accuracy is not as expected for " +
                       model + ' ' + top1_accuracy)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
