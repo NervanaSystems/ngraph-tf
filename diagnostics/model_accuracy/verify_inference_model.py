@@ -45,7 +45,7 @@ def run_inference(model_name, models_dir):
     "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
     --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
     --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-    --dataset_split_name=validation --model_name=inception_v4"},\
+    --dataset_split_name=validation --model_name=inception_v4 --max_num_batches=3"},\
      {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1", \
      "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
      --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt \
@@ -136,19 +136,20 @@ if __name__ == '__main__':
         '--model_name', help='Model name to run inference', required=True)
     parser.add_argument(
         '--models_dir',
-        help=
-        'Source of the model repository location on disk. If not specified, the local repository will be used. Example:ngraph-tf/diagnostics/model_accuracy/models'
-    )
+        help='Source of the model repository location on disk. \
+        If not specified, the local repository will be used. \
+        Example:ngraph-tf/diagnostics/model_accuracy/models')
     cwd = os.getcwd()
 
-    repo = "https://github.com/tensorflow/models.git"
-    download_repo(repo)
     args = parser.parse_args()
 
     if (args.models_dir):
         models_dir = args.models_dir
     else:
         models_dir = None
+        repo = "https://github.com/tensorflow/models.git"
+        download_repo(repo)
+
     #Just takes in one model at a time for now
     #TODO(Sindhu): Run multiple or ALL models at once and compare accuracy.
 
