@@ -3937,6 +3937,21 @@ static Status TranslateTileOp(
   return Status::OK();
 }
 
+// Translate TopKV2 Op using ngraph core op TopK
+static Status TranslateTopkV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  size_t axis;
+  size_t ng_k = 0;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  auto ng_result = make_shared<ngraph::op::TopK>(
+      ng_input, axis, ng_input->get_element_type(), ng_k, true);
+  SaveNgOp(ng_op_map, op->name(), ng_result);
+  return Status::OK();
+}
+
 static Status TranslateTransposeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -4162,6 +4177,7 @@ const static std::map<
         {"Tanh", TranslateUnaryOp<ngraph::op::Tanh>},
         {"TanhGrad", TranslateTanhGradOp},
         {"Tile", TranslateTileOp},
+        {"TopKV2", TranslateTopkV2Op},
         {"Transpose", TranslateTransposeOp},
         {"Unpack", TranslateUnpackOp},
         {"ZerosLike", TranslateZerosLikeOp}};

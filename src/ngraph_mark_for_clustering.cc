@@ -360,6 +360,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Tanh"] = SimpleConfirmationFunction();
       confirmation_function_map["TanhGrad"] = SimpleConfirmationFunction();
       confirmation_function_map["Tile"] = SimpleConfirmationFunction();
+      confirmation_function_map["TopKV2"] = SimpleConfirmationFunction();
       confirmation_function_map["Transpose"] = SimpleConfirmationFunction();
       confirmation_function_map["Unpack"] = SimpleConfirmationFunction();
       confirmation_function_map["ZerosLike"] = SimpleConfirmationFunction();
@@ -515,6 +516,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["TanhGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Tile"]["Tmultiples"] = NGraphIndexDTypes();
+      type_constraint_map["TopKV2"]["T"] = NGraphDTypes();
       type_constraint_map["Transpose"]["T"] = NGraphDTypes();
       type_constraint_map["Transpose"]["Tperm"] = NGraphIndexDTypes();
       type_constraint_map["Unpack"]["T"] = NGraphDTypes();
