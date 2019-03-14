@@ -300,8 +300,8 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
 
 // Do not register the optimization passes since this has been moved to
 // the grappler custom optimizer - NgraphOptimizer
-/*REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_PLACEMENT, 0,
+REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_PLACEMENT, 0,
                       ngraph_bridge::NGraphVariableCapturePass);
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 0,
-                      ngraph_bridge::NGraphEncapsulationPass);*/
+                      ngraph_bridge::NGraphEncapsulationPass);
 }  // namespace tensorflow
