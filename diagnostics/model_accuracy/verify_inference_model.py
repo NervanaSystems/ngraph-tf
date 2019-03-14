@@ -45,7 +45,7 @@ def run_inference(model_name, models_dir):
     "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
     --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
     --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-    --dataset_split_name=validation --model_name=inception_v4 --max_num_batches=3"},\
+    --dataset_split_name=validation --model_name=inception_v4"},\
      {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1", \
      "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
      --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt \
