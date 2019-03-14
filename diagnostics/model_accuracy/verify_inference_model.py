@@ -42,25 +42,29 @@ def download_repo(repo, target_name=None, version='master'):
 def run_inference(model_name, models_dir):
     parameters = \
     '[{"model_type" : "Image Recognition", "model_name" : "Inception_v4", \
-    "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
-    --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
-    --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-    --dataset_split_name=validation --model_name=inception_v4"},\
+        "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+                python eval_image_classifier.py --alsologtostderr \
+                --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
+                --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
+                --dataset_split_name=validation --model_name=inception_v4"},\
      {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1", \
-     "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
-     --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt \
-     --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-     --dataset_split_name=validation --model_name=mobilenet_v1"}, \
+        "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+                python eval_image_classifier.py --alsologtostderr \
+                --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/mobilenet_v1_1.0_224.ckpt \
+                --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
+                --dataset_split_name=validation --model_name=mobilenet_v1"}, \
      {"model_type" : "Image Recognition", "model_name" : "ResNet50_v1", \
-     "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python eval_image_classifier.py \
-     --alsologtostderr --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/resnet_v1_50.ckpt \
-     --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-     --dataset_split_name=validation --model_name=resnet_v1_50 --labels_offset=1"}, \
+        "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+                python eval_image_classifier.py --alsologtostderr \
+                --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/resnet_v1_50.ckpt \
+                --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
+                --dataset_split_name=validation --model_name=resnet_v1_50 --labels_offset=1"}, \
      {"model_type" : "Object Detection", "model_name" : "SSD-MobileNet_v1", \
-     "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 python object_detection/model_main.py --logtostderr \
-     --pipeline_config_path=object_detection/samples/configs/ssd_mobilenet_v1_coco.config \
-     --checkpoint_dir=/nfs/site/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/ssd_mobilenet_v1_coco_2018_01_28/ \
-     --run_once=True"}]'
+        "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
+                python object_detection/model_main.py --logtostderr \
+                --pipeline_config_path=object_detection/samples/configs/ssd_mobilenet_v1_coco.config \
+                --checkpoint_dir=/nfs/site/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/ssd_mobilenet_v1_coco_2018_01_28/ \
+                --run_once=True"}]'
 
     try:
         data = json.loads(parameters)
@@ -78,18 +82,6 @@ def run_inference(model_name, models_dir):
                 command_executor("export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`")
                 command_executor('git apply ' + pwd +
                                  '/image_recognition.patch')
-
-            #TODO:SSD-MobileNet-v1 does not run, will re-enable this after debugging
-            # if(data[i]["model_type"] == "Object Detection"):
-            #     command_executor('git apply ' + pwd + '/object_detection.patch')
-            #     if models_dir is None:
-            #       os.chdir(pwd + "/models/research/object_detection")
-            #       else:
-            #       os.chdir(models_dir + "research/object_detection")
-            #     os.chdir(pwd + "/models/research/")
-            #     command_executor("python setup.py install")
-            #     command_executor("python slim/setup.py install")
-            #     command_executor("export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/object_detection:`pwd`/slim")
 
             p = command_executor(data[i]["cmd"])
             os.chdir(pwd)
