@@ -16,23 +16,118 @@
 #ifndef NGRAPH_TF_BRIDGE_TIMER_H_
 #define NGRAPH_TF_BRIDGE_TIMER_H_
 
+#include <unistd.h>
 #include <chrono>
+#include <iostream>
+#include <string>
+#include <thread>
 
 namespace tensorflow {
 namespace ngraph_bridge {
 
 class Timer {
  public:
-  Timer() : m_start(std::chrono::high_resolution_clock::now()) {}
+  Timer() : m_start(std::chrono::high_resolution_clock::now()) {
+    m_stop = m_start;
+  }
   int ElapsedInMS() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::high_resolution_clock::now() - m_start)
         .count();
   }
+  void Stop() {
+    if (m_stopped) return;
+    m_stopped = true;
+    m_stop = std::chrono::high_resolution_clock::now();
+  }
 
  private:
   const std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+  std::chrono::time_point<std::chrono::high_resolution_clock> m_stop;
+  bool m_stopped{false};
 };
+
+//-----------------------------------------------------------------------------
+// This class records timestamps for a given user defined events and
+// produces output in the chrome tracing format that can be used to view
+// the events of a running program
+//
+// Following is the format of a trace event
+//
+// {
+//   "name": "myName",
+//   "cat": "category,list",
+//   "ph": "B",
+//   "ts": 12345,
+//   "pid": 123,
+//   "tid": 456,
+//   "args": {
+//     "someArg": 1,
+//     "anotherArg": {
+//       "value": "my value"
+//     }
+//   }
+// }
+//-----------------------------------------------------------------------------
+class Event {
+ public:
+  explicit Event(const char* name, const char* category,
+                 const char* args = nullptr)
+      : m_start(std::chrono::high_resolution_clock::now()),
+        m_name(name),
+        m_category(category) {
+    m_stop = m_start;
+    m_pid = getpid();
+  }
+
+  void Stop() {
+    if (m_stopped) return;
+    m_stopped = true;
+    m_stop = std::chrono::high_resolution_clock::now();
+  }
+
+  friend std::ostream& operator<<(std::ostream& out_stream, const Event& event);
+
+  Event(const Event&) = delete;
+  Event& operator=(Event const&) = delete;
+
+ private:
+  std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+  std::chrono::time_point<std::chrono::high_resolution_clock> m_stop;
+  bool m_stopped{false};
+  std::string m_name;
+  std::string m_category;
+  std::string m_args;
+  int m_pid;
+  int m_tid;
+};
+
+std::ostream& operator<<(std::ostream& out_stream, const Event& event) {
+  out_stream << "{"
+             << "\"name\": \"" << event.m_name << "\", \"cat\": \""
+             << event.m_category << "\", "
+             << "\"ph\": \"B\", \"ts\": "
+             << event.m_start.time_since_epoch().count() / 10000000 << ", "
+             << "\"pid\": " << event.m_pid
+             << ", \"tid\": " << std::this_thread::get_id() << ","
+             << "\n\"args\":\n\t{\n\t\t\"arg1\": "
+             << "\"" << event.m_args << "\"\n\t}\n"
+             << "},\n";
+
+  out_stream << "{"
+             << "\"name\": \"" << event.m_name << "\", \"cat\": \""
+             << event.m_category << "\", "
+             << "\"ph\": \"E\", \"ts\": "
+             << event.m_stop.time_since_epoch().count() / 10000000 << ", "
+             << "\"pid\": " << event.m_pid
+             << ", \"tid\": " << std::this_thread::get_id() << ", "
+             << "\n\"args\":\n\t{\n\t\t\"arg1\": "
+             << "\"" << event.m_args << "\"\n\t}\n"
+             << "}\n";
+
+  return out_stream;
+}
+
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
 
