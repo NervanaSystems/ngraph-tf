@@ -74,6 +74,10 @@ class NGraphEncapsulateOp : public OpKernel {
     my_instance_id = s_instance_count;
     s_instance_count++;
 
+    std::ostringstream oss;
+    oss << "Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     NGRAPH_VLOG(1) << "NGraphEncapsulateOp: " << my_instance_id
                    << " Name: " << name();
 
@@ -139,12 +143,18 @@ class NGraphEncapsulateOp : public OpKernel {
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
     BackendManager::CreateBackend(m_op_backend_name);
+    event.Stop();
+    Event::WriteTrace(event);
   }
 
   //---------------------------------------------------------------------------
   //  ~NGraphEncapsulateOp()
   //---------------------------------------------------------------------------
   ~NGraphEncapsulateOp() override {
+    std::ostringstream oss;
+    oss << "Destroy Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     // If the kernel goes away, we must de-register all of its cached
     // functions
     // from the freshness tracker.
@@ -161,6 +171,8 @@ class NGraphEncapsulateOp : public OpKernel {
       BackendManager::ReleaseBackend(m_op_backend_name);
       NGRAPH_VLOG(2) << "~NGraphEncapsulateOp()";
     }
+    event.Stop();
+    Event::WriteTrace(event);
   }
 
   template <typename T>
@@ -231,6 +243,10 @@ class NGraphEncapsulateOp : public OpKernel {
   // OpKernel::Compute
   //---------------------------------------------------------------------------
   void Compute(OpKernelContext* ctx) override {
+    std::ostringstream oss;
+    oss << "Execute: Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     Timer compute_time;
     std::lock_guard<std::mutex> lock(m_compute_lock);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
@@ -635,6 +651,9 @@ class NGraphEncapsulateOp : public OpKernel {
                    << " Execute: " << time_execute_function
                    << " Copy-outputs-to-host: "
                    << time_copy_output_tensors_to_host;
+    event.Stop();
+    Event::WriteTrace(event);
+
   }  // end compute
 
  private:

@@ -54,7 +54,6 @@ namespace testing {
 TEST(timer, event_record) {
   // Create a json file
   std::ofstream trace_file("test_events.json");
-  Event evt_1("Event 1", "Testing");
 
   trace_file << "[" << std::endl;
   std::vector<std::thread> threads;
@@ -77,7 +76,6 @@ TEST(timer, event_record) {
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  evt_1.Stop();
 
   for (auto& next : threads) {
     next.join();
@@ -86,6 +84,29 @@ TEST(timer, event_record) {
   trace_file << "]" << std::endl;
 }
 
+TEST(timer, event_file) {
+  std::vector<std::thread> threads;
+  std::mutex mtx;
+  for (auto i = 0; i < 10; i++) {
+    int id = i;
+    std::thread next_thread([&] {
+      std::ostringstream oss;
+      oss << "Event: " << id;
+      Event event(oss.str().c_str(), "Dummy");
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      event.Stop();
+      Event::WriteTrace(event);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    threads.push_back(std::move(next_thread));
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+  for (auto& next : threads) {
+    next.join();
+  }
+}
 }  // namespace testing
 
 }  // namespace ngraph_bridge

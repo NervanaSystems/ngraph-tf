@@ -18,7 +18,9 @@
 
 #include <unistd.h>
 #include <chrono>
+#include <fstream>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -86,6 +88,12 @@ class Event {
     m_stop = std::chrono::high_resolution_clock::now();
   }
 
+  static void WriteTrace(const Event& event);
+  static bool IsTracingEnabled() {
+    static bool enabled = (std::getenv("NGRAPH_TF_ENABLE_TRACING") != nullptr);
+    return enabled;
+  }
+
   friend std::ostream& operator<<(std::ostream& out_stream, const Event& event);
 
   Event(const Event&) = delete;
@@ -100,33 +108,9 @@ class Event {
   std::string m_args;
   int m_pid;
   int m_tid;
+  static std::mutex s_file_mutex;
+  static std::ofstream s_event_log;
 };
-
-std::ostream& operator<<(std::ostream& out_stream, const Event& event) {
-  out_stream << "{"
-             << "\"name\": \"" << event.m_name << "\", \"cat\": \""
-             << event.m_category << "\", "
-             << "\"ph\": \"B\", \"ts\": "
-             << event.m_start.time_since_epoch().count() / 10000000 << ", "
-             << "\"pid\": " << event.m_pid
-             << ", \"tid\": " << std::this_thread::get_id() << ","
-             << "\n\"args\":\n\t{\n\t\t\"arg1\": "
-             << "\"" << event.m_args << "\"\n\t}\n"
-             << "},\n";
-
-  out_stream << "{"
-             << "\"name\": \"" << event.m_name << "\", \"cat\": \""
-             << event.m_category << "\", "
-             << "\"ph\": \"E\", \"ts\": "
-             << event.m_stop.time_since_epoch().count() / 10000000 << ", "
-             << "\"pid\": " << event.m_pid
-             << ", \"tid\": " << std::this_thread::get_id() << ", "
-             << "\n\"args\":\n\t{\n\t\t\"arg1\": "
-             << "\"" << event.m_args << "\"\n\t}\n"
-             << "}\n";
-
-  return out_stream;
-}
 
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
