@@ -23,8 +23,8 @@
 #include "tensorflow/core/platform/default/logging.h"
 
 #include "ngraph_freshness_tracker.h"
-#include "ngraph_utils.h"
 #include "ngraph_timer.h"
+#include "ngraph_utils.h"
 
 namespace tensorflow {
 
