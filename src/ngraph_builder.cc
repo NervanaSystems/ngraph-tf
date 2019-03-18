@@ -3941,14 +3941,29 @@ static Status TranslateTileOp(
 static Status TranslateTopkV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  size_t axis;
-  size_t ng_k = 0;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  shared_ptr<ngraph::Node> ng_input;
+  ValidateInputCount(op, 2);
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
 
-  auto ng_result = make_shared<ngraph::op::TopK>(
-      ng_input, axis, ng_input->get_element_type(), ng_k, true);
-  SaveNgOp(ng_op_map, op->name(), ng_result);
+  size_t k_axis = ng_input->get_shape().size() - 1;
+
+  std::vector<int32> ng_k;
+  size_t k;
+
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_k));
+  k = ng_k[0];
+
+  shared_ptr<ngraph::Node> ng_result = make_shared<ngraph::op::TopK>(
+      ng_input, k_axis, ng_input->get_element_type(), k);
+
+  shared_ptr<ngraph::Node> ng_values =
+      make_shared<ngraph::op::GetOutputElement>(ng_result, 0);
+  shared_ptr<ngraph::Node> ng_indices =
+      make_shared<ngraph::op::GetOutputElement>(ng_result, 1);
+
+  SaveNgOp(ng_op_map, op->name(), ng_values);
+  SaveNgOp(ng_op_map, op->name(), ng_indices);
+
   return Status::OK();
 }
 
