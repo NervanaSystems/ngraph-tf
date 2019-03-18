@@ -115,6 +115,37 @@ cat /etc/os-release
 
 xtime="$(date)"
 echo  ' '
+echo  "===== Setting Up Virtual Environment for Code-Format Check at ${xtime} ====="
+echo  ' '
+
+# Make sure the bash shell prompt variables are set, as virtualenv crashes
+# if PS2 is not set.
+PS1='prompt> '
+PS2='prompt-more> '
+virtualenv --system-site-packages -p /usr/bin/python2 "${venv_dir}"
+source "${venv_dir}/bin/activate"
+
+# yapf and futures are needed for code-format checks (ngraph-tf PR#211)
+pip install yapf==0.24.0
+pip install futures
+
+xtime="$(date)"
+echo  ' '
+echo  "===== Starting nGraph TensorFlow Bridge Source Code Format Check at ${xtime} ====="
+echo  ' '
+
+cd "${bridge_dir}"
+maint/check-code-format.sh
+
+xtime="$(date)"
+echo  ' '
+echo  "===== Deactivating Virtual Environment at ${xtime} ====="
+echo  ' '
+
+deactivate
+
+xtime="$(date)"
+echo  ' '
 echo  "===== Run build_ngtf.py at ${xtime} ====="
 echo  ' '
 
