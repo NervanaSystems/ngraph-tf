@@ -84,7 +84,7 @@ static void SaveNgOp(Builder::OpMap& ng_op_map, const std::string& op_name,
   // TODO (sarkars): remove try catch when ngraph is updated
   try {
     output_node->set_friendly_name(op_name + "_" +
-                                   to_string(ng_op_map[op_name].size()));
+                                   to_string(ng_op_map[op_name].size() - 1));
   } catch (const ngraph::ngraph_error& e) {
     // Some outputs of the ngraph subgraph created when translating a TF op
     // might use the same ngraph node for more than 1 output. This will cause
