@@ -19,6 +19,7 @@
 
 #include "gtest/gtest.h"
 
+#include "ngraph_log.h"
 #include "ngraph_timer.h"
 
 #include <mutex>
@@ -32,26 +33,7 @@ namespace testing {
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 #undef ASSERT_OK
 
-// TEST(tf_exec, hello_world) {
-//   Scope root = Scope::NewRootScope();
-
-//   // root = root.WithDevice("/device:NGRAPH:0");
-//   // Matrix A = [3 2; -1 0]
-//   auto A = ops::Const(root, {{3.f, 2.f}, {-1.f, 0.f}});
-//   // Vector b = [3 5]
-//   auto b = ops::Const(root, {{3.f, 5.f}});
-//   // v = Ab^T
-//   auto v =
-//       ops::MatMul(root.WithOpName("v"), A, b, ops::MatMul::TransposeB(true));
-//   std::vector<Tensor> outputs;
-//   ClientSession session(root);
-//   // Run and fetch v
-//   ASSERT_OK(session.Run({v}, &outputs));
-//   // Expect outputs[0] == [19; -3]
-//   LOG(INFO) << outputs[0].matrix<float>();
-// }
-
-TEST(timer, event_record) {
+TEST(timer, EventRecord) {
   // Create a json file
   std::ofstream trace_file("test_events.json");
 
@@ -64,7 +46,7 @@ TEST(timer, event_record) {
       std::ostringstream oss;
       oss << "Event: " << id;
       Event event(oss.str().c_str(), "Dummy");
-      std::cout << "Thread: " << i << std::endl;
+      NGRAPH_VLOG(5) << "Thread: " << i;
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
       event.Stop();
       std::lock_guard<std::mutex> lock(mtx);
@@ -82,9 +64,10 @@ TEST(timer, event_record) {
   }
 
   trace_file << "]" << std::endl;
+  trace_file.close();
 }
 
-TEST(timer, event_file) {
+TEST(timer, EventFile) {
   std::vector<std::thread> threads;
   std::mutex mtx;
   for (auto i = 0; i < 10; i++) {
