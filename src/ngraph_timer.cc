@@ -36,7 +36,7 @@ void Event::WriteTrace(const Event& event) {
   }
 
   s_event_log << ",\n";
-  s_event_log << event << "\n";
+  s_event_log << event << "\n" << std::flush;
 }
 std::ostream& operator<<(std::ostream& out_stream, const Event& event) {
   out_stream << "{"
