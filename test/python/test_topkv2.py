@@ -31,9 +31,10 @@ from common import NgraphTest
 class TestTopKV2(NgraphTest):
 
     def test_topkv2(self):
-        input = tf.constant([[40, 30, 20, 10], [10, 20, 15, 70]],
-                            dtype=tf.int32)
-        out = tf.nn.top_k(input, k=3, sorted=False)
+        input = tf.constant(
+            [[40.0, 30.0, 20.0, 10.0], [10.0, 20.0, 15.0, 70.0]],
+            dtype=tf.float32)
+        out = tf.nn.top_k(input, k=3)
 
         def run_test(sess):
             return sess.run(out).values
