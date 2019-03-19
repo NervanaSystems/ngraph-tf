@@ -3949,11 +3949,21 @@ static Status TranslateTopKV2Op(
 
   std::vector<int32> ng_k;
   size_t k;
+  bool sorted = true;
+
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_k));
   k = ng_k[0];
 
-  shared_ptr<ngraph::Node> ng_result =
-      make_shared<ngraph::op::TopK>(ng_input, k_axis, ng::element::i32, k);
+  GetNodeAttr(op->attrs(), "sorted", &sorted);
+
+  // ngraph topk computes topk min if sorted is false
+  // TODO:ngraph team need to add an attribute to always compute max for topkv2
+  if (sorted == false) {
+    return errors::InvalidArgument("topkv2 should compute max, not min");
+  }
+
+  shared_ptr<ngraph::Node> ng_result = make_shared<ngraph::op::TopK>(
+      ng_input, k_axis, ng::element::i32, k, sorted);
 
   shared_ptr<ngraph::Node> ng_values =
       make_shared<ngraph::op::GetOutputElement>(ng_result, 1);
