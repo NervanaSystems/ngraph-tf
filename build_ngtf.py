@@ -417,6 +417,11 @@ def main():
         help="Builds a distributed version of the nGraph components\n",
         action="store_true")
 
+    parser.add_argument(
+        '--use_grappler_optimizer',
+        help="Use Grappler optimizer\n",
+        action="store_true")
+
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
@@ -546,6 +551,11 @@ def main():
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
     else:
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
+
+    if (arguments.use_grappler_optimizer):
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER=TRUE"])
+    else:
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER=FALSE"])
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,

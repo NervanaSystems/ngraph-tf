@@ -26,6 +26,9 @@
 #include "tensorflow/core/platform/protobuf.h"
 
 #include <iomanip>
+#if defined NGRAPH_DISTRIBUTED
+#include "ngraph/distributed.hpp"
+#endif
 
 #include <iostream>
 
@@ -85,7 +88,8 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   //   1. Marking [ngraph_mark_for_clustering.cc]
   //   2. Cluster Assignment [ngraph_assign_clusters.cc]
   //   3. Cluster Deassignment [ngraph_deassign_clusters.cc]
-  //   4. Cluster Encapsulation [ngraph_encapsulate_clusters.cc]
+  //   4. Cluster Encapsulation [ngraph_encapsulate_clusters.cc] - currently
+  //      part of the ngraph_rewrite_pass.cc to be executed after POST_REWRITE
   //
   // Between phases, graph dumps (in both .dot and .pbtxt format) may be
   // requested by setting the following environment variables:
@@ -128,19 +132,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   if (DumpDeclusteredGraphs()) {
     DumpGraphs(graph, idx, "declustered",
                "Graph with Trivial Clusters De-Assigned");
-  }
-
-  // 4. Encapsulate clusters then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(EncapsulateClusters(&graph));
-  if (DumpEncapsulatedGraphs()) {
-    DumpGraphs(graph, idx, "encapsulated", "Graph with Clusters Encapsulated");
-  }
-
-  // Rewrite for tracking then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(RewriteForTracking(&graph));
-  if (DumpTrackedGraphs()) {
-    DumpGraphs(graph, idx, "tracked",
-               "Graph with Variables Rewritten for Tracking");
   }
 
   // Convert the graph back to Graphdef
