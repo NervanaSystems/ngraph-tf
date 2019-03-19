@@ -268,8 +268,8 @@ def main():
     root_pwd = os.getcwd()
 
     # Constants
-    build_dir = 'build'
-    venv_dir = 'build/venv-tf-py3'
+    build_dir = 'build_cmake'
+    venv_dir = 'build_cmake/venv-tf-py3'
 
     if (platform.system() != 'Darwin'):
         # Run the bazel based buil
