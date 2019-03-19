@@ -51,3 +51,16 @@ class TestTopKV2(NgraphTest):
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    @pytest.mark.skip(reason="Fails, need ngraph core change")
+    def test_topkv2_nosort(self):
+        input = tf.constant(
+            [[40.0, 30.0, 20.0, 10.0], [10.0, 20.0, 15.0, 70.0]],
+            dtype=tf.float32)
+        out = tf.nn.top_k(input, k=3, sorted=False)
+
+        def run_test(sess):
+            return sess.run(out).values
+
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
