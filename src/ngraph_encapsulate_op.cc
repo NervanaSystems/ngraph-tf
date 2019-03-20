@@ -309,60 +309,6 @@ class NGraphEncapsulateOp : public OpKernel {
 
       auto function_size = ng_function->get_graph_size() / 1024;  // kb unit
 
-      // Get the serialized ops and stored the allreduce ops to a vector and
-      ng::NodeVector allreduce_op_list;
-      for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
-        if (node->get_name().compare(0, 9, "AllReduce") == 0) {
-          allreduce_op_list.push_back(node);
-          // Diagnosis to check the input, dependencies, and output for each
-          // Allreduce op
-          if (std::getenv("NGRAPH_DISABLE_LOGGING") == nullptr) {
-#if defined NGRAPH_DISTRIBUTED
-            ngraph::Distributed dist;
-            int Rank_ID;
-            Rank_ID = dist.get_rank();
-            std::cout << "NGTF_Rank: " << Rank_ID << "  " << node->get_name()
-                      << "(";
-            vector<string> inputs;
-            for (const ng::descriptor::Input& input : node->get_inputs()) {
-              inputs.push_back(input.get_tensor().get_name());
-            }
-            std::cout << ng::join(inputs);
-            std::cout << ")   [ ";
-
-            vector<string> dependencies;
-            for (auto nd : node->get_control_dependencies()) {
-              dependencies.push_back(nd->get_name());
-            }
-            std::cout << ng::join(dependencies);
-            std::cout << "] -> ";
-
-            vector<string> outputs;
-            for (size_t i = 0; i < node->get_output_size(); ++i) {
-              outputs.push_back(node->get_output_tensor(i).get_name());
-            }
-            std::cout << ng::join(outputs);
-            std::cout << "  " << ng_function->get_name() << "\n";
-#endif
-          }
-        }
-      }
-
-      // Sort the allreduce ops according to the TF names
-      std::sort(
-          allreduce_op_list.begin(), allreduce_op_list.end(),
-          [](const shared_ptr<ng::Node>& x, const shared_ptr<ng::Node>& y) {
-            return x->get_friendly_name() < y->get_friendly_name();
-          });
-      // Add control dependency in for the allreduce ops
-      if (allreduce_op_list.size() > 1) {
-        for (size_t i = 1; i < allreduce_op_list.size(); ++i) {
-          auto pre_node = allreduce_op_list[i - 1];
-          auto cur_node = allreduce_op_list[i];
-          cur_node->add_control_dependency(pre_node);
-        }
-      }
-
       // Serialize to nGraph if needed
       if (std::getenv("NGRAPH_ENABLE_SERIALIZE") != nullptr) {
         std::string file_name =

@@ -205,6 +205,9 @@ void NgraphSerialize(const std::string&,
 // Collect the total memory usage through /proc/self/stat
 void MemoryProfile(long&, long&);
 
+// Get the inputs, outputs, and depdencies for the node
+void NgraphNodeDump(const std::shared_ptr<ngraph::Node>&,
+                    const std::shared_ptr<ngraph::Function>&, int);
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

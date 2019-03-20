@@ -265,6 +265,32 @@ void MemoryProfile(long& vm_usage, long& resident_set) {
     vm_usage = vsize / 1024;   // unit kb
     resident_set = rss * page_size_kb;
   }
+}
+
+void NgraphNodeDump(const shared_ptr<ng::Node>& node,
+                    const std::shared_ptr<ngraph::Function>& ng_function,
+                    int RankID) {
+  std::stringstream node_info_ss;
+  node_info_ss << "NGTF_Rank: " << RankID << "  " << node->get_name() << "(";
+  vector<string> inputs;
+  for (const ng::descriptor::Input& input : node->get_inputs()) {
+    inputs.push_back(input.get_tensor().get_name());
+  }
+  node_info_ss << ng::join(inputs) << ")   [ ";
+
+  vector<string> dependencies;
+  for (auto nd : node->get_control_dependencies()) {
+    dependencies.push_back(nd->get_name());
+  }
+  node_info_ss << ng::join(dependencies) << "] -> ";
+
+  vector<string> outputs;
+  for (size_t i = 0; i < node->get_output_size(); ++i) {
+    outputs.push_back(node->get_output_tensor(i).get_name());
+  }
+  node_info_ss << ng::join(outputs) << "  " << ng_function->get_name();
+  std::string node_info = node_info_ss.str();
+  NGRAPH_VLOG(0) << node_info;
 };
 
 }  // namespace ngraph_bridge
