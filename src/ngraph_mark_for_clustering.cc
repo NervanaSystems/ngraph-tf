@@ -324,6 +324,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["ReluGrad"] = SimpleConfirmationFunction();
       confirmation_function_map["Reshape"] = SimpleConfirmationFunction();
       confirmation_function_map["Rsqrt"] = SimpleConfirmationFunction();
+      confirmation_function_map["Select"] = SimpleConfirmationFunction();
       confirmation_function_map["Shape"] = SimpleConfirmationFunction();
       confirmation_function_map["Sigmoid"] = SimpleConfirmationFunction();
       confirmation_function_map["SigmoidGrad"] = SimpleConfirmationFunction();
@@ -484,6 +485,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Reshape"]["T"] = NGraphDTypes();
       type_constraint_map["Reshape"]["Tshape"] = NGraphIndexDTypes();
       type_constraint_map["Rsqrt"]["T"] = NGraphDTypes();
+      type_constraint_map["Select"]["T"] = NGraphDTypes();
       type_constraint_map["Shape"]["T"] = NGraphDTypes();
       type_constraint_map["Shape"]["out_type"] = NGraphIndexDTypes();
       type_constraint_map["Sigmoid"]["T"] = NGraphNumericDTypes();

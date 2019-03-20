@@ -3959,9 +3959,11 @@ static Status TranslateTopKV2Op(
   // ngraph topk computes topk min if sorted is false
   // TODO:ngraph team need to add an attribute to always compute max for topkv2
   if (sorted == false) {
-    return errors::InvalidArgument("topkv2 should compute max, not min");
+    return errors::InvalidArgument(
+        "TopKV2 doesn't support sorted equals False.");
   }
 
+  // index element type - currently only int32 or int64 are supported by ngraph
   shared_ptr<ngraph::Node> ng_result = make_shared<ngraph::op::TopK>(
       ng_input, k_axis, ng::element::i32, k, sorted);
 
@@ -4075,6 +4077,19 @@ static Status TranslateUnpackOp(
   return Status::OK();
 }
 
+static Status TranslateSelectOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input1, ng_input2, ng_input3;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_input1, &ng_input2, &ng_input3));
+
+  auto ng_result = make_shared<ng::op::Select>(ng_input1, ng_input2, ng_input3);
+
+  SaveNgOp(ng_op_map, op->name(), ng_result);
+  return Status::OK();
+}
+
 static Status TranslateZerosLikeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -4178,6 +4193,7 @@ const static std::map<
         {"ReluGrad", TranslateReluGradOp},
         {"Reshape", TranslateReshapeOp},
         {"Rsqrt", TranslateRsqrtOp},
+        {"Select", TranslateSelectOp},
         {"Shape", TranslateShapeOp},
         {"Sigmoid", TranslateSigmoidOp},
         {"SigmoidGrad", TranslateSigmoidGradOp},
