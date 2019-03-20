@@ -44,7 +44,7 @@ def command_executor(cmd, verbose=False, msg=None, stdout=None):
         raise Exception("Error running command: " + cmd)
 
 
-def build_ngraph(src_location, cmake_flags, verbose):
+def build_ngraph(build_dir, src_location, cmake_flags, verbose):
     pwd = os.getcwd()
 
     src_location = os.path.abspath(src_location)
@@ -53,7 +53,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
     os.chdir(src_location)
 
     # mkdir build directory
-    path = 'build'
+    path =  build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -61,7 +61,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
             pass
 
     # Run cmake
-    os.chdir('build')
+    os.chdir(build_dir)
 
     cmake_cmd = ["cmake"]
     cmake_cmd.extend(cmake_flags)
@@ -278,7 +278,7 @@ def install_tensorflow(venv_dir, artifacts_dir):
     return str(cxx_abi)
 
 
-def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
+def build_ngraph_tf(build_dir, artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
                     verbose):
     pwd = os.getcwd()
 
@@ -296,7 +296,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
     os.chdir(ngtf_src_loc)
 
     # mkdir build directory
-    path = 'build'
+    path =  build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -304,7 +304,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
             pass
 
     # Run cmake
-    os.chdir('build')
+    os.chdir(path)
     cmake_cmd = ["cmake"]
     cmake_cmd.extend(cmake_flags)
     cmake_cmd.extend([ngtf_src_loc])
@@ -351,8 +351,9 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     command_executor(["pip", "install", "-U", ngtf_pip_whl])
 
     import tensorflow as tf
-    print('TensorFlow version: r', tf.__version__)
-    print(tf.__compiler_version__)
+    print('Version information:')
+    print('TensorFlow version: ', tf.__version__)
+    print('C Compiler version used in building TensorFlow: ', tf.__compiler_version__)
     import ngraph_bridge
     print(ngraph_bridge.__version__)
 
@@ -362,8 +363,6 @@ def download_repo(target_name, repo, version):
     # First download to a temp folder
     call(["git", "clone", repo, target_name])
 
-    call(["git", "fetch"])
-
     # Next goto this folder nd determine the name of the root folder
     pwd = os.getcwd()
 
@@ -371,6 +370,7 @@ def download_repo(target_name, repo, version):
     os.chdir(target_name)
 
     # checkout the specified branch
+    call(["git", "fetch"])
     command_executor(["git", "checkout", version])
     os.chdir(pwd)
 
@@ -398,10 +398,18 @@ def main():
     )
 
     parser.add_argument(
+        '--ngraph_also_build_gpu_backend',
+        help=
+        "nGraph backends will include nVidia GPU.\n"
+        "Note: You need to have CUDA headers and libraries available on the build system.\n",
+        action="store_true"
+    )
+
+    parser.add_argument(
         '--use_prebuilt_binaries',
         help=
-        "Skip building nGraph and TensorFlow. Rather use \"build\" directory.\n"
-        + "The following directory structure is assumed:\n" + "build\n" +
+        "Skip building nGraph and TensorFlow. Rather use \"build_cmake\" directory.\n"
+        + "The following directory structure is assumed:\n" + "build_cmake\n" +
         "  |\n" + "   -- artifacts\n" + "  |   |\n" +
         "  |   |-- bin (contains binaries from nGraph build)\n" +
         "  |   |-- include (contains include files from nGraph build)\n" +
@@ -432,11 +440,11 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.15.0-rc.1"
-    tf_version = "v1.12.0"
+    ngraph_version = "v0.16.0-rc.0"
+    tf_version = "v1.13.1"
 
     # Default directories
-    build_dir = 'build'
+    build_dir = 'build_cmake'
 
     # Override the pre-built location is specified
     use_prebuilt_binaries = False
@@ -504,10 +512,8 @@ def main():
         ngraph_cmake_flags = [
             "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
             "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
-            "-DNGRAPH_UNIT_TEST_ENABLE=NO",
+            "-DNGRAPH_UNIT_TEST_ENABLE=YES",
             "-DNGRAPH_DEX_ONLY=TRUE",
-            "-DNGRAPH_GPU_ENABLE=NO",
-            "-DNGRAPH_PLAIDML_ENABLE=NO",
             "-DNGRAPH_DEBUG_ENABLE=NO",
             "-DNGRAPH_TARGET_ARCH=" + target_arch,
             "-DNGRAPH_TUNE_ARCH=" + target_arch,
@@ -525,7 +531,12 @@ def main():
         else:
             ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_OMPI_ENABLE=FALSE"])
 
-        build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
+        if (arguments.ngraph_also_build_gpu_backend):
+            ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=YES"])
+        else:
+            ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=NO"])
+
+        build_ngraph(build_dir, "./ngraph", ngraph_cmake_flags, verbosity)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
@@ -548,7 +559,7 @@ def main():
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
 
     # Now build the bridge
-    ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
+    ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location, "../", venv_dir,
                                 ngraph_tf_cmake_flags, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
