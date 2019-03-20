@@ -3956,13 +3956,6 @@ static Status TranslateTopKV2Op(
 
   GetNodeAttr(op->attrs(), "sorted", &sorted);
 
-  // ngraph topk computes topk min if sorted is false
-  // TODO:ngraph team need to add an attribute to always compute max for topkv2
-  if (sorted == false) {
-    return errors::InvalidArgument(
-        "TopKV2 doesn't support sorted equals False.");
-  }
-
   // index element type - currently only int32 or int64 are supported by ngraph
   shared_ptr<ngraph::Node> ng_result = make_shared<ngraph::op::TopK>(
       ng_input, k_axis, ng::element::i32, k, sorted);
