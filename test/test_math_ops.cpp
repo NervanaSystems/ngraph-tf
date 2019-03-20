@@ -71,6 +71,17 @@ TEST(MathOps, Abs1D) {
                         sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+
+  auto ng_function = opexecuter.get_ng_function();
+  auto node_list = ng_function->get_ordered_ops();
+  // Since its a unary op, get_ordered_op will produce a total ordering, and
+  // hence we can be sure the first is the arg, and the second is the op, and
+  // the third is the retval. In multiple test runs the retval's number changes,
+  // hence not adding in an assert
+  ASSERT_EQ(node_list.size(), 3);
+  auto it = node_list.begin();
+  ASSERT_EQ((*it)->get_friendly_name(), "arg_0[1]");
+  ASSERT_EQ((*std::next(it))->get_friendly_name(), "Abs[1]");
 }
 
 TEST(MathOps, Abs2D) {

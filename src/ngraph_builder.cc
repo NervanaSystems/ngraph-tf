@@ -82,8 +82,8 @@ static void SaveNgOp(Builder::OpMap& ng_op_map, const std::string& op_name,
   // if not exists
   ng_op_map[op_name].push_back(output_node);
   try {
-    output_node->set_friendly_name(op_name + "_" +
-                                   to_string(ng_op_map[op_name].size()));
+    output_node->set_friendly_name(op_name + "[" +
+                                   to_string(ng_op_map[op_name].size()) + "]");
   } catch (const ngraph::ngraph_error& e) {
     // Some outputs of the ngraph subgraph created when translating a TF op
     // might use the same ngraph node for more than 1 output. This will cause
