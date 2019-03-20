@@ -2007,11 +2007,95 @@ static Status TranslateFusedConv2DOp(
     } else {
       SaveNgOp(ng_op_map, op->name(), ng_add);
     }
-    return Status::OK();
+  } else if (VecStrCmp(fused_ops, {"FusedBatchNorm"}) ||
+      VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
+    if (num_args != 4) {
+      return errors::InvalidArgument(
+          "FusedConv2D with FusedBatchNorm has incompatible num_args");
+    }
+
+    shared_ptr<ng::Node> ng_input, ng_filter, ng_scale, ng_offset, ng_mean, ng_variance;
+    TF_RETURN_IF_ERROR(
+        GetInputNodes(ng_op_map, op, &ng_input, &ng_filter, &ng_scale, &ng_offset, &ng_mean, &ng_variance));
+
+    std::vector<int32> tf_strides;
+    std::vector<int32> tf_dilations;
+    std::string tf_padding_type;
+    std::string tf_data_format;
+    float tf_epsilon;
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+    TF_RETURN_IF_ERROR(
+        GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon));
+
+    if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+      return errors::InvalidArgument(
+          "Conv2D data format is neither NHWC nor NCHW");
+    }
+
+    bool is_nhwc = (tf_data_format == "NHWC");
+
+    // TF Kernel Test Checks
+    // Strides in the batch and depth dimension is not supported
+    if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+      return errors::InvalidArgument(
+          "Strides in batch and depth dimensions is not supported: ",
+          op->type_string());
+    }
+
+    NGRAPH_VLOG(3) << ng::join(tf_strides);
+    NGRAPH_VLOG(3) << ng::join(tf_dilations);
+    NGRAPH_VLOG(3) << tf_padding_type;
+    NGRAPH_VLOG(3) << tf_data_format;
+
+    ng::Strides ng_strides(2);
+    ng::Strides ng_dilations(2);
+    ng::Shape ng_image_shape(2);
+    ng::Shape ng_kernel_shape(2);
+
+    BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+    BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+    BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
+    BatchToNGraph(is_nhwc, ng_input);
+
+    NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+    NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+    NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+    auto& ng_filter_shape = ng_filter->get_shape();
+    ng_kernel_shape[0] = ng_filter_shape[0];
+    ng_kernel_shape[1] = ng_filter_shape[1];
+    Reshape<3, 2, 0, 1>(ng_filter);
+
+    NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+    ng::CoordinateDiff ng_padding_below{0, 0};
+    ng::CoordinateDiff ng_padding_above{0, 0};
+
+    Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_dilations, ng_padding_below,
+                         ng_padding_above);
+
+    std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
+        ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
+        ng_padding_above);
+    std::shared_ptr<ng::Node> ng_batch_norm = make_shared<ng::op::BatchNormInference>(
+        tf_epsilon, ng_scale, ng_offset, ng_conv, ng_mean, ng_variance);
+
+    BatchToTensorflow(is_nhwc, ng_batch_norm);
+
+    if (VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
+      SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Relu>(ng_batch_norm));
+    } else {
+      SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
+    }
   } else {
     return errors::Unimplemented("Unsupported _FusedConv2D " +
                                  str_util::Join(fused_ops, ","));
   }
+  return Status::OK();
 }
 
 static Status TranslateIdentityOp(
