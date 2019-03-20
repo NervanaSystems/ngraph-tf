@@ -128,8 +128,10 @@ def train_mnist_cnn(FLAGS):
     # Config
     # Enable the custom optimizer using the rewriter config options
 
-    rewrite_options = rewriter_config_pb2.RewriterConfig(
-        custom_optimizers = [rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(name="ng-optimizer")])
+    rewrite_options = rewriter_config_pb2.RewriterConfig(custom_optimizers=[
+        rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
+            name="ng-optimizer")
+    ])
     config = tf.ConfigProto(
         allow_soft_placement=True,
         log_device_placement=False,
