@@ -471,11 +471,15 @@ static Status TranslateAddNOp(
     TF_RETURN_IF_ERROR(
         GetInputNode(ng_op_map, op, inp_idx, &ng_arg_vec[inp_idx]));
 
-  SaveNgOp(ng_op_map, op->name(),
-           std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
-                           ng_arg_vec.at(0)));  // accumulation: start with
-                                                // first element. default op is
-                                                // addition
+  SaveNgOp(
+      ng_op_map, op->name(),
+      std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
+                      ng_arg_vec.at(0),
+                      [&op](shared_ptr<ng::Node> a, shared_ptr<ng::Node> b) {
+                        return ConstructNgNode<ng::op::Add>(op->name(), a, b);
+                      }));  // accumulation: start with
+                            // first element. default op is
+                            // addition
   return Status::OK();
 }
 
@@ -813,7 +817,8 @@ static Status TranslateBiasAddOp(
 
   auto ng_bias_broadcasted = ConstructNgNode<ng::op::Broadcast>(
       op->name(), ng_bias, ng_input_shape, ng_broadcast_axes);
-  auto ng_add = ng_input + ng_bias_broadcasted;
+  auto ng_add =
+      ConstructNgNode<ng::op::Add>(op->name(), ng_input, ng_bias_broadcasted);
 
   SaveNgOp(ng_op_map, op->name(), ng_add);
   return Status::OK();
@@ -1709,7 +1714,8 @@ static Status TranslateFusedBatchNormOp(
     auto Bessel_scale = ConstructNgNode<ng::op::Constant>(
         op->name(), ng_variance->get_element_type(), ng_variance->get_shape(),
         Bessel_factor);
-    auto variance = ng_variance * Bessel_scale;
+    auto variance = ConstructNgNode<ng::op::Multiply>(op->name(), ng_variance,
+                                                      Bessel_scale);
 
     BatchToTensorflow(is_nhwc, ng_y);
 
