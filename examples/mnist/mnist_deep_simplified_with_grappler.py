@@ -134,7 +134,7 @@ def train_mnist_cnn(FLAGS):
         allow_soft_placement=True,
         log_device_placement=False,
         inter_op_parallelism_threads=1,
-        graph_options=tf.GraphOptions(rewrite_options=rewrite_options,place_pruned_graph=True))
+        graph_options=tf.GraphOptions(rewrite_options=rewrite_options))
 
     # Note: Additional configuration option to boost performance is to set the
     # following environment for the run:
