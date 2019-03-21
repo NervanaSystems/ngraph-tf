@@ -74,6 +74,10 @@ class NGraphEncapsulateOp : public OpKernel {
     my_instance_id = s_instance_count;
     s_instance_count++;
 
+    std::ostringstream oss;
+    oss << "Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     NGRAPH_VLOG(1) << "NGraphEncapsulateOp: " << my_instance_id
                    << " Name: " << name();
 
@@ -139,12 +143,18 @@ class NGraphEncapsulateOp : public OpKernel {
     OP_REQUIRES_OK(ctx,
                    ctx->GetAttr<string>("_ngraph_backend", &m_op_backend_name));
     BackendManager::CreateBackend(m_op_backend_name);
+    event.Stop();
+    Event::WriteTrace(event);
   }
 
   //---------------------------------------------------------------------------
   //  ~NGraphEncapsulateOp()
   //---------------------------------------------------------------------------
   ~NGraphEncapsulateOp() override {
+    std::ostringstream oss;
+    oss << "Destroy Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     // If the kernel goes away, we must de-register all of its cached
     // functions
     // from the freshness tracker.
@@ -161,6 +171,8 @@ class NGraphEncapsulateOp : public OpKernel {
       BackendManager::ReleaseBackend(m_op_backend_name);
       NGRAPH_VLOG(2) << "~NGraphEncapsulateOp()";
     }
+    event.Stop();
+    Event::WriteTrace(event);
   }
 
   template <typename T>
@@ -231,6 +243,10 @@ class NGraphEncapsulateOp : public OpKernel {
   // OpKernel::Compute
   //---------------------------------------------------------------------------
   void Compute(OpKernelContext* ctx) override {
+    std::ostringstream oss;
+    oss << "Execute: Encapsulate_" << my_instance_id << ": " << name();
+    Event event(oss.str().c_str(), name().c_str());
+
     Timer compute_time;
     std::lock_guard<std::mutex> lock(m_compute_lock);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
@@ -240,6 +256,7 @@ class NGraphEncapsulateOp : public OpKernel {
     ng::runtime::Backend* op_backend =
         BackendManager::GetBackend(m_op_backend_name);
 
+    Event event_func_maybe_create("FunctionMaybeCreate", name().c_str());
     Timer function_lookup_or_create;
     // Get the inputs
     std::vector<TensorShape> input_shapes;
@@ -354,6 +371,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
       BackendManager::LockBackend(m_op_backend_name);
 
+      Event event_compile("Compile nGraph", name().c_str());
       try {
         cout << "Mingshan compiling function " << endl;
         ng_exec = op_backend->compile(ng_function);
@@ -381,6 +399,7 @@ class NGraphEncapsulateOp : public OpKernel {
                     errors::Internal("Error in compiling op_backend\n"));
       }
       BackendManager::UnlockBackend(m_op_backend_name);
+      event_compile.Stop();
 
       m_ng_exec_map[signature] = ng_exec;
       // caching ng_function to serialize to ngraph if needed
@@ -410,6 +429,7 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     int time_func_create_or_lookup = function_lookup_or_create.ElapsedInMS();
+    event_func_maybe_create.Stop();
 
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute got graph for cluster "
                    << m_ngraph_cluster;
@@ -432,6 +452,8 @@ class NGraphEncapsulateOp : public OpKernel {
         << m_ngraph_cluster;
 
     // Allocate tensors for input arguments.
+    Event event_alloc_input("Input: maybe create", name().c_str());
+
     vector<shared_ptr<ng::runtime::Tensor>> ng_inputs;
     int ng_input_tensor_size_in_bytes = 0;
 
@@ -490,7 +512,10 @@ class NGraphEncapsulateOp : public OpKernel {
                       "for cluster "
                    << m_ngraph_cluster;
 
+    event_alloc_input.Stop();
+
     // Allocate tensors for the output results.
+    Event event_alloc_output("Output: maybe create", name().c_str());
     vector<shared_ptr<ng::runtime::Tensor>> ng_outputs;
     int ng_output_tensor_size_in_bytes = 0;
 
@@ -545,8 +570,10 @@ class NGraphEncapsulateOp : public OpKernel {
         << m_ngraph_cluster;
 
     int time_create_or_lookup_tensors = create_or_lookup_tensors.ElapsedInMS();
+    event_alloc_output.Stop();
 
     // Execute the nGraph function.
+    Event event_execute_function("Execute nGraph", name().c_str());
     Timer execute_function;
     {
       BackendManager::LockBackend(m_op_backend_name);
@@ -577,6 +604,7 @@ class NGraphEncapsulateOp : public OpKernel {
       BackendManager::UnlockBackend(m_op_backend_name);
     }
     int time_execute_function = execute_function.ElapsedInMS();
+    event_execute_function.Stop();
 
     long vm, rss;
     MemoryProfile(vm, rss);
@@ -593,6 +621,8 @@ class NGraphEncapsulateOp : public OpKernel {
                    << m_ngraph_cluster;
 
     // Copy value to host if backend is not CPU
+    Event event_copy_output("Output - copy back", name().c_str());
+
     Timer copy_output_tensors_to_host;
 
     try {
@@ -617,6 +647,7 @@ class NGraphEncapsulateOp : public OpKernel {
           ctx, false,
           errors::Internal("Error in transferring tensor data to host\n"));
     }
+    event_copy_output.Stop();
 
     // Mark input tensors as fresh for the next time around.
     // Note: these ng_tensors are being marked fresh so that in the next
@@ -641,6 +672,14 @@ class NGraphEncapsulateOp : public OpKernel {
                    << " Execute: " << time_execute_function
                    << " Copy-outputs-to-host: "
                    << time_copy_output_tensors_to_host;
+    event.Stop();
+    Event::WriteTrace(event_func_maybe_create);
+    Event::WriteTrace(event_alloc_output);
+    Event::WriteTrace(event_alloc_input);
+    Event::WriteTrace(event_execute_function);
+    Event::WriteTrace(event_copy_output);
+    Event::WriteTrace(event);
+
   }  // end compute
 
  private:
