@@ -133,74 +133,7 @@ class NGraphRewritePass : public GraphOptimizationPass {
 int NGraphRewritePass::s_serial_counter = 0;
 mutex NGraphRewritePass::s_serial_counter_mutex;
 
-#if defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
-//
-// Pass that rewrites the graph for nGraph operation when
-// using the grappler optimizer.
-//
-// The pass has only one phase:
-//
-//   1. Cluster Encapsulation [ngraph_encapsulate_clusters.cc]
-//
-// Graph dumps (in both .dot and .pbtxt format) may be
-// requested by setting the following environment variable:
-//
-//   NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS=1  dumps graphs for this phase
-//   NGRAPH_TF_DUMP_GRAPHS=1               dumps graphs for all
-//
-
-class NGraphEncapsulationPass : public NGraphRewritePass {
- public:
-  Status Run(const GraphOptimizationPassOptions& options) override {
-    // If we don't get a main graph, log that fact and bail.
-    NGRAPH_VLOG(0) << "NGraphEncapsulationPass with grappler";
-    if (options.graph == nullptr) {
-      NGRAPH_VLOG(0) << "NGraphEncapsulationPass: options.graph == nullptr";
-      return Status::OK();
-    }
-
-    // For filename generation purposes, grab a fresh index. This is just an
-    // arbitrary integer to avoid filename collisions resulting from subsequent
-    // runs of this pass.
-    int idx = FreshIndex();
-
-    // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
-    // we will not do anything; all subsequent
-    // passes become a no-op.
-    if (config::IsEnabled() == false ||
-        std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-      return Status::OK();
-    }
-
-    // 1. Encapsulate clusters then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
-    if (DumpEncapsulatedGraphs()) {
-      DumpGraphs(options, idx, "encapsulated",
-                 "Graph with Clusters Encapsulated");
-    }
-
-    // Rewrite for tracking then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(RewriteForTracking(options.graph->get()));
-    if (DumpTrackedGraphs()) {
-      DumpGraphs(options, idx, "tracked",
-                 "Graph with Variables Rewritten for Tracking");
-    }
-
-    return Status::OK();
-  }
-
- private:
-  static bool DumpEncapsulatedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr;
-  }
-  static bool DumpTrackedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_TRACKED_GRAPHS") != nullptr;
-  }
-};
-
-#else
+#if !defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
 //
 // The variable capture pass replaces all instances of VariableV2 with the
 // NGraphVariable op. Making this replacement allows us to substitute in a
@@ -368,10 +301,7 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
 
 }  // namespace ngraph_bridge
 
-#if defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
-REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 0,
-                      ngraph_bridge::NGraphEncapsulationPass);
-#else
+#if !defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_PLACEMENT, 0,
                       ngraph_bridge::NGraphVariableCapturePass);
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 0,

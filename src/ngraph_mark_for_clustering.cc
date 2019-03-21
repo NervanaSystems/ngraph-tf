@@ -61,6 +61,27 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
   return Status::OK();
 }
 
+static Status CheckIfOutputNode(const Node* node,
+                                std::vector<string> skip_these_nodes,
+                                bool& skip_it) {
+  for (string& f : skip_these_nodes) {
+    if (node->name() == f) {
+      skip_it = true;
+      return Status::OK();
+    }
+  }
+  return Status::OK();
+}
+
+// Utility Function to create NodeDef for _Arg and _Retval nodes
+static void CreateNodeDef(const string op_type, const string op_name, int index,
+                          const DataType dt, NodeDef& node_def) {
+  node_def.set_name(op_name);
+  node_def.set_op(op_type);
+  SetAttrValue(dt, &((*(node_def.mutable_attr()))["T"]));
+  SetAttrValue(index, &((*(node_def.mutable_attr()))["index"]));
+}
+
 // Checks if the node's inputs meet all the type constraints
 static Status TypeConstraintOk(Node* node,
                                TypeConstraintMap& type_constraint_map,
@@ -129,7 +150,7 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 //
 // Main entry point for the marking pass.
 //
-Status MarkForClustering(Graph* graph) {
+Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:
@@ -263,7 +284,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["HorovodAllreduce"] =
           SimpleConfirmationFunction();
 #endif
-      confirmation_function_map["Identity"] = SimpleConfirmationFunction();
+      // confirmation_function_map["Identity"] = SimpleConfirmationFunction();
       confirmation_function_map["L2Loss"] = SimpleConfirmationFunction();
       confirmation_function_map["Less"] = SimpleConfirmationFunction();
       confirmation_function_map["LessEqual"] = SimpleConfirmationFunction();
@@ -408,7 +429,7 @@ Status MarkForClustering(Graph* graph) {
 #if defined NGRAPH_DISTRIBUTED
       type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
 #endif
-      type_constraint_map["Identity"]["T"] = NGraphDTypes();
+      // type_constraint_map["Identity"]["T"] = NGraphDTypes();
       type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Less"]["T"] = NGraphDTypes();
       type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
@@ -593,6 +614,45 @@ Status MarkForClustering(Graph* graph) {
         fail_constraint_histogram[node->type_string()]++;
         break;
       }
+
+      bool skip_it = false;
+      TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
+      if (skip_it) {
+        NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+                       << " skip marking it for clustering";
+        break;
+      }
+
+      /*
+      // TODO: Hard coded the name for the output node
+       // Need to find a way to figure out this
+         if(node->name() == "Sub") {
+           NGRAPH_VLOG(5) << "Adding _Retval";
+           // Remove edge to SINK
+           Node* dst;
+           for (auto edge : node->out_edges()) {
+             dst = edge->dst();
+             if(dst->IsSink()) {
+               graph->RemoveEdge(edge);
+             }
+           }
+
+           // Add new retval_ node
+           NodeDef new_ret_node_def;
+           string new_node_name = node->name();
+           int index = 0; // TODO: Need to find out what index is and why is it
+       needed
+           DataType dt;
+           dt = node->output_type(0);
+           CreateNodeDef("_Retval", new_node_name, index, dt,
+                     new_ret_node_def);
+
+           Status status;
+           Node* ret_node = graph->AddNode(new_ret_node_def, &status);
+           graph->AddEdge(ret_node, Graph::kControlSlot, dst, -1); //TODO:
+       hardcoded values for indexs
+           graph->AddEdge(node, 0, ret_node, 0);
+         }*/
 
       // if all constraints are met, mark for clustering
       mark_for_clustering = true;
