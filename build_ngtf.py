@@ -524,7 +524,6 @@ def main():
         ngraph_cmake_flags = [
             "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
             "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
-            "-DNGRAPH_UNIT_TEST_ENABLE=YES",
             "-DNGRAPH_DEX_ONLY=TRUE",
             "-DNGRAPH_DEBUG_ENABLE=NO",
             "-DNGRAPH_TARGET_ARCH=" + target_arch,
@@ -547,6 +546,11 @@ def main():
             ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=YES"])
         else:
             ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=NO"])
+
+        if not arguments.use_prebuilt_tensorflow:
+            ngraph_cmake_flags.extend(["-DNGRAPH_UNIT_TEST_ENABLE=YES"])
+        else:
+            ngraph_cmake_flags.extend(["-DNGRAPH_UNIT_TEST_ENABLE=NO"])
 
         build_ngraph(build_dir, "./ngraph", ngraph_cmake_flags, verbosity)
 
