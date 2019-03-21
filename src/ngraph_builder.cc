@@ -2008,15 +2008,17 @@ static Status TranslateFusedConv2DOp(
       SaveNgOp(ng_op_map, op->name(), ng_add);
     }
   } else if (VecStrCmp(fused_ops, {"FusedBatchNorm"}) ||
-      VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
+             VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
     if (num_args != 4) {
       return errors::InvalidArgument(
           "FusedConv2D with FusedBatchNorm has incompatible num_args");
     }
 
-    shared_ptr<ng::Node> ng_input, ng_filter, ng_scale, ng_offset, ng_mean, ng_variance;
-    TF_RETURN_IF_ERROR(
-        GetInputNodes(ng_op_map, op, &ng_input, &ng_filter, &ng_scale, &ng_offset, &ng_mean, &ng_variance));
+    shared_ptr<ng::Node> ng_input, ng_filter, ng_scale, ng_offset, ng_mean,
+        ng_variance;
+    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter,
+                                     &ng_scale, &ng_offset, &ng_mean,
+                                     &ng_variance));
 
     std::vector<int32> tf_strides;
     std::vector<int32> tf_dilations;
@@ -2081,8 +2083,9 @@ static Status TranslateFusedConv2DOp(
     std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
         ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
         ng_padding_above);
-    std::shared_ptr<ng::Node> ng_batch_norm = make_shared<ng::op::BatchNormInference>(
-        tf_epsilon, ng_scale, ng_offset, ng_conv, ng_mean, ng_variance);
+    std::shared_ptr<ng::Node> ng_batch_norm =
+        make_shared<ng::op::BatchNormInference>(tf_epsilon, ng_scale, ng_offset,
+                                                ng_conv, ng_mean, ng_variance);
 
     BatchToTensorflow(is_nhwc, ng_batch_norm);
 
