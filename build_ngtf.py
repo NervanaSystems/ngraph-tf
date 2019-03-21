@@ -421,9 +421,15 @@ def main():
         action="store_true")
 
     parser.add_argument(
+        '--use_prebuilt_tensorflow',
+        help="Skip building TensorFlow and use downloaded version.\n" + 
+        "Note that in this case C++ unit tests won't be build for nGrapg-TF bridge",
+        action="store_true")
+
+    parser.add_argument(
         '--distributed_build',
         help="Builds a distributed version of the nGraph components\n",
-        action="store_true")
+        action="store")
 
     arguments = parser.parse_args()
 
@@ -474,9 +480,8 @@ def main():
     # Load the virtual env
     load_venv(venv_dir)
 
-    if not use_prebuilt_binaries:
-        # Setup the virtual env
-        setup_venv(venv_dir)
+    # Setup the virtual env
+    setup_venv(venv_dir)
 
     target_arch = 'native'
     if (arguments.target_arch):
@@ -485,7 +490,18 @@ def main():
     print("Target Arch: %s" % target_arch)
 
     cxx_abi = "0"
-    if not use_prebuilt_binaries:
+
+    if arguments.use_prebuilt_tensorflow:
+        print("Using existing TensorFlow")
+        command_executor(["pip", "install", "-U", "tensorflow==" + tf_version])
+
+        import tensorflow as tf
+        print('Version information:')
+        print('TensorFlow version: ', tf.__version__)
+        print('C Compiler version used in building TensorFlow: ', tf.__compiler_version__)
+        cxx_abi = str(tf.__cxx11_abi_flag__)
+    else:
+        print("Building TensorFlow")
         # Download TensorFlow
         download_repo("tensorflow",
                       "https://github.com/tensorflow/tensorflow.git",
@@ -497,10 +513,6 @@ def main():
 
         # Install tensorflow
         cxx_abi = install_tensorflow(venv_dir, artifacts_location)
-    else:
-        print("Skipping the TensorFlow build")
-        import tensorflow as tf
-        cxx_abi = tf.__cxx11_abi_flag__
 
     if not use_prebuilt_binaries:
         # Download nGraph
@@ -546,12 +558,16 @@ def main():
         "-DUSE_PRE_BUILT_NGRAPH=ON", "-DNGRAPH_TARGET_ARCH=" + target_arch,
         "-DNGRAPH_TUNE_ARCH=" + target_arch,
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
-        "-DUNIT_TEST_ENABLE=ON",
-        "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
-            artifacts_location, "tensorflow")
     ]
     if (arguments.debug_build):
         ngraph_tf_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
+
+    if not arguments.use_prebuilt_tensorflow:
+        ngraph_tf_cmake_flags.extend(["-DUNIT_TEST_ENABLE=ON"])
+        "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
+            artifacts_location, "tensorflow")
+    else:
+        ngraph_tf_cmake_flags.extend(["-DUNIT_TEST_ENABLE=OFF"])
 
     if (arguments.distributed_build):
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
