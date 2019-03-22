@@ -3687,9 +3687,9 @@ static Status TranslateTopKV2Op(
   GetNodeAttr(op->attrs(), "sorted", &sorted);
 
   // index element type - currently only int32 or int64 are supported by ngraph
-  
-  shared_ptr<ngraph::Node> ng_result = ConstructNgNode<ngraph::op::TopK>(op->name(), 
-      ng_input, k_axis, ng::element::i32, k, sorted);
+
+  shared_ptr<ngraph::Node> ng_result = ConstructNgNode<ngraph::op::TopK>(
+      op->name(), ng_input, k_axis, ng::element::i32, k, sorted);
 
   shared_ptr<ngraph::Node> ng_values =
       ConstructNgNode<ngraph::op::GetOutputElement>(op->name(), ng_result, 1);
