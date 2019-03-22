@@ -634,9 +634,8 @@ class NGraphEncapsulateOp : public OpKernel {
                                         ng_element_type.size()))
                             .c_str(),
                         name().c_str()));
-          dst_ng_tensor->read(
-              dst_ptr, 0,
-              dst_ng_tensor->get_element_count() * ng_element_type.size());
+          dst_ng_tensor->read(dst_ptr, 0, dst_ng_tensor->get_element_count() *
+                                              ng_element_type.size());
           event_copy_output_next->Stop();
           events.push_back(std::move(event_copy_output_next));
         }
