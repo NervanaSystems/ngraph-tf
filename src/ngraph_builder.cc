@@ -3808,8 +3808,6 @@ static Status TranslateSelectOp(
   TF_RETURN_IF_ERROR(
       GetInputNodes(ng_op_map, op, &ng_input1, &ng_input2, &ng_input3));
 
-  cout << ng_input1->get_shape() << "\n";
-
   // broadcast to make all tensors same shape, as required by ngraph select op
   std::tie(ng_input1, ng_input2) =
       ng::builder::numpy_broadcast(std::make_pair(ng_input1, ng_input2));
