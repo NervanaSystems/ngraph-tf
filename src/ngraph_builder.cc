@@ -3682,6 +3682,8 @@ static Status TranslateTopKV2Op(
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_k));
   k = ng_k[0];
 
+  // sorted = false is not supported right now, it falls back to TF if set to
+  // false.
   GetNodeAttr(op->attrs(), "sorted", &sorted);
 
   // index element type - currently only int32 or int64 are supported by ngraph

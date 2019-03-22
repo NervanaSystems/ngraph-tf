@@ -363,15 +363,11 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Tile"] = SimpleConfirmationFunction();
       confirmation_function_map["TopKV2"] = [](Node* n, bool* result) {
         bool sorted = true;
-        GetNodeAttr(n->attrs(), "sorted", &sorted);
+        TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "sorted", &sorted));
 
-        // ngraph topk computes topk min if sorted is false
-        // TODO:ngraph team need to add an attribute to always compute max for
-        // topkv2
-        if (sorted == false) {
-          return errors::InvalidArgument(
-              "TopKV2 doesn't support sorted equals False.");
-        }
+        // sorted = false is not supported right now, it falls back to TF if set
+        // to false.
+        *result = sorted;
         return Status::OK();
       };
       confirmation_function_map["Transpose"] = SimpleConfirmationFunction();
