@@ -640,7 +640,7 @@ class NGraphEncapsulateOp : public OpKernel {
           events.push_back(std::move(event_copy_output_next));
         }
 
-        // Now writethe events back
+        // Now write the events back
         for (auto& next : events) {
           Event::WriteTrace(*next.get());
         }
