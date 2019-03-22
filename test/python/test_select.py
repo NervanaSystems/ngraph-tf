@@ -30,25 +30,37 @@ from common import NgraphTest
 
 class TestSelect(NgraphTest):
 
-    def test_select_bool(self):
-        input = tf.constant(
-            [[True, False, True, True], [False, False, False, True]],
-            dtype=tf.bool)
-        out = tf.where(input, x=None, y=None)
+    def test_select_scalar(self):
+        a = [1.5]
+        p = tf.placeholder(dtype=tf.bool)
+        out = tf.where(p, x=[1], y=[0])
 
         def run_test(sess):
-            return sess.run(out)
+            return sess.run(out, feed_dict={p: a})
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
 
-    def test_select_list(self):
-        input = tf.constant([[1.5, 0.0, -0.5, 0.0], [0.0, 0.25, 0.0, 0.75],
-                             [0.0, 0.0, 0.0, 0.01]])
-        out = tf.where(input, x=None, y=None)
+    def test_select_sameshape(self):
+        a = [True, False, True, True]
+        p = tf.placeholder(dtype=tf.bool)
+        out = tf.where(p, x=[1] * 4, y=[0] * 4)
 
         def run_test(sess):
-            return sess.run(out)
+            return sess.run(out, feed_dict={p: a})
+
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    def test_select_diffrank(self):
+        a = [1, 1]
+        x = [[0, 0], [2, 2]]
+        y = [[2, 2], [1, 1]]
+        p = tf.placeholder(dtype=tf.bool)
+        out = tf.where(p, x, y)
+
+        def run_test(sess):
+            return sess.run(out, feed_dict={p: a})
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
