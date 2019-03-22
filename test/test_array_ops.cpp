@@ -316,6 +316,39 @@ TEST(ArrayOps, ExpandDims) {
 
 }  // end of test op ExpandDims
 
+// Test op: OneHot
+TEST(ArrayOps, OneHot) {
+  Scope root = Scope::NewRootScope();
+
+  int dim1 = 2;
+  int dim2 = 3;
+
+  vector<int> static_input_indexes = {};
+
+  Tensor indices(DT_INT32, TensorShape({dim1, dim2}));
+
+  AssignInputValues<int>(indices, {0, 2, -2, 4, -1, 2});
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 3);
+  AssignInputValues<float>(on_value, 3.0);
+  AssignInputValues<float>(off_value, 0.0);
+  
+  //int axis = 2;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes,
+                          output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of op OneHot
+
 // Test op: PreventGradient
 TEST(ArrayOps, PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();

@@ -282,6 +282,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Minimum"] = SimpleConfirmationFunction();
       confirmation_function_map["Mul"] = SimpleConfirmationFunction();
       confirmation_function_map["Neg"] = SimpleConfirmationFunction();
+      confirmation_function_map["OneHot"] = SimpleConfirmationFunction();
       confirmation_function_map["Pad"] = SimpleConfirmationFunction();
       confirmation_function_map["Pow"] = SimpleConfirmationFunction();
       confirmation_function_map["PreventGradient"] =
@@ -429,6 +430,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["OneHot"]["T"] = NGraphDTypes();
       type_constraint_map["Pack"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();

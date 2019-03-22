@@ -2276,6 +2276,32 @@ static Status TranslateMinOp(const Node* op,
   return Status::OK();
 }
 
+static Status TranslateOneHotOp(const Node* op,
+                             const std::vector<const Tensor*>& static_input_map,
+                             Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_features, ng_depth;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_features, &ng_depth));
+
+  ng::Shape ng_features_shape = ng_features->get_shape();
+  ng::Shape ng_depth_shape = ng_depth->get_shape();
+
+  // Depth must be scalar
+  if (ng_depth_shape.size() != 1) {
+    return errors::InvalidArgument("OneHot Op: depth of one hot dimension must be scalar");
+  }
+
+  auto ng_onehot_labels =
+      make_shared<ng::op::OneHot>(ng_depth, ng_features_shape, 1);
+
+  auto ng_onehot_float = make_shared<ng::op::Convert>(
+      ng_onehot_labels, ng_features->get_element_type());
+
+  auto ng_onehot = make_shared<ng::op::Select>(ng_onehot_float, 3.0, 0.0);
+
+  SaveNgOp(ng_op_map, op->name(), ng_onehot);
+  return Status::OK();
+}
+
 static Status TranslatePackOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -4114,6 +4140,7 @@ const static std::map<
         // reasons, but they have no data flow inputs or outputs.
         {"NoOp", [](const Node*, const std::vector<const Tensor*>&,
                     Builder::OpMap&) { return Status::OK(); }},
+        {"OneHot", TranslateOneHotOp},
         {"Pack", TranslatePackOp},
         {"Pad", TranslatePadOp},
         {"Pow", TranslateBinaryOp<ngraph::op::Power>},
