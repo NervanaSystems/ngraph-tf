@@ -19,6 +19,8 @@
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
+#include "ngraph_mark_for_clustering.h"
+#include <dlfcn.h>
 
 #include "ngraph/builder/autobroadcast.hpp"
 #include "ngraph/builder/numpy_transpose.hpp"
@@ -1831,6 +1833,38 @@ static Status TranslateFusedBatchNormGradOp(
           std::vector<std::string>{""});
   SaveNgOp(ng_op_map, op->name(), output_variance);
 
+  return Status::OK();
+}
+
+
+static Status TranslateGatherV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+
+  std::vector<int64> tf_indices;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_indices));
+  // TODO: can indices be negative?
+  std::vector<size_t> indices(tf_indices.size());
+  std::transform(tf_indices.begin(), tf_indices.end(), indices.begin(), [](int64 x){return (size_t)(x);});
+
+
+  std::string backend_name;
+  TF_RETURN_IF_ERROR(ngraph_bridge::GetNodeBackend(op, &backend_name));
+
+  if (backend_name != "NNPI") {
+    return errors::Internal("In translating GatherV2 op ", op->name(), " found requested backend ", backend_name, " which is unsupported");
+  }
+
+  //TODO: move this to a function
+  DL_HANDLE handle = ng::runtime::Backend::get_handle(backend_name);
+  std::shared_ptr<ngraph::Node> (*func_construct_node)(shared_ptr<ngraph::Node>, ng::Coordinate, size_t);
+  *(void **)(&func_construct_node) = dlsym(handle, "construct_node");
+  // TODO: check if all kinds of cases of gather are covered (scalar, vector, higher rank etc)
+  // TODO support axis
+  auto ng_gather = (*func_construct_node)(ng_input, ng::Coordinate(indices), 0);
+  SaveNgOp(ng_op_map, op->name(), ng_gather);
   return Status::OK();
 }
 
@@ -3816,6 +3850,7 @@ const static std::map<
         {"FusedBatchNorm", TranslateFusedBatchNormOp},
         {"FusedBatchNormV2", TranslateFusedBatchNormOp},
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
+        {"GatherV2", TranslateGatherV2Op},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
         {"HorovodAllreduce", TranslateAllreduceOp},
