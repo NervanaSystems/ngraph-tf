@@ -284,7 +284,7 @@ Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
       confirmation_function_map["HorovodAllreduce"] =
           SimpleConfirmationFunction();
 #endif
-      // confirmation_function_map["Identity"] = SimpleConfirmationFunction();
+      confirmation_function_map["Identity"] = SimpleConfirmationFunction();
       confirmation_function_map["L2Loss"] = SimpleConfirmationFunction();
       confirmation_function_map["Less"] = SimpleConfirmationFunction();
       confirmation_function_map["LessEqual"] = SimpleConfirmationFunction();
@@ -429,7 +429,7 @@ Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
 #if defined NGRAPH_DISTRIBUTED
       type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
 #endif
-      // type_constraint_map["Identity"]["T"] = NGraphDTypes();
+      type_constraint_map["Identity"]["T"] = NGraphDTypes();
       type_constraint_map["L2Loss"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Less"]["T"] = NGraphDTypes();
       type_constraint_map["LessEqual"]["T"] = NGraphDTypes();
