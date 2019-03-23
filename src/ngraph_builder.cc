@@ -1860,9 +1860,12 @@ static Status TranslateGatherV2Op(
   //TODO: move this to a function
   DL_HANDLE handle = ng::runtime::Backend::get_handle(backend_name);
   std::shared_ptr<ngraph::Node> (*func_construct_node)(shared_ptr<ngraph::Node>, ng::Coordinate, size_t);
-  *(void **)(&func_construct_node) = dlsym(handle, "construct_node");
+  *(void **)(&func_construct_node) = dlsym(handle, "construct_gather");
+  if (!func_construct_node) {
+    return errors::Internal("In translating GatherV2 op, symbol not found");
+  }
   // TODO: check if all kinds of cases of gather are covered (scalar, vector, higher rank etc)
-  // TODO support axis
+  // TODO: support axis
   auto ng_gather = (*func_construct_node)(ng_input, ng::Coordinate(indices), 0);
   SaveNgOp(ng_op_map, op->name(), ng_gather);
   return Status::OK();
