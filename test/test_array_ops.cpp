@@ -316,37 +316,6 @@ TEST(ArrayOps, ExpandDims) {
 
 }  // end of test op ExpandDims
 
-
-// Test op: Gather
-/*
-TEST(ArrayOps, Gather) {
-  int dim1 = 5;
-  int dim2 = 3;
-
-  Tensor A(DT_FLOAT, TensorShape({dim1}));
-  std::vector<float> vals = {10.0, 20.0, 30.0, 40.0, 50.0};
-  AssignInputValues<float>(A, vals);
-
-  Tensor B(DT_INT32, TensorShape({dim2}));
-  std::vector<int> idxs = {1, 3, 0};
-  AssignInputValues<int>(B, idxs);
-
-  vector<int> static_input_indexes = {1};
-
-  Scope root = Scope::NewRootScope();
-  auto R = ops::Gather(root, A, B);
-  std::vector<Output> sess_run_fetchoutputs = {R};
-  vector<DataType> output_datatypes = {DT_FLOAT};
-
-  OpExecuter opexecuter(root, "Gather", static_input_indexes,
-                        output_datatypes, sess_run_fetchoutputs);
-
-  opexecuter.RunTest();
-  
-
-}  // end of test op Gather
-*/
-
 // Test op: PreventGradient
 TEST(ArrayOps, PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();

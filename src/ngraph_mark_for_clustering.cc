@@ -260,7 +260,6 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["GatherV2"] = [](Node* n, bool* result) {
         // TODO: Control this through build flags?
         *result = BackendManager::GetCurrentlySetBackendName() == "NNPI";
-        std::cout << BackendManager::GetCurrentlySetBackendName() << "====================\n" << endl;
         return Status::OK();
       };
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
@@ -539,7 +538,7 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
-      set_attributes_map["Gather"] = SetStaticInputs({1});
+      set_attributes_map["GatherV2"] = SetStaticInputs({1});
       set_attributes_map["Max"] = SetStaticInputs({1});
       set_attributes_map["Mean"] = SetStaticInputs({1});
       set_attributes_map["Min"] = SetStaticInputs({1});

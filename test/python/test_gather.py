@@ -24,17 +24,39 @@ import pytest
 
 import tensorflow as tf
 import os
+import numpy as np
 
 from common import NgraphTest
 
 class TestGatherOperations(NgraphTest):
 
-    def test_gather(self):
+    # Scalar indices
+    def test_gather_0(self):
+        val = tf.placeholder(tf.float32, shape=(5,))
+        out = tf.gather(val, 2)
+
+        def run_test(sess):
+            return sess.run((out,), feed_dict={val: (10.0, 20.0, 30.0, 40.0, 50.0)})[0]
+
+        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    # Vector indices, no broadcast required
+    def test_gather_1(self):
         val = tf.placeholder(tf.float32, shape=(5,))
         out = tf.gather(val, [2,1])
 
         def run_test(sess):
             return sess.run((out,), feed_dict={val: (10.0, 20.0, 30.0, 40.0, 50.0)})[0]
 
+        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    # Vector indices, broadcast required
+    def test_gather_2(self):
+        val = tf.placeholder(tf.float32, shape=(2,5))
+        out = tf.gather(val, [2,1], axis=1)
+
+        def run_test(sess):
+            return sess.run((out,), feed_dict={val: np.arange(10).reshape([2,5])})[0]
 
         assert (self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+        print(self.with_ngraph(run_test))
