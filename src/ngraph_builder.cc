@@ -1877,8 +1877,7 @@ static Status TranslateGatherV2Op(
     return errors::Internal("In translating GatherV2 op, symbol not found");
   }
   // TODO: check if all kinds of cases of gather are covered (scalar, vector,
-  // higher rank etc)
-  // TODO: support axis
+  // higher rank etc)... scalar, vector and vector with broadcast OK
   auto ng_gather =
       (*func_construct_node)(ng_input, ng::Coordinate(indices), tf_axis[0]);
   SaveNgOp(ng_op_map, op->name(), ng_gather);
