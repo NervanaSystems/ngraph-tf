@@ -323,21 +323,20 @@ TEST(ArrayOps, OneHot) {
   int dim1 = 2;
   int dim2 = 3;
 
-  vector<int> static_input_indexes = {};
+  vector<int> static_input_indexes = {1};
 
-  Tensor indices(DT_INT32, TensorShape({dim1, dim2}));
+  Tensor indices(DT_INT32, TensorShape({4}));
 
-  AssignInputValues<int>(indices, {0, 2, -2, 4, -1, 2});
+  AssignInputValues<int>(indices, {0, 2, -1, 1});
 
   Tensor depth(DT_INT32, TensorShape({}));
   Tensor on_value(DT_FLOAT, TensorShape({}));
   Tensor off_value(DT_FLOAT, TensorShape({}));
 
   AssignInputValues<int>(depth, 3);
-  AssignInputValues<float>(on_value, 3.0);
+  AssignInputValues<float>(on_value, 5.0);
   AssignInputValues<float>(off_value, 0.0);
   
-  //int axis = 2;
 
   auto R = ops::OneHot(root, indices, depth, on_value, off_value);
   vector<DataType> output_datatypes = {DT_FLOAT};
@@ -347,6 +346,7 @@ TEST(ArrayOps, OneHot) {
                           output_datatypes, sess_run_fetchoutputs);
 
   opexecuter.RunTest();
+
 }  // end of op OneHot
 
 // Test op: PreventGradient

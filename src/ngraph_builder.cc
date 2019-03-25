@@ -2279,24 +2279,43 @@ static Status TranslateMinOp(const Node* op,
 static Status TranslateOneHotOp(const Node* op,
                              const std::vector<const Tensor*>& static_input_map,
                              Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_features, ng_depth;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_features, &ng_depth));
+  shared_ptr<ng::Node> ng_features, ng_on, ng_off;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_features, nullptr, &ng_on, &ng_off));
 
-  ng::Shape ng_features_shape = ng_features->get_shape();
-  ng::Shape ng_depth_shape = ng_depth->get_shape();
+  auto ng_features_shape = ng_features->get_shape();
+
+  std::vector<int> depth;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &depth));
 
   // Depth must be scalar
-  if (ng_depth_shape.size() != 1) {
-    return errors::InvalidArgument("OneHot Op: depth of one hot dimension must be scalar");
+  if (depth.size() != 1) {
+    return errors::InvalidArgument("OneHot Op: depth of one hot dimension must be scalar ", depth.size());
   }
 
+  int one_hot_axis;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "axis", &one_hot_axis));
+
+  cout<< one_hot_axis << "\n";
+
+  auto shape = ng::Shape({ng_features_shape[0], depth[0]});
+
+  if(one_hot_axis != -1){
+      auto shape = ng::Shape({depth[0], ng_features_shape[0]});
+  }
+
+  cout<< shape << "\n";
+
   auto ng_onehot_labels =
-      make_shared<ng::op::OneHot>(ng_depth, ng_features_shape, 1);
+      make_shared<ng::op::OneHot>(ng_features, shape, 0);
 
-  auto ng_onehot_float = make_shared<ng::op::Convert>(
-      ng_onehot_labels, ng_features->get_element_type());
+  shared_ptr<ng::Node> ng_onehot_bool = make_shared<ng::op::Convert>(
+      ng_onehot_labels, ng::element::boolean);
 
-  auto ng_onehot = make_shared<ng::op::Select>(ng_onehot_float, 3.0, 0.0);
+  // broadcast to make all tensors same shape, as required by ngraph select op
+  std::tie(ng_onehot_bool, ng_on) = ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_on));
+  std::tie(ng_onehot_bool, ng_off) = ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_off));
+
+  auto ng_onehot = make_shared<ng::op::Select>(ng_onehot_bool, ng_on, ng_off);
 
   SaveNgOp(ng_op_map, op->name(), ng_onehot);
   return Status::OK();
