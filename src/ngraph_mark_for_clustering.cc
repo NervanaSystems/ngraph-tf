@@ -73,15 +73,6 @@ static Status CheckIfOutputNode(const Node* node,
   return Status::OK();
 }
 
-// Utility Function to create NodeDef for _Arg and _Retval nodes
-static void CreateNodeDef(const string op_type, const string op_name, int index,
-                          const DataType dt, NodeDef& node_def) {
-  node_def.set_name(op_name);
-  node_def.set_op(op_type);
-  SetAttrValue(dt, &((*(node_def.mutable_attr()))["T"]));
-  SetAttrValue(index, &((*(node_def.mutable_attr()))["index"]));
-}
-
 // Checks if the node's inputs meet all the type constraints
 static Status TypeConstraintOk(Node* node,
                                TypeConstraintMap& type_constraint_map,
