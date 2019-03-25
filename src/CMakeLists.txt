@@ -43,7 +43,6 @@ set(SRC
    ngraph_freshness_tracker.cc
    ngraph_mark_for_clustering.cc
    ngraph_rewrite_for_tracking.cc
-   ngraph_rewrite_pass.cc
    ngraph_tracked_variable.cc
    ngraph_utils.cc
    ngraph_timer.cc
@@ -55,6 +54,8 @@ set(SRC
 if(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
     list(APPEND SRC grappler/ngraph_optimizer.cc)
     add_definitions(-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
+else()
+    list(APPEND SRC ngraph_rewrite_pass.cc)
 endif()
 
 message(STATUS "NGRAPH_TF_USE_GRAPPLER_OPTIMIZER: ${NGRAPH_TF_USE_GRAPPLER_OPTIMIZER}")

@@ -619,40 +619,9 @@ Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
       TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
       if (skip_it) {
         NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
-                       << " skip marking it for clustering";
+                       << " - skip marking it for clustering";
         break;
       }
-
-      /*
-      // TODO: Hard coded the name for the output node
-       // Need to find a way to figure out this
-         if(node->name() == "Sub") {
-           NGRAPH_VLOG(5) << "Adding _Retval";
-           // Remove edge to SINK
-           Node* dst;
-           for (auto edge : node->out_edges()) {
-             dst = edge->dst();
-             if(dst->IsSink()) {
-               graph->RemoveEdge(edge);
-             }
-           }
-
-           // Add new retval_ node
-           NodeDef new_ret_node_def;
-           string new_node_name = node->name();
-           int index = 0; // TODO: Need to find out what index is and why is it
-       needed
-           DataType dt;
-           dt = node->output_type(0);
-           CreateNodeDef("_Retval", new_node_name, index, dt,
-                     new_ret_node_def);
-
-           Status status;
-           Node* ret_node = graph->AddNode(new_ret_node_def, &status);
-           graph->AddEdge(ret_node, Graph::kControlSlot, dst, -1); //TODO:
-       hardcoded values for indexs
-           graph->AddEdge(node, 0, ret_node, 0);
-         }*/
 
       // if all constraints are met, mark for clustering
       mark_for_clustering = true;

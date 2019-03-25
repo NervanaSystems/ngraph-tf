@@ -133,7 +133,6 @@ class NGraphRewritePass : public GraphOptimizationPass {
 int NGraphRewritePass::s_serial_counter = 0;
 mutex NGraphRewritePass::s_serial_counter_mutex;
 
-#if !defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
 //
 // The variable capture pass replaces all instances of VariableV2 with the
 // NGraphVariable op. Making this replacement allows us to substitute in a
@@ -297,15 +296,11 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
   }
 };
 
-#endif  // NGRAPH_TF_USE_GRAPPLER_OPTIMIZER
-
 }  // namespace ngraph_bridge
 
-#if !defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_PLACEMENT, 0,
                       ngraph_bridge::NGraphVariableCapturePass);
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 0,
                       ngraph_bridge::NGraphEncapsulationPass);
-#endif  // NGRAPH_TF_USE_GRAPPLER_OPTIMIZER
 
 }  // namespace tensorflow

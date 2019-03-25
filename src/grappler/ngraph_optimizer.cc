@@ -40,7 +40,7 @@ namespace ngraph_bridge {
 Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                                  const tensorflow::grappler::GrapplerItem& item,
                                  GraphDef* output) {
-  VLOG(1) << "Here at NgraphOptimizer ";
+  NGRAPH_VLOG(1) << "Here at NgraphOptimizer ";
 
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
@@ -48,12 +48,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   opts.expect_device_spec = true;
   Graph graph(OpRegistry::Global());
   TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(opts, item.graph, &graph));
-
-  // -------------
-  NGRAPH_VLOG(5) << "Kanvi: item.fetch";
-  for (const string& f : item.fetch) {
-    NGRAPH_VLOG(5) << f;
-  }
 
   //
   // Variable capture: Part that replaces all instances of VariableV2 with the
