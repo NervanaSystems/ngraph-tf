@@ -4051,7 +4051,6 @@ Status Builder::TranslateGraph(
       }
     }
   }
-#endif
 
   // Sort the allreduce ops according to the TF names
   std::sort(allreduce_op_list.begin(), allreduce_op_list.end(),
@@ -4066,6 +4065,7 @@ Status Builder::TranslateGraph(
       cur_node->add_control_dependency(pre_node);
     }
   }
+#endif
 
   //
   // Request row-major layout on results.
