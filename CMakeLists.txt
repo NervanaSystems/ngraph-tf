@@ -142,16 +142,18 @@ endif(APPLE)
 option(USE_PRE_BUILT_NGRAPH "Use pre-built nGraph located in NGRAPH_ARTIFACTS_DIR" FALSE)
 option(NGRAPH_ARTIFACTS_DIR "Where would nGraph be installed after build" FALSE)
 option(UNIT_TEST_ENABLE "Control the building of unit tests" FALSE)
-option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" )
+option(UNIT_TEST_TF_CC_DIR "Location where TensorFlow CC library is located" FALSE)
 option(NGRAPH_DISTRIBUTED_ENABLE "Add distributed mode to the CPU backend" FALSE)
-option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" FALSE)
+
+
+find_package(PlaidML CONFIG)
+option(NGRAPH_PLAIDML_ENABLE "Build PlaidML backend" ${PLAIDML_FOUND})
 
 # Validate the options
 if (NGRAPH_PLAIDML_ENABLE)
-    if (NOT DEFINED PlaidML_DIR)
-        message(FATAL_ERROR "Provide the PlaidML SDK directory: -DPlaidML_DIR=<directory>")
+    if (NOT PLAIDML_FOUND)
+        message(FATAL_ERROR "Unable to find PlaidML; use \"pip install plaidml\" to install it.")
     endif()
-    message(STATUS "nGraph/PlaidML enabled")
 endif()
 
 if(USE_PRE_BUILT_NGRAPH)
@@ -180,6 +182,7 @@ else()
     set(NGRAPH_ARTIFACTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/ngraph/ngraph_dist)
 endif()
 
+message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
 if(UNIT_TEST_TF_CC_DIR)
     # Check if the path specified is ABSOLUTE or RELATVE
     if (NOT IS_ABSOLUTE ${UNIT_TEST_TF_CC_DIR})
@@ -217,7 +220,6 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=${NGRAPH_TARGET_ARCH}")
 
 message(STATUS "UNIT_TEST_ENABLE:           ${UNIT_TEST_ENABLE}")
-message(STATUS "UNIT_TEST_TF_CC_DIR:        ${TF_PRE_BUILT_LOCATION}")
 
 message(STATUS "NGRAPH_ARTIFACTS_DIR:       ${NGRAPH_ARTIFACTS_DIR}")
 message(STATUS "USE_PRE_BUILT_NGRAPH:       ${USE_PRE_BUILT_NGRAPH}")
@@ -226,12 +228,18 @@ message(STATUS "NGRAPH_PLAIDML_ENABLE:      ${NGRAPH_PLAIDML_ENABLE}")
 message(STATUS "NGRAPH_TARGET_ARCH:         ${NGRAPH_TARGET_ARCH}")
 message(STATUS "NGRAPH_TUNE_ARCH:           ${NGRAPH_TUNE_ARCH}")
 
+if(NGRAPH_DISTRIBUTED_ENABLE)
+    find_package(MPI REQUIRED)
+    add_definitions(-DNGRAPH_DISTRIBUTED)
+    include_directories(SYSTEM ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
+    link_directories(${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+endif()
 # Find and build ngraph - if not using pre-built one
 if (NOT USE_PRE_BUILT_NGRAPH)
     ExternalProject_Add(
         ext_ngraph
         GIT_REPOSITORY https://github.com/NervanaSystems/ngraph
-        GIT_TAG v0.11.0
+        GIT_TAG v0.16.0-rc.0
         CMAKE_ARGS 
             -DNGRAPH_DISTRIBUTED_ENABLE=${NGRAPH_DISTRIBUTED_ENABLE}
             -DNGRAPH_INSTALL_PREFIX=${NGRAPH_ARTIFACTS_DIR}
@@ -244,7 +252,6 @@ if (NOT USE_PRE_BUILT_NGRAPH)
             -DNGRAPH_GPU_ENABLE=${NGRAPH_GPU_ENABLE}
             -DNGRAPH_DEBUG_ENABLE=${NGRAPH_DEBUG_ENABLE}
             -DNGRAPH_PLAIDML_ENABLE=${NGRAPH_PLAIDML_ENABLE}
-            -DPlaidML_DIR=${PlaidML_DIR}
             -DNGRAPH_TARGET_ARCH=${NGRAPH_TARGET_ARCH}
             -DNGRAPH_TUNE_ARCH=${NGRAPH_TUNE_ARCH}
         TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/ngraph/tmp"

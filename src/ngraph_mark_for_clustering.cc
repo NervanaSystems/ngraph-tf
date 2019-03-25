@@ -94,7 +94,6 @@ static Status ConfirmationOk(
   return Status::OK();
 }
 
-//
 // Marks the input indices in "inputs" as static
 static inline void SetStaticInputs(Node* n, std::vector<int32> inputs) {
   n->AddAttr("_ngraph_static_inputs", inputs);
@@ -228,7 +227,14 @@ Status MarkForClustering(Graph* graph) {
           SimpleConfirmationFunction();
       confirmation_function_map["DepthwiseConv2dNative"] =
           SimpleConfirmationFunction();
-      confirmation_function_map["DepthToSpace"] = SimpleConfirmationFunction();
+      confirmation_function_map["Conv3D"] = SimpleConfirmationFunction();
+      confirmation_function_map["DepthToSpace"] = [](Node* n, bool* result) {
+        std::string tf_data_format;
+        TF_RETURN_IF_ERROR(
+            GetNodeAttr(n->attrs(), "data_format", &tf_data_format));
+        *result = tf_data_format != "NCHW_VECT_C";
+        return Status::OK();
+      };
       confirmation_function_map["Dequantize"] = [](Node* n, bool* result) {
         string mode;
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "mode", &mode));
@@ -253,7 +259,7 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
       confirmation_function_map["HorovodAllreduce"] =
           SimpleConfirmationFunction();
       confirmation_function_map["HorovodBroadcast"] =
@@ -271,6 +277,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Max"] = SimpleConfirmationFunction();
       confirmation_function_map["Maximum"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPool"] = SimpleConfirmationFunction();
+      confirmation_function_map["MaxPool3D"] = SimpleConfirmationFunction();
       confirmation_function_map["MaxPoolGrad"] = SimpleConfirmationFunction();
       confirmation_function_map["Mean"] = SimpleConfirmationFunction();
       confirmation_function_map["Min"] = SimpleConfirmationFunction();
@@ -282,6 +289,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["PreventGradient"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Prod"] = SimpleConfirmationFunction();
+      confirmation_function_map["Rank"] = SimpleConfirmationFunction();
       confirmation_function_map["QuantizeAndDequantizeV2"] = [](Node* n,
                                                                 bool* result) {
         // accept only when num_bits == 8 and range is given
@@ -295,6 +303,14 @@ Status MarkForClustering(Graph* graph) {
       };
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"] =
+              SimpleConfirmationFunction();
+      confirmation_function_map
+          ["QuantizedConv2DWithBiasSumAndReluAndRequantize"] =
+              SimpleConfirmationFunction();
       confirmation_function_map["QuantizedMaxPool"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizeV2"] = [](Node* n, bool* result) {
@@ -318,11 +334,13 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Slice"] = SimpleConfirmationFunction();
       confirmation_function_map["Snapshot"] = SimpleConfirmationFunction();
       confirmation_function_map["Softmax"] = SimpleConfirmationFunction();
-      confirmation_function_map["SpaceToDepth"] = SimpleConfirmationFunction();
+      confirmation_function_map["SpaceToDepth"] =
+          confirmation_function_map["DepthToSpace"];
       confirmation_function_map["SparseSoftmaxCrossEntropyWithLogits"] =
           SimpleConfirmationFunction();
       confirmation_function_map["Split"] = SimpleConfirmationFunction();
       confirmation_function_map["SplitV"] = SimpleConfirmationFunction();
+      confirmation_function_map["Sqrt"] = SimpleConfirmationFunction();
       confirmation_function_map["Square"] = SimpleConfirmationFunction();
       confirmation_function_map["SquaredDifference"] =
           SimpleConfirmationFunction();
@@ -372,6 +390,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Const"]["dtype"] = NGraphDTypes();
       type_constraint_map["Conv2D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Conv2DBackpropInput"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["Conv3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["DepthToSpace"]["T"] = NGraphDTypes();
       type_constraint_map["DepthwiseConv2dNative"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Dequantize"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -388,7 +407,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
-#ifdef NGRAPH_DISTRIBUTED
+#if defined NGRAPH_DISTRIBUTED
       type_constraint_map["HorovodAllreduce"]["T"] = NGraphNumericDTypes();
       type_constraint_map["HorovodBroadcast"]["T"] = NGraphNumericDTypes();
 #endif
@@ -404,6 +423,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Max"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["Maximum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPool"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["MaxPool3D"]["T"] = NGraphNumericDTypes();
       type_constraint_map["MaxPoolGrad"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mean"]["Tidx"] = NGraphIndexDTypes();
@@ -426,6 +446,34 @@ Status MarkForClustering(Graph* graph) {
                          ["Tfilter"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tbias"] = NGraphBiasDTypes();
+      // TODO: check if any other type constraint is required
+      // https://github.com/tensorflow/tensorflow/blob/c95ca05536144451ef78ca6e2c15f0f65ebaaf95/tensorflow/core/ops/nn_ops.cc#L2780
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tinput"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tsummand"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tfilter"] =
+              NGraphSupportedQuantizedDTypes();
+      type_constraint_map
+          ["QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"]["Tbias"] =
+              NGraphBiasDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tinput"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tsummand"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tfilter"] = NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasSumAndReluAndRequantize"]
+                         ["Tbias"] = NGraphBiasDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndRequantize"]["Tinput"] =
+          NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndRequantize"]["Tfilter"] =
+          NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConv2DWithBiasAndRequantize"]["Tbias"] =
+          NGraphBiasDTypes();
       type_constraint_map["QuantizedMaxPool"]["T"] =
           NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizeV2"]["T"] = NGraphSupportedQuantizedDTypes();
@@ -457,6 +505,7 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Split"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["T"] = NGraphDTypes();
       type_constraint_map["SplitV"]["Tlen"] = NGraphIndexDTypes();
+      type_constraint_map["Sqrt"]["T"] = NGraphDTypes();
       type_constraint_map["Square"]["T"] = NGraphDTypes();
       type_constraint_map["SquaredDifference"]["T"] = NGraphDTypes();
       type_constraint_map["Squeeze"]["T"] = NGraphDTypes();
@@ -482,7 +531,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["ConcatV2"] = SetStaticInputs({-1});
       set_attributes_map["Conv2DBackpropFilter"] = SetStaticInputs({1});
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
-      set_attributes_map["Dequantize"] = SetStaticInputs({1, 2});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
       set_attributes_map["Max"] = SetStaticInputs({1});
@@ -491,9 +539,6 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
-      set_attributes_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
-          SetStaticInputs({3, 4, 5, 6, 7, 8});
-      set_attributes_map["QuantizeV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
       set_attributes_map["Split"] = SetStaticInputs({0});
@@ -507,6 +552,9 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
+  std::unordered_map<string, int> no_support_histogram;
+  std::unordered_map<string, int> fail_confirmation_histogram;
+  std::unordered_map<string, int> fail_constraint_histogram;
   vector<Node*> nodes_marked_for_clustering;
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
@@ -527,6 +575,14 @@ Status MarkForClustering(Graph* graph) {
       if (!confirmation_constraint_ok) {
         NGRAPH_VLOG(5) << "Node does not meet confirmation constraints: "
                        << node->name();
+        if (confirmation_function_map.find(node->type_string()) ==
+            confirmation_function_map.end()) {
+          // not found
+          no_support_histogram[node->type_string()]++;
+        } else {
+          // found
+          fail_confirmation_histogram[node->type_string()]++;
+        }
         break;
       }
 
@@ -537,6 +593,7 @@ Status MarkForClustering(Graph* graph) {
       if (!type_constraint_ok) {
         NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
                        << node->name();
+        fail_constraint_histogram[node->type_string()]++;
         break;
       }
 
@@ -554,6 +611,20 @@ Status MarkForClustering(Graph* graph) {
       NGRAPH_VLOG(4) << "Rejecting: " << node->name() << "["
                      << node->type_string() << "]";
     }
+  }
+
+  if (config::IsLoggingPlacement()) {
+    std::cout << "\n=============New sub-graph logs=============\n";
+    // print summary for nodes failed to be marked
+    std::cout << "NGTF_SUMMARY: Op_not_supported: ";
+    print_node_histogram(no_support_histogram);
+    std::cout << "\n";
+    std::cout << "NGTF_SUMMARY: Op_failed_confirmation: ";
+    print_node_histogram(fail_confirmation_histogram);
+    std::cout << "\n";
+    std::cout << "NGTF_SUMMARY: Op_failed_type_constraint: ";
+    print_node_histogram(fail_constraint_histogram);
+    std::cout << "\n";
   }
 
   // Set Attributes for nodes marked for clustering

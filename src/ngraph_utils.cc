@@ -125,6 +125,9 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
     case DataType::DT_QUINT8:
       *ng_et = ng::element::u8;
       break;
+    case DataType::DT_QINT32:
+      *ng_et = ng::element::i32;
+      break;
     default:
       return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                    DataType_Name(tf_dt));
@@ -147,6 +150,29 @@ Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
   }
 
   return Status::OK();
+}
+
+void print_node_histogram(const std::unordered_map<string, int>& histogram,
+                          bool sorted) {
+  int histogram_size = histogram.size();
+  if (histogram_size == 0) {
+    std::cout << "None";
+  } else {
+    vector<std::pair<string, int>> vec(begin(histogram), end(histogram));
+    if (sorted) {
+      sort(begin(vec), end(vec),
+           [](const pair<string, int>& a, const pair<string, int>& b) {
+             // descending sort
+             return a.second > b.second;
+           });
+    }
+
+    for (auto node : vec) {
+      bool endelem = node == vec.back();
+      std::cout << " " << node.first << " -> " << node.second
+                << (endelem ? " " : ",");
+    }
+  }
 }
 
 const gtl::ArraySlice<DataType>& NGraphDTypes() {
@@ -200,6 +226,46 @@ Status CheckAxisDimInRange(std::vector<int64> axes, size_t rank) {
   }
   return Status::OK();
 }
+
+void NgraphSerialize(const std::string& file_name,
+                     const std::shared_ptr<ngraph::Function>& ng_function) {
+  NGRAPH_VLOG(0) << "Serializing graph to: " << file_name << std::endl;
+  std::string js = ngraph::serialize(ng_function, 4);
+  std::ofstream f;
+  f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+  try {
+    f.open(file_name);
+    f << js;
+    f.close();
+  } catch (std::ofstream::failure& e) {
+    NGRAPH_VLOG(0) << "Exception opening/closing file " << file_name
+                   << std::endl;
+    NGRAPH_VLOG(0) << e.what() << std::endl;
+  }
+}
+
+void MemoryProfile(long& vm_usage, long& resident_set) {
+  vm_usage = 0;
+  resident_set = 0;
+
+  // Get the two fields we want
+  long vsize;
+  long rss;
+
+  std::ifstream ifs("/proc/self/stat", std::ios_base::in);
+  std::string mem_in;
+  getline(ifs, mem_in);
+  if (mem_in != "") {
+    vector<string> mem_str = ng::split(mem_in, ' ');
+    vsize = std::stol(mem_str[22]);
+    rss = std::stol(mem_str[23]);
+
+    long page_size_kb = sysconf(_SC_PAGE_SIZE) /
+                        1024;  // in case x86-64 is configured to use 2MB pages
+    vm_usage = vsize / 1024;   // unit kb
+    resident_set = rss * page_size_kb;
+  }
+};
 
 }  // namespace ngraph_bridge
 

@@ -14,6 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
+
 import argparse
 from argparse import RawTextHelpFormatter
 
@@ -24,8 +25,10 @@ import sys
 import shutil
 import glob
 import platform
+import shlex
 
-def command_executor(cmd, verbose = False, msg=None, stdout=None):
+
+def command_executor(cmd, verbose=False, msg=None, stdout=None):
     '''
     Executes the command.
     Example: 
@@ -37,10 +40,11 @@ def command_executor(cmd, verbose = False, msg=None, stdout=None):
     if verbose:
         tag = 'Running COMMAND: ' if msg is None else msg
         print(tag + cmd)
-    if (call(cmd.split(' '), stdout=stdout) != 0):
+    if (call(shlex.split(cmd), stdout=stdout) != 0):
         raise Exception("Error running command: " + cmd)
 
-def build_ngraph(src_location, cmake_flags, verbose):
+
+def build_ngraph(build_dir, src_location, cmake_flags, verbose):
     pwd = os.getcwd()
 
     src_location = os.path.abspath(src_location)
@@ -49,7 +53,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
     os.chdir(src_location)
 
     # mkdir build directory
-    path = 'build'
+    path =  build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -57,7 +61,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
             pass
 
     # Run cmake
-    os.chdir('build')
+    os.chdir(build_dir)
 
     cmake_cmd = ["cmake"]
     cmake_cmd.extend(cmake_flags)
@@ -67,7 +71,7 @@ def build_ngraph(src_location, cmake_flags, verbose):
 
     import psutil
     num_cores = str(psutil.cpu_count(logical=True))
-    cmd = ["make", "-j"+num_cores, "install"]
+    cmd = ["make", "-j" + num_cores, "install"]
     if verbose:
         cmd.extend(['VERBOSE=1'])
 
@@ -103,8 +107,9 @@ def load_venv(venv_dir):
         compile(
             open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
         dict(__file__=activate_this_file), dict(__file__=activate_this_file))
-        
+
     return venv_dir
+
 
 def setup_venv(venv_dir):
     load_venv(venv_dir)
@@ -130,20 +135,25 @@ def setup_venv(venv_dir):
         "pip",
         "setuptools",
         "psutil",
-        "six",
-        "numpy",
-        "wheel",
+        "six>=1.10.0",
+        "numpy>=1.13.3",
+        "absl-py>=0.1.6",
+        "astor>=0.6.0",
+        "google_pasta>=0.1.1",
+        "wheel>=0.26",
         "mock",
-        "protobuf",
-        "keras_applications==1.0.5",
+        "termcolor>=1.1.0",
+        "protobuf>=3.6.1",
+        "keras_applications>=1.0.6",
         "--no-deps",
-        "keras_preprocessing==1.0.3",
+        "keras_preprocessing==1.0.5",
         "--no-deps",
     ]
     command_executor(package_list)
 
     # Print the current packages
     command_executor(["pip", "list"])
+
 
 def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
 
@@ -212,19 +222,24 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     ]
     command_executor(cmd)
 
-    tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
-
     # Remove just in case
     try:
         doomed_file = os.path.join(artifacts_dir, "libtensorflow_cc.so")
+        os.remove(doomed_file)
+        doomed_file = os.path.join(artifacts_dir, "libtensorflow_framework.so")
         os.remove(doomed_file)
     except OSError:
         print("Cannot remove: %s" % doomed_file)
         pass
 
-    # Now copy
+    # Now copy the TF libraries
+    tf_cc_lib_file = "bazel-bin/tensorflow/libtensorflow_cc.so"
     print("Copying %s to %s" % (tf_cc_lib_file, artifacts_dir))
-    shutil.copy2(tf_cc_lib_file, artifacts_dir)
+    shutil.copy(tf_cc_lib_file, artifacts_dir)
+
+    tf_cc_fmwk_file = "bazel-bin/tensorflow/libtensorflow_framework.so"
+    print("Copying %s to %s" % (tf_cc_fmwk_file, artifacts_dir))
+    shutil.copy(tf_cc_fmwk_file, artifacts_dir)
 
     # popd
     os.chdir(pwd)
@@ -262,7 +277,9 @@ def install_tensorflow(venv_dir, artifacts_dir):
 
     return str(cxx_abi)
 
-def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, verbose):
+
+def build_ngraph_tf(build_dir, artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
+                    verbose):
     pwd = os.getcwd()
 
     # Load the virtual env
@@ -279,7 +296,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     os.chdir(ngtf_src_loc)
 
     # mkdir build directory
-    path = 'build'
+    path =  build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -287,7 +304,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
             pass
 
     # Run cmake
-    os.chdir('build')
+    os.chdir(path)
     cmake_cmd = ["cmake"]
     cmake_cmd.extend(cmake_flags)
     cmake_cmd.extend([ngtf_src_loc])
@@ -295,7 +312,7 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
 
     import psutil
     num_cores = str(psutil.cpu_count(logical=True))
-    make_cmd = ["make", "-j"+num_cores, "install"]
+    make_cmd = ["make", "-j" + num_cores, "install"]
     if verbose:
         make_cmd.extend(['VERBOSE=1'])
 
@@ -304,6 +321,9 @@ def build_ngraph_tf(artifacts_location, ngtf_src_loc, venv_dir, cmake_flags, ver
     os.chdir(os.path.join("python", "dist"))
     ngtf_wheel_files = glob.glob("ngraph_tensorflow_bridge-*.whl")
     if (len(ngtf_wheel_files) != 1):
+        print("Multiple Python whl files exist. Please remove old wheels")
+        for whl in ngtf_wheel_files:
+            print("Existing Wheel: " + whl)
         raise Exception("Error getting the ngraph-tf wheel file")
 
     output_wheel = ngtf_wheel_files[0]
@@ -331,8 +351,9 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     command_executor(["pip", "install", "-U", ngtf_pip_whl])
 
     import tensorflow as tf
-    print('TensorFlow version: r', tf.__version__)
-    print(tf.__compiler_version__)
+    print('Version information:')
+    print('TensorFlow version: ', tf.__version__)
+    print('C Compiler version used in building TensorFlow: ', tf.__compiler_version__)
     import ngraph_bridge
     print(ngraph_bridge.__version__)
 
@@ -349,6 +370,7 @@ def download_repo(target_name, repo, version):
     os.chdir(target_name)
 
     # checkout the specified branch
+    call(["git", "fetch"])
     command_executor(["git", "checkout", version])
     os.chdir(pwd)
 
@@ -370,23 +392,36 @@ def main():
         action="store_true")
 
     parser.add_argument(
-        '--use_prebuilt_binaries',
-        help="Skip building nGraph and TensorFlow. Rather use \"build\" directory.\n" + 
-            "The following directory structure is assumed:\n" + 
-            "build\n" + 
-            "  |\n" + 
-            "   -- artifacts\n" + 
-            "  |   |\n" + 
-            "  |   |-- bin (contains binaries from nGraph build)\n" + 
-            "  |   |-- include (contains include files from nGraph build)\n" + 
-            "  |   |-- lib (contains library files from nGraph build)\n" + 
-            "  |   |-- . . . \n" + 
-            "  |   |-- tensorflow (contains tf whl and tf_cc lib)\n" + 
-            "  |\n" +
-            "  |-- tensorflow (contains tf source)\n" +
-            "  |-- venv-tf-py3 (Virtualenv directory to be used)\n",
+        '--target_arch',
+        help=
+        "Architecture flag to use (e.g., haswell, core-avx2 etc. Default \'native\'\n",
+    )
+
+    parser.add_argument(
+        '--build_gpu_backend',
+        help=
+        "nGraph backends will include nVidia GPU.\n"
+        "Note: You need to have CUDA headers and libraries available on the build system.\n",
         action="store_true"
-        )
+    )
+
+    parser.add_argument(
+        '--build_plaidml_backend',
+        help=
+        "nGraph backends will include PlaidML bckend\n",
+        action="store_true")
+
+    parser.add_argument(
+        '--use_prebuilt_tensorflow',
+        help="Skip building TensorFlow and use downloaded version.\n" + 
+        "Note that in this case C++ unit tests won't be build for nGrapg-TF bridge",
+        action="store_true")
+
+    parser.add_argument(
+        '--distributed_build',
+        type=str,
+        help="Builds a distributed version of the nGraph components\n",
+        action="store")
 
     arguments = parser.parse_args()
 
@@ -403,17 +438,11 @@ def main():
     #-------------------------------
 
     # Component versions
-    ngraph_version = "v0.11.0"
-    tf_version = "v1.12.0"
+    ngraph_version = "v0.16.0-rc.0"
+    tf_version = "v1.13.1"
 
     # Default directories
-    build_dir = 'build'
-
-    # Override the pre-built location is specified
-    use_prebuilt_binaries = False
-    if (arguments.use_prebuilt_binaries):
-        print("Using prebuilt artifacts.")
-        use_prebuilt_binaries = True
+    build_dir = 'build_cmake'
 
     try:
         os.makedirs(build_dir)
@@ -427,82 +456,123 @@ def main():
     venv_dir = 'venv-tf-py3'
     artifacts_location = 'artifacts'
 
-    if not use_prebuilt_binaries:
-        #install virtualenv
-        install_virtual_env(venv_dir)
+    artifacts_location = os.path.abspath(artifacts_location)
+    print("ARTIFACTS location: " + artifacts_location)
+
+    #install virtualenv
+    install_virtual_env(venv_dir)
 
     # Load the virtual env
     load_venv(venv_dir)
 
-    if not use_prebuilt_binaries:
-        # Setup the virtual env
-        setup_venv(venv_dir)
+    # Setup the virtual env
+    setup_venv(venv_dir)
 
-    #target_arch = 'native'
-    #if (platform.system() != 'Darwin'):
-    target_arch = 'core-avx2'
+    target_arch = 'native'
+    if (arguments.target_arch):
+        target_arch = arguments.target_arch
 
-    if not use_prebuilt_binaries:
+    print("Target Arch: %s" % target_arch)
+
+    cxx_abi = "0"
+
+    if arguments.use_prebuilt_tensorflow:
+        print("Using existing TensorFlow")
+        command_executor(["pip", "install", "-U", "tensorflow==" + tf_version])
+
+        import tensorflow as tf
+        print('Version information:')
+        print('TensorFlow version: ', tf.__version__)
+        print('C Compiler version used in building TensorFlow: ', tf.__compiler_version__)
+        cxx_abi = str(tf.__cxx11_abi_flag__)
+    else:
+        print("Building TensorFlow")
         # Download TensorFlow
         download_repo("tensorflow",
                       "https://github.com/tensorflow/tensorflow.git",
                       tf_version)
 
         # Build TensorFlow
-        build_tensorflow(venv_dir, "tensorflow", artifacts_location, target_arch, verbosity)
-    else:
-        print("Skipping the TensorFlow build")
+        build_tensorflow(venv_dir, "tensorflow", artifacts_location,
+                         target_arch, verbosity)
 
-    # Install tensorflow
-    cxx_abi = install_tensorflow(venv_dir, artifacts_location)
+        # Install tensorflow
+        cxx_abi = install_tensorflow(venv_dir, artifacts_location)
 
-    if not use_prebuilt_binaries:
-        # Download nGraph
-        download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
+    # Download nGraph
+    download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
                     ngraph_version)
 
-        # Now build nGraph
-        artifacts_location = os.path.abspath(artifacts_location)
-        print("ARTIFACTS location: " + artifacts_location)
+    # Now build nGraph
 
-        ngraph_cmake_flags = [
-            "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
-            "-DNGRAPH_DISTRIBUTED_ENABLE=FALSE",
-            "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
-            "-DNGRAPH_UNIT_TEST_ENABLE=NO",
-            "-DNGRAPH_DEX_ONLY=TRUE",
-            "-DNGRAPH_GPU_ENABLE=NO",
-            "-DNGRAPH_PLAIDML_ENABLE=NO",
-            "-DNGRAPH_DEBUG_ENABLE=NO",
-            "-DNGRAPH_TARGET_ARCH=" + target_arch,
-            "-DNGRAPH_TUNE_ARCH=" + target_arch,
-        ]
-        if (platform.system() != 'Darwin'):
-            ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=YES"])
-        else:
-            ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=NO"])
+    ngraph_cmake_flags = [
+        "-DNGRAPH_INSTALL_PREFIX=" + artifacts_location,
+        "-DNGRAPH_USE_CXX_ABI=" + cxx_abi,
+        "-DNGRAPH_DEX_ONLY=TRUE",
+        "-DNGRAPH_DEBUG_ENABLE=NO",
+        "-DNGRAPH_TARGET_ARCH=" + target_arch,
+        "-DNGRAPH_TUNE_ARCH=" + target_arch,
+    ]
+    if (platform.system() != 'Darwin'):
+        ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=YES"])
+    else:
+        ngraph_cmake_flags.extend(["-DNGRAPH_TOOLS_ENABLE=NO"])
 
-        if (arguments.debug_build):
-            ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
+    if arguments.debug_build:
+        ngraph_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
-        build_ngraph("./ngraph", ngraph_cmake_flags, verbosity)
+    if (arguments.distributed_build=="OMPI"): 
+        ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OMPI"])
+    elif (arguments.distributed_build=="MLSL"): 
+        ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=MLSL"])
+    else:
+        ngraph_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=OFF"])
+
+    if arguments.build_gpu_backend:
+        ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=YES"])
+    else:
+        ngraph_cmake_flags.extend(["-DNGRAPH_GPU_ENABLE=NO"])
+
+    if arguments.build_plaidml_backend:
+        command_executor(["pip", "install", "-U", "plaidML"])
+        ngraph_cmake_flags.extend(["-DNGRAPH_PLAIDML_ENABLE=YES"])
+    else:
+        ngraph_cmake_flags.extend(["-DNGRAPH_PLAIDML_ENABLE=NO"])
+
+    if not arguments.use_prebuilt_tensorflow:
+        ngraph_cmake_flags.extend(["-DNGRAPH_UNIT_TEST_ENABLE=YES"])
+    else:
+        ngraph_cmake_flags.extend(["-DNGRAPH_UNIT_TEST_ENABLE=NO"])
+
+    build_ngraph(build_dir, "./ngraph", ngraph_cmake_flags, verbosity)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
 
     ngraph_tf_cmake_flags = [
+        "-DNGRAPH_TF_INSTALL_PREFIX=" + artifacts_location,
         "-DUSE_PRE_BUILT_NGRAPH=ON", "-DNGRAPH_TARGET_ARCH=" + target_arch,
         "-DNGRAPH_TUNE_ARCH=" + target_arch,
         "-DNGRAPH_ARTIFACTS_DIR=" + artifacts_location,
-        "-DUNIT_TEST_ENABLE=ON",
-        "-DTF_SRC_DIR=" + tf_src_dir, "-DUNIT_TEST_TF_CC_DIR=" + os.path.join(
-            artifacts_location, "tensorflow")
     ]
     if (arguments.debug_build):
         ngraph_tf_cmake_flags.extend(["-DCMAKE_BUILD_TYPE=Debug"])
 
+    if arguments.use_prebuilt_tensorflow:
+        ngraph_tf_cmake_flags.extend(["-DUNIT_TEST_ENABLE=OFF"])
+    else:
+        ngraph_tf_cmake_flags.extend(["-DUNIT_TEST_ENABLE=ON"])
+        ngraph_tf_cmake_flags.extend(["-DTF_SRC_DIR=" + tf_src_dir])
+        ngraph_tf_cmake_flags.extend(["-DUNIT_TEST_TF_CC_DIR=" + 
+            os.path.join(artifacts_location, "tensorflow")])
+
+    if ((arguments.distributed_build=="OMPI") or (arguments.distributed_build=="MLSL")):
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
+    else:
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
+
     # Now build the bridge
-    ng_tf_whl = build_ngraph_tf(artifacts_location, "../", venv_dir,
+    ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location, "../", venv_dir,
                                 ngraph_tf_cmake_flags, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
