@@ -112,7 +112,7 @@ TEST(tf_exec, axpy) {
   }
 }
 
-TEST(tf_exec, BatchMatMul_0D) {
+TEST(tf_exec, DISABLED_BatchMatMul_0D) {
   Scope root = Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
 
@@ -206,7 +206,7 @@ TEST(tf_exec, BatchMatMul) {
   Compare<float>(outputs_z2_ng[0], outputs_z2_tf[0]);
 }
 
-TEST(tf_exec, BatchMatMul_3D) {
+TEST(tf_exec, DISABLED_BatchMatMul_3D) {
   Scope root = Scope::NewRootScope();
   auto dev_scope = root.WithDevice("/device:NGRAPH:0");
   auto A = ops::Const(root, {-1.f, 2.f, 3.f, 4.f, -1.f, 2.f, 3.f, 4.f},
