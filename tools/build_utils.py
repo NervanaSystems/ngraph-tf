@@ -53,7 +53,7 @@ def build_ngraph(build_dir, src_location, cmake_flags, verbose):
     os.chdir(src_location)
 
     # mkdir build directory
-    path =  build_dir
+    path = build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -103,10 +103,9 @@ def load_venv(venv_dir):
     # The execfile API is for Python 2. We keep here just in case you are on an
     # obscure system without Python 3
     # execfile(activate_this_file, dict(__file__=activate_this_file))
-    exec(
-        compile(
-            open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
-        dict(__file__=activate_this_file), dict(__file__=activate_this_file))
+    exec (compile(
+        open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
+          dict(__file__=activate_this_file), dict(__file__=activate_this_file))
 
     return venv_dir
 
@@ -123,8 +122,7 @@ def setup_venv(venv_dir):
         call([
             "curl",
             "https://bootstrap.pypa.io/get-pip.py",
-        ],
-             stdout=get_pip)
+        ], stdout=get_pip)
         call(["python3", "./get-pip.py"])
 
     # Install the pip packages
@@ -217,9 +215,7 @@ def build_tensorflow(venv_dir, src_dir, artifacts_dir, target_arch, verbosity):
     print("TF Wheel: %s" % tf_wheel_files[0])
 
     # Now build the TensorFlow C++ library
-    cmd = [
-        "bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"
-    ]
+    cmd = ["bazel", "build", "--config=opt", "//tensorflow:libtensorflow_cc.so"]
     command_executor(cmd)
 
     # Remove just in case
@@ -278,8 +274,8 @@ def install_tensorflow(venv_dir, artifacts_dir):
     return str(cxx_abi)
 
 
-def build_ngraph_tf(build_dir, artifacts_location, ngtf_src_loc, venv_dir, cmake_flags,
-                    verbose):
+def build_ngraph_tf(build_dir, artifacts_location, ngtf_src_loc, venv_dir,
+                    cmake_flags, verbose):
     pwd = os.getcwd()
 
     # Load the virtual env
@@ -296,7 +292,7 @@ def build_ngraph_tf(build_dir, artifacts_location, ngtf_src_loc, venv_dir, cmake
     os.chdir(ngtf_src_loc)
 
     # mkdir build directory
-    path =  build_dir
+    path = build_dir
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
@@ -353,7 +349,8 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     import tensorflow as tf
     print('Version information:')
     print('TensorFlow version: ', tf.__version__)
-    print('C Compiler version used in building TensorFlow: ', tf.__compiler_version__)
+    print('C Compiler version used in building TensorFlow: ',
+          tf.__compiler_version__)
     import ngraph_bridge
     print(ngraph_bridge.__version__)
 

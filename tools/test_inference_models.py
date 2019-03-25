@@ -17,6 +17,7 @@
 
 from build_utils import *
 
+
 def main():
     '''
     Builds TensorFlow, ngraph, and ngraph-tf for python 3
@@ -32,8 +33,7 @@ def main():
         '--python_location',
         help=
         "Location of Python executable (whether virtual environment or system)\n",
-        action="store"
-    )
+        action="store")
 
     parser.add_argument(
         '--artifacts_dir',
@@ -59,55 +59,40 @@ def main():
     if not (arguments.model_location):
         raise "Need to provide the location of models directory"
 
-    # Check to make sure that there is TensorFlow installed and will work 
+    # Check to make sure that there is TensorFlow installed and will work
     # TODO
 
     # Install nGraph Bridge
     ngtf_wheel_files = glob.glob(
         os.path.join(
-            os.path.abspath(arguments.artifacts_dir), "ngraph_tensorflow_bridge-*.whl"
-        )
-    )
+            os.path.abspath(arguments.artifacts_dir),
+            "ngraph_tensorflow_bridge-*.whl"))
     if (len(ngtf_wheel_files) != 1):
-        raise("Multiple Python whl files exist. Please remove old wheels")
+        raise ("Multiple Python whl files exist. Please remove old wheels")
 
     ngraph_bridge_wheel = ngtf_wheel_files[0]
 
-    print("NGRAPH Wheel: ", ngraph_bridge_wheel )
-    command_executor(
-        [
-            os.path.join(arguments.python_location, "pip"), 
-            "install", "-U", 
-            ngraph_bridge_wheel
-        ]
-    )
+    print("NGRAPH Wheel: ", ngraph_bridge_wheel)
+    command_executor([
+        os.path.join(arguments.python_location, "pip"), "install", "-U",
+        ngraph_bridge_wheel
+    ])
 
     # Print the version information
-    print( "\nnGraph-TensorFlow Information ")
+    print("\nnGraph-TensorFlow Information ")
     python_exe = os.path.join(arguments.python_location, "python3")
-    command_executor(
-        [
-            python_exe, 
-            "-c", 
-            "\"import tensorflow as tf; " + 
-            "print('TensorFlow version: ',tf.__version__);" + 
-            "import ngraph_bridge; print(ngraph_bridge.__version__)" + 
-            ";print(ngraph_bridge.list_backends())\n\""
-        ]
-    )
+    command_executor([
+        python_exe, "-c", "\"import tensorflow as tf; " +
+        "print('TensorFlow version: ',tf.__version__);" +
+        "import ngraph_bridge; print(ngraph_bridge.__version__)" +
+        ";print(ngraph_bridge.list_backends())\n\""
+    ])
 
     # Next is to go to the model directory
-    os.chdir(
-        os.path.join(arguments.model_location, "tensorflow_scripts")
-    )
+    os.chdir(os.path.join(arguments.model_location, "tensorflow_scripts"))
 
     # Execute the inference runs
-    command_executor(
-        [
-            "/bin/bash", 
-            "run-all-models.sh"
-        ]
-    )
+    command_executor(["/bin/bash", "run-all-models.sh"])
 
     # Restore
     os.chdir(pwd)
