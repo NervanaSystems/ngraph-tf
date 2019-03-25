@@ -49,6 +49,14 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   Graph graph(OpRegistry::Global());
   TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(opts, item.graph, &graph));
 
+  // Get the nodes to be skipped
+  std::vector<string> skip_these_nodes;
+  for (const string& f : item.fetch) {
+    NGRAPH_VLOG(5) << "Skip fetch node: " << f;
+    int pos = f.find(":");
+    skip_these_nodes.push_back(f.substr(0, pos));
+  }
+
   //
   // Variable capture: Part that replaces all instances of VariableV2 with the
   // NGraphVariable op. Making this replacement allows us to substitute in a
@@ -75,7 +83,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
 
   // Do variable capture then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(CaptureVariables(&graph));
+  TF_RETURN_IF_ERROR(CaptureVariables(&graph, skip_these_nodes));
   if (DumpCapturedGraphs()) {
     DumpGraphs(graph, idx, "captured", "Graph With Variables Captured");
   }
@@ -113,14 +121,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   if (config::IsEnabled() == false ||
       std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
     return Status::OK();
-  }
-
-  // Get the nodes to be skipped for marking
-  std::vector<string> skip_these_nodes;
-  for (const string& f : item.fetch) {
-    NGRAPH_VLOG(5) << "Get the node name and add to skip nodes";
-    int pos = f.find(":");
-    skip_these_nodes.push_back(f.substr(0, pos));
   }
 
   // 1. Mark for clustering then, if requested, dump the graphs.

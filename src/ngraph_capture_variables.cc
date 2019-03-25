@@ -28,17 +28,24 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 //
-// Utility function to check if placement on the NGRAPH device has been
+// Utility function to check if placement on the NGRAPH has been
 // requested.
-//
-// FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
-//
-static bool NGraphPlacementRequested(const Node* node) { return true; }
+static bool NGraphPlacementRequested(const Node* node,
+                                     std::vector<string> skip_these_nodes) {
+  for (string& f : skip_these_nodes) {
+    if (node->name() == f) {
+      NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+                     << " - skip capturing it";
+      return false;
+    }
+  }
+  return true;
+}
 
 //
 // Main entry point for the variable-capture.
 //
-Status CaptureVariables(Graph* graph) {
+Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
   if (config::IsEnabled() == false) {
     return Status::OK();
   }
@@ -46,7 +53,7 @@ Status CaptureVariables(Graph* graph) {
   std::vector<Node*> replaced_nodes;
 
   for (auto node : graph->op_nodes()) {
-    if (NGraphPlacementRequested(node)) {
+    if (NGraphPlacementRequested(node, skip_these_nodes)) {
       if (node->type_string() == "VariableV2") {
         NGRAPH_VLOG(4) << "Capturing: " << node->name();
 
