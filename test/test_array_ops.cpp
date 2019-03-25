@@ -547,7 +547,11 @@ TEST(ArrayOps, QuantizedConcat) {
   opexecuter.RunTest();
 }  // end of test op QuantizedConcat
 
-// CPU only supports QuantizedConcat with DT_QINT32 and DT_QUINT8
+// Disabled because for varing min/max input
+// NGraph and TF results diagree
+// For this test case: TF result is [47 46 46 0 1 2 70 72 73][46 47 55 3 3 4 75
+// 76 106]
+// NG result is [1 0 0 0 1 2 1 3 5][0 1 20 2 3 4 7 9 50]
 TEST(ArrayOps, DISABLED_QuantizedConcatVaryingMinMax) {
   Scope root = Scope::NewRootScope();
   int dim1 = 2;
@@ -564,7 +568,6 @@ TEST(ArrayOps, DISABLED_QuantizedConcatVaryingMinMax) {
 
   vector<int> static_input_indexes = {0, 4, 5, 6, 7, 8, 9};
 
-  // TODO: NG and TF results disagress when input mins/maxes vary
   ops::QuantizedConcat R = ops::QuantizedConcat(
       root, 1, {A, B, C}, {1.0f, -1.0f, 2.0f}, {2.0f, 4.0f, 10.0f});
 
@@ -575,6 +578,21 @@ TEST(ArrayOps, DISABLED_QuantizedConcatVaryingMinMax) {
   OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
                         output_datatypes, sess_run_fetchoutputs);
 
+  // vector<Tensor> tf_outputs;
+  // opexecuter.ExecuteOnTF(tf_outputs);
+
+  // vector<Tensor> ng_outputs;
+  // opexecuter.ExecuteOnNGraph(ng_outputs);
+
+  // cout << "TF outputs " << endl;
+  // for(auto i : tf_outputs){
+  //   PrintTensorAllValues(i, 100);
+  // }
+
+  // cout << "NG outputs " << endl;
+  // for(auto i : ng_outputs){
+  //   PrintTensorAllValues(i, 100);
+  // }
   opexecuter.RunTest();
 }  // end of test op QuantizedConcatVaryingMinMax
 
