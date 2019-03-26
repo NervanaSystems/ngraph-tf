@@ -34,7 +34,7 @@
 #include "tensorflow/core/lib/core/errors.h"
 
 #if defined(NGRAPH_DISTRIBUTED)
-#include <mpi.h>
+#include "ngraph/distributed.hpp"
 #endif
 
 using namespace std;
@@ -1572,13 +1572,13 @@ static Status TranslateDepthwiseConv2dNativeOp(
   return Status::OK();
 }
 
-static Status TranslateDistBroadcastOp(
+static Status TranslateBroadcastDistributedOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::DistBroadcast>(ng_input));
+  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::BroadcastDistributed>(ng_input));
   return Status::OK();
 }
 
@@ -3829,7 +3829,7 @@ const static std::map<
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
         {"HorovodAllreduce", TranslateAllreduceOp},
-        {"HorovodBroadcast", TranslateDistBroadcastOp},
+        {"HorovodBroadcast", TranslateBroadcastDistributedOp},
         {"Identity", TranslateIdentityOp},
         {"L2Loss", TranslateL2LossOp},
         {"Less", TranslateBinaryOp<ngraph::op::Less>},
