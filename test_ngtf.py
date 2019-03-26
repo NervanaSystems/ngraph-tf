@@ -301,7 +301,7 @@ def main():
         run_cpp_example_test('build')
 
     # Next run the TensorFlow python tests
-    run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
+    run_tensorflow_pytests(venv_dir, build_dir, './', 'build_cmake/tensorflow')
 
     # Finally run Resnet50 based training and inferences
     run_resnet50(build_dir)
