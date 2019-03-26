@@ -24,7 +24,7 @@ import glob
 import platform
 from distutils.sysconfig import get_python_lib
 
-from build_ngtf import load_venv, command_executor
+from tools.build_utils import load_venv, command_executor
 
 
 def run_ngtf_gtests(build_dir, filters):
@@ -270,6 +270,7 @@ def main():
     # Constants
     build_dir = 'build_cmake'
     venv_dir = 'build_cmake/venv-tf-py3'
+    tf_src_dir = 'build_cmake/tensorflow'
 
     if (platform.system() != 'Darwin'):
         # Run the bazel based buil
@@ -301,7 +302,7 @@ def main():
         run_cpp_example_test('build')
 
     # Next run the TensorFlow python tests
-    run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
+    run_tensorflow_pytests(venv_dir, build_dir, './', tf_src_dir)
 
     # Finally run Resnet50 based training and inferences
     run_resnet50(build_dir)
