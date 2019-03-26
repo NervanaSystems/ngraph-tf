@@ -267,30 +267,28 @@ void MemoryProfile(long& vm_usage, long& resident_set) {
   }
 }
 
-void NgraphNodeDump(const shared_ptr<ng::Node>& node,
-                    const std::shared_ptr<ngraph::Function>& ng_function,
-                    int RankID) {
-  std::stringstream node_info_ss;
-  node_info_ss << "NGTF_Rank: " << RankID << "  " << node->get_name() << "(";
-  vector<string> inputs;
-  for (const ng::descriptor::Input& input : node->get_inputs()) {
-    inputs.push_back(input.get_tensor().get_name());
+void AllreduceOpControlOrder(
+    const std::shared_ptr<ngraph::Function>& ng_function) {
+  // Get the serialized ops and stored the allreduce ops to a vector and
+  ng::NodeVector allreduce_op_list;
+  for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
+    if (node->description() == "AllReduce") {
+      allreduce_op_list.push_back(node);
+    }
+    // Sort the allreduce ops according to the TF names
+    std::sort(allreduce_op_list.begin(), allreduce_op_list.end(),
+              [](const shared_ptr<ng::Node>& x, const shared_ptr<ng::Node>& y) {
+                return x->get_friendly_name() < y->get_friendly_name();
+              });
+    // Add control dependency in for the allreduce ops
+    if (allreduce_op_list.size() > 1) {
+      for (size_t i = 1; i < allreduce_op_list.size(); ++i) {
+        auto pre_node = allreduce_op_list[i - 1];
+        auto cur_node = allreduce_op_list[i];
+        cur_node->add_control_dependency(pre_node);
+      }
+    }
   }
-  node_info_ss << ng::join(inputs) << ")   [ ";
-
-  vector<string> dependencies;
-  for (auto nd : node->get_control_dependencies()) {
-    dependencies.push_back(nd->get_name());
-  }
-  node_info_ss << ng::join(dependencies) << "] -> ";
-
-  vector<string> outputs;
-  for (size_t i = 0; i < node->get_output_size(); ++i) {
-    outputs.push_back(node->get_output_tensor(i).get_name());
-  }
-  node_info_ss << ng::join(outputs) << "  " << ng_function->get_name();
-  std::string node_info = node_info_ss.str();
-  NGRAPH_VLOG(0) << node_info;
 };
 
 }  // namespace ngraph_bridge

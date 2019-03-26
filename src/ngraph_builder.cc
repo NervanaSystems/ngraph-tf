@@ -4036,35 +4036,7 @@ Status Builder::TranslateGraph(
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
 
 #if defined NGRAPH_DISTRIBUTED
-  // Get the serialized ops and stored the allreduce ops to a vector and
-  ng::NodeVector allreduce_op_list;
-  for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
-    if (node->description() == "AllReduce") {
-      allreduce_op_list.push_back(node);
-      // Diagnosis to check the input, dependencies, and output for each
-      // Allreduce op
-      if (std::getenv("NGRAPH_ALLREDUCE_LOGGING") != nullptr) {
-        ngraph::Distributed dist;
-        int Rank_ID;
-        Rank_ID = dist.get_rank();
-        NgraphNodeDump(node, ng_function, Rank_ID);
-      }
-    }
-  }
-
-  // Sort the allreduce ops according to the TF names
-  std::sort(allreduce_op_list.begin(), allreduce_op_list.end(),
-            [](const shared_ptr<ng::Node>& x, const shared_ptr<ng::Node>& y) {
-              return x->get_friendly_name() < y->get_friendly_name();
-            });
-  // Add control dependency in for the allreduce ops
-  if (allreduce_op_list.size() > 1) {
-    for (size_t i = 1; i < allreduce_op_list.size(); ++i) {
-      auto pre_node = allreduce_op_list[i - 1];
-      auto cur_node = allreduce_op_list[i];
-      cur_node->add_control_dependency(pre_node);
-    }
-  }
+  AllreduceOpControlOrder(ng_function);
 #endif
 
   //
