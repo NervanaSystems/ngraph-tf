@@ -258,8 +258,7 @@ Status MarkForClustering(Graph* graph) {
         return Status::OK();
       };
       confirmation_function_map["GatherV2"] = [](Node* n, bool* result) {
-        // TODO: Control this through build flags?
-        *result = BackendManager::GetCurrentlySetBackendName() == "NNPI";
+        *result = (BackendManager::GetCurrentlySetBackendName() == "NNPI");
         return Status::OK();
       };
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();

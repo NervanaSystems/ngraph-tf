@@ -1845,7 +1845,7 @@ static Status TranslateGatherV2Op(
   std::vector<int64> tf_indices;
   TF_RETURN_IF_ERROR(
       GetStaticInputVector(op, 1, static_input_map, &tf_indices));
-  // TODO: can indices be negative?
+  // It seems indices cannot be negative, so no need to handle that
   std::vector<size_t> indices(tf_indices.size());
   std::transform(tf_indices.begin(), tf_indices.end(), indices.begin(),
                  [](int64 x) { return (size_t)(x); });
