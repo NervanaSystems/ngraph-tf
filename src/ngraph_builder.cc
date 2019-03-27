@@ -2274,11 +2274,11 @@ static Status TranslateOneHotOp(
     output_shape.push_back(shape[i]);
   }
 
-  auto ng_onehot_labels =
-      make_shared<ng::op::OneHot>(ng_features, output_shape, one_hot_axis);
+  auto ng_onehot_labels = ConstructNgNode<ng::op::OneHot>(
+      op->name(), ng_features, output_shape, one_hot_axis);
 
-  shared_ptr<ng::Node> ng_onehot_bool =
-      make_shared<ng::op::Convert>(ng_onehot_labels, ng::element::boolean);
+  shared_ptr<ng::Node> ng_onehot_bool = ConstructNgNode<ng::op::Convert>(
+      op->name(), ng_onehot_labels, ng::element::boolean);
 
   // broadcast to make all tensors same shape, as required by ngraph select op
   std::tie(ng_onehot_bool, ng_on) =
@@ -2286,7 +2286,8 @@ static Status TranslateOneHotOp(
   std::tie(ng_onehot_bool, ng_off) =
       ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_off));
 
-  auto ng_onehot = make_shared<ng::op::Select>(ng_onehot_bool, ng_on, ng_off);
+  auto ng_onehot = ConstructNgNode<ng::op::Select>(op->name(), ng_onehot_bool,
+                                                   ng_on, ng_off);
 
   SaveNgOp(ng_op_map, op->name(), ng_onehot);
   return Status::OK();
