@@ -617,7 +617,6 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
-
   if (config::IsLoggingPlacement()) {
     std::cout << "\n=============New sub-graph logs=============\n";
     // print summary for nodes failed to be marked

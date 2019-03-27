@@ -31,7 +31,6 @@
 #include "ngraph/runtime/backend_manager.hpp"
 #include "ngraph_log.h"
 
-
 using namespace std;
 namespace ng = ngraph;
 

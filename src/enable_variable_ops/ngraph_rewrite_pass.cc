@@ -27,10 +27,9 @@
 #include "ngraph_enter_in_catalog.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
+#include "ngraph_replace_optimizers.h"
 #include "ngraph_rewrite_for_tracking.h"
 #include "tf_graph_writer.h"
-#include "ngraph_replace_optimizers.h"
-
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"

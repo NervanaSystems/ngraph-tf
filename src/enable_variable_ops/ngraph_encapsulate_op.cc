@@ -593,7 +593,8 @@ class NGraphEncapsulateOp : public OpKernel {
       ng_outputs.push_back(current_ng_tensor);
     }
 
-    Event event_output_check_in_catalog("Output: check in catalog", name().c_str());
+    Event event_output_check_in_catalog("Output: check in catalog",
+                                        name().c_str());
 
     for (int input_index = 0; input_index < input_shapes.size();
          input_index++) {
@@ -614,9 +615,10 @@ class NGraphEncapsulateOp : public OpKernel {
       } else {
         NGRAPH_VLOG(1) << " Not Found var in encapsulate";
       }
-      
+
       if (var->need_sync_ng_tensor()) {
-        Event event_sync_ng_tf_tensors("Output: ng_tensor and tf_tensor sync", name().c_str());
+        Event event_sync_ng_tf_tensors("Output: ng_tensor and tf_tensor sync",
+                                       name().c_str());
 
         NGRAPH_VLOG(1) << "In NGEncapsulate, ng tensor behind, needs to sync "
                           "with tf-tensor";
@@ -732,9 +734,12 @@ class NGraphEncapsulateOp : public OpKernel {
           // TODO: if the output is required by only other ng-encapsulates or
           // ng-variable types then
           // we dont need the copy
-          size_t copy_size = dst_tv->get_element_count() * ng_element_type.size();
-          string event_name = "Output_" + to_string(i) + "_" + to_string(copy_size);
-          Event event_individual_copy_output( event_name.c_str(), name().c_str());
+          size_t copy_size =
+              dst_tv->get_element_count() * ng_element_type.size();
+          string event_name =
+              "Output_" + to_string(i) + "_" + to_string(copy_size);
+          Event event_individual_copy_output(event_name.c_str(),
+                                             name().c_str());
           dst_tv->read(dst_ptr, 0,
                        dst_tv->get_element_count() * ng_element_type.size());
           event_individual_copy_output.Stop();

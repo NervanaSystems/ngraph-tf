@@ -17,8 +17,8 @@
 #include "tensorflow/core/graph/node_builder.h"
 #include "tensorflow/core/graph/types.h"
 
-#include "ngraph_utils.h"
 #include "ngraph_rewrite_for_tracking.h"
+#include "ngraph_utils.h"
 
 using namespace std;
 

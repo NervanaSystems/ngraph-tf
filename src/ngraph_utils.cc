@@ -36,8 +36,8 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-bool IsNGVariableType(string node_type){
-  return node_type=="NGraphVariable";
+bool IsNGVariableType(string node_type) {
+  return node_type == "NGraphVariable";
 }
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {

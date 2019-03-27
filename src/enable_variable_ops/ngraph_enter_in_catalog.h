@@ -22,7 +22,6 @@
 #include "ngraph/ngraph.hpp"
 #include "ngraph_catalog.h"
 
-
 using namespace std;
 namespace ng = ngraph;
 

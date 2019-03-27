@@ -19,12 +19,12 @@
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
 
-#include "tf_graph_writer.h"
-#include "test_utilities.h"
 #include "gtest/gtest.h"
 #include "ngraph_assign_clusters.h"
 #include "ngraph_backend_manager.h"
 #include "ngraph_mark_for_clustering.h"
+#include "test_utilities.h"
+#include "tf_graph_writer.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -79,7 +79,7 @@ TEST(Variables, SmallGraph1) {
   }
 
   ASSERT_OK(ng_session.Run({var}, &ng_outputs3));
-  
+
   // Run on TF
   DeactivateNGraph();
   ClientSession tf_session(root, options);
@@ -97,16 +97,14 @@ TEST(Variables, SmallGraph1) {
   }
 
   ASSERT_OK(tf_session.Run({var}, &tf_outputs3));
-  
+
   Compare(tf_outputs1, ng_outputs1);
   Compare(tf_outputs2, ng_outputs2);
   Compare(tf_outputs3, ng_outputs3);
 
-  //For other test cases  
+  // For other test cases
   ActivateNGraph();
 }
-
-
 
 }  // namespace testing
 }  // namespace ngraph_bridge
