@@ -19,6 +19,7 @@ include_directories(${NGRAPH_INSTALL_DIR}/include)
 include_directories(${ABSL_INCLUDE_DIR})
 
 set(NGRAPH_DEVICE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+# set(NGRAPH_DEVICE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/enable_variable_ops)
 
 # For some reason the following is needed for ABI compatibility with TF.
 # (There must be some dependency on it in the struct/class definitions.)
@@ -56,11 +57,29 @@ message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_S
 
 if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
     # common files
+    list(REMOVE_ITEM SRC ngraph_capture_variables.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_capture_variables.cc)
+
     list(REMOVE_ITEM SRC ngraph_encapsulate_op.cc)
     list(APPEND SRC enable_variable_ops/ngraph_encapsulate_op.cc)
 
+    list(REMOVE_ITEM SRC ngraph_rewrite_for_tracking.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_rewrite_for_tracking.cc)
+
+    list(REMOVE_ITEM SRC ngraph_rewrite_pass.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_rewrite_pass.cc)
+
+    list(REMOVE_ITEM SRC ngraph_tracked_variable.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_tracked_variable.cc)
+
+    list(REMOVE_ITEM SRC ngraph_utils.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_utils.cc)
+
     # new files
-    
+    list(APPEND SRC enable_variable_ops/ngraph_assign_op.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_catalog.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_enter_in_catalog.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_replace_optimizers.cc)
 
 endif()
 

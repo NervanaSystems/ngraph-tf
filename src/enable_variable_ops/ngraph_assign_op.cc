@@ -23,10 +23,9 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/platform/default/logging.h"
-#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
+//#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 
 #include "ngraph/runtime/backend.hpp"
-#include "ngraph_backend_manager.h"
 #include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
