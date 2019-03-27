@@ -34,13 +34,12 @@ import numpy as np
 
 
 class TestFusedConv2D(NgraphTest):
-    INPUT_SIZES = {"NHWC": [3, 1, 6, 2], "NCHW": [3, 2, 1, 6]}
+    INPUT_SIZES = [3, 1, 6, 2]
     FILTER_SIZES = [1, 1, 2, 2]
     BIAS_SIZES = [2]
 
-    @pytest.mark.parametrize("conv_format", ("NHWC", "NCHW"))
-    def test_fusedconv2d_bias(self, conv_format):
-        inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
+    def test_fusedconv2d_bias(self):
+        inp_values = np.random.rand(*self.INPUT_SIZES)
         filt_values = np.random.rand(*self.FILTER_SIZES)
         bias_values = np.random.rand(*self.BIAS_SIZES)
 
@@ -51,24 +50,18 @@ class TestFusedConv2D(NgraphTest):
             return sess.run(
                 nn_ops.bias_add(
                     nn_ops.conv2d(
-                        inp,
-                        filt,
-                        strides=[1, 1, 1, 1],
-                        padding="SAME",
-                        data_format=conv_format),
-                    bias,
-                    data_format=conv_format), {
-                        inp: inp_values,
-                        filt: filt_values,
-                        bias: bias_values,
-                    })
+                        inp, filt, strides=[1, 1, 1, 1], padding="SAME"), bias),
+                {
+                    inp: inp_values,
+                    filt: filt_values,
+                    bias: bias_values,
+                })
 
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
 
-    @pytest.mark.parametrize("conv_format", ("NHWC", "NCHW"))
-    def test_fusedconv2d_bias_relu(self, conv_format):
-        inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
+    def test_fusedconv2d_bias_relu(self):
+        inp_values = np.random.rand(*self.INPUT_SIZES)
         filt_values = np.random.rand(*self.FILTER_SIZES)
         bias_values = np.random.rand(*self.BIAS_SIZES)
 
@@ -80,13 +73,8 @@ class TestFusedConv2D(NgraphTest):
                 nn_ops.relu(
                     nn_ops.bias_add(
                         nn_ops.conv2d(
-                            inp,
-                            filt,
-                            strides=[1, 1, 1, 1],
-                            padding="SAME",
-                            data_format=conv_format),
-                        bias,
-                        data_format=conv_format)), {
+                            inp, filt, strides=[1, 1, 1, 1], padding="SAME"),
+                        bias)), {
                             inp: inp_values,
                             filt: filt_values,
                             bias: bias_values,
@@ -95,9 +83,8 @@ class TestFusedConv2D(NgraphTest):
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
 
-    @pytest.mark.parametrize("conv_format", ("NHWC", "NCHW"))
-    def test_fusedconv2d_batchnorm(self, conv_format):
-        inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
+    def test_fusedconv2d_batchnorm(self):
+        inp_values = np.random.rand(*self.INPUT_SIZES)
         filt_values = np.random.rand(*self.FILTER_SIZES)
         scale_values = np.random.rand(*self.BIAS_SIZES)
         offset_values = np.random.rand(*self.BIAS_SIZES)
@@ -112,18 +99,12 @@ class TestFusedConv2D(NgraphTest):
             mean = array_ops.placeholder(dtypes.float32)
             variance = array_ops.placeholder(dtypes.float32)
             bn, _, _ = nn_impl.fused_batch_norm(
-                nn_ops.conv2d(
-                    inp,
-                    filt,
-                    strides=[1, 1, 1, 1],
-                    padding="SAME",
-                    data_format=conv_format),
+                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME"),
                 scale,
                 offset,
                 mean,
                 variance,
                 epsilon=0.02,
-                data_format=conv_format,
                 is_training=False)
             return sess.run(
                 bn, {
@@ -138,9 +119,8 @@ class TestFusedConv2D(NgraphTest):
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
 
-    @pytest.mark.parametrize("conv_format", ("NHWC", "NCHW"))
-    def test_fusedconv2d_batchnorm_relu(self, conv_format):
-        inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
+    def test_fusedconv2d_batchnorm_relu(self):
+        inp_values = np.random.rand(*self.INPUT_SIZES)
         filt_values = np.random.rand(*self.FILTER_SIZES)
         scale_values = np.random.rand(*self.BIAS_SIZES)
         offset_values = np.random.rand(*self.BIAS_SIZES)
@@ -155,18 +135,12 @@ class TestFusedConv2D(NgraphTest):
             mean = array_ops.placeholder(dtypes.float32)
             variance = array_ops.placeholder(dtypes.float32)
             bn, _, _ = nn_impl.fused_batch_norm(
-                nn_ops.conv2d(
-                    inp,
-                    filt,
-                    strides=[1, 1, 1, 1],
-                    padding="SAME",
-                    data_format=conv_format),
+                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME"),
                 scale,
                 offset,
                 mean,
                 variance,
                 epsilon=0.02,
-                data_format=conv_format,
                 is_training=False)
             return sess.run(
                 nn_ops.relu(bn), {
@@ -181,12 +155,11 @@ class TestFusedConv2D(NgraphTest):
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
 
-    @pytest.mark.parametrize("conv_format", ("NHWC", "NCHW"))
-    def test_fusedconv2d_squeeze_bias(self, conv_format):
-        inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
+    def test_fusedconv2d_squeeze_bias(self):
+        inp_values = np.random.rand(*self.INPUT_SIZES)
         filt_values = np.random.rand(*self.FILTER_SIZES)
         bias_values = np.random.rand(*self.BIAS_SIZES)
-        squeeze_dim = {"NHWC": [1], "NCHW": [2]}
+        squeeze_dim = [1]
 
         def run_test(sess):
             inp = array_ops.placeholder(dtypes.float32)
@@ -196,17 +169,12 @@ class TestFusedConv2D(NgraphTest):
                 nn_ops.bias_add(
                     array_ops.squeeze(
                         nn_ops.conv2d(
-                            inp,
-                            filt,
-                            strides=[1, 1, 1, 1],
-                            padding="SAME",
-                            data_format=conv_format), squeeze_dim[conv_format]),
-                    bias,
-                    data_format=conv_format), {
-                        inp: inp_values,
-                        filt: filt_values,
-                        bias: bias_values,
-                    })
+                            inp, filt, strides=[1, 1, 1, 1], padding="SAME"),
+                        squeeze_dim), bias), {
+                            inp: inp_values,
+                            filt: filt_values,
+                            bias: bias_values,
+                        })
 
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
