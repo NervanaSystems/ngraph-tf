@@ -52,6 +52,20 @@ set(SRC
    version.cc
 )
 
+message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_SUPPORT}")
+
+if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
+    # common files
+    list(REMOVE_ITEM SRC ngraph_encapsulate_op.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_encapsulate_op.cc)
+
+    # new files
+    
+
+endif()
+
+
+
 add_library(${LIB_NAME} SHARED ${SRC})
 
 target_link_libraries( ${LIB_NAME} ngraph_logger) 

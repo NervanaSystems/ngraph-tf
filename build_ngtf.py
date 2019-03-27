@@ -145,9 +145,9 @@ def setup_venv(venv_dir):
         "termcolor>=1.1.0",
         "protobuf>=3.6.1",
         "keras_applications>=1.0.6",
-        "--no-deps",
+        "--no-deps --no-cache-dir",
         "keras_preprocessing==1.0.5",
-        "--no-deps",
+        "--no-deps --no-cache-dir",
     ]
     command_executor(package_list)
 
@@ -423,6 +423,12 @@ def main():
         help="Builds a distributed version of the nGraph components\n",
         action="store")
 
+    parser.add_argument(
+        '--enable_variable_support',
+        type=str,
+        help="Ops like variable and optimizers are supported by nGraph in this version of the bridge\n",
+        action="store_true")    
+
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
@@ -570,6 +576,11 @@ def main():
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=TRUE"])
     else:
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
+
+    if (arguments.enable_variable_support):
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=TRUE"])
+    else:
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=FALSE"])
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location, "../", venv_dir,

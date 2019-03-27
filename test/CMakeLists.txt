@@ -56,6 +56,12 @@ set(SRC
     opexecuter.cpp
 )
 
+if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
+    list(APPEND SRC test_variable_ops.cpp)
+endif()
+
+message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_SUPPORT}")
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 message(STATUS "Compile Flags: ${CMAKE_CXX_FLAGS}")
