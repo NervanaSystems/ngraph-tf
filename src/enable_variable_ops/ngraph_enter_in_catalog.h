@@ -17,9 +17,11 @@
 #define NGRAPH_TF_ENTER_IN_CATALOG_H_
 #pragma once
 
+#include "tensorflow/core/graph/graph.h"
+
 #include "ngraph/ngraph.hpp"
 #include "ngraph_catalog.h"
-#include "tensorflow/core/graph/graph.h"
+
 
 using namespace std;
 namespace ng = ngraph;

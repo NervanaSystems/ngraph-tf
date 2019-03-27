@@ -36,6 +36,10 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+bool IsNGVariableType(string node_type){
+  return node_type=="NGraphVariable";
+}
+
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
   auto node_def = ctx->def();
   out << "Node name: " << node_def.name() << " Op: " << node_def.op() << "\n";

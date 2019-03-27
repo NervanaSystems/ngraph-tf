@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include "tensorflow/core/graph/algorithm.h"
+#include "tensorflow/core/graph/graph.h"
+
 #include "ngraph/ngraph.hpp"
 #include "ngraph/serializer.hpp"
 #include "ngraph_catalog.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
-#include "tensorflow/core/graph/algorithm.h"
-#include "tensorflow/core/graph/graph.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -141,6 +142,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
   // }
 
   NGRAPH_VLOG(1) << "Entered in Catalog";
+  return Status::OK();
 }
 
 }  // namespace ngraph_bridge

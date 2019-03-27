@@ -28,7 +28,7 @@
 #include "ngraph_backend_manager.h"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
-#include "ngraph_var.h"
+
 using namespace std;
 namespace ng = ngraph;
 

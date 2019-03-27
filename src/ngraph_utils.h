@@ -20,21 +20,50 @@
 #include <ostream>
 #include <sstream>
 
-#include "ngraph/ngraph.hpp"
-
+#include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/platform/tensor_coding.h"
 #include "tensorflow/core/util/saved_tensor_slice_util.h"
 
+#include "ngraph/ngraph.hpp"
 #include "ngraph/serializer.hpp"
 #include "ngraph_log.h"
 
+namespace ng = ngraph;
+using namespace std;
 namespace tensorflow {
 
 namespace ngraph_bridge {
 
+/* -------------------------------------------------
+//
+// NGraphVariableMap : Map of Variable names and their backend tensors
+//
+---------------------------------------------------*/
+
+void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor);
+void PrintTFTensor(Tensor& T1);
+std::string DebugNode(Node* node);
+
+// Read from this ng_tensor into tf_tensor
+void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor, Tensor* tf_tensor);
+std::string PrintBool(bool var);
+
+// Write into this ng_tensor from tf_tensor
+void WriteNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
+                   Tensor* tf_tensor);
+
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
+
+// Node-types that operate on a variable
+bool IsNGVariableType(string node_type);
+
+// Assign series
+bool IsTFAssignType(string node_type);
+bool IsNGAssignType(string node_type);
+
+string GetNGAssignType(string tf_node_type);
 
 // Taken from: tensorflow/core/grappler/optimizers/arithmetic_optimizer.cc
 // Extract values from a Const op to `values`. Returns true if succeeds.
@@ -157,6 +186,9 @@ void print_node_histogram(const std::unordered_map<string, int>&,
 // Prints the tensor to the given output stream
 std::ostream& DumpNGTensor(std::ostream& s, const std::string& name,
                            const std::shared_ptr<ngraph::runtime::Tensor>& t);
+
+Status NGraphElementTypeToTFDataType(DataType* tf_dt,
+                                     ngraph::element::Type ng_et);
 
 // Converts a TensorFlow DataType to an nGraph element::Type. Returns
 // errors::Unimplemented if the element type is not supported by nGraph

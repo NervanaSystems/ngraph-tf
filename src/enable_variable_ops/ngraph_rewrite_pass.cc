@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
+#include <iomanip>
+
 #include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/graph/graph.h"
@@ -28,7 +30,7 @@
 #include "ngraph_rewrite_for_tracking.h"
 #include "tf_graph_writer.h"
 #include "ngraph_replace_optimizers.h"
-#include <iomanip>
+
 
 #if defined NGRAPH_DISTRIBUTED
 #include "ngraph/distributed.hpp"

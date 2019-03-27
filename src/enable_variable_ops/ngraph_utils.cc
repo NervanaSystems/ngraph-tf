@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include "ngraph_utils.h"
-
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -30,6 +28,7 @@
 #include "tensorflow/core/platform/default/logging.h"
 #include "tensorflow/core/platform/protobuf.h"
 
+#include "ngraph_utils.h"
 using namespace std;
 namespace ng = ngraph;
 

@@ -253,14 +253,14 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     }
 
     // 4. Encapsulate clusters then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get()));
+    TF_RETURN_IF_ERROR(EncapsulateClusters(options.graph->get(),idx));
     if (DumpEncapsulatedGraphs()) {
       DumpGraphs(options, idx, "encapsulated",
                  "Graph with Clusters Encapsulated");
     }
 
     // Rewrite for tracking then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(RewriteForTracking(options.graph->get()));
+    TF_RETURN_IF_ERROR(RewriteForTracking(options.graph->get(), idx));
     if (DumpTrackedGraphs()) {
       DumpGraphs(options, idx, "tracked",
                  "Graph with Variables Rewritten for Tracking");
