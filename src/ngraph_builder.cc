@@ -17,6 +17,7 @@
 #include "ngraph_builder.h"
 #include <dlfcn.h>
 #include "ngraph/op/util/logical_reduction.hpp"
+#include "ngraph_backend_manager.h"
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
@@ -1868,18 +1869,15 @@ static Status TranslateGatherV2Op(
                             " which is unsupported");
   }
 
-  // TODO: move this to a function
-  DL_HANDLE handle = ng::runtime::Backend::get_handle(backend_name);
-  std::shared_ptr<ngraph::Node> (*func_construct_node)(shared_ptr<ngraph::Node>,
-                                                       ng::Coordinate, size_t);
-  *(void**)(&func_construct_node) = dlsym(handle, "construct_gather");
-  if (!func_construct_node) {
-    return errors::Internal("In translating GatherV2 op, symbol not found");
+  ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
+
+  shared_ptr<ng::Node> ng_gather = backend->get_backend_node(
+      "Gather", ng_input, ng::Coordinate(indices), (size_t)(tf_axis[0]));
+  if (ng_gather == nullptr) {
+    return errors::Internal("In translating GatherV2 op ", op->name(),
+                            " backend could not return valid ngraph node");
   }
-  // TODO: check if all kinds of cases of gather are covered (scalar, vector,
-  // higher rank etc)... scalar, vector and vector with broadcast OK
-  auto ng_gather =
-      (*func_construct_node)(ng_input, ng::Coordinate(indices), tf_axis[0]);
+
   SaveNgOp(ng_op_map, op->name(), ng_gather);
   return Status::OK();
 }
