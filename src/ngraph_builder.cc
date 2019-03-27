@@ -2159,44 +2159,58 @@ static Status TranslateDirectReduceOp(
       });
 }
 
-static Status TranslateOneHotOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
+static Status TranslateOneHotOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_features, ng_on, ng_off;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_features, nullptr, &ng_on, &ng_off));
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_features, nullptr, &ng_on, &ng_off));
 
   auto ng_features_shape = ng_features->get_shape();
+  auto ng_features_rank = ng_features_shape.size();
 
   std::vector<int> depth;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &depth));
 
   // Depth must be scalar
   if (depth.size() != 1) {
-    return errors::InvalidArgument("OneHot Op: depth of one hot dimension must be scalar ", depth.size());
+    return errors::InvalidArgument(
+        "OneHot Op: depth of one hot dimension must be scalar ", depth.size());
   }
 
   int one_hot_axis;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "axis", &one_hot_axis));
 
-  cout<< one_hot_axis << "\n";
-
-  auto shape = ng::Shape({ng_features_shape[0], depth[0]});
-
-  if(one_hot_axis != -1){
-      auto shape = ng::Shape({depth[0], ng_features_shape[0]});
+  std::vector<int> shape;
+  for (int i = 0; i < ng_features_rank; i++) {
+    shape.push_back(ng_features_shape[i]);
   }
 
-  cout<< shape << "\n";
+  // output shape based on axis value
+  auto pos = shape.begin() + one_hot_axis;
+  if (one_hot_axis == -1) {
+    one_hot_axis = ng_features_rank;
+    shape.push_back(depth[0]);
+  } else {
+    shape.insert(pos, depth[0]);
+  }
+
+  ng::Shape output_shape;
+  for (int i = 0; i < shape.size(); i++) {
+    output_shape.push_back(shape[i]);
+  }
 
   auto ng_onehot_labels =
-      make_shared<ng::op::OneHot>(ng_features, shape, 0);
+      make_shared<ng::op::OneHot>(ng_features, output_shape, one_hot_axis);
 
-  shared_ptr<ng::Node> ng_onehot_bool = make_shared<ng::op::Convert>(
-      ng_onehot_labels, ng::element::boolean);
+  shared_ptr<ng::Node> ng_onehot_bool =
+      make_shared<ng::op::Convert>(ng_onehot_labels, ng::element::boolean);
 
   // broadcast to make all tensors same shape, as required by ngraph select op
-  std::tie(ng_onehot_bool, ng_on) = ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_on));
-  std::tie(ng_onehot_bool, ng_off) = ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_off));
+  std::tie(ng_onehot_bool, ng_on) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_on));
+  std::tie(ng_onehot_bool, ng_off) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_off));
 
   auto ng_onehot = make_shared<ng::op::Select>(ng_onehot_bool, ng_on, ng_off);
 
