@@ -376,7 +376,6 @@ class NGraphEncapsulateOp : public OpKernel {
       try {
         ng_exec = op_backend->compile(ng_function);
       } catch (const std::exception& exp) {
-        ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
@@ -588,6 +587,7 @@ class NGraphEncapsulateOp : public OpKernel {
                         "Caught exception while executing nGraph computation: ",
                         exp.what(), "\n"));
       } catch (...) {
+        ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
         NgraphSerialize(
             "tf_function_error_" + ctx->op_kernel().name() + ".json",
@@ -617,18 +617,32 @@ class NGraphEncapsulateOp : public OpKernel {
 
     // Copy value to host if backend is not CPU
     Event event_copy_output("Output - copy back", name().c_str());
-
     Timer copy_output_tensors_to_host;
 
     try {
       if (m_op_backend_name != "CPU") {
-        for (size_t i = 0; i < output_caches.size(); ++i) {
+        size_t output_tensor_count = output_caches.size();
+        std::vector<std::unique_ptr<Event>> events;
+        for (size_t i = 0; i < output_tensor_count; ++i) {
           void* dst_ptr;
           std::shared_ptr<ng::runtime::Tensor> dst_ng_tensor;
           std::tie(dst_ptr, dst_ng_tensor) = output_caches[i];
           auto ng_element_type = dst_ng_tensor->get_element_type();
+          std::unique_ptr<Event> event_copy_output_next(
+              new Event(("Output_" + std::to_string(i) + "_" +
+                         std::to_string(dst_ng_tensor->get_element_count() *
+                                        ng_element_type.size()))
+                            .c_str(),
+                        name().c_str()));
           dst_ng_tensor->read(dst_ptr, 0, dst_ng_tensor->get_element_count() *
                                               ng_element_type.size());
+          event_copy_output_next->Stop();
+          events.push_back(std::move(event_copy_output_next));
+        }
+
+        // Now write the events back
+        for (auto& next : events) {
+          Event::WriteTrace(*next.get());
         }
       }
     } catch (const std::exception& exp) {
