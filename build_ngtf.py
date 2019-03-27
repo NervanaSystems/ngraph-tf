@@ -425,7 +425,6 @@ def main():
 
     parser.add_argument(
         '--enable_variable_support',
-        type=str,
         help="Ops like variable and optimizers are supported by nGraph in this version of the bridge\n",
         action="store_true")    
 
