@@ -34,7 +34,7 @@ import numpy as np
 
 
 class TestFusedConv2D(NgraphTest):
-    INPUT_SIZES = {"NHWC" : [3, 1, 6, 2], "NCHW" : [3, 2, 1, 6]}
+    INPUT_SIZES = {"NHWC": [3, 1, 6, 2], "NCHW": [3, 2, 1, 6]}
     FILTER_SIZES = [1, 1, 2, 2]
     BIAS_SIZES = [2]
 
@@ -50,12 +50,18 @@ class TestFusedConv2D(NgraphTest):
             bias = array_ops.placeholder(dtypes.float32)
             return sess.run(
                 nn_ops.bias_add(
-                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME", data_format=conv_format), bias, data_format=conv_format),
-                {
-                    inp: inp_values,
-                    filt: filt_values,
-                    bias: bias_values,
-                })
+                    nn_ops.conv2d(
+                        inp,
+                        filt,
+                        strides=[1, 1, 1, 1],
+                        padding="SAME",
+                        data_format=conv_format),
+                    bias,
+                    data_format=conv_format), {
+                        inp: inp_values,
+                        filt: filt_values,
+                        bias: bias_values,
+                    })
 
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
@@ -71,14 +77,20 @@ class TestFusedConv2D(NgraphTest):
             filt = array_ops.placeholder(dtypes.float32)
             bias = array_ops.placeholder(dtypes.float32)
             return sess.run(
-                nn_ops.relu(    
-                nn_ops.bias_add(
-                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME", data_format=conv_format), bias, data_format=conv_format)),
-                {
-                    inp: inp_values,
-                    filt: filt_values,
-                    bias: bias_values,
-                })
+                nn_ops.relu(
+                    nn_ops.bias_add(
+                        nn_ops.conv2d(
+                            inp,
+                            filt,
+                            strides=[1, 1, 1, 1],
+                            padding="SAME",
+                            data_format=conv_format),
+                        bias,
+                        data_format=conv_format)), {
+                            inp: inp_values,
+                            filt: filt_values,
+                            bias: bias_values,
+                        })
 
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
@@ -100,9 +112,21 @@ class TestFusedConv2D(NgraphTest):
             mean = array_ops.placeholder(dtypes.float32)
             variance = array_ops.placeholder(dtypes.float32)
             bn, _, _ = nn_impl.fused_batch_norm(
-                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME", data_format=conv_format), scale, offset, mean, variance, epsilon=0.02, data_format=conv_format, is_training=False)
-            return sess.run(bn, 
-                {
+                nn_ops.conv2d(
+                    inp,
+                    filt,
+                    strides=[1, 1, 1, 1],
+                    padding="SAME",
+                    data_format=conv_format),
+                scale,
+                offset,
+                mean,
+                variance,
+                epsilon=0.02,
+                data_format=conv_format,
+                is_training=False)
+            return sess.run(
+                bn, {
                     inp: inp_values,
                     filt: filt_values,
                     scale: scale_values,
@@ -131,9 +155,21 @@ class TestFusedConv2D(NgraphTest):
             mean = array_ops.placeholder(dtypes.float32)
             variance = array_ops.placeholder(dtypes.float32)
             bn, _, _ = nn_impl.fused_batch_norm(
-                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME", data_format=conv_format), scale, offset, mean, variance, epsilon=0.02, data_format=conv_format, is_training=False)
-            return sess.run(nn_ops.relu(bn), 
-                {
+                nn_ops.conv2d(
+                    inp,
+                    filt,
+                    strides=[1, 1, 1, 1],
+                    padding="SAME",
+                    data_format=conv_format),
+                scale,
+                offset,
+                mean,
+                variance,
+                epsilon=0.02,
+                data_format=conv_format,
+                is_training=False)
+            return sess.run(
+                nn_ops.relu(bn), {
                     inp: inp_values,
                     filt: filt_values,
                     scale: scale_values,
@@ -150,22 +186,27 @@ class TestFusedConv2D(NgraphTest):
         inp_values = np.random.rand(*self.INPUT_SIZES[conv_format])
         filt_values = np.random.rand(*self.FILTER_SIZES)
         bias_values = np.random.rand(*self.BIAS_SIZES)
-        squeeze_dim = {"NHWC" : [1], "NCHW" : [2]}
-        
+        squeeze_dim = {"NHWC": [1], "NCHW": [2]}
+
         def run_test(sess):
             inp = array_ops.placeholder(dtypes.float32)
             filt = array_ops.placeholder(dtypes.float32)
             bias = array_ops.placeholder(dtypes.float32)
             return sess.run(
                 nn_ops.bias_add(
-                array_ops.squeeze(
-                nn_ops.conv2d(inp, filt, strides=[1, 1, 1, 1], padding="SAME", data_format=conv_format), squeeze_dim[conv_format]), 
-                bias, data_format=conv_format),
-                {
-                    inp: inp_values,
-                    filt: filt_values,
-                    bias: bias_values,
-                })
+                    array_ops.squeeze(
+                        nn_ops.conv2d(
+                            inp,
+                            filt,
+                            strides=[1, 1, 1, 1],
+                            padding="SAME",
+                            data_format=conv_format), squeeze_dim[conv_format]),
+                    bias,
+                    data_format=conv_format), {
+                        inp: inp_values,
+                        filt: filt_values,
+                        bias: bias_values,
+                    })
 
         assert np.allclose(
             self.without_ngraph(run_test), self.with_ngraph(run_test))
