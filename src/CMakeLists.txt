@@ -77,6 +77,9 @@ if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
 
     # new files
     list(APPEND SRC enable_variable_ops/ngraph_assign_op.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_assignadd_op.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_assignsub_op.cc)
+    list(APPEND SRC enable_variable_ops/ngraph_applygradientdescent_op.cc)
     list(APPEND SRC enable_variable_ops/ngraph_catalog.cc)
     list(APPEND SRC enable_variable_ops/ngraph_enter_in_catalog.cc)
     list(APPEND SRC enable_variable_ops/ngraph_replace_optimizers.cc)
