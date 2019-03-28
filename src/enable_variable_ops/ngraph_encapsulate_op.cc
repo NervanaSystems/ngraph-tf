@@ -631,8 +631,6 @@ class NGraphEncapsulateOp : public OpKernel {
 
       ng_inputs[input_index] = var->ng_tensor();
 
-      NGRAPH_VLOG(1) << "Print ng Var value";
-      PrintNGTensor(ng_inputs[input_index]);
       var->Unref();
     }
     event_output_check_in_catalog.Stop();
@@ -716,11 +714,10 @@ class NGraphEncapsulateOp : public OpKernel {
         std::tie(dst_ptr, dst_tv) = output_caches[i];
 
         NGRAPH_VLOG(1) << " Found Output key " << key << dst_tv;
-        // PrintNGTensor(dst_tv);
+        
         if (ref_exists) {
           NGRAPH_VLOG(1) << " Saving output " << key << dst_tv;
           NGraphCatalog::AddOutputCatalog(key, dst_tv);
-          // PrintNGTensor(dst_tv);
         }
         NGRAPH_VLOG(1) << "Is Output Copy required for " << def().name()
                        << " ,index: " << i << " "

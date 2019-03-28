@@ -92,13 +92,9 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
   OP_REQUIRES_OK(context,
                  context->GetAttr("_ngraph_backend", &ng_backend_name_));
-  NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  //  NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
-  NGRAPH_VLOG(1) << "Constructor "
-                 << "Graph_id " << ng_graph_id_
-                 << " ,Node Name: " << def().name() << ": just looking? "
-                 << just_looking_ << " ,copy-to-tf " << copy_to_tf_
-                 << "backend " << ng_backend_name_;
+  NGRAPH_VLOG(4) << "NGraphVariable:: Constructor called for: " << def().name()
+                << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_ <<" ,backend_name "<< ng_backend_name_;
 }
 
 NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
@@ -106,9 +102,9 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // (Changes: Renamed from VariableOp, modified to pass TensorShape to NGraphVar
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
-  NGRAPH_VLOG(1) << "Compute " << def().name();
-  NGRAPH_VLOG(1) << "Graph ID " << ng_graph_id_ << "Backend "
-                 << ng_backend_name_;
+  NGRAPH_VLOG(4) << "NGraphVariable:: Compute called for: " << def().name()
+                << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_ <<" ,backend_name "<< ng_backend_name_;
   mutex_lock l(init_mu_);
   if (!initialized_) {
     // Analyze the node attribute of 'ndef' and decides the container and
@@ -140,8 +136,6 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
 
   auto creator = [this](NGraphVar** var) {
     *var = new NGraphVar(dtype_, shape_, ng_backend_name_);
-    //(*var)->tensor()->set_shape(shape_);
-    // BackendManager::ng_variable_map_[def().name()] = (*var)->ng_tensor();
     return Status::OK();
   };
 
@@ -155,23 +149,13 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<NGraphVar>(
                           cinfo_.container(), cinfo_.name(), &var, creator));
 
-  NGRAPH_VLOG(1) << def().name() << " TF Tensor Intialized "
-                 << PrintBool(var->tensor()->IsInitialized());
-
-  // NGRAPH_VLOG(1) << "Print ng-tensor";
-  // PrintNGTensor(var->ng_tensor());
-
-  // NGRAPH_VLOG(1) << "Print tf-tensor";
-  // PrintTFTensor(*(var->tensor()));
   bool just_synced = false;
   if (var->need_sync_ng_tensor()) {
-    NGRAPH_VLOG(1) << "in tracked variable, ng tensor behind, needs to sync "
+    NGRAPH_VLOG(4) << "in tracked variable, ng tensor behind, needs to sync "
                       "with tf-tensor";
     WriteNGTensor(var->ng_tensor(), var->tensor());
     var->sync_ng_tensor(false);
     just_synced = true;
-    // TODO: Is it safe to set sync as false after this sync, or should it be
-    // synced everytime
   }
 
   // Output a reference to our tensor, so it may be updated.
@@ -215,13 +199,8 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   if (copy_to_tf_) {
     if (!just_synced) {
       ReadNGTensor(var->ng_tensor(), var->tensor());
-      NGRAPH_VLOG(1) << "Copying to TF Tensor";
+      NGRAPH_VLOG(4) << "Copying to TF Tensor";
     }
-    // NGRAPH_VLOG(1) << "Print ng-tensor";
-    // PrintNGTensor(var->ng_tensor());
-
-    // NGRAPH_VLOG(1) << "Print tf-tensor";
-    // PrintTFTensor(*(var->tensor()));
 
     if (just_looking_) {
       // Some tf op will just use the val

@@ -56,9 +56,9 @@ class NGraphAssignAddOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
     OP_REQUIRES_OK(context,
                    context->GetAttr("_ngraph_backend", &ng_backend_name_));
-    NGRAPH_VLOG(1) << "Constructing NGraphAssignAdd " << def().name()
-                   << ": just looking? " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_;
+    NGRAPH_VLOG(4) << "NGraphAssignAdd:: Constructor called for: " << def().name()
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -71,10 +71,10 @@ class NGraphAssignAddOp : public OpKernel {
     oss << "Execute: AssignAdd_" << my_instance_id << ": " << name();
     Event event_compute(oss.str().c_str(), name().c_str());
     
-    NGRAPH_VLOG(1) << "In Assign Add Kernel " << def().name();
-    NGRAPH_VLOG(1) << "Copy to TF " << PrintBool(copy_to_tf_);
-    NGRAPH_VLOG(1) << "Just Looking " << PrintBool(just_looking_);
-
+    NGRAPH_VLOG(4) << "NGraphAssignAdd:: Compute called for: " << def().name()
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+    
     bool ref_exists =
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
@@ -87,23 +87,26 @@ class NGraphAssignAddOp : public OpKernel {
    Event event_lookup("NGAssignAdd: Lookup input reference", name().c_str());
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+
+
+    //TODO: Throw Error
     NGraphVar* var;
     if (context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
             &var) == Status::OK()) {
-      NGRAPH_VLOG(1) << "Found var in assignadd";
+      NGRAPH_VLOG(4) << "NGraphAssignAdd:: Found variable in resource manager";
     } else {
-      NGRAPH_VLOG(1) << " Not Found var in assignadd";
+      NGRAPH_VLOG(4) << "NGraphAssignAdd:: Not Found variable in resource manager";
     }
 
     event_lookup.Stop();
     Event::WriteTrace(event_lookup);
 
-    // CARE ABOUT SYNCING AS WE ARE USING THE VAR TO GET THE NEW VALUE
+    // Sync before computing the value
     if (var->need_sync_ng_tensor()) {
       Event sync_ng_tensor("NGAssignAdd: sync_ng_tensor", name().c_str());
 
-      NGRAPH_VLOG(1)
+      NGRAPH_VLOG(4)
           << "In AssignAdd, ng tensor behind, needs to sync with tf-tensor";
       WriteNGTensor(var->ng_tensor(), var->tensor());
       // TODO: Is it safe to set sync as false after this sync
@@ -115,7 +118,6 @@ class NGraphAssignAddOp : public OpKernel {
     // get the nGraphTensor Variable
     shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
 
-    NGRAPH_VLOG(1) << " Before Computing ";
     // Create Backend
     BackendManager::CreateBackend(ng_backend_name_);
     ng::runtime::Backend* op_backend =
@@ -134,17 +136,15 @@ class NGraphAssignAddOp : public OpKernel {
       // Value is from encap
       Event input_from_catelog("NGAssignAdd: Getting input from catalog", name().c_str());
 
-      NGRAPH_VLOG(1) << "Directly getting Val from catalog : " << valkey;
+      NGRAPH_VLOG(4) << "NGraphAssignAdd::Getting from catalog : " << valkey;
       ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
-      NGRAPH_VLOG(1) << "Got tensor " << valkey << " " << ng_val;
-      NGRAPH_VLOG(1) << "Is null " << ((ng_val == NULL) ? "Yes" : "No");
       input_from_catelog.Stop();
 
       Event::WriteTrace(input_from_catelog);
     } else {
       Event input_from_TF("NGAssignAdd: Getting input from TF", name().c_str());
 
-      NGRAPH_VLOG(1) << "Getting from TF : " << valkey;
+      NGRAPH_VLOG(4) << "NGraphAssignAdd::Getting from TF : " << valkey;
       TensorShape tfshape = rhs.shape();
       ng::Shape ng_shape(tfshape.dims());
       for (int j = 0; j < tfshape.dims(); ++j) {
@@ -165,7 +165,7 @@ class NGraphAssignAddOp : public OpKernel {
     // Create Input Tensor Vector
     vector<shared_ptr<ng::runtime::Tensor>> ng_inputs = {ng_tensor_to_assign,
                                                          ng_val};
-    NGRAPH_VLOG(1) << " Input Tensors Created ";
+    NGRAPH_VLOG(4) << " Input Tensors Created ";
 
     std::stringstream signature_ss;
     for (int i = 0; i < ng_inputs.size(); i++) {
@@ -178,13 +178,13 @@ class NGraphAssignAddOp : public OpKernel {
 
     signature_ss << "/";
     std::string signature = signature_ss.str();
-    NGRAPH_VLOG(1) << " Signature " << signature;
+    NGRAPH_VLOG(4) << " Signature " << signature;
 
     if (ng_exec_map.find(signature) == ng_exec_map.end()) {
       Event cache_miss("NGAssignAdd: Cache miss, compiling", name().c_str());
 
       // create and compile function
-      NGRAPH_VLOG(1) << " Cache miss ";
+      NGRAPH_VLOG(4) << " Cache miss ";
       auto V = make_shared<ng::op::Parameter>(
           ng_tensor_to_assign->get_element_type(),
           ng_tensor_to_assign->get_shape());
@@ -195,11 +195,11 @@ class NGraphAssignAddOp : public OpKernel {
       auto ng_function = make_shared<ng::Function>(ng::NodeVector{add},
                                                    ng::ParameterVector{V, Val});
 
-      NGRAPH_VLOG(1) << " Created Function ";
+      NGRAPH_VLOG(4) << " Created Function ";
 
       // Compile Function to get executable
       auto ng_exec_temp = op_backend->compile(ng_function);
-      NGRAPH_VLOG(1) << " Compiled Function ";
+      NGRAPH_VLOG(4) << " Compiled Function ";
       ng_exec_map[signature] = ng_exec_temp;
       cache_miss.Stop();
       Event::WriteTrace(cache_miss);
@@ -216,13 +216,13 @@ class NGraphAssignAddOp : public OpKernel {
           op_backend->create_tensor(ng_element_type, ng_shape);
       ng_outputs.push_back(ng_op);
     }
-    NGRAPH_VLOG(1) << " Output Tensors Created ";
+    NGRAPH_VLOG(4) << " Output Tensors Created ";
     
 
     // Call Executable
     Event call_executable("NGAssignAdd: Calling executable", name().c_str());
     ng_exec->call(ng_outputs, ng_inputs);
-    NGRAPH_VLOG(1) << " Call Executed ";
+    NGRAPH_VLOG(4) << " Call Executed ";
     call_executable.Stop();
     Event::WriteTrace(call_executable);
 
@@ -236,9 +236,7 @@ class NGraphAssignAddOp : public OpKernel {
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
     auto tf_tensor = var->tensor();
 
-    if (copy_to_tf_) {
-      NGRAPH_VLOG(1) << "Copying to TF Tensor";
-      
+    if (copy_to_tf_) {      
       Event copy_to_tf("NGAssignAdd: Copy to TF tensor", name().c_str());
 
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);

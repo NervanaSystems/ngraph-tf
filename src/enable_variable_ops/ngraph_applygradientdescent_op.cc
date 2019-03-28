@@ -72,9 +72,10 @@ class NGraphApplyGradientDescentOp : public OpKernel {
                 errors::InvalidArgument("The first input must be a ref type "
                                         "for NGraphApplyGraidenteDescent"));
 
-    NGRAPH_VLOG(1) << "Constructing NGraphApplyGradientDescent " << def().name()
-                   << ": just looking? " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_;
+    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Constructor called for: " << def().name()
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+
 
     my_instance_id = s_instance_count;
     s_instance_count++;
@@ -94,9 +95,9 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     oss << "Execute: NGApplyGradientDescent compute" << my_instance_id << ": " << name();
     Event event_compute(oss.str().c_str(), name().c_str());
 
-    NGRAPH_VLOG(1) << "In NGraphApplyGradientDescent Compute";
-    NGRAPH_VLOG(1) << "Copy to TF " << PrintBool(copy_to_tf_);
-    NGRAPH_VLOG(1) << "Just Looking " << PrintBool(just_looking_);
+    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Compute called for: " << def().name()
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
 
     // Get the 1st input ref from input_catelog (NGraphVar ->
     // NGraphApplyGraidentDescent)
@@ -105,27 +106,26 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
                   errors::Internal("Caught exception : RefInput to "
-                                   "NGraphApplyGradientDescent not found \n"));
+                                   "NGraphApplyGradientDescent not found in Catalog \n"));
     }
-    NGRAPH_VLOG(1) << "NGraphApplyGraidentDescent ref input exists in catelog";
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+    
+    //Throw error
     NGraphVar* var;
     if (context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
             &var) == Status::OK()) {
-      NGRAPH_VLOG(1) << "Found var in NGraphApplyGradientDescent";
+      NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Found variable in resource manager";
     } else {
-      NGRAPH_VLOG(1) << " Not Found var in NGraphApplyGradientDescent";
+      NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Not Found var in resource manager";
     }
 
-    // CARE ABOUT SYNCING HERE SINCE WE ARE USING NGVariable value for
-    // computation
+    // Sync before using the variable for computation
     if (var->need_sync_ng_tensor()) {
-      NGRAPH_VLOG(1) << "in ApplyGradientDescent, ng tensor behind, needs to "
+      NGRAPH_VLOG(4) << "in ApplyGradientDescent, ng tensor behind, needs to "
                         "sync with tf-tensor";
       WriteNGTensor(var->ng_tensor(), var->tensor());
-      // TODO: Is it safe to set sync as false after this sync
       var->sync_ng_tensor(false);
     }
 
@@ -144,23 +144,20 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     // if they are coming from NGraphEncapsulates
     for (int i = 1; i < 3; i++) {
       string valkey = to_string(ng_graph_id_) + "_" + def().input(i);
-      NGRAPH_VLOG(1) << "NGraphAGD input " << i << " with key " << valkey;
+      NGRAPH_VLOG(4) << "NGraphAGD input " << i << " with key " << valkey;
 
       // checking in output catelog
       bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
 
       if (valref_exists) {
         // Value is from encap
-        NGRAPH_VLOG(1) << "Directly assigning from : " << valkey;
+        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from Catalog : " << valkey;
         auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
-        NGRAPH_VLOG(1) << "Got tensor " << valkey << " " << ng_val;
-        NGRAPH_VLOG(1) << "Is null " << ((ng_val == NULL) ? "Yes" : "No");
         input_to_ng_tensor_map[i] = ng_val;
-        NGRAPH_VLOG(1) << "Insert ng_tensor input " << i
+        NGRAPH_VLOG(4) << "Insert ng_tensor input " << i
                        << "in input_to_ng_tensor_map ";
-        // ng_tensor_to_assign->copy_from(*ng_val);
       } else {
-        NGRAPH_VLOG(1) << "Getting from TF : " << valkey;
+        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from TF : " << valkey;
         const Tensor& rhs = context->input(i);
         void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
 
@@ -178,18 +175,14 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
         // Create nGTensor
         auto ng_tensor = op_backend->create_tensor(ng_element_type, ng_shape);
-        NGRAPH_VLOG(1) << "Constructed ng tensor ";
         ng_tensor->write(tf_src_ptr, 0,
                          ng_tensor->get_element_count() *
                              ng_tensor->get_element_type().size());
-        NGRAPH_VLOG(1) << "Getting the values from TF tensor to NG tensor ";
         input_to_ng_tensor_map[i] = ng_tensor;
-        NGRAPH_VLOG(1) << "Insert ng_tensor input " << i
-                       << "in input_to_ng_tensor_map ";
       }
     }  // end of getting inputs for NGraphApplyGradientDescent
 
-    NGRAPH_VLOG(1) << "Size should be 2 " << input_to_ng_tensor_map.size();
+    NGRAPH_VLOG(4) << "Size should be 2 " << input_to_ng_tensor_map.size();
     if (input_to_ng_tensor_map.size() < 2) {
       OP_REQUIRES(context, input_to_ng_tensor_map.size(),
                   errors::Internal("Caught exception : Missing inputs to  "
@@ -212,11 +205,11 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     }
     signature_ss << "/";
     std::string signature = signature_ss.str();
-    NGRAPH_VLOG(1) << " Signature " << signature;
+    NGRAPH_VLOG(4) << " Signature " << signature;
 
     if (ng_exec_map.find(signature) == ng_exec_map.end()) {
       // create and compile function
-      NGRAPH_VLOG(1) << " Cache miss in NGraphApplyGraidentDescent ";
+      NGRAPH_VLOG(4) << " Cache miss in NGraphApplyGraidentDescent ";
 
       // Build the graph for var - (alpha * delta)
       auto var_param = std::make_shared<ng::op::Parameter>(
@@ -228,7 +221,7 @@ class NGraphApplyGradientDescentOp : public OpKernel {
       auto delta_param = std::make_shared<ng::op::Parameter>(
           input_to_ng_tensor_map[2]->get_element_type(),
           input_to_ng_tensor_map[2]->get_shape());
-      NGRAPH_VLOG(1) << "Constructed the parameters for the graph";
+      NGRAPH_VLOG(4) << "Constructed the parameters for the graph";
 
       std::shared_ptr<ng::Node> ng_alpha_param, ng_delta_param;
       std::tie(ng_alpha_param, ng_delta_param) = ng::builder::numpy_broadcast(
@@ -241,11 +234,11 @@ class NGraphApplyGradientDescentOp : public OpKernel {
       auto ng_function = std::make_shared<ng::Function>(
           ng::NodeVector{t1},
           ng::ParameterVector{var_param, alpha_param, delta_param});
-      NGRAPH_VLOG(1) << "Constructed ApplyGradientDescent ng_function ";
+      NGRAPH_VLOG(4) << "Constructed ApplyGradientDescent ng_function ";
 
       // Compile Function to get executable
       auto ng_exec_temp = op_backend->compile(ng_function);
-      NGRAPH_VLOG(1) << "Compiled ApplyGradientDescent ng_function ";
+      NGRAPH_VLOG(4) << "Compiled ApplyGradientDescent ng_function ";
       ng_exec_map[signature] = ng_exec_temp;  // cache the ng_executable
     }
     auto ng_exec = ng_exec_map[signature];
@@ -263,7 +256,7 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
     // Call Executable
     ng_exec->call(ng_outputs, ng_inputs);
-    NGRAPH_VLOG(1) << "Finished calling the compiled executable ";
+    NGRAPH_VLOG(4) << "Finished calling the compiled executable ";
 
     // Assign to the variable
     ng_tensor_to_assign->copy_from(*ng_outputs[0]);
@@ -277,7 +270,7 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     // Update the tf tensor alsoe
     if (copy_to_tf_) {
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
-      NGRAPH_VLOG(1) << "Copying to TF Tensor";
+      NGRAPH_VLOG(4) << "Copying to TF Tensor";
 
       if (just_looking_) {
         // Some tf op will just use the val

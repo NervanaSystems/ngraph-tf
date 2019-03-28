@@ -70,9 +70,9 @@ class NGraphAssignOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
 
-    NGRAPH_VLOG(1) << "Constructing NGraphAssign " << def().name()
-                   << ": just looking? " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_;
+    NGRAPH_VLOG(4) << "NGraphAssign:: Constructor called for: " << def().name()
+                << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -85,9 +85,9 @@ class NGraphAssignOp : public OpKernel {
     oss << "Execute: Assign_" << my_instance_id << ": " << name();
     Event event_compute(oss.str().c_str(), name().c_str());
 
-    NGRAPH_VLOG(1) << "In Assign Kernel " << def().name();
-    NGRAPH_VLOG(1) << "Copy to TF " << PrintBool(copy_to_tf_);
-    NGRAPH_VLOG(1) << "Just Looking " << PrintBool(just_looking_);
+    NGRAPH_VLOG(4) << "NGraphAssign:: Compute called for: " << def().name()
+                << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
 
     bool ref_exists =
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
@@ -98,13 +98,15 @@ class NGraphAssignOp : public OpKernel {
     }
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+    
+    //TODO Throw Error
     NGraphVar* var;
     if (context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
             &var) == Status::OK()) {
-      NGRAPH_VLOG(1) << "Found var in assign";
+      NGRAPH_VLOG(4) << "NGraphAssign:: Found variable in resource manager";
     } else {
-      NGRAPH_VLOG(1) << " Not Found var in assign";
+      NGRAPH_VLOG(4) << "NGraphAssign:: Not Found variable in resource manager";
     }
 
     const Tensor& rhs = context->input(1);
@@ -116,29 +118,20 @@ class NGraphAssignOp : public OpKernel {
     shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
 
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
-    NGRAPH_VLOG(1) << " Before Assigning";
-    NGRAPH_VLOG(1) << " Print NG Tensor ";
-    PrintNGTensor(ng_tensor_to_assign);
-    NGRAPH_VLOG(1) << " Print TF Tensor :vartensor";
-    // PrintTFTensor(old_lhs);
-    PrintTFTensor(*(var->tensor()));
+    
 
     string valkey = to_string(ng_graph_id_) + "_" + def().input(1);
     bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
     if (valref_exists) {
       // Value is from encap
-      NGRAPH_VLOG(1) << "Directly assigning from : " << valkey;
+      NGRAPH_VLOG(4) << "NGraphAssign::Getting from catalog: " << valkey;
       auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
-      NGRAPH_VLOG(1) << "Got tensor " << valkey << " " << ng_val;
-      NGRAPH_VLOG(1) << "Is null " << ((ng_val == NULL) ? "Yes" : "No");
-      NGRAPH_VLOG(1) << " Print ng Value to Assign ";
-      PrintNGTensor(ng_val);
       Event event_copy("D2D Copy", name().c_str());
       ng_tensor_to_assign->copy_from(*ng_val);
       event_copy.Stop();
       Event::WriteTrace(event_copy);
     } else {
-      NGRAPH_VLOG(1) << "Getting from TF : " << valkey;
+      NGRAPH_VLOG(4) << "NGraphAssign::Getting from TF : " << valkey;
       void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
       Event event_host_2_dev_copy("H2D Copy", name().c_str());
       ng_tensor_to_assign->write(
@@ -148,34 +141,15 @@ class NGraphAssignOp : public OpKernel {
       Event::WriteTrace(event_host_2_dev_copy);
     }
 
-    NGRAPH_VLOG(1) << " Print NG Tensor ";
-    PrintNGTensor(ng_tensor_to_assign);
-
     mutex_lock l(*context->input_ref_mutex(0));
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
     auto tf_tensor = var->tensor();
-    NGRAPH_VLOG(1) << " Print TF Tensor before copy ";
-    PrintTFTensor(old_lhs);
-    PrintTFTensor(*tf_tensor);
-
+    
     if (copy_to_tf_) {
-      // update the tf tensor
-      // mutex_lock l(*context->input_ref_mutex(0));
-      // const Tensor& old_lhs = context->mutable_input(0, /* lock_held */
-      // true);
-      // Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
-      NGRAPH_VLOG(1) << "Copying to TF Tensor";
-      NGRAPH_VLOG(1) << "Print ng-tensor";
-      PrintNGTensor(ng_tensor_to_assign);
-
-      NGRAPH_VLOG(1) << "Print tf-tensor";
-      PrintTFTensor(old_lhs);
-      PrintTFTensor(*tf_tensor);
 
       if (just_looking_) {
         // Some tf op will just use the val
-
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
         var->sync_ng_tensor(true);
