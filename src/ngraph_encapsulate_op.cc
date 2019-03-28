@@ -59,6 +59,7 @@ REGISTER_OP("NGraphEncapsulate")
     .Output("results: Tresults")
     .Attr("Tresults: list(type) >= 0")
     .Attr("ngraph_cluster: int")
+    .Attr("ngraph_graph_id: int")
     .SetIsStateful()
     .Doc("nGraph Encapsulation Op. For use by the nGraph JIT only.");
 
