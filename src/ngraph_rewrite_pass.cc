@@ -25,8 +25,8 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
-#include "tf_graph_writer.h"
 #include "ngraph_utils.h"
+#include "tf_graph_writer.h"
 
 #include <iomanip>
 
@@ -129,15 +129,14 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
 
     // Do variable capture then, if requested, dump the graphs.
     std::vector<string> skip_these_nodes = {};
-    TF_RETURN_IF_ERROR(CaptureVariables(options.graph->get(), skip_these_nodes));
+    TF_RETURN_IF_ERROR(
+        CaptureVariables(options.graph->get(), skip_these_nodes));
     if (DumpCapturedGraphs()) {
       DumpGraphs(options, idx, "captured", "Graph With Variables Captured");
     }
 
     return Status::OK();
   }
-
-
 };
 
 //
@@ -189,7 +188,8 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
 
     // 1. Mark for clustering then, if requested, dump the graphs.
     std::vector<string> skip_these_nodes = {};
-    TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get(), skip_these_nodes));
+    TF_RETURN_IF_ERROR(
+        MarkForClustering(options.graph->get(), skip_these_nodes));
     if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "marked", "Graph Marked for Clustering");
     }
@@ -223,7 +223,6 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
 
     return Status::OK();
   }
-
 };
 
 }  // namespace ngraph_bridge

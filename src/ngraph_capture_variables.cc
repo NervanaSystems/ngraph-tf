@@ -31,7 +31,7 @@ namespace ngraph_bridge {
 // Utility function to check if it is an output node
 // Skip capturing it, if yes.
 static bool CheckIfOutputNode(const Node* node,
-                                     std::vector<string> skip_these_nodes) {
+                              std::vector<string> skip_these_nodes) {
   for (string& f : skip_these_nodes) {
     if (node->name() == f) {
       NGRAPH_VLOG(5) << "Found Output Node: " << node->name()

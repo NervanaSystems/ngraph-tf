@@ -32,8 +32,8 @@
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
-#include "tf_graph_writer.h"
 #include "ngraph_utils.h"
+#include "tf_graph_writer.h"
 
 #include <iomanip>
 
@@ -59,8 +59,8 @@ class NgraphOptimizer : public tensorflow::grappler::CustomGraphOptimizer {
                   GraphDef*) override;
 
   void Feedback(tensorflow::grappler::Cluster*,
-                const tensorflow::grappler::GrapplerItem&,
-                const GraphDef&, double) override;
+                const tensorflow::grappler::GrapplerItem&, const GraphDef&,
+                double) override;
 
  private:
   void DumpGraphs(Graph&, int, std::string, std::string);
