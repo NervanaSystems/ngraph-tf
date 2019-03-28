@@ -127,7 +127,7 @@ def bias_variable(shape):
 def train_mnist_cnn(FLAGS):
     # Config
     # Enable the custom optimizer using the rewriter config options
-    if(FLAGS.use_grappler):
+    if (FLAGS.use_grappler):
         rewrite_options = rewriter_config_pb2.RewriterConfig(custom_optimizers=[
             rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
                 name="ngraph-optimizer")
@@ -142,7 +142,6 @@ def train_mnist_cnn(FLAGS):
             allow_soft_placement=True,
             log_device_placement=False,
             inter_op_parallelism_threads=1)
-
 
     # Note: Additional configuration option to boost performance is to set the
     # following environment for the run:
@@ -268,7 +267,7 @@ if __name__ == '__main__':
         '--use_grappler',
         type=bool,
         default=False,
-        help='Use NgraphOptimizer')
+        help='Use grappler - NgraphOptimizer')
 
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
