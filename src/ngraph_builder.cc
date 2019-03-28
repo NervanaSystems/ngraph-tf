@@ -2255,24 +2255,15 @@ static Status TranslateOneHotOp(
   int one_hot_axis;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "axis", &one_hot_axis));
 
-  std::vector<int> shape;
-  for (int i = 0; i < ng_features_rank; i++) {
-    shape.push_back(ng_features_shape[i]);
-  }
-
-  // output shape based on axis value
-  auto pos = shape.begin() + one_hot_axis;
+  ng::Shape output_shape(ng_features_shape);
+  auto pos = output_shape.begin();
   if (one_hot_axis == -1) {
     one_hot_axis = ng_features_rank;
-    shape.push_back(depth[0]);
+    pos = output_shape.end();
   } else {
-    shape.insert(pos, depth[0]);
+    pos = output_shape.begin() + one_hot_axis;
   }
-
-  ng::Shape output_shape;
-  for (int i = 0; i < shape.size(); i++) {
-    output_shape.push_back(shape[i]);
-  }
+  output_shape.insert(pos, depth[0]);
 
   auto ng_onehot_labels = ConstructNgNode<ng::op::OneHot>(
       op->name(), ng_features, output_shape, one_hot_axis);

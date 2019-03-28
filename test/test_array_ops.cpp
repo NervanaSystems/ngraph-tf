@@ -354,7 +354,7 @@ TEST(ArrayOps, OneHot1d) {
 
   Tensor indices(DT_INT32, TensorShape({4}));
 
-  AssignInputValues<int>(indices, {0, 2, -1, 1});
+  AssignInputValues<int>(indices, {0, 2, -1, -50});
 
   Tensor depth(DT_INT32, TensorShape({}));
   Tensor on_value(DT_FLOAT, TensorShape({}));
@@ -414,7 +414,7 @@ TEST(ArrayOps, OneHot2d) {
 
   Tensor indices(DT_INT32, TensorShape({2, 2}));
 
-  AssignInputValues<int>(indices, {0, 2, -1, 1});
+  AssignInputValues<int>(indices, {0, 2, -1, 50});
 
   Tensor depth(DT_INT32, TensorShape({}));
   Tensor on_value(DT_FLOAT, TensorShape({}));
@@ -481,7 +481,7 @@ TEST(ArrayOps, OneHot3dNegAxis) {
   Tensor off_value(DT_FLOAT, TensorShape({}));
 
   AssignInputValues<int>(depth, 2);
-  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(on_value, 1.0);
   AssignInputValues<float>(off_value, 0.0);
 
   auto attrs = ops::OneHot::Attrs();
