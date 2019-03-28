@@ -24,7 +24,7 @@ import glob
 import platform
 from distutils.sysconfig import get_python_lib
 
-from build_ngtf import load_venv, command_executor
+from tools.build_utils import load_venv, command_executor
 
 
 def run_ngtf_gtests(build_dir, filters):
@@ -233,10 +233,10 @@ def run_bazel_build_test(venv_dir, build_dir):
     command_executor(['bash', 'configure_bazel.sh'])
 
     # Build the bridge
-    command_executor(['bazel', 'build', '--incompatible_remove_native_http_archive=false', 'libngraph_bridge.so'])
+    command_executor(['bazel', 'build', 'libngraph_bridge.so'])
     
     # Build the backend
-    command_executor(['bazel', 'build', '--incompatible_remove_native_http_archive=false', '@ngraph//:libinterpreter_backend.so'])
+    command_executor(['bazel', 'build', '@ngraph//:libinterpreter_backend.so'])
 
     # Return to the original directory
     os.chdir(root_pwd)
@@ -270,6 +270,7 @@ def main():
     # Constants
     build_dir = 'build_cmake'
     venv_dir = 'build_cmake/venv-tf-py3'
+    tf_src_dir = 'build_cmake/tensorflow'
 
     if (platform.system() != 'Darwin'):
         # Run the bazel based buil
@@ -301,7 +302,7 @@ def main():
         run_cpp_example_test('build')
 
     # Next run the TensorFlow python tests
-    run_tensorflow_pytests(venv_dir, build_dir, './', 'build/tensorflow')
+    run_tensorflow_pytests(venv_dir, build_dir, './', tf_src_dir)
 
     # Finally run Resnet50 based training and inferences
     run_resnet50(build_dir)
