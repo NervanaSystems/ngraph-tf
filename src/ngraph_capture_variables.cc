@@ -28,9 +28,9 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 //
-// Utility function to check if placement on the NGRAPH has been
-// requested.
-static bool NGraphPlacementRequested(const Node* node,
+// Utility function to check if it is an output node
+// Skip capturing it, if yes.
+static bool CheckIfOutputNode(const Node* node,
                                      std::vector<string> skip_these_nodes) {
   for (string& f : skip_these_nodes) {
     if (node->name() == f) {
@@ -53,7 +53,7 @@ Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
   std::vector<Node*> replaced_nodes;
 
   for (auto node : graph->op_nodes()) {
-    if (NGraphPlacementRequested(node, skip_these_nodes)) {
+    if (CheckIfOutputNode(node, skip_these_nodes)) {
       if (node->type_string() == "VariableV2") {
         NGRAPH_VLOG(4) << "Capturing: " << node->name();
 

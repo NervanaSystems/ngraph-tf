@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include "ngraph_mark_for_clustering.h"
 #include "ngraph_rewrite_for_tracking.h"
 #include "tf_graph_writer.h"
+#include "ngraph_utils.h"
 
 #include <iomanip>
 
@@ -53,98 +54,18 @@ class NgraphOptimizer : public tensorflow::grappler::CustomGraphOptimizer {
     return Status::OK();
   }
 
-  Status Optimize(tensorflow::grappler::Cluster* cluster,
-                  const tensorflow::grappler::GrapplerItem& item,
-                  GraphDef* output) override;
+  Status Optimize(tensorflow::grappler::Cluster*,
+                  const tensorflow::grappler::GrapplerItem&,
+                  GraphDef*) override;
 
-  void Feedback(tensorflow::grappler::Cluster* cluster,
-                const tensorflow::grappler::GrapplerItem& item,
-                const GraphDef& optimize_output, double result) override;
-
- protected:
-  void DumpGraphs(Graph& graph, int idx, std::string filename_prefix,
-                  std::string title);
+  void Feedback(tensorflow::grappler::Cluster*,
+                const tensorflow::grappler::GrapplerItem&,
+                const GraphDef&, double) override;
 
  private:
-  static std::string DotFilename(std::string kind, int idx) {
-    return GraphFilenamePrefix(kind, idx) + ".dot";
-  }
+  void DumpGraphs(Graph&, int, std::string, std::string);
 
-  static std::string PbtxtFilename(std::string kind, int idx) {
-    return GraphFilenamePrefix(kind, idx) + ".pbtxt";
-  }
-
-  static std::string GraphFilenamePrefix(std::string kind, int idx) {
-    std::stringstream ss;
-    ss << kind << "_" << std::setfill('0') << std::setw(4) << idx;
-#if defined NGRAPH_DISTRIBUTED
-    ngraph::Distributed dist;
-    int Rank_ID = dist.get_rank();
-    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
-#endif
-    return ss.str();
-  }
-
-  static std::string GraphFilenamePrefix(std::string kind, int idx,
-                                         int sub_idx) {
-    std::stringstream ss;
-    ss << GraphFilenamePrefix(kind, idx) << "_" << std::setfill('0')
-       << std::setw(4) << sub_idx;
-#if defined NGRAPH_DISTRIBUTED
-    ngraph::Distributed dist;
-    int Rank_ID = dist.get_rank();
-    ss << "_" << std::setfill('0') << std::setw(4) << Rank_ID;
-#endif
-    return ss.str();
-  }
-
-  static int FreshIndex() {
-    mutex_lock l(s_serial_counter_mutex);
-    return s_serial_counter++;
-  }
-
-  static bool DumpAllGraphs() {
-    return std::getenv("NGRAPH_TF_DUMP_GRAPHS") != nullptr;
-  }
-
-  static bool DumpPrecaptureGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_PRE_CAPTURED_GRAPHS") != nullptr;
-  }
-  static bool DumpCapturedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_CAPTURED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpUnmarkedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_UNMARKED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpMarkedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_MARKED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpClusteredGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_CLUSTERED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpDeclusteredGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_DECLUSTERED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpEncapsulatedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_ENCAPSULATED_GRAPHS") != nullptr;
-  }
-
-  static bool DumpTrackedGraphs() {
-    return DumpAllGraphs() ||
-           std::getenv("NGRAPH_TF_DUMP_TRACKED_GRAPHS") != nullptr;
-  }
+  static int FreshIndex();
 
   static int s_serial_counter GUARDED_BY(s_serial_counter_mutex);
   static mutex s_serial_counter_mutex;

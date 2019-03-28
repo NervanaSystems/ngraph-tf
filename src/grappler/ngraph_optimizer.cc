@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,17 @@ namespace ngraph_bridge {
 Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                                  const tensorflow::grappler::GrapplerItem& item,
                                  GraphDef* output) {
-  NGRAPH_VLOG(1) << "Here at NgraphOptimizer ";
+  NGRAPH_VLOG(5) << "Here at NgraphOptimizer ";
+  NGRAPH_VLOG(5) << "NgraphOptimizer : grappler item id " << item.id;
+
+  // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
+  // we will not do anything; all subsequent
+  // passes become a no-op.
+  if (config::IsEnabled() == false ||
+      std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+    NGRAPH_VLOG(5) << "Ngraph is disabled ";
+    return Status::OK();
+  }
 
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
@@ -74,14 +84,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
     DumpGraphs(graph, idx, "precapture", "Pre-Capture Graph");
   }
 
-  // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
-  // we will not do anything; all subsequent
-  // passes become a no-op.
-  if (config::IsEnabled() == false ||
-      std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-    return Status::OK();
-  }
-
   // Do variable capture then, if requested, dump the graphs.
   TF_RETURN_IF_ERROR(CaptureVariables(&graph, skip_these_nodes));
   if (DumpCapturedGraphs()) {
@@ -113,14 +115,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   // If requested, dump unmarked graphs.
   if (DumpUnmarkedGraphs()) {
     DumpGraphs(graph, idx, "unmarked", "Unmarked Graph");
-  }
-
-  // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
-  // we will not do anything; all subsequent
-  // passes become a no-op.
-  if (config::IsEnabled() == false ||
-      std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-    return Status::OK();
   }
 
   // 1. Mark for clustering then, if requested, dump the graphs.
@@ -181,7 +175,12 @@ void NgraphOptimizer::DumpGraphs(Graph& graph, int idx,
   GraphToPbTextFile(&graph, pbtxt_filename);
 }
 
-REGISTER_GRAPH_OPTIMIZER_AS(NgraphOptimizer, "ng-optimizer");
+int NgraphOptimizer::FreshIndex() {
+    mutex_lock l(s_serial_counter_mutex);
+    return s_serial_counter++;
+}
+
+REGISTER_GRAPH_OPTIMIZER_AS(NgraphOptimizer, "ngraph-optimizer");
 
 }  // end namespace ngraph_bridge
 

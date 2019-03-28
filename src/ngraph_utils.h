@@ -205,6 +205,36 @@ void NgraphSerialize(const std::string&,
 // Collect the total memory usage through /proc/self/stat
 void MemoryProfile(long&, long&);
 
+std::string DotFilename(std::string, int);
+
+std::string DotFilename(std::string kind, int idx, int sub_idx);
+
+std::string PbtxtFilename(std::string, int);
+
+std::string PbtxtFilename(std::string kind, int idx, int sub_idx);
+
+std::string GraphFilenamePrefix(std::string, int);
+
+std::string GraphFilenamePrefix(std::string, int, int);
+
+bool DumpAllGraphs();
+
+bool DumpPrecaptureGraphs();
+
+bool DumpCapturedGraphs();
+
+bool DumpUnmarkedGraphs();
+
+bool DumpMarkedGraphs();
+
+bool DumpClusteredGraphs();
+
+bool DumpDeclusteredGraphs();
+
+bool DumpEncapsulatedGraphs();
+
+bool DumpTrackedGraphs();
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

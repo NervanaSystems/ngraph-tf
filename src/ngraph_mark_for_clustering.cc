@@ -569,6 +569,15 @@ Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
     bool mark_for_clustering = false;
 
     do {
+      // check if output node
+      bool skip_it = false;
+      TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
+      if (skip_it) {
+        NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+                       << " - skip marking it for clustering";
+        break;
+      }
+
       // check placement
       bool placement_ok = false;
       TF_RETURN_IF_ERROR(NGraphPlacementRequested(node, placement_ok));
@@ -603,14 +612,6 @@ Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
         NGRAPH_VLOG(5) << "Inputs do not meet type constraints: "
                        << node->name();
         fail_constraint_histogram[node->type_string()]++;
-        break;
-      }
-
-      bool skip_it = false;
-      TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
-      if (skip_it) {
-        NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
-                       << " - skip marking it for clustering";
         break;
       }
 
