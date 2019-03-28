@@ -481,7 +481,59 @@ Status EncapsulateClusters(Graph* graph) {
     graph->RemoveNode(node);
   }
 
-  // Pass 7 (optional, only run if environment variable
+
+  // Pass 7: Find sharable connections
+  // Looking for:
+  // E-->E 
+  // E1<--TF-->E2, where TF node does not feed into a modifying TF node
+  // What if this TF node is a var?? ... Shrestha's change
+
+  // What of: E1-->Tf
+  //          |
+  //          v
+  //          E2
+  // where TF is a modifying node
+  // Generally: what of A-->M
+  //                    |
+  //                    v
+  //                    B
+  // It seems modifying nodes can only accept mutable tensors (eg from variable).
+  // Maybe it cannot accept from normal TF nodes.... yes. we cant apply assign on normal tensors. only tensorflow.python.ops.variables.RefVariable
+
+
+  auto get_string_info = [](int enc_id,  bool is_output, int slot_id){
+    std::vector<int> info = {enc_id, is_output ? 1 : 0, slot_id};
+    return ng::join(info, "_") ;};
+
+  std::unordered_map<string, int> ng_tensor_sharing_info;
+
+  auto is_encapsulate = [](Node* n){return n->type_string() == "NGraphEncapsulate";};
+  for (auto edge : graph->edges()){
+    Node* src = edge->src();
+    Node* dst = edge->dst();
+    if (is_encapsulate(src) && is_encapsulate(dst)) {
+      int src_cluster_idx, dst_cluster_idx;
+      TF_RETURN_IF_ERROR(GetNodeAttr(src->attrs(), "ngraph_cluster", &src_cluster_idx));
+      TF_RETURN_IF_ERROR(GetNodeAttr(dst->attrs(), "ngraph_cluster", &dst_cluster_idx));
+
+      string key_src = get_string_info(src_cluster_idx, true, edge->src_output());
+      string key_dst = get_string_info(dst_cluster_idx, false, edge->src_output());
+      //std::make_tuple(dst_cluster_idx, true, edge->dst_input());
+      //auto it = ng_tensor_sharing_info.find(std::make_tuple(src_cluster_idx, false, edge->src_output()));
+    }
+  }
+
+  for (auto node : graph->op_nodes()) {
+    if (is_encapsulate(node)){
+      int cluster_idx;
+      TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_cluster", &cluster_idx));
+      //auto share_info = ng_tensor_sharing_info[cluster_idx];
+      //std::string information_string = get_string_info(share_info.first) + "__" + get_string_info(share_info.second);
+    }
+  }
+
+
+  // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
   // make sure we can construct a graph from it.
   if (std::getenv("NGRAPH_TF_DUMP_CLUSTERS")) {
