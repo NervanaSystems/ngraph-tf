@@ -75,7 +75,6 @@ def main():
         type=str,
         help="Copy the artifacts to the given directory\n",
         action="store")
-    
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
