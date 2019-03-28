@@ -117,7 +117,10 @@ class TestFusedConv2D(NgraphTest):
                 })
 
         assert np.allclose(
-            self.without_ngraph(run_test), self.with_ngraph(run_test))
+            self.without_ngraph(run_test),
+            self.with_ngraph(run_test),
+            rtol=0,
+            atol=5e-5)
 
     def test_fusedconv2d_batchnorm_relu(self):
         inp_values = np.random.rand(*self.INPUT_SIZES)
