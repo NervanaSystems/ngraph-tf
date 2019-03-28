@@ -46,7 +46,7 @@ def run_inference(model_name, models_dir):
                 python eval_image_classifier.py --alsologtostderr \
                 --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
                 --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-                --dataset_split_name=validation --model_name=inception_v4"},\
+                --dataset_split_name=validation --model_name=inception_v4 --max_num_batches=3"},\
      {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1", \
         "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
                 python eval_image_classifier.py --alsologtostderr \
@@ -99,7 +99,7 @@ def check_accuracy(model, p):
     data = json.loads(accuracy)
 
     for line in p.splitlines():
-        print(line)
+        print(line.decode())
         if ('eval/Accuracy'.encode() in line):
             top1_accuracy = re.search("\[(.*?)\]", line.decode()).group(1)
         #for now we just validate top 1 accuracy, but calculating top5 anyway.
@@ -111,13 +111,16 @@ def check_accuracy(model, p):
         if (model in data[i]["model_name"]):
             # Tolerance check
             diff = abs(float(top1_accuracy) - float(data[i]["accuracy"]))
+            print('\033[1m' + '\nModel Accuracy Verification' + '\033[0m')
             if (diff <= 0.001):
-                print("\nRESULT: Functional accuracy " + top1_accuracy +
+                print('\033[92m' + 'PASS' + '\033[0m' +
+                      " Functional accuracy " + top1_accuracy +
                       " is as expected for " + data[i]["model_name"])
             else:
-                print("\nRESULT: Functional accuracy " + top1_accuracy +
+                print('\033[91m' + 'FAIL' + '\033[0m' +
+                      " Functional accuracy " + top1_accuracy +
                       " is not as expected for " + data[i]["model_name"] +
-                      "\nExpected accuracy is " + data[i]["accuracy"])
+                      "\nExpected accuracy = " + data[i]["accuracy"])
 
 
 if __name__ == '__main__':
