@@ -1871,7 +1871,7 @@ static Status TranslateGatherV2Op(
 
   ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
 
-  shared_ptr<ng::Node> ng_gather = backend->get_backend_node(
+  shared_ptr<ng::Node> ng_gather = backend->get_backend_op(
       "Gather", ng_input, ng::Coordinate(indices), (size_t)(tf_axis[0]));
   if (ng_gather == nullptr) {
     return errors::Internal("In translating GatherV2 op ", op->name(),
