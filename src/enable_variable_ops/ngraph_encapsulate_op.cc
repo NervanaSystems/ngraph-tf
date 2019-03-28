@@ -170,7 +170,7 @@ class NGraphEncapsulateOp : public OpKernel {
       // seems to screw things up in the C++ unit tests.
       // m_freshness_tracker->Unref();
 
-      // Delete the [Could be erroreneous we dont know if this destructor is
+      // TODO(malikshr) : Delete the [Could be erroreneous we dont know if this destructor is
       // called at the very end]
       string node_name = "_ngraph_cluster_" + to_string(m_ngraph_cluster);
 
@@ -483,12 +483,12 @@ class NGraphEncapsulateOp : public OpKernel {
           NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), i);
 
       if (ref_exists) {
-        NGRAPH_VLOG(1) << " Input from variable exiting ";
+        NGRAPH_VLOG(4) << "NGraphEncapsulateOp:: Input from Variable Node";
         ng_inputs.push_back(nullptr);
         continue;
       }
 
-      NGRAPH_VLOG(1) << " Getting Input from non variable ";
+      NGRAPH_VLOG(4) << "NGraphEncapsulateOp:: Input from non Variable Node";
       ng::Shape ng_shape(input_shapes[i].dims());
       for (int j = 0; j < input_shapes[i].dims(); ++j) {
         ng_shape[j] = input_shapes[i].dim_size(j);
@@ -605,22 +605,25 @@ class NGraphEncapsulateOp : public OpKernel {
         continue;
       }
 
+      //Throw Error
+      // if nullptr and !ref_exists --->throw error
+      // if var not in resource manager throw error
       string get_ref_var_name = NGraphCatalog::GetInputSharedName(
           m_graph_id, def().name(), input_index);
       NGraphVar* var;
       if (ctx->resource_manager()->Lookup<NGraphVar>(
               ctx->resource_manager()->default_container(), get_ref_var_name,
               &var) == Status::OK()) {
-        NGRAPH_VLOG(1) << "Found var in encapsulate";
+        NGRAPH_VLOG(4) << "NGraphEncapsulate:: Found variable in resource manager ";
       } else {
-        NGRAPH_VLOG(1) << " Not Found var in encapsulate";
+        NGRAPH_VLOG(4) << "NGraphEncapsulate:: Not Found variable in resource manager";
       }
 
       if (var->need_sync_ng_tensor()) {
         Event event_sync_ng_tf_tensors("Output: ng_tensor and tf_tensor sync",
                                        name().c_str());
 
-        NGRAPH_VLOG(1) << "In NGEncapsulate, ng tensor behind, needs to sync "
+        NGRAPH_VLOG(4) << "In NGEncapsulate, ng tensor behind, needs to sync "
                           "with tf-tensor";
         WriteNGTensor(var->ng_tensor(), var->tensor());
         // TODO: Is it safe to set sync as false after this sync, or should it
@@ -697,8 +700,9 @@ class NGraphEncapsulateOp : public OpKernel {
     Timer copy_output_tensors_to_host;
 
     try {
+      // Done to delete the tensors from catalog in the destructor
       if (m_number_outputs == -1) {
-        NGRAPH_VLOG(1) << "Settig number of outputs for " << def().name();
+        NGRAPH_VLOG(4) << "Settig number of outputs for " << def().name();
         m_number_outputs = output_caches.size();
       }
       for (size_t i = 0; i < output_caches.size(); ++i) {
@@ -712,25 +716,17 @@ class NGraphEncapsulateOp : public OpKernel {
         void* dst_ptr;
         std::shared_ptr<ng::runtime::Tensor> dst_tv;
         std::tie(dst_ptr, dst_tv) = output_caches[i];
-
-        NGRAPH_VLOG(1) << " Found Output key " << key << dst_tv;
         
         if (ref_exists) {
-          NGRAPH_VLOG(1) << " Saving output " << key << dst_tv;
+          NGRAPH_VLOG(4) << "Saving output in Catalog " << key << dst_tv;
           NGraphCatalog::AddOutputCatalog(key, dst_tv);
         }
-        NGRAPH_VLOG(1) << "Is Output Copy required for " << def().name()
-                       << " ,index: " << i << " "
-                       << PrintBool(NGraphCatalog::EncapOutputNeedsCopy(
-                              def().name(), i));
+        
         if (m_op_backend_name != "CPU" &&
             NGraphCatalog::EncapOutputNeedsCopy(def().name(), i)) {
-          NGRAPH_VLOG(1) << "Copying Op required for " << def().name()
+          NGRAPH_VLOG(4) << "Copying Output " << def().name()
                          << " ,index: " << i;
           auto ng_element_type = dst_tv->get_element_type();
-          // TODO: if the output is required by only other ng-encapsulates or
-          // ng-variable types then
-          // we dont need the copy
           size_t copy_size =
               dst_tv->get_element_count() * ng_element_type.size();
           string event_name =
