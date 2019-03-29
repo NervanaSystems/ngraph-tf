@@ -116,16 +116,11 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     }
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
-    
-    //Throw error
+  
     NGraphVar* var;
-    if (context->resource_manager()->Lookup<NGraphVar>(
+    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
-            &var) == Status::OK()) {
-      NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Found variable in resource manager";
-    } else {
-      NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Not Found var in resource manager";
-    }
+            &var));
 
     // Sync before using the variable for computation
     if (var->need_sync_ng_tensor()) {

@@ -112,13 +112,9 @@ class NGraphAssignSubOp : public OpKernel {
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
     NGraphVar* var;
-    if (context->resource_manager()->Lookup<NGraphVar>(
+    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
-            &var) == Status::OK()) {
-      NGRAPH_VLOG(4) << "NGraphAssignSub:: Found variable in resource manager";
-    } else {
-      NGRAPH_VLOG(4) << "NGraphAssignSub:: Not Found variable in resource manager";
-    }
+            &var));
 
     // CARE ABOUT SYNCING AS WE ARE USING THE VAR TO GET THE NEW VALUE
     Timer sync_tensor;

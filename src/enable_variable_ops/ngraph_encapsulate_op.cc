@@ -478,6 +478,12 @@ class NGraphEncapsulateOp : public OpKernel {
         input_caches = m_ng_exec_input_cache_map[ng_exec];
     input_caches.resize(input_shapes.size());
 
+    bool log_copies = false;
+    OP_REQUIRES_OK(ctx ,IsCopyLogEnabled(m_graph_id, log_copies));
+    std::stringstream copy_log_str;
+    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,GraphID "<<m_graph_id<<"\n";
+    int number_of_copies = 0;
+
     for (int i = 0; i < input_shapes.size(); i++) {
       bool ref_exists =
           NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), i);
@@ -515,6 +521,8 @@ class NGraphEncapsulateOp : public OpKernel {
       if (!is_cpu && current_ng_tensor->get_stale()) {
         // Fresh or stale, in case of CPU this step is never needed
         try {
+          number_of_copies++;
+          copy_log_str<<" COPY_INP_VAL["<<i<<"]";
           current_ng_tensor->write(
               current_src_ptr, 0,
               current_ng_tensor->get_element_count() * ng_element_type.size());
@@ -601,32 +609,28 @@ class NGraphEncapsulateOp : public OpKernel {
       bool ref_exists =
           NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), input_index);
 
-      if (!ref_exists) {
+      if (!ref_exists){
+        OP_REQUIRES(ctx, ng_inputs[input_index]!=nullptr , errors::Internal("Input ", input_index ," is not in Catalog nor was set from TF")); 
         continue;
       }
 
-      //Throw Error
-      // if nullptr and !ref_exists --->throw error
-      // if var not in resource manager throw error
       string get_ref_var_name = NGraphCatalog::GetInputSharedName(
           m_graph_id, def().name(), input_index);
       NGraphVar* var;
-      if (ctx->resource_manager()->Lookup<NGraphVar>(
+      OP_REQUIRES_OK(ctx, ctx->resource_manager()->Lookup<NGraphVar>(
               ctx->resource_manager()->default_container(), get_ref_var_name,
-              &var) == Status::OK()) {
-        NGRAPH_VLOG(4) << "NGraphEncapsulate:: Found variable in resource manager ";
-      } else {
-        NGRAPH_VLOG(4) << "NGraphEncapsulate:: Not Found variable in resource manager";
-      }
+              &var));
 
       if (var->need_sync_ng_tensor()) {
+        number_of_copies++;
+        copy_log_str<<"Var_Sync[" << input_index <<"] "; 
         Event event_sync_ng_tf_tensors("Output: ng_tensor and tf_tensor sync",
                                        name().c_str());
 
         NGRAPH_VLOG(4) << "In NGEncapsulate, ng tensor behind, needs to sync "
                           "with tf-tensor";
         WriteNGTensor(var->ng_tensor(), var->tensor());
-        // TODO: Is it safe to set sync as false after this sync, or should it
+        // TODO(malikshr): Is it safe to set sync as false after this sync, or should it
         // be synced everytime
         event_sync_ng_tf_tensors.Stop();
         Event::WriteTrace(event_sync_ng_tf_tensors);
@@ -724,6 +728,9 @@ class NGraphEncapsulateOp : public OpKernel {
         
         if (m_op_backend_name != "CPU" &&
             NGraphCatalog::EncapOutputNeedsCopy(def().name(), i)) {
+            number_of_copies++;
+            copy_log_str<<" COPY_OP_VAL["<<i<<"]";     
+          
           NGRAPH_VLOG(4) << "Copying Output " << def().name()
                          << " ,index: " << i;
           auto ng_element_type = dst_tv->get_element_type();
@@ -751,6 +758,11 @@ class NGraphEncapsulateOp : public OpKernel {
           errors::Internal("Error in transferring tensor data to host\n"));
     }
     event_copy_output.Stop();
+
+    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
+    if(log_copies){ 
+      cout<< copy_log_str.str();
+    }
 
     // Mark input tensors as fresh for the next time around.
     // Note: these ng_tensors are being marked fresh so that in the next

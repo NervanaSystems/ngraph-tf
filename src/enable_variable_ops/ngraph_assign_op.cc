@@ -100,15 +100,10 @@ class NGraphAssignOp : public OpKernel {
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
     
-    //TODO Throw Error
     NGraphVar* var;
-    if (context->resource_manager()->Lookup<NGraphVar>(
+    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
             context->resource_manager()->default_container(), get_ref_var_name,
-            &var) == Status::OK()) {
-      NGRAPH_VLOG(4) << "NGraphAssign:: Found variable in resource manager";
-    } else {
-      NGRAPH_VLOG(4) << "NGraphAssign:: Not Found variable in resource manager";
-    }
+            &var));
 
     const Tensor& rhs = context->input(1);
 
