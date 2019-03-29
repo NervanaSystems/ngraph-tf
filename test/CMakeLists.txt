@@ -81,21 +81,6 @@ if (APPLE)
     set(NGRAPH_TF_CXX11_ABI 0)
 endif()
 
-# If pre-built tensorflow CC library is not provided, then build one.
-# TODO: Remove this option once we migrate to build_ngtf.py 
-if (NOT UNIT_TEST_TF_CC_DIR)
-    add_custom_target(
-        build_tf_cc
-        COMMENT "Building TensorFlow C++ library"
-        COMMAND
-            ${CMAKE_CURRENT_SOURCE_DIR}/build_tf_cc.sh
-            ${TensorFlow_SRC_DIR}
-            ${NGRAPH_TF_CXX11_ABI}
-    )
-
-    add_dependencies(gtest_ngtf build_tf_cc)
-endif()
-
 target_link_libraries(
     gtest_ngtf
     ngraph_bridge
@@ -107,3 +92,16 @@ target_link_libraries(
 )
 
 add_subdirectory(python)
+
+if (DEFINED NGRAPH_TF_INSTALL_PREFIX)
+    set(CMAKE_INSTALL_PREFIX ${NGRAPH_TF_INSTALL_PREFIX})
+else()
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/../install/")
+endif()
+
+set(NGTF_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
+
+message(STATUS "NGTF_INSTALL_BIN_DIR: ${NGTF_INSTALL_BIN_DIR}")
+
+# First install the libngraph_bridge.so and headers
+install(TARGETS gtest_ngtf DESTINATION "${NGTF_INSTALL_BIN_DIR}")  
