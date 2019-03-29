@@ -266,6 +266,7 @@ Status MarkForClustering(Graph* graph,
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
         return Status::OK();
       };
+      confirmation_function_map["_FusedConv2D"] = SimpleConfirmationFunction();
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
 #if defined NGRAPH_DISTRIBUTED
@@ -308,6 +309,12 @@ Status MarkForClustering(Graph* graph,
         *result = (num_bits == 8) && range_given;
         return Status::OK();
       };
+      confirmation_function_map["QuantizedAvgPool"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConcat"] =
+          SimpleConfirmationFunction();
+      confirmation_function_map["QuantizedConcatV2"] =
+          SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndReluAndRequantize"] =
           SimpleConfirmationFunction();
       confirmation_function_map["QuantizedConv2DWithBiasAndRequantize"] =
@@ -422,6 +429,7 @@ Status MarkForClustering(Graph* graph,
       // DT_FLOAT
       type_constraint_map["FusedBatchNormV2"]["T"] = {DT_FLOAT};
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["_FusedConv2D"]["T"] = NGraphRealDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
 #if defined NGRAPH_DISTRIBUTED
@@ -456,6 +464,12 @@ Status MarkForClustering(Graph* graph,
       type_constraint_map["Prod"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Prod"]["Tidx"] = NGraphIndexDTypes();
       type_constraint_map["QuantizeAndDequantizeV2"]["T"] = NGraphRealDTypes();
+      type_constraint_map["QuantizedAvgPool"]["T"] =
+          NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConcat"]["T"] =
+          NGraphSupportedQuantizedDTypes();
+      type_constraint_map["QuantizedConcatV2"]["T"] =
+          NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
                          ["Tinput"] = NGraphSupportedQuantizedDTypes();
       type_constraint_map["QuantizedConv2DWithBiasAndReluAndRequantize"]
@@ -557,6 +571,26 @@ Status MarkForClustering(Graph* graph,
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
+      set_attributes_map["QuantizedConcat"] = [](Node* n) {
+        SetStaticInputs(n, {0});  // the axis
+        auto num_of_tensors_to_concat = (n->num_inputs() - 1) / 3;
+        // mark all mins and maxes static
+        for (int idx = num_of_tensors_to_concat + 1; idx < n->num_inputs();
+             idx++) {
+          SetStaticInputs(n, {idx});
+        }
+        return Status::OK();
+      };
+      set_attributes_map["QuantizedConcatV2"] = [](Node* n) {
+        auto num_of_tensors_to_concat = (n->num_inputs() - 1) / 3;
+        // mark axis, all mins and maxes static
+        std::vector<int> static_input_vec;
+        for (int idx = num_of_tensors_to_concat; idx < n->num_inputs(); idx++) {
+          static_input_vec.push_back(idx);
+        }
+        SetStaticInputs(n, static_input_vec);
+        return Status::OK();
+      };
       set_attributes_map["Reshape"] = SetStaticInputs({1});
       set_attributes_map["Slice"] = SetStaticInputs({1, 2});
       set_attributes_map["Split"] = SetStaticInputs({0});
