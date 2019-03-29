@@ -85,8 +85,9 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
   OP_REQUIRES_OK(context,
                  context->GetAttr("_ngraph_backend", &ng_backend_name_));
   NGRAPH_VLOG(4) << "NGraphVariable:: Constructor called for: " << def().name()
-                << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_ <<" ,backend_name "<< ng_backend_name_;
+                 << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                 << copy_to_tf_ << " ,Graph ID " << ng_graph_id_
+                 << " ,backend_name " << ng_backend_name_;
 }
 
 NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
@@ -95,13 +96,16 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   NGRAPH_VLOG(4) << "NGraphVariable:: Compute called for: " << def().name()
-                << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_ <<" ,backend_name "<< ng_backend_name_;
-  
+                 << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                 << copy_to_tf_ << " ,Graph ID " << ng_graph_id_
+                 << " ,backend_name " << ng_backend_name_;
+
   bool log_copies = false;
-  OP_REQUIRES_OK(ctx ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+  OP_REQUIRES_OK(ctx, IsCopyLogEnabled(ng_graph_id_, log_copies));
   std::stringstream copy_log_str;
-  copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+  copy_log_str << "KERNEL[" << type_string() << "]: " << name() << " ,Copy_TF "
+               << PrintBool(copy_to_tf_) << " ,Just_Looking "
+               << PrintBool(just_looking_) << "\n";
   int number_of_copies = 0;
 
   mutex_lock l(init_mu_);
@@ -151,7 +155,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   bool just_synced = false;
   if (var->need_sync_ng_tensor()) {
     number_of_copies++;
-    copy_log_str<<"Var_Sync ";
+    copy_log_str << "Var_Sync ";
     NGRAPH_VLOG(4) << "in tracked variable, ng tensor behind, needs to sync "
                       "with tf-tensor";
     WriteNGTensor(var->ng_tensor(), var->tensor());
@@ -200,7 +204,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   if (copy_to_tf_) {
     if (!just_synced) {
       number_of_copies++;
-      copy_log_str<<" COPY_TF ";
+      copy_log_str << " COPY_TF ";
       ReadNGTensor(var->ng_tensor(), var->tensor());
       NGRAPH_VLOG(4) << "Copying to TF Tensor";
     }
@@ -211,13 +215,13 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
       // Some tf op might update the tf-tensor
       // So we need to sync_it_later
       var->sync_ng_tensor(true);
-      copy_log_str<<" SET_SYNC ";
+      copy_log_str << " SET_SYNC ";
     }
   }
 
-  copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
-  if(log_copies){ 
-    cout<< copy_log_str.str();
+  copy_log_str << " Number of copies " << number_of_copies << "\n";
+  if (log_copies) {
+    cout << copy_log_str.str();
   }
 
   if (!just_looking_) {

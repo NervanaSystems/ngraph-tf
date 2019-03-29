@@ -106,7 +106,7 @@ TEST(VariableTest, SmallGraph1) {
   ActivateNGraph();
 }
 
-// Graph with AssignAdd and AssignSub 
+// Graph with AssignAdd and AssignSub
 TEST(VariableTest, SmallGraph2) {
   Scope root = Scope::NewRootScope();
 
@@ -148,7 +148,7 @@ TEST(VariableTest, SmallGraph2) {
   }
 
   ASSERT_OK(ng_session.Run({var}, &ng_outputs3));
-  
+
   // Run on TF
   DeactivateNGraph();
   ClientSession tf_session(root, options);
@@ -161,20 +161,19 @@ TEST(VariableTest, SmallGraph2) {
           var_assign,
       },
       &tf_outputs1));
-  
+
   for (int i = 0; i < 10; i++) {
     ASSERT_OK(tf_session.Run({assign2}, &tf_outputs2));
   }
 
   tf_session.Run({var}, &tf_outputs3);
-  
+
   Compare(tf_outputs1, ng_outputs1);
   Compare(tf_outputs2, ng_outputs2);
   Compare(tf_outputs3, ng_outputs3);
 
   ActivateNGraph();
 }
-
 
 // Graph withApplyGradientDescent
 TEST(VariableTest, SmallGraph3) {
@@ -270,7 +269,6 @@ TEST(VariableTest, SmallGraph3) {
   ActivateNGraph();
 }
 
-
 // Graph with 2 Variables
 TEST(VariableTest, SmallGraph4) {
   Scope root = Scope::NewRootScope();
@@ -359,10 +357,6 @@ TEST(VariableTest, SmallGraph4) {
   Compare(tf_outputs4, ng_outputs4);
   Compare(tf_outputs5, ng_outputs5);
 }
-
-
-
-
 
 }  // namespace testing
 }  // namespace ngraph_bridge
