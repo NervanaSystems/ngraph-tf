@@ -136,8 +136,9 @@ def train_mnist_cnn(FLAGS):
             rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
                 name="ngraph-optimizer")
         ])
-        config.MergeFrom(tf.ConfigProto(
-            graph_options=tf.GraphOptions(rewrite_options=rewrite_options)))
+        config.MergeFrom(
+            tf.ConfigProto(
+                graph_options=tf.GraphOptions(rewrite_options=rewrite_options)))
 
     # Note: Additional configuration option to boost performance is to set the
     # following environment for the run:
