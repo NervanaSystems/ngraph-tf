@@ -64,12 +64,8 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
 static Status CheckIfOutputNode(const Node* node,
                                 std::vector<string> skip_these_nodes,
                                 bool& skip_it) {
-  for (string& f : skip_these_nodes) {
-    if (node->name() == f) {
-      skip_it = true;
-      return Status::OK();
-    }
-  }
+  skip_it = std::find(skip_these_nodes.begin(), skip_these_nodes.end(),
+                      node->name()) != skip_these_nodes.end();
   return Status::OK();
 }
 

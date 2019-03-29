@@ -67,7 +67,7 @@ def main():
 
     parser.add_argument(
         '--use_grappler_optimizer',
-        help="Use Grappler optimizer\n",
+        help="Use Grappler optimizer instead of the optimization passes\n",
         action="store_true")
 
     parser.add_argument(

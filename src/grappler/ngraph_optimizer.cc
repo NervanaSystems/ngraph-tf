@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2019 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,21 +43,31 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   NGRAPH_VLOG(5) << "Here at NgraphOptimizer ";
   NGRAPH_VLOG(5) << "NgraphOptimizer : grappler item id " << item.id;
 
-  // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
-  // we will not do anything; all subsequent
-  // passes become a no-op.
-  if (config::IsEnabled() == false ||
-      std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-    NGRAPH_VLOG(5) << "Ngraph is disabled ";
-    return Status::OK();
-  }
-
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
   opts.allow_internal_ops = true;
   opts.expect_device_spec = true;
   Graph graph(OpRegistry::Global());
   TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(opts, item.graph, &graph));
+
+  // For filename generation purposes, grab a fresh index. This is just an
+  // arbitrary integer to avoid filename collisions resulting from subsequent
+  // runs of this pass.
+  int idx = FreshIndex();
+
+  // If requested, dump pre-capture graphs.
+  if (DumpPrecaptureGraphs()) {
+    DumpGraphs(graph, idx, "precapture", "Pre-Capture Graph");
+  }
+
+  // If ngraph is disabled via ngraph_bridge api or NGRAPH_TF_DISABLE is set
+  // we will not do anything; all subsequent
+  // passes become a no-op.
+  if (config::IsEnabled() == false ||
+      std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
+    NGRAPH_VLOG(0) << "Ngraph is disabled ";
+    return Status::OK();
+  }
 
   // Get the nodes to be skipped
   std::vector<string> skip_these_nodes;
@@ -73,16 +83,6 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   // kernel that tracks the freshness of variables (invalidating freshness when
   // the reference is handed off to an "untrusted" op).
   //
-
-  // For filename generation purposes, grab a fresh index. This is just an
-  // arbitrary integer to avoid filename collisions resulting from subsequent
-  // runs of this pass.
-  int idx = FreshIndex();
-
-  // If requested, dump pre-capture graphs.
-  if (DumpPrecaptureGraphs()) {
-    DumpGraphs(graph, idx, "precapture", "Pre-Capture Graph");
-  }
 
   // Do variable capture then, if requested, dump the graphs.
   TF_RETURN_IF_ERROR(CaptureVariables(&graph, skip_these_nodes));

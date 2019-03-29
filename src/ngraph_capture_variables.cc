@@ -30,16 +30,15 @@ namespace ngraph_bridge {
 //
 // Utility function to check if it is an output node
 // Skip capturing it, if yes.
-static bool CheckIfOutputNode(const Node* node,
-                              std::vector<string> skip_these_nodes) {
-  for (string& f : skip_these_nodes) {
-    if (node->name() == f) {
-      NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
-                     << " - skip capturing it";
-      return false;
-    }
+static bool IsOutputNode(const Node* node,
+                         std::vector<string> skip_these_nodes) {
+  bool found = std::find(skip_these_nodes.begin(), skip_these_nodes.end(),
+                         node->name()) != skip_these_nodes.end();
+  if (found) {
+    NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+                   << " - skip capturing it";
   }
-  return true;
+  return found;
 }
 
 //
@@ -53,7 +52,7 @@ Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
   std::vector<Node*> replaced_nodes;
 
   for (auto node : graph->op_nodes()) {
-    if (CheckIfOutputNode(node, skip_these_nodes)) {
+    if (!IsOutputNode(node, skip_these_nodes)) {
       if (node->type_string() == "VariableV2") {
         NGRAPH_VLOG(4) << "Capturing: " << node->name();
 
