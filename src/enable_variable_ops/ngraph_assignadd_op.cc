@@ -29,9 +29,9 @@
 #include "ngraph_backend_manager.h"
 #include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
+#include "ngraph_timer.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
-#include "ngraph_timer.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -56,9 +56,10 @@ class NGraphAssignAddOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
     OP_REQUIRES_OK(context,
                    context->GetAttr("_ngraph_backend", &ng_backend_name_));
-    NGRAPH_VLOG(4) << "NGraphAssignAdd:: Constructor called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+    NGRAPH_VLOG(4) << "NGraphAssignAdd:: Constructor called for: "
+                   << def().name() << " ,just looking " << just_looking_
+                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -70,15 +71,17 @@ class NGraphAssignAddOp : public OpKernel {
     std::ostringstream oss;
     oss << "Execute: AssignAdd_" << my_instance_id << ": " << name();
     Event event_compute(oss.str().c_str(), name().c_str());
-    
+
     NGRAPH_VLOG(4) << "NGraphAssignAdd:: Compute called for: " << def().name()
                    << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
-    
+                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+
     bool log_copies = false;
-    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));
     std::stringstream copy_log_str;
-    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    copy_log_str << "KERNEL[" << type_string() << "]: " << name()
+                 << " ,Copy_TF " << PrintBool(copy_to_tf_) << " ,Just_Looking "
+                 << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
 
     bool ref_exists =
@@ -90,15 +93,15 @@ class NGraphAssignAddOp : public OpKernel {
               "Caught exception : RefInput to NGAssignAdd not found \n"));
     }
 
-   Event event_lookup("NGAssignAdd: Lookup input reference", name().c_str());
+    Event event_lookup("NGAssignAdd: Lookup input reference", name().c_str());
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
 
-
     NGraphVar* var;
-    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
-            context->resource_manager()->default_container(), get_ref_var_name,
-            &var));
+    OP_REQUIRES_OK(context,
+                   context->resource_manager()->Lookup<NGraphVar>(
+                       context->resource_manager()->default_container(),
+                       get_ref_var_name, &var));
 
     event_lookup.Stop();
     Event::WriteTrace(event_lookup);
@@ -106,7 +109,7 @@ class NGraphAssignAddOp : public OpKernel {
     // Sync before computing the value
     if (var->need_sync_ng_tensor()) {
       number_of_copies++;
-      copy_log_str<<"Var_Sync ";
+      copy_log_str << "Var_Sync ";
       Event sync_ng_tensor("NGAssignAdd: sync_ng_tensor", name().c_str());
 
       NGRAPH_VLOG(4)
@@ -137,7 +140,8 @@ class NGraphAssignAddOp : public OpKernel {
 
     if (valref_exists) {
       // Value is from encap
-      Event input_from_catelog("NGAssignAdd: Getting input from catalog", name().c_str());
+      Event input_from_catelog("NGAssignAdd: Getting input from catalog",
+                               name().c_str());
 
       NGRAPH_VLOG(4) << "NGraphAssignAdd::Getting from catalog : " << valkey;
       ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
@@ -146,7 +150,7 @@ class NGraphAssignAddOp : public OpKernel {
       Event::WriteTrace(input_from_catelog);
     } else {
       number_of_copies++;
-      copy_log_str<<" COPY_INP_VAL[0]";
+      copy_log_str << " COPY_INP_VAL[0]";
       Event input_from_TF("NGAssignAdd: Getting input from TF", name().c_str());
 
       NGRAPH_VLOG(4) << "NGraphAssignAdd::Getting from TF : " << valkey;
@@ -164,7 +168,6 @@ class NGraphAssignAddOp : public OpKernel {
                                        ng_val->get_element_type().size());
       Event::WriteTrace(input_from_TF);
     }
-
 
     // Create nGraph Function
     // Create Input Tensor Vector
@@ -222,7 +225,6 @@ class NGraphAssignAddOp : public OpKernel {
       ng_outputs.push_back(ng_op);
     }
     NGRAPH_VLOG(4) << " Output Tensors Created ";
-    
 
     // Call Executable
     Event call_executable("NGAssignAdd: Calling executable", name().c_str());
@@ -232,7 +234,8 @@ class NGraphAssignAddOp : public OpKernel {
     Event::WriteTrace(call_executable);
 
     // Assign to the variable
-    Event result_copy("NGAssignAdd: Copy executed output to variable tensor", name().c_str());
+    Event result_copy("NGAssignAdd: Copy executed output to variable tensor",
+                      name().c_str());
     ng_tensor_to_assign->copy_from(*(ng_outputs[0]));
     result_copy.Stop();
     Event::WriteTrace(result_copy);
@@ -243,26 +246,26 @@ class NGraphAssignAddOp : public OpKernel {
 
     if (copy_to_tf_) {
       number_of_copies++;
-      copy_log_str<<" COPY_TF ";      
+      copy_log_str << " COPY_TF ";
       Event copy_to_tf("NGAssignAdd: Copy to TF tensor", name().c_str());
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
-      
+
       copy_to_tf.Stop();
       Event::WriteTrace(copy_to_tf);
-      
+
       if (just_looking_) {
         // Some tf op will just use the val
 
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
-        copy_log_str<<" SET_SYNC ";
+        copy_log_str << " SET_SYNC ";
         var->sync_ng_tensor(true);
       }
     }
 
-    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
-    if(log_copies){ 
-      cout<< copy_log_str.str();
+    copy_log_str << " Number of copies " << number_of_copies << "\n";
+    if (log_copies) {
+      cout << copy_log_str.str();
     }
 
     // Unref Var
@@ -280,7 +283,7 @@ class NGraphAssignAddOp : public OpKernel {
       ng_exec_map;
   static int s_instance_count;
   int my_instance_id{0};
-  
+
   // bool use_exclusive_lock_; //TF op has this
   ~NGraphAssignAddOp() override {
     // Release the backend

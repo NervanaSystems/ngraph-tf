@@ -53,20 +53,19 @@ class NGraphAssignOp : public OpKernel {
   static int s_instance_count;
   int my_instance_id{0};
 
-  // TODO(malikshr): Do we need these attributes, exist in TF Assign ops 
+  // TODO(malikshr): Do we need these attributes, exist in TF Assign ops
   // use_exclusive_lock_, validate_shape_, relax_constraints_;
 
  public:
   explicit NGraphAssignOp(OpKernelConstruction* context)
       : OpKernel(context), just_looking_(false), copy_to_tf_(false) {
-   
     OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
     OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Constructor called for: " << def().name()
-                << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -80,15 +79,16 @@ class NGraphAssignOp : public OpKernel {
     Event event_compute(oss.str().c_str(), name().c_str());
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Compute called for: " << def().name()
-                << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
+                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
 
     bool log_copies = false;
-    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));
     std::stringstream copy_log_str;
-    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    copy_log_str << "KERNEL[" << type_string() << "]: " << name()
+                 << " ,Copy_TF " << PrintBool(copy_to_tf_) << " ,Just_Looking "
+                 << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
-
 
     bool ref_exists =
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
@@ -99,11 +99,12 @@ class NGraphAssignOp : public OpKernel {
     }
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
-    
+
     NGraphVar* var;
-    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
-            context->resource_manager()->default_container(), get_ref_var_name,
-            &var));
+    OP_REQUIRES_OK(context,
+                   context->resource_manager()->Lookup<NGraphVar>(
+                       context->resource_manager()->default_container(),
+                       get_ref_var_name, &var));
 
     const Tensor& rhs = context->input(1);
 
@@ -114,7 +115,6 @@ class NGraphAssignOp : public OpKernel {
     shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
 
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
-    
 
     string valkey = to_string(ng_graph_id_) + "_" + def().input(1);
     bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
@@ -128,7 +128,7 @@ class NGraphAssignOp : public OpKernel {
       Event::WriteTrace(event_copy);
     } else {
       number_of_copies++;
-      copy_log_str<<" COPY_INP_VAL[0]";
+      copy_log_str << " COPY_INP_VAL[0]";
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from TF : " << valkey;
       void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
       Event event_host_2_dev_copy("H2D Copy", name().c_str());
@@ -141,24 +141,24 @@ class NGraphAssignOp : public OpKernel {
 
     mutex_lock l(*context->input_ref_mutex(0));
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
-    
+
     if (copy_to_tf_) {
       number_of_copies++;
-      copy_log_str<<" COPY_TF ";
+      copy_log_str << " COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
 
       if (just_looking_) {
         // Some tf op will just use the val
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
-        copy_log_str<<" SET_SYNC ";
+        copy_log_str << " SET_SYNC ";
         var->sync_ng_tensor(true);
       }
     }
 
-    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
-    if(log_copies){ 
-      cout<< copy_log_str.str();
+    copy_log_str << " Number of copies " << number_of_copies << "\n";
+    if (log_copies) {
+      cout << copy_log_str.str();
     }
 
     // Unref Var

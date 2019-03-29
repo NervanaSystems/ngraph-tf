@@ -30,9 +30,9 @@
 #include "ngraph_backend_manager.h"
 #include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
+#include "ngraph_timer.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
-#include "ngraph_timer.h"
 
 using namespace std;
 // using namespace ngraph;
@@ -72,10 +72,10 @@ class NGraphApplyGradientDescentOp : public OpKernel {
                 errors::InvalidArgument("The first input must be a ref type "
                                         "for NGraphApplyGraidenteDescent"));
 
-    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Constructor called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
-
+    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Constructor called for: "
+                   << def().name() << " ,just looking " << just_looking_
+                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << ng_graph_id_;
 
     my_instance_id = s_instance_count;
     s_instance_count++;
@@ -92,17 +92,21 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
   void Compute(OpKernelContext* context) override {
     std::ostringstream oss;
-    oss << "Execute: NGApplyGradientDescent compute" << my_instance_id << ": " << name();
+    oss << "Execute: NGApplyGradientDescent compute" << my_instance_id << ": "
+        << name();
     Event event_compute(oss.str().c_str(), name().c_str());
 
-    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Compute called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+    NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Compute called for: "
+                   << def().name() << " ,just looking " << just_looking_
+                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << ng_graph_id_;
 
     bool log_copies = false;
-    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));
     std::stringstream copy_log_str;
-    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    copy_log_str << "KERNEL[" << type_string() << "]: " << name()
+                 << " ,Copy_TF " << PrintBool(copy_to_tf_) << " ,Just_Looking "
+                 << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
 
     // Get the 1st input ref from input_catelog (NGraphVar ->
@@ -111,21 +115,23 @@ class NGraphApplyGradientDescentOp : public OpKernel {
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
-                  errors::Internal("Caught exception : RefInput to "
-                                   "NGraphApplyGradientDescent not found in Catalog \n"));
+                  errors::Internal(
+                      "Caught exception : RefInput to "
+                      "NGraphApplyGradientDescent not found in Catalog \n"));
     }
     string get_ref_var_name =
         NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
-  
+
     NGraphVar* var;
-    OP_REQUIRES_OK(context, context->resource_manager()->Lookup<NGraphVar>(
-            context->resource_manager()->default_container(), get_ref_var_name,
-            &var));
+    OP_REQUIRES_OK(context,
+                   context->resource_manager()->Lookup<NGraphVar>(
+                       context->resource_manager()->default_container(),
+                       get_ref_var_name, &var));
 
     // Sync before using the variable for computation
     if (var->need_sync_ng_tensor()) {
       number_of_copies++;
-      copy_log_str<<"Var_Sync ";
+      copy_log_str << "Var_Sync ";
       NGRAPH_VLOG(4) << "in ApplyGradientDescent, ng tensor behind, needs to "
                         "sync with tf-tensor";
       WriteNGTensor(var->ng_tensor(), var->tensor());
@@ -154,15 +160,17 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
       if (valref_exists) {
         // Value is from encap
-        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from Catalog : " << valkey;
+        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from Catalog : "
+                       << valkey;
         auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
         input_to_ng_tensor_map[i] = ng_val;
         NGRAPH_VLOG(4) << "Insert ng_tensor input " << i
                        << "in input_to_ng_tensor_map ";
       } else {
-         number_of_copies++;
-        copy_log_str<<" COPY_INP_VAL["<<i<<"]";
-        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from TF : " << valkey;
+        number_of_copies++;
+        copy_log_str << " COPY_INP_VAL[" << i << "]";
+        NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from TF : "
+                       << valkey;
         const Tensor& rhs = context->input(i);
         void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
 
@@ -265,7 +273,7 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
     // Assign to the variable
     ng_tensor_to_assign->copy_from(*ng_outputs[0]);
-    
+
     // Set the output
     context->forward_ref_input_to_ref_output(0, 0);
 
@@ -275,7 +283,7 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     // Update the tf tensor alsoe
     if (copy_to_tf_) {
       number_of_copies++;
-      copy_log_str<<" COPY_TF ";
+      copy_log_str << " COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
       NGRAPH_VLOG(4) << "Copying to TF Tensor";
 
@@ -283,15 +291,15 @@ class NGraphApplyGradientDescentOp : public OpKernel {
         // Some tf op will just use the val
 
       } else {
-        copy_log_str<<" SET_SYNC ";
+        copy_log_str << " SET_SYNC ";
         // Some tf op might update the ng-tensor value so mark it stale
         var->sync_ng_tensor(true);
       }
     }
 
-    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
-    if(log_copies){ 
-      cout<< copy_log_str.str();
+    copy_log_str << " Number of copies " << number_of_copies << "\n";
+    if (log_copies) {
+      cout << copy_log_str.str();
     }
 
     // Unref Var

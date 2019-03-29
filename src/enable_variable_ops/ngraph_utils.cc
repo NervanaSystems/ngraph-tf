@@ -36,25 +36,23 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-//static int testing_graph_id=30;
+// static int testing_graph_id=30;
 
-Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled ){
+Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled) {
   const char* copy_env_var = std::getenv("NGRAPH_TF_LOG_COPIES");
-  if(copy_env_var == nullptr) return Status::OK();
+  if (copy_env_var == nullptr) return Status::OK();
   int test_graph_id;
 
-  try{
+  try {
     test_graph_id = stoi(string(copy_env_var));
-  }
-  catch (const std::invalid_argument& ia) {
-	  return errors::InvalidArgument("Invalid argument for NGRAPH_TF_LOG_COPIES");
+  } catch (const std::invalid_argument& ia) {
+    return errors::InvalidArgument("Invalid argument for NGRAPH_TF_LOG_COPIES");
   }
 
   // if -1 copies are logged for all graphs
-  is_copy_log_enabled = (test_graph_id ==-1 || test_graph_id==graph_id);
+  is_copy_log_enabled = (test_graph_id == -1 || test_graph_id == graph_id);
   return Status::OK();
 }
-
 
 void PrintTFTensor(Tensor& T1) {
   NGRAPH_VLOG(4) << "all tensor values" << (T1).SummarizeValue(64) << endl;

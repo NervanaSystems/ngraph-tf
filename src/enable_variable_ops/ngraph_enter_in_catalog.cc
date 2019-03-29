@@ -68,7 +68,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
       string shared_name;
       TF_RETURN_IF_ERROR(GetSharedName(node, &shared_name));
       NGraphCatalog::AddCatalog(node_key, shared_name);
-      
+
       NGRAPH_VLOG(1) << "Adding in Catalog ";
       NGRAPH_VLOG(1) << "Key: " << node_key;
       NGRAPH_VLOG(1) << "Value: " << shared_name;
@@ -104,7 +104,6 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
       }
       NGraphCatalog::AddEncapCopyOutputCatalog(node->name(), op_index_to_copy);
 
-      
     }  // end of node is type NGraphEncapsulate
 
     // Update the output tensor map
