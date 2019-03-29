@@ -31,7 +31,7 @@ namespace ngraph_bridge {
 // Utility function to check if it is an output node
 // Skip capturing it, if yes.
 static bool IsOutputNode(const Node* node,
-                         std::vector<string> skip_these_nodes) {
+                         const std::vector<string> skip_these_nodes) {
   bool found = std::find(skip_these_nodes.begin(), skip_these_nodes.end(),
                          node->name()) != skip_these_nodes.end();
   if (found) {
@@ -44,7 +44,8 @@ static bool IsOutputNode(const Node* node,
 //
 // Main entry point for the variable-capture.
 //
-Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
+Status CaptureVariables(Graph* graph,
+                        const std::vector<string> skip_these_nodes) {
   if (config::IsEnabled() == false) {
     return Status::OK();
   }

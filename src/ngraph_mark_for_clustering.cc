@@ -62,7 +62,7 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
 }
 
 static Status CheckIfOutputNode(const Node* node,
-                                std::vector<string> skip_these_nodes,
+                                const std::vector<string> skip_these_nodes,
                                 bool& skip_it) {
   skip_it = std::find(skip_these_nodes.begin(), skip_these_nodes.end(),
                       node->name()) != skip_these_nodes.end();
@@ -137,7 +137,8 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 //
 // Main entry point for the marking pass.
 //
-Status MarkForClustering(Graph* graph, std::vector<string> skip_these_nodes) {
+Status MarkForClustering(Graph* graph,
+                         const std::vector<string> skip_these_nodes) {
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:

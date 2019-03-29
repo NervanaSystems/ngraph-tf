@@ -70,12 +70,13 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
 
   // Get the nodes to be skipped
-  std::vector<string> skip_these_nodes;
+  std::vector<string> fetch_nodes;
   for (const string& f : item.fetch) {
     NGRAPH_VLOG(5) << "Skip fetch node: " << f;
     int pos = f.find(":");
-    skip_these_nodes.push_back(f.substr(0, pos));
+    fetch_nodes.push_back(f.substr(0, pos));
   }
+  std::vector<string>& skip_these_nodes = fetch_nodes;
 
   //
   // Variable capture: Part that replaces all instances of VariableV2 with the
