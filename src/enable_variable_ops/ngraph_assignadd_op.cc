@@ -75,6 +75,12 @@ class NGraphAssignAddOp : public OpKernel {
                    << " ,just looking " << just_looking_ << " ,copy-to-tf "
                    << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
     
+    bool log_copies = false;
+    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    std::stringstream copy_log_str;
+    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    int number_of_copies = 0;
+
     bool ref_exists =
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
@@ -104,6 +110,8 @@ class NGraphAssignAddOp : public OpKernel {
 
     // Sync before computing the value
     if (var->need_sync_ng_tensor()) {
+      number_of_copies++;
+      copy_log_str<<"Var_Sync ";
       Event sync_ng_tensor("NGAssignAdd: sync_ng_tensor", name().c_str());
 
       NGRAPH_VLOG(4)
@@ -142,6 +150,8 @@ class NGraphAssignAddOp : public OpKernel {
 
       Event::WriteTrace(input_from_catelog);
     } else {
+      number_of_copies++;
+      copy_log_str<<" COPY_INP_VAL[0]";
       Event input_from_TF("NGAssignAdd: Getting input from TF", name().c_str());
 
       NGRAPH_VLOG(4) << "NGraphAssignAdd::Getting from TF : " << valkey;
@@ -236,9 +246,10 @@ class NGraphAssignAddOp : public OpKernel {
     Tensor old_lhs = context->mutable_input(0, /* lock_held */ true);
     auto tf_tensor = var->tensor();
 
-    if (copy_to_tf_) {      
+    if (copy_to_tf_) {
+      number_of_copies++;
+      copy_log_str<<" COPY_TF ";      
       Event copy_to_tf("NGAssignAdd: Copy to TF tensor", name().c_str());
-
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
       
       copy_to_tf.Stop();
@@ -249,8 +260,14 @@ class NGraphAssignAddOp : public OpKernel {
 
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
+        copy_log_str<<" SET_SYNC ";
         var->sync_ng_tensor(true);
       }
+    }
+
+    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
+    if(log_copies){ 
+      cout<< copy_log_str.str();
     }
 
     // Unref Var

@@ -36,35 +36,34 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor) {
-  // DataType dtype(DT_FLOAT);
-  // // Should error check
-  // //NGraphElementTypeToTFDataType(&dtype, ng_tensor->get_element_type());
+//static int testing_graph_id=30;
 
-  // vector<int64> dims;
-  // for (auto dim : ng_tensor->get_shape()) {
-  //   dims.push_back(dim);
-  // }
-  // TensorShape tshape(dims);
+Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled ){
+  const char* copy_env_var = std::getenv("NGRAPH_TF_LOG_COPIES");
+  if(copy_env_var == nullptr) return Status::OK();
+  int test_graph_id;
 
-  // Tensor tf_temp_tensor(dtype, tshape);
-  // void* current_dst_ptr = DMAHelper::base(&tf_temp_tensor);
-  // ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
-  //                                         ng_tensor->get_element_type().size());
-  // NGRAPH_VLOG(1) << "all tensor values" <<
-  // (tf_temp_tensor).SummarizeValue(64)
-  //                << endl;
+  try{
+    test_graph_id = stoi(string(copy_env_var));
+  }
+  catch (const std::invalid_argument& ia) {
+	  return errors::InvalidArgument("Invalid argument for NGRAPH_TF_LOG_COPIES");
+  }
+
+  // if -1 copies are logged for all graphs
+  is_copy_log_enabled = (test_graph_id ==-1 || test_graph_id==graph_id);
+  return Status::OK();
 }
 
+
 void PrintTFTensor(Tensor& T1) {
-  // NGRAPH_VLOG(1) << "all tensor values" << (T1).SummarizeValue(64) << endl;
+  NGRAPH_VLOG(4) << "all tensor values" << (T1).SummarizeValue(64) << endl;
 }
 
 std::string DebugNode(Node* node) {
-  std::string pp = node->name();
-  pp += "[" + node->type_string() + "]";
-  return pp;
-  // NGRAPH_VLOG(1)<< node->name() <<"["<<node->type_string()<<"]";
+  std::string temp = node->name();
+  temp += "[" + node->type_string() + "]";
+  return temp;
 }
 
 std::string PrintBool(bool var) { return (var ? "Yes" : "No"); }
@@ -92,6 +91,7 @@ string GetNGAssignType(string tf_node_type) {
   return assing_ops_replacement_map[tf_node_type];
 }
 
+// Read from this ng_tensor into tf_tensor
 void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
                   Tensor* tf_tensor) {
   void* tf_src_ptr = (void*)DMAHelper::base(tf_tensor);
@@ -205,43 +205,6 @@ Status TFDataTypeToNGraphElementType(DataType tf_dt,
   }
   return Status::OK();
 }
-
-// Status NGraphElementTypeToTFDataType(DataType* tf_dt,
-//                                      ngraph::element::Type ng_et) {
-//   switch (ng_et) {
-//     case ng::element::f32:
-//       *tf_dt = DataType::DT_FLOAT:
-//       break;
-//     case ng::element::f64:
-//       *tf_dt =DataType::DT_DOUBLE;
-//       break;
-//     case ng::element::i32:
-//       *tf_dt = DataType::DT_INT32;
-//       break;
-//     case ng::element::u8:
-//       *tf_dt =DataType::DT_UINT8;
-//       break;
-//     case ng::element::u16:
-//       *tf_dt =DataType::DT_UINT16;
-//       break;
-//     case ng::element::i64:
-//       *tf_dt =DataType::DT_INT64;
-//       break;
-//     case ng::element::u32:
-//       *tf_dt =DataType::DT_UINT32;
-//       break;
-//     case ng::element::u64:
-//       *tf_dt =DataType::DT_UINT64;
-//       break;
-//     case ng::element::boolean:
-//       *tf_dt =DataType::DT_BOOL;
-//       break;
-//     default:
-//       return errors::Unimplemented("Unsupported TensorFlow data type: ",
-//                                    DataType_Name(tf_dt));
-//   }
-//   return Status::OK();
-// }
 
 Status TFTensorShapeToNGraphShape(const TensorShape& tf_shape,
                                   ngraph::Shape* ng_shape) {

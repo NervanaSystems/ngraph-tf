@@ -99,6 +99,12 @@ class NGraphApplyGradientDescentOp : public OpKernel {
                    << " ,just looking " << just_looking_ << " ,copy-to-tf "
                    << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
 
+    bool log_copies = false;
+    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    std::stringstream copy_log_str;
+    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    int number_of_copies = 0;
+
     // Get the 1st input ref from input_catelog (NGraphVar ->
     // NGraphApplyGraidentDescent)
     bool ref_exists =
@@ -123,6 +129,8 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
     // Sync before using the variable for computation
     if (var->need_sync_ng_tensor()) {
+      number_of_copies++;
+      copy_log_str<<"Var_Sync ";
       NGRAPH_VLOG(4) << "in ApplyGradientDescent, ng tensor behind, needs to "
                         "sync with tf-tensor";
       WriteNGTensor(var->ng_tensor(), var->tensor());
@@ -157,6 +165,8 @@ class NGraphApplyGradientDescentOp : public OpKernel {
         NGRAPH_VLOG(4) << "Insert ng_tensor input " << i
                        << "in input_to_ng_tensor_map ";
       } else {
+         number_of_copies++;
+        copy_log_str<<" COPY_INP_VAL["<<i<<"]";
         NGRAPH_VLOG(4) << "NGraphApplyGradientDescent::Getting from TF : " << valkey;
         const Tensor& rhs = context->input(i);
         void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
@@ -269,6 +279,8 @@ class NGraphApplyGradientDescentOp : public OpKernel {
 
     // Update the tf tensor alsoe
     if (copy_to_tf_) {
+      number_of_copies++;
+      copy_log_str<<" COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
       NGRAPH_VLOG(4) << "Copying to TF Tensor";
 
@@ -276,9 +288,15 @@ class NGraphApplyGradientDescentOp : public OpKernel {
         // Some tf op will just use the val
 
       } else {
+        copy_log_str<<" SET_SYNC ";
         // Some tf op might update the ng-tensor value so mark it stale
         var->sync_ng_tensor(true);
       }
+    }
+
+    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
+    if(log_copies){ 
+      cout<< copy_log_str.str();
     }
 
     // Unref Var

@@ -94,6 +94,13 @@ class NGraphAssignSubOp : public OpKernel {
     NGRAPH_VLOG(4) << "NGraphAssignSub:: Compute called for: " << def().name()
                    << " ,just looking " << just_looking_ << " ,copy-to-tf "
                    << copy_to_tf_ <<" ,Graph ID "<<ng_graph_id_;
+
+    bool log_copies = false;
+    OP_REQUIRES_OK(context ,IsCopyLogEnabled(ng_graph_id_, log_copies));
+    std::stringstream copy_log_str;
+    copy_log_str<<"KERNEL["<< type_string() <<"]: " << name() << " ,Copy_TF "<< PrintBool(copy_to_tf_) <<" ,Just_Looking "<< PrintBool(just_looking_)<<"\n";
+    int number_of_copies = 0;
+
     bool ref_exists =
         NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
@@ -116,6 +123,8 @@ class NGraphAssignSubOp : public OpKernel {
     // CARE ABOUT SYNCING AS WE ARE USING THE VAR TO GET THE NEW VALUE
     Timer sync_tensor;
     if (var->need_sync_ng_tensor()) {
+      number_of_copies++;
+      copy_log_str<<"Var_Sync ";
       NGRAPH_VLOG(4)
           << "In AssignSub, ng tensor behind, needs to sync with tf-tensor";
       WriteNGTensor(var->ng_tensor(), var->tensor());
@@ -145,6 +154,8 @@ class NGraphAssignSubOp : public OpKernel {
       NGRAPH_VLOG(4) << "NGraphAssignAdd:: Getting from catalog : " << valkey;
       ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
     } else {
+      number_of_copies++;
+      copy_log_str<<" COPY_INP_VAL[0]";
       NGRAPH_VLOG(4) << "NGraphAssignAdd:: Getting from TF : " << valkey;
       TensorShape tfshape = rhs.shape();
       ng::Shape ng_shape(tfshape.dims());
@@ -230,6 +241,8 @@ class NGraphAssignSubOp : public OpKernel {
     auto tf_tensor = var->tensor();
 
     if (copy_to_tf_) {
+      number_of_copies++;
+      copy_log_str<<" COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
 
       if (just_looking_) {
@@ -237,8 +250,14 @@ class NGraphAssignSubOp : public OpKernel {
 
       } else {
         // Some tf op might update the ng-tensor value so mark it stale
+        copy_log_str<<" SET_SYNC ";
         var->sync_ng_tensor(true);
       }
+    }
+
+    copy_log_str<<" Number of copies "<<number_of_copies<<"\n";
+    if(log_copies){ 
+      cout<< copy_log_str.str();
     }
 
     // Unref Var
