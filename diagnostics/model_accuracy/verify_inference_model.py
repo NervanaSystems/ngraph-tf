@@ -46,7 +46,7 @@ def run_inference(model_name, models_dir):
                 python eval_image_classifier.py --alsologtostderr \
                 --checkpoint_path=/nfs/site/home/skantama/validation/models/research/checkpoints/inception_v4.ckpt \
                 --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-                --dataset_split_name=validation --model_name=inception_v4 --max_num_batches=3"},\
+                --dataset_split_name=validation --model_name=inception_v4"},\
      {"model_type" : "Image Recognition", "model_name" : "MobileNet_v1", \
         "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
                 python eval_image_classifier.py --alsologtostderr \
@@ -72,6 +72,10 @@ def run_inference(model_name, models_dir):
         print("Pass a valid model prameters dictionary")
     pwd = os.getcwd()
 
+    os.chdir("../../")
+    junit_script = os.path.abspath('%s/test/ci/junit-wrap.sh' % os.getcwd())
+    os.chdir(pwd)
+
     for i, d in enumerate(data):
         if (model_name in data[i]["model_name"]):
             if (data[i]["model_type"] == "Image Recognition"):
@@ -82,8 +86,11 @@ def run_inference(model_name, models_dir):
                 command_executor("export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`")
                 command_executor('git apply ' + pwd +
                                  '/image_recognition.patch')
-
-            p = command_executor(data[i]["cmd"])
+            os.environ['JUNIT_WRAP_FILE'] = pwd + "/" + data[i][
+                "model_name"] + "_junit_inference_test.xml"
+            os.environ['JUNIT_WRAP_SUITE'] = 'models'
+            os.environ['JUNIT_WRAP_TEST'] = data[i]["model_name"]
+            p = command_executor(junit_script + " " + data[i]["cmd"])
             os.chdir(pwd)
             return model_name, p
 
