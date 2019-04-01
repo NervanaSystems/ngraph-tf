@@ -481,10 +481,11 @@ Status EncapsulateClusters(Graph* graph) {
     graph->RemoveNode(node);
   }
 
-
   // Pass 7: Find sharable connections
+  //
+
   // Looking for:
-  // E-->E 
+  // E-->E
   // E1<--TF-->E2, where TF node does not feed into a modifying TF node
   // What if this TF node is a var?? ... Shrestha's change
 
@@ -497,41 +498,111 @@ Status EncapsulateClusters(Graph* graph) {
   //                    |
   //                    v
   //                    B
-  // It seems modifying nodes can only accept mutable tensors (eg from variable).
-  // Maybe it cannot accept from normal TF nodes.... yes. we cant apply assign on normal tensors. only tensorflow.python.ops.variables.RefVariable
+  // It seems modifying nodes can only accept mutable tensors (eg from
+  // variable).
+  // Maybe it cannot accept from normal TF nodes.... yes. we cant apply assign
+  // on normal tensors. only tensorflow.python.ops.variables.RefVariable
 
+  typedef string TensorId;  // std::tuple<string, bool, int>
 
-  auto get_string_info = [](int enc_id,  bool is_output, int slot_id){
+  auto get_string_info = [](int enc_id, bool is_output, int slot_id) {
     std::vector<int> info = {enc_id, is_output ? 1 : 0, slot_id};
-    return ng::join(info, "_") ;};
+    return ng::join(info, "_");
+  };
 
-  std::unordered_map<string, int> ng_tensor_sharing_info;
+  auto is_encapsulate = [](Node* n) {
+    return n->type_string() == "NGraphEncapsulate";
+  };
 
-  auto is_encapsulate = [](Node* n){return n->type_string() == "NGraphEncapsulate";};
-  for (auto edge : graph->edges()){
-    Node* src = edge->src();
-    Node* dst = edge->dst();
-    if (is_encapsulate(src) && is_encapsulate(dst)) {
-      int src_cluster_idx, dst_cluster_idx;
-      TF_RETURN_IF_ERROR(GetNodeAttr(src->attrs(), "ngraph_cluster", &src_cluster_idx));
-      TF_RETURN_IF_ERROR(GetNodeAttr(dst->attrs(), "ngraph_cluster", &dst_cluster_idx));
+  // When searching for E->E. We can be sure that there will be no TF<-E->E
+  // where the TF node can modify the tensor
+  // That is because E is non-mutable. so only "normal" TF nodes can access it
 
-      string key_src = get_string_info(src_cluster_idx, true, edge->src_output());
-      string key_dst = get_string_info(dst_cluster_idx, false, edge->src_output());
-      //std::make_tuple(dst_cluster_idx, true, edge->dst_input());
-      //auto it = ng_tensor_sharing_info.find(std::make_tuple(src_cluster_idx, false, edge->src_output()));
+  // So we are looking for: E<--TF-->E or E<--E-->E.
+  // In first case only the sinks share tensor, in the second case, the source
+  // is also included
+
+  std::vector<std::set<TensorId>> shared_tensors;
+  auto is_tracked = [&shared_tensors](TensorId key) {
+    return std::any_of(shared_tensors.begin(), shared_tensors.end(),
+                       [&key](std::set<TensorId> group) {
+                         return group.find(key) != group.end();
+                       });
+  };
+
+  // TODO: take care of cases where slot is -1, ie edge->dst_input() returns -1
+  // (control slot)
+  for (auto node : graph->nodes()) {
+    // TODO: id() or name() as unique identifier?
+    auto curr_node_id = node->id();
+    if (is_encapsulate(node)) {
+      int curr_encapsulate_idx;
+      TF_RETURN_IF_ERROR(
+          GetNodeAttr(node->attrs(), "ngraph_cluster", &curr_encapsulate_idx));
+      for (auto in_neighbour_edge : node->in_edges()) {
+        Node* in_neighbour = in_neighbour_edge->src();
+        TensorId curr_tid = get_string_info(curr_encapsulate_idx, false,
+                                            in_neighbour_edge->dst_input());
+        std::set<TensorId> new_group;
+        // TODO: instead of searching in the vector, maybe mark graph nodes with a "visited" tag
+        if (!is_tracked(curr_tid)) {
+          // Note we have to only run "is_tracked" once.
+          // In this design, if a tensor of a group is inserted in
+          // shared_tensors, then all members of the group are already in
+          // On the flip side if one tensor is not in, no other of the group is
+          // in yet
+
+          // TODO: Now its NGraphVariable, later it could be other types too
+          // like NGraphAssign etc
+          // Sharing in case of E<-NGV->E is handled separately
+          if (in_neighbour->type_string() != "NGraphVariable") {
+            for (auto in_neighbour_out_edge : in_neighbour->out_edges()) {
+              if (in_neighbour_out_edge->src_output() ==
+                  in_neighbour_edge->src_output()) {
+                Node* in_neighbour_outs = in_neighbour_out_edge->dst();
+                // TODO : maybe we do not need id() gere, just src_output or
+                // dst_input?
+                if (in_neighbour_outs->id() != curr_node_id) {
+                  if (is_encapsulate(in_neighbour_outs)) {
+                    int other_shared_encapsulates_idx;
+                    TF_RETURN_IF_ERROR(GetNodeAttr(
+                        in_neighbour_outs->attrs(), "ngraph_cluster",
+                        &other_shared_encapsulates_idx));
+                    TensorId other_tid =
+                        get_string_info(other_shared_encapsulates_idx, false,
+                                        in_neighbour_out_edge->dst_input());
+                    new_group.insert(other_tid);
+                  }
+                } else {
+                  if (is_encapsulate(in_neighbour)) {
+                    int src_encapsulate_idx;
+                    TF_RETURN_IF_ERROR(GetNodeAttr(in_neighbour->attrs(),
+                                                   "ngraph_cluster",
+                                                   &src_encapsulate_idx));
+                    TensorId src_tid =
+                        get_string_info(src_encapsulate_idx, true,
+                                        in_neighbour_out_edge->src_output());
+                    new_group.insert(src_tid);
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (new_group.size() > 0) {
+          new_group.insert(curr_tid);
+          shared_tensors.push_back(new_group);
+        }
+      }
     }
   }
 
-  for (auto node : graph->op_nodes()) {
-    if (is_encapsulate(node)){
-      int cluster_idx;
-      TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_cluster", &cluster_idx));
-      //auto share_info = ng_tensor_sharing_info[cluster_idx];
-      //std::string information_string = get_string_info(share_info.first) + "__" + get_string_info(share_info.second);
+  for (auto group : shared_tensors) {
+    for (TensorId tid : group) {
+      cout << tid << ", ";
     }
+    cout << "\n";
   }
-
 
   // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
