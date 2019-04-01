@@ -69,6 +69,8 @@ def main():
         '--enable_variable_support',
         help="Ops like variable and optimizers are supported by nGraph in this version of the bridge\n",
         action="store_true")    
+
+    parser.add_argument(
         '--artifacts_dir',
         type=str,
         help="Copy the artifacts to the given directory\n",
