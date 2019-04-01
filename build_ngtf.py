@@ -69,13 +69,17 @@ def main():
         '--enable_variable_support',
         help="Ops like variable and optimizers are supported by nGraph in this version of the bridge\n",
         action="store_true")    
+        
+    parser.add_argument(        
+        '--use_grappler_optimizer',
+        help="Use Grappler optimizer instead of the optimization passes\n",
+        action="store_true")
 
     parser.add_argument(
         '--artifacts_dir',
         type=str,
         help="Copy the artifacts to the given directory\n",
         action="store")
-
     arguments = parser.parse_args()
 
     if (arguments.debug_build):
@@ -238,6 +242,11 @@ def main():
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=TRUE"])
     else:
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=FALSE"])
+        
+    if (arguments.use_grappler_optimizer):
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER=TRUE"])
+    else:
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER=FALSE"])
 
     # Now build the bridge
     ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location, ngraph_tf_src_dir, venv_dir,
