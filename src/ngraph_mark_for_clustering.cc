@@ -292,6 +292,10 @@ Status MarkForClustering(Graph* graph,
       confirmation_function_map["Minimum"] = SimpleConfirmationFunction();
       confirmation_function_map["Mul"] = SimpleConfirmationFunction();
       confirmation_function_map["Neg"] = SimpleConfirmationFunction();
+      confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n, bool* result) {
+        *result = (BackendManager::GetCurrentlySetBackendName() == "NNPI");
+        return Status::OK();
+      };
       confirmation_function_map["OneHot"] = SimpleConfirmationFunction();
       confirmation_function_map["Pad"] = SimpleConfirmationFunction();
       confirmation_function_map["Pow"] = SimpleConfirmationFunction();
@@ -457,6 +461,7 @@ Status MarkForClustering(Graph* graph,
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["NonMaxSuppressionV4"]["T"] = {DT_FLOAT}; // TF allows half too
       type_constraint_map["OneHot"]["T"] = NGraphDTypes();
       type_constraint_map["Pack"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["T"] = NGraphDTypes();
@@ -570,6 +575,7 @@ Status MarkForClustering(Graph* graph,
       set_attributes_map["Max"] = SetStaticInputs({1});
       set_attributes_map["Mean"] = SetStaticInputs({1});
       set_attributes_map["Min"] = SetStaticInputs({1});
+      set_attributes_map["NonMaxSuppressionV4"] = SetStaticInputs({3, 4});
       set_attributes_map["OneHot"] = SetStaticInputs({1});
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});

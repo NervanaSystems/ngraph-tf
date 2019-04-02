@@ -16,8 +16,10 @@
 
 #include "ngraph_builder.h"
 #include "ngraph/op/util/logical_reduction.hpp"
+#include "ngraph_backend_manager.h"
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
+#include "ngraph_mark_for_clustering.h"
 #include "ngraph_utils.h"
 
 #include "ngraph/builder/autobroadcast.hpp"
@@ -2318,6 +2320,52 @@ static Status TranslateMaxPoolGradOp(
   return Status::OK();
 }
 
+static Status TranslateNonMaxSuppressionV4Op(const Node* op, const std::vector<const Tensor*>& static_input_map, Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_boxes, ng_scores, ng_max_output_size;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_boxes, &ng_scores, &ng_max_output_size, nullptr, nullptr));
+
+  std::vector<float> iou_threshold;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 3, static_input_map, &iou_threshold));
+
+  std::vector<float> score_threshold;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 4, static_input_map, &score_threshold));
+
+  // iou_threshold must be scalar
+  if (iou_threshold.size() != 1) {
+    return errors::InvalidArgument(
+        "NonMaxSuppressionV4 Op: iou_threshold of nms must be scalar ", iou_threshold.size());
+  }
+
+  // score_threshold must be scalar
+  if (score_threshold.size() != 1) {
+    return errors::InvalidArgument(
+        "NonMaxSuppressionV4 Op: score_threshold of nms must be scalar ", score_threshold.size());
+  }
+
+  std::string backend_name;
+  TF_RETURN_IF_ERROR(ngraph_bridge::GetNodeBackend(op, &backend_name));
+
+  if (backend_name != "NNPI") {
+    return errors::Internal("In translating NonMaxSuppressionV4 op ", op->name(),
+                            " found requested backend ", backend_name,
+                            " which is unsupported");
+  }
+
+  ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
+
+  shared_ptr<ng::Node> ng_nmsv4 = backend->get_backend_op(
+      "NMSv4", ng_boxes, ng_scores, ng_max_output_size, iou_threshold[0], score_threshold[0]);
+  if (ng_nmsv4 == nullptr) {
+    return errors::Internal("In translating NonMaxSuppressionV4 op ", op->name(),
+                            " backend could not return valid ngraph node");
+  }
+
+  SaveNgOp(ng_op_map, op->name(), ng_nmsv4);
+
+  return Status::OK();
+}
+
 static Status TranslateReduceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map,
@@ -4270,6 +4318,7 @@ const static std::map<
         {"MaxPool", TranslateMaxPoolOp},
         {"MaxPool3D", TranslateMaxPool3DOp},
         {"MaxPoolGrad", TranslateMaxPoolGradOp},
+        {"NonMaxSuppressionV4", TranslateNonMaxSuppressionV4Op},
         {"Mean", TranslateMeanOp},
         {"Min", TranslateDirectReduceOp<ng::op::Min>},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
