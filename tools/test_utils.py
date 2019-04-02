@@ -28,6 +28,21 @@ from distutils.sysconfig import get_python_lib
 from tools.build_utils import load_venv, command_executor
 
 
+def install_ngraph_bridge(artifacts_dir):
+    # Determine the ngraph whl
+    ngtf_wheel_files = glob.glob(artifacts_dir +
+                                 "/ngraph_tensorflow_bridge-*.whl")
+    if (len(ngtf_wheel_files) != 1):
+        print("Multiple Python whl files exist. Please remove old wheels")
+        for whl in ngtf_wheel_files:
+            print("Existing Wheel: " + whl)
+        raise Exception("Error getting the ngraph-tf wheel file")
+
+    # First ensure that we have nGraph installed
+    ng_whl = os.path.join(artifacts_dir, ngtf_wheel_files[0])
+    command_executor(["pip", "install", "-U", ng_whl])
+
+
 #@depricated
 def run_ngtf_gtests(build_dir, filters):
     root_pwd = os.getcwd()
@@ -49,6 +64,7 @@ def run_ngtf_gtests(build_dir, filters):
     command_executor(cmd, verbose=True)
 
     os.chdir(root_pwd)
+
 
 def run_ngtf_cpp_gtests(artifacts_dir, log_dir, filters):
     root_pwd = os.getcwd()
@@ -96,16 +112,18 @@ def run_ngtf_pytests(venv_dir, build_dir):
     command_executor(["pip", "install", "-U", "pytest"])
     command_executor(["pip", "install", "-U", "psutil"])
     command_executor([
-        "python", "-m", "pytest",
-        ('--junitxml=%s/xunit_pytest.xml' % build_dir)
-    ], verbose=True)
+        "python", "-m", "pytest", ('--junitxml=%s/xunit_pytest.xml' % build_dir)
+    ],
+                     verbose=True)
 
     os.chdir(root_pwd)
+
 
 def run_ngtf_pytests_from_artifacts(artifacts_dir):
     root_pwd = os.getcwd()
 
     artifacts_dir = os.path.abspath(artifacts_dir)
+    install_ngraph_bridge(artifacts_dir)
 
     test_dir = os.path.join(artifacts_dir, "test")
     test_dir = os.path.join(test_dir, "python")
@@ -210,8 +228,8 @@ def run_resnet50(build_dir):
 
     # Run training job
     cmd = [
-        junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format',
-        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--num_batches', '10', '--model=resnet50', '--batch_size=128'
     ]
     command_executor(cmd)
@@ -222,30 +240,20 @@ def run_resnet50(build_dir):
 
     # Run inference job
     cmd = [
-        junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format',
-        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
     ]
     command_executor(cmd)
-
     os.chdir(root_pwd)
 
+
 def run_resnet50_from_artifacts(artifact_dir):
-    
+
     root_pwd = os.getcwd()
     artifact_dir = os.path.abspath(artifact_dir)
 
-    # Determine the ngraph whl
-    ngtf_wheel_files = glob.glob(artifact_dir + "/ngraph_tensorflow_bridge-*.whl")
-    if (len(ngtf_wheel_files) != 1):
-        print("Multiple Python whl files exist. Please remove old wheels")
-        for whl in ngtf_wheel_files:
-            print("Existing Wheel: " + whl)
-        raise Exception("Error getting the ngraph-tf wheel file")
-
-    # First ensure that we have nGraph installed
-    ng_whl = os.path.join(artifact_dir, ngtf_wheel_files[0])
-    command_executor(["pip", "install", "-U", ng_whl])
+    install_ngraph_bridge(artifact_dir)
 
     # Now clone the repo and proceed
     call(['git', 'clone', 'https://github.com/tensorflow/benchmarks.git'])
@@ -283,8 +291,8 @@ def run_resnet50_from_artifacts(artifact_dir):
     #     '--num_batches', '10', '--model=resnet50', '--batch_size=128'
     # ]
     cmd = [
-        'python', 'tf_cnn_benchmarks.py', '--data_format',
-        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--num_batches', '10', '--model=resnet50', '--batch_size=128'
     ]
     command_executor(cmd)
@@ -300,8 +308,8 @@ def run_resnet50_from_artifacts(artifact_dir):
     #     '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
     # ]
     cmd = [
-        'python', 'tf_cnn_benchmarks.py', '--data_format',
-        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
+        '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
         '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
     ]
     command_executor(cmd)
@@ -361,7 +369,7 @@ def run_bazel_build_test(venv_dir, build_dir):
 
     # Build the bridge
     command_executor(['bazel', 'build', 'libngraph_bridge.so'])
-    
+
     # Build the backend
     command_executor(['bazel', 'build', '@ngraph//:libinterpreter_backend.so'])
 

@@ -27,6 +27,7 @@ from distutils.sysconfig import get_python_lib
 #from tools.build_utils import load_venv, command_executor
 from tools.test_utils import *
 
+
 def main():
     '''
     Tests nGraph-TensorFlow Python 3. This script needs to be run after 
@@ -57,7 +58,8 @@ def main():
     parser.add_argument(
         '--artifacts_dir',
         type=str,
-        help="Location of the artifacts that would be used for running the tests\n",
+        help=
+        "Location of the artifacts that would be used for running the tests\n",
         action="store")
 
     arguments = parser.parse_args()
