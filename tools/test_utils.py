@@ -230,6 +230,84 @@ def run_resnet50(build_dir):
 
     os.chdir(root_pwd)
 
+def run_resnet50_from_artifacts(artifact_dir):
+    
+    root_pwd = os.getcwd()
+    artifact_dir = os.path.abspath(artifact_dir)
+
+    # Determine the ngraph whl
+    ngtf_wheel_files = glob.glob(artifact_dir + "/ngraph_tensorflow_bridge-*.whl")
+    if (len(ngtf_wheel_files) != 1):
+        print("Multiple Python whl files exist. Please remove old wheels")
+        for whl in ngtf_wheel_files:
+            print("Existing Wheel: " + whl)
+        raise Exception("Error getting the ngraph-tf wheel file")
+
+    # First ensure that we have nGraph installed
+    ng_whl = os.path.join(artifact_dir, ngtf_wheel_files[0])
+    command_executor(["pip", "install", "-U", ng_whl])
+
+    # Now clone the repo and proceed
+    call(['git', 'clone', 'https://github.com/tensorflow/benchmarks.git'])
+    os.chdir('benchmarks/scripts/tf_cnn_benchmarks/')
+
+    call(['git', 'checkout', '4c7b09ad87bbfc4b1f89650bcee40b3fc5e7dfed'])
+
+    # junit_script = os.path.abspath('%s/test/ci/junit-wrap.sh' % root_pwd)
+
+    # Update the script by adding `import ngraph_bridge`
+    with open('convnet_builder.py', 'a') as outfile:
+        call(['echo', 'import ngraph_bridge'], stdout=outfile)
+
+    # Setup the env flags
+    import psutil
+    num_cores = int(psutil.cpu_count(logical=False))
+    print("OMP_NUM_THREADS: %s " % str(num_cores))
+
+    os.environ['OMP_NUM_THREADS'] = str(num_cores)
+    os.environ["KMP_AFFINITY"] = 'granularity=fine,compact,1,0'
+
+    # Delete the temporary model save directory
+    model_save_dir = os.getcwd() + '/modelsavepath'
+    if os.path.exists(model_save_dir) and os.path.isdir(model_save_dir):
+        shutil.rmtree(model_save_dir)
+
+    # os.environ['JUNIT_WRAP_FILE'] = "%s/junit_training_test.xml" % build_dir
+    # os.environ['JUNIT_WRAP_SUITE'] = 'models'
+    # os.environ['JUNIT_WRAP_TEST'] = 'resnet50-training'
+
+    # Run training job
+    # cmd = [
+    #     junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format',
+    #     'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+    #     '--num_batches', '10', '--model=resnet50', '--batch_size=128'
+    # ]
+    cmd = [
+        'python', 'tf_cnn_benchmarks.py', '--data_format',
+        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        '--num_batches', '10', '--model=resnet50', '--batch_size=128'
+    ]
+    command_executor(cmd)
+
+    # os.environ['JUNIT_WRAP_FILE'] = "%s/junit_inference_test.xml" % build_dir
+    # os.environ['JUNIT_WRAP_SUITE'] = 'models'
+    # os.environ['JUNIT_WRAP_TEST'] = 'resnet50-inference'
+
+    # Run inference job
+    # cmd = [
+    #     junit_script, 'python', 'tf_cnn_benchmarks.py', '--data_format',
+    #     'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+    #     '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
+    # ]
+    cmd = [
+        'python', 'tf_cnn_benchmarks.py', '--data_format',
+        'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
+        '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
+    ]
+    command_executor(cmd)
+
+    os.chdir(root_pwd)
+
 
 def run_cpp_example_test(build_dir):
 
@@ -289,75 +367,3 @@ def run_bazel_build_test(venv_dir, build_dir):
 
     # Return to the original directory
     os.chdir(root_pwd)
-
-
-def main():
-    '''
-    Tests nGraph-TensorFlow Python 3. This script needs to be run after 
-    running build_ngtf.py which builds the ngraph-tensorflow-bridge
-    and installs it to a virtual environment that would be used by this script.
-    '''
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--test_examples',
-        help="Builds and tests the examples.\n",
-        action="store_true")
-
-    parser.add_argument(
-        '--gpu_unit_tests_enable',
-        help="Builds and tests the examples.\n",
-        action="store_true")
-
-    arguments = parser.parse_args()
-
-    #-------------------------------
-    # Recipe
-    #-------------------------------
-
-    root_pwd = os.getcwd()
-
-    # Constants
-    build_dir = 'build_cmake'
-    venv_dir = 'build_cmake/venv-tf-py3'
-    tf_src_dir = 'build_cmake/tensorflow'
-
-    if (platform.system() != 'Darwin'):
-        # Run the bazel based buil
-        run_bazel_build_test(venv_dir, build_dir)
-
-    # First run the C++ gtests
-    run_ngtf_gtests(build_dir,None)
-
-    # If the GPU tests are requested, then run them as well
-    if (arguments.gpu_unit_tests_enable):
-        os.environ['NGRAPH_TF_BACKEND'] = 'GPU'
-        run_ngtf_gtests(
-            build_dir, 
-            str("-ArrayOps.Quanti*:ArrayOps.Dequant*:BackendManager.BackendAssignment:"
-            "MathOps.AnyKeepDims:MathOps.AnyNegativeAxis:MathOps.AnyPositiveAxis:"
-            "MathOps.AllKeepDims:MathOps.AllNegativeAxis:MathOps.AllPositiveAxis:"
-            "NNOps.Qu*:NNOps.SoftmaxZeroDimTest*:"
-            "NNOps.SparseSoftmaxCrossEntropyWithLogits")
-        )
-
-    os.environ['NGRAPH_TF_BACKEND'] = 'CPU'
-
-    # Next run Python unit tests
-    load_venv(venv_dir)
-    run_ngtf_pytests(venv_dir, build_dir)
-
-    if (arguments.test_examples):
-        # Run the C++ example build/run test
-        run_cpp_example_test('build')
-
-    # Next run the TensorFlow python tests
-    run_tensorflow_pytests(venv_dir, build_dir, './', tf_src_dir)
-
-    # Finally run Resnet50 based training and inferences
-    run_resnet50(build_dir)
-
-    os.chdir(root_pwd)
-
-
-if __name__ == '__main__':
-    main()

@@ -81,7 +81,7 @@ def main():
     elif (arguments.test_tf_python):
         pass
     elif (arguments.test_resnet):
-        pass
+        run_resnet50_from_artifacts(arguments.artifacts_dir)
     else:
         raise "No tests specified"
 
