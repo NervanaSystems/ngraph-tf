@@ -99,10 +99,6 @@ else()
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/../install/")
 endif()
 
-set(NGTF_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
-
-message(STATUS "NGTF_INSTALL_BIN_DIR: ${NGTF_INSTALL_BIN_DIR}")
-
 # First install the libngraph_bridge.so and headers
 install(TARGETS gtest_ngtf DESTINATION ${CMAKE_INSTALL_PREFIX}/test)  
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy.pbtxt DESTINATION ${CMAKE_INSTALL_PREFIX}/test)

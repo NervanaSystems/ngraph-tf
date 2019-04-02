@@ -79,13 +79,12 @@ def main():
         run_ngtf_cpp_gtests(arguments.artifacts_dir, './', None)
     elif (arguments.test_python):
         run_ngtf_pytests_from_artifacts(arguments.artifacts_dir)
-        pass
     elif (arguments.test_tf_python):
-        pass
+        raise Exception("TensorFlow Python tests are not yet supported")
     elif (arguments.test_resnet):
         run_resnet50_from_artifacts(arguments.artifacts_dir)
     else:
-        raise "No tests specified"
+        raise Exception("No tests specified")
 
     os.chdir(root_pwd)
 
