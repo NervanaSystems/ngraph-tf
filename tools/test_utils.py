@@ -28,6 +28,7 @@ from distutils.sysconfig import get_python_lib
 from tools.build_utils import load_venv, command_executor
 
 
+#@depricated
 def run_ngtf_gtests(build_dir, filters):
     root_pwd = os.getcwd()
     build_dir = os.path.abspath(build_dir)
@@ -39,6 +40,29 @@ def run_ngtf_gtests(build_dir, filters):
 
     # First run the C++ gtests
     os.chdir(os.path.join(build_dir, "test"))
+    if (filters != None):
+        gtest_filters = "--gtest_filter=" + filters
+        cmd = ['./gtest_ngtf', gtest_filters]
+    else:
+        cmd = ['./gtest_ngtf']
+
+    command_executor(cmd, verbose=True)
+
+    os.chdir(root_pwd)
+
+def run_ngtf_cpp_gtests(artifacts_dir, log_dir, filters):
+    root_pwd = os.getcwd()
+    artifacts_dir = os.path.abspath(artifacts_dir)
+    log_dir = os.path.abspath(log_dir)
+
+    os.environ['GTEST_OUTPUT'] = 'xml:%s/xunit_gtest.xml' % log_dir
+
+    if not os.path.isdir(artifacts_dir):
+        raise Exception("Artifacts directory doesn't exist: " + artifacts_dir)
+
+    # First run the C++ gtests
+    os.environ['LD_LIBRARY_PATH'] = os.path.join(artifacts_dir, "lib")
+    os.chdir(os.path.join(artifacts_dir, "test"))
     if (filters != None):
         gtest_filters = "--gtest_filter=" + filters
         cmd = ['./gtest_ngtf', gtest_filters]
@@ -74,6 +98,30 @@ def run_ngtf_pytests(venv_dir, build_dir):
     command_executor([
         "python", "-m", "pytest",
         ('--junitxml=%s/xunit_pytest.xml' % build_dir)
+    ], verbose=True)
+
+    os.chdir(root_pwd)
+
+def run_ngtf_pytests_from_artifacts(artifacts_dir):
+    root_pwd = os.getcwd()
+
+    artifacts_dir = os.path.abspath(artifacts_dir)
+
+    test_dir = os.path.join(artifacts_dir, "test")
+    test_dir = os.path.join(test_dir, "python")
+
+    if not os.path.isdir(test_dir):
+        raise Exception("test directory doesn't exist: " + test_dir)
+
+    # Change the directory to the test_dir
+    os.chdir(test_dir)
+
+    # Next run the ngraph-tensorflow python tests
+    command_executor(["pip", "install", "-U", "pytest"])
+    command_executor(["pip", "install", "-U", "psutil"])
+    command_executor([
+        "python", "-m", "pytest",
+        ('--junitxml=%s/xunit_pytest.xml' % artifacts_dir)
     ])
 
     os.chdir(root_pwd)

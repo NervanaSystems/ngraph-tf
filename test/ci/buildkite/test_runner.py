@@ -54,6 +54,12 @@ def main():
         help="Runs TensorFlow Python tests (Pytest based).\n",
         action="store_true")
 
+    parser.add_argument(
+        '--artifacts_dir',
+        type=str,
+        help="Location of the artifacts that would be used for running the tests\n",
+        action="store")
+
     arguments = parser.parse_args()
 
     #-------------------------------
@@ -62,12 +68,15 @@ def main():
 
     root_pwd = os.getcwd()
 
-    # Constants
+    # Check for mandetary parameters
+    if not arguments.artifacts_dir:
+        raise Exception("Need to specify --artifacts_dir")
+
+    # Decide which tests to run
     if (arguments.test_cpp):
-        pass
+        run_ngtf_cpp_gtests(arguments.artifacts_dir, './', None)
     elif (arguments.test_python):
-        pass
-    elif (arguments.test_python):
+        run_ngtf_pytests_from_artifacts(arguments.artifacts_dir)
         pass
     elif (arguments.test_tf_python):
         pass

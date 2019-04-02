@@ -104,4 +104,11 @@ set(NGTF_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 message(STATUS "NGTF_INSTALL_BIN_DIR: ${NGTF_INSTALL_BIN_DIR}")
 
 # First install the libngraph_bridge.so and headers
-install(TARGETS gtest_ngtf DESTINATION "${NGTF_INSTALL_BIN_DIR}")  
+install(TARGETS gtest_ngtf DESTINATION ${CMAKE_INSTALL_PREFIX}/test)  
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy.pbtxt DESTINATION ${CMAKE_INSTALL_PREFIX}/test)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy_launchop.pbtxt DESTINATION ${CMAKE_INSTALL_PREFIX}/test)
+install(
+    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/python 
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/test
+    FILES_MATCHING PATTERN "*.py"
+)
