@@ -104,6 +104,7 @@ def run_tensorflow_pytests(venv_dir, build_dir, ngraph_tf_src_dir, tf_src_dir):
     print("Patch result: %d" % result)
     os.chdir(pwd)
 
+    os.environ['NGRAPH_TF_BACKEND'] = 'INTERPRETER'
     # Now run the TensorFlow python tests
     test_src_dir = os.path.join(ngraph_tf_src_dir, "test/python/tensorflow")
     test_script = os.path.join(test_src_dir, "tf_unittest_runner.py")
@@ -116,12 +117,16 @@ def run_tensorflow_pytests(venv_dir, build_dir, ngraph_tf_src_dir, tf_src_dir):
     os.environ['OMP_NUM_THREADS'] = str(num_cores)
     os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
 
+    os.environ['NGRAPH_TF_BACKEND'] = 'INTERPRETER'
+
     command_executor([
         "python", test_script, "--tensorflow_path", tf_src_dir,
         "--run_tests_from_file", test_manifest_file, "--xml_report",
         test_xml_report
     ])
 
+    os.environ['NGRAPH_TF_BACKEND'] = 'CPU'
+    
     os.chdir(root_pwd)
 
 
