@@ -51,8 +51,6 @@ class CatalogBase {
   friend class NGraphCatalog;
 };
 
-// Alternatively, TensorID could just be a type alias
-// using TensorID = std::tuple<string, bool, int>;
 class TensorID : public std::tuple<string, bool, int> {
  public:
   string to_string() const {
@@ -63,19 +61,20 @@ class TensorID : public std::tuple<string, bool, int> {
     return node_name + "_" + std::to_string(output) + "_" +
            std::to_string(slot);
   }
-};
 
-struct MyHash {
-  size_t operator()(const TensorID& t) const noexcept {
-    return std::hash<string>{}(t.to_string());
-  }
+  struct TensorIDHash {
+    size_t operator()(const TensorID& t) const noexcept {
+      return std::hash<string>{}(t.to_string());
+    }
+  };
 };
 
 // TODO: rename it NGraphCatalogs
 class NGraphCatalog {
  public:
-  static CatalogBase<TensorID, string, MyHash> catalog1;
-  static CatalogBase<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash>
+  static CatalogBase<TensorID, string, TensorID::TensorIDHash> catalog1;
+  static CatalogBase<TensorID, shared_ptr<ng::runtime::Tensor>,
+                     TensorID::TensorIDHash>
       catalog2;
 };
 
@@ -93,9 +92,14 @@ class CatalogBase2
 
 class NGraphCatalog2 {
  public:
-  static CatalogBase2<TensorID, string, MyHash> catalog1;
-  static CatalogBase2<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash>
+  // TODO: catalog1 and catalog2 are shrestha's catalogs
+  static CatalogBase2<TensorID, string, TensorID::TensorIDHash> catalog1;
+  static CatalogBase2<TensorID, shared_ptr<ng::runtime::Tensor>,
+                      TensorID::TensorIDHash>
       catalog2;
+
+  static CatalogBase2<TensorID, string, TensorID::TensorIDHash>
+      non_modifiable_tensor_catalog;
 };
 
 }  // ngraph_bridge

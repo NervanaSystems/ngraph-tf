@@ -47,9 +47,9 @@ bool CatalogBase2<K, V, Hash, KeyEqual, Allocator>::ExistsInCatalog(K key) {
   return this->find(key) != this->end();
 }
 
-CatalogBase<TensorID, string, MyHash> NGraphCatalog::catalog1;
+CatalogBase<TensorID, string, TensorID::TensorIDHash> NGraphCatalog::catalog1;
 
-CatalogBase2<TensorID, string, MyHash> NGraphCatalog2::catalog1;
+CatalogBase2<TensorID, string, TensorID::TensorIDHash> NGraphCatalog2::catalog1;
 
 }  // ngraph_bridge
 }  // tensorflow

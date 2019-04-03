@@ -44,6 +44,8 @@
 #include "ngraph_utils.h"
 #include "tf_graph_writer.h"
 
+#include "ngraph_catalog.h"
+
 using namespace std;
 
 namespace tensorflow {
