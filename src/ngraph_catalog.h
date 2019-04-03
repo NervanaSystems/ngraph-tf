@@ -40,68 +40,63 @@ namespace ngraph_bridge {
 
 template <class K, class V, class Hash = std::hash<K>>
 class CatalogBase {
-    public:
-        void AddToCatalog(V val, K key);
-        bool ExistsInCatalog(K key);
-    private:
-        unordered_map<K, V, Hash> internal_storage;
-        // Making CatalogBase unconstructable, except by NGraphCatalog
-        CatalogBase(){}
-    friend class NGraphCatalog;
+ public:
+  void AddToCatalog(V val, K key);
+  bool ExistsInCatalog(K key);
+
+ private:
+  unordered_map<K, V, Hash> internal_storage;
+  // Making CatalogBase unconstructable, except by NGraphCatalog
+  CatalogBase() {}
+  friend class NGraphCatalog;
 };
 
-//using TensorID = std::tuple<string, bool, int>;
-
+// Alternatively, TensorID could just be a type alias
+// using TensorID = std::tuple<string, bool, int>;
 class TensorID : public std::tuple<string, bool, int> {
-    string to_string();
+ public:
+  string to_string() const {
+    string node_name;
+    bool output;
+    int slot;
+    std::tie(node_name, output, slot) = *this;
+    return node_name + "_" + std::to_string(output) + "_" +
+           std::to_string(slot);
+  }
 };
 
-
- struct MyHash
-{
-    size_t operator()(const TensorID& t) const noexcept
-    {
-        string node_name; bool output; int slot;
-        std::tie(node_name, output, slot) = t;
-        return std::hash<string>{}(node_name + to_string(output) + to_string(slot));
-        // TODO: use to_string() in case TensorID is a class instead of a type alias
-    }
+struct MyHash {
+  size_t operator()(const TensorID& t) const noexcept {
+    return std::hash<string>{}(t.to_string());
+  }
 };
-
 
 // TODO: rename it NGraphCatalogs
 class NGraphCatalog {
-  public:
-    static CatalogBase<TensorID, string, MyHash> catalog1;
-    static CatalogBase<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash> catalog2;
+ public:
+  static CatalogBase<TensorID, string, MyHash> catalog1;
+  static CatalogBase<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash>
+      catalog2;
 };
 
-
-
-
-
-
-template <class K, class V, class Hash = std::hash<K>, class KeyEqual = std::equal_to<K>, class Allocator = std::allocator< std::pair<const K, V>>>
-class CatalogBase2 : private std::unordered_map<K, V, Hash, KeyEqual, Allocator>{
-    public:
-        // This is not needed perhaps. since its a dictionary [] is enough
-        void AddToCatalog(V val, K key);
-        bool ExistsInCatalog(K key);
-    friend class NGraphCatalog2;
+template <class K, class V, class Hash = std::hash<K>,
+          class KeyEqual = std::equal_to<K>,
+          class Allocator = std::allocator<std::pair<const K, V>>>
+class CatalogBase2
+    : private std::unordered_map<K, V, Hash, KeyEqual, Allocator> {
+ public:
+  // This is not needed perhaps. since its a dictionary [] is enough
+  void AddToCatalog(V val, K key);
+  bool ExistsInCatalog(K key);
+  friend class NGraphCatalog2;
 };
-
 
 class NGraphCatalog2 {
-  public:
-    static CatalogBase2<TensorID, string, MyHash> catalog1;
-    static CatalogBase2<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash> catalog2;
+ public:
+  static CatalogBase2<TensorID, string, MyHash> catalog1;
+  static CatalogBase2<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash>
+      catalog2;
 };
-
-
-
-
-
-
 
 }  // ngraph_bridge
 }  // tensorflow

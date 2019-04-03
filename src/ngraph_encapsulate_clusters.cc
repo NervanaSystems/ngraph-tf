@@ -544,7 +544,8 @@ Status EncapsulateClusters(Graph* graph) {
         TensorId curr_tid = get_string_info(curr_encapsulate_idx, false,
                                             in_neighbour_edge->dst_input());
         std::set<TensorId> new_group;
-        // TODO: instead of searching in the vector, maybe mark graph nodes with a "visited" tag
+        // TODO: instead of searching in the vector, maybe mark graph nodes with
+        // a "visited" tag
         if (!is_tracked(curr_tid)) {
           // Note we have to only run "is_tracked" once.
           // In this design, if a tensor of a group is inserted in
