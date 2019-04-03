@@ -150,9 +150,7 @@ class NGraphAssignOp : public OpKernel {
       copy_log_str << " COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
 
-      if (just_looking_) {
-        // Some tf op will just use the val
-      } else {
+      if (!just_looking_) {
         // Some tf op might update the ng-tensor value so mark it stale
         copy_log_str << " SET_SYNC ";
         var->sync_ng_tensor(true);

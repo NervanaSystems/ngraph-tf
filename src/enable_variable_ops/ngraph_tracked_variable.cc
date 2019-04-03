@@ -209,9 +209,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
       NGRAPH_VLOG(4) << "Copying to TF Tensor";
     }
 
-    if (just_looking_) {
-      // Some tf op will just use the val
-    } else {
+    if (!just_looking_) {
       // Some tf op might update the tf-tensor
       // So we need to sync_it_later
       var->sync_ng_tensor(true);
