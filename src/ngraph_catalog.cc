@@ -39,5 +39,15 @@ bool CatalogBase<K, V, Hash, KeyEqual, Allocator>::ExistsInCatalog(K key) {
 
 CatalogBase<TensorID, string, TensorID::TensorIDHash> NGraphCatalog::catalog1;
 
+/*
+// TODO remove this block showing sample usage
+void f() {
+  TensorID x("xx", false, 1);
+  std::cout << x.to_string() << "\n";
+
+  NGraphCatalog::catalog1.AddToCatalog("hello", x);
+  NGraphCatalog::catalog1[x] = "bye";
+}*/
+
 }  // ngraph_bridge
 }  // tensorflow

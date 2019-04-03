@@ -38,10 +38,22 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// TensorID classes are expected to provide a to_string() and a hash functor (if
-// necessary)
+class TensorID;
+template <class K, class V, class Hash, class KeyEqual, class Allocator>
+class CatalogBase;
+class NGraphCatalog;
+
+// TensorID classes are expected to provide a to_string()
+// and a hash functor (if necessary)
 class TensorID : public std::tuple<string, bool, int> {
  public:
+  // Note, we are inheriting constructors here. which means this class should
+  // not have any data member
+  // If new data members are needed, then new constructors need to be written
+  // The intention here is to souped-up the tuple class with some user friendly
+  // functions
+  using tuple::tuple;
+
   string to_string() const {
     string node_name;
     bool output;
@@ -50,6 +62,12 @@ class TensorID : public std::tuple<string, bool, int> {
     return node_name + "_" + std::to_string(output) + "_" +
            std::to_string(slot);
   }
+
+  string get_node_name() { return std::get<0>(*this); }
+
+  bool get_output() { return std::get<1>(*this); }
+
+  int get_slot() { return std::get<2>(*this); }
 
   struct TensorIDHash {
     size_t operator()(const TensorID& t) const noexcept {
@@ -61,8 +79,7 @@ class TensorID : public std::tuple<string, bool, int> {
 template <class K, class V, class Hash = std::hash<K>,
           class KeyEqual = std::equal_to<K>,
           class Allocator = std::allocator<std::pair<const K, V>>>
-class CatalogBase
-    : private std::unordered_map<K, V, Hash, KeyEqual, Allocator> {
+class CatalogBase : public std::unordered_map<K, V, Hash, KeyEqual, Allocator> {
  public:
   // This is not needed perhaps. since its a dictionary [] is enough
   void AddToCatalog(V val, K key);
