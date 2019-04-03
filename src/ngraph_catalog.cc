@@ -38,7 +38,22 @@ bool CatalogBase<K, V, Hash>::ExistsInCatalog(K key) {
 }
 
 
+
+template <class K, class V, class Hash, class KeyEqual, class Allocator>
+void CatalogBase2<K, V, Hash, KeyEqual, Allocator>::AddToCatalog(V val, K key) {
+    this->insert({key, val});
+}
+
+
+template <class K, class V, class Hash, class KeyEqual, class Allocator>
+bool CatalogBase2<K, V, Hash, KeyEqual, Allocator>::ExistsInCatalog(K key) {
+    return this->find(key) != this->end();
+}
+
 CatalogBase<TensorID, string, MyHash> NGraphCatalog::catalog1;
+
+
+CatalogBase2<TensorID, string, MyHash> NGraphCatalog2::catalog1;
 
 }  // ngraph_bridge
 }  // tensorflow

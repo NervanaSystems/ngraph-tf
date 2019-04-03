@@ -45,6 +45,7 @@ class CatalogBase {
         bool ExistsInCatalog(K key);
     private:
         unordered_map<K, V, Hash> internal_storage;
+        // Making CatalogBase unconstructable, except by NGraphCatalog
         CatalogBase(){}
     friend class NGraphCatalog;
 };
@@ -74,6 +75,32 @@ class NGraphCatalog {
     static CatalogBase<TensorID, string, MyHash> catalog1;
     static CatalogBase<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash> catalog2;
 };
+
+
+
+
+
+
+template <class K, class V, class Hash = std::hash<K>, class KeyEqual = std::equal_to<K>, class Allocator = std::allocator< std::pair<const K, V>>>
+class CatalogBase2 : private std::unordered_map<K, V, Hash, KeyEqual, Allocator>{
+    public:
+        // This is not needed perhaps. since its a dictionary [] is enough
+        void AddToCatalog(V val, K key);
+        bool ExistsInCatalog(K key);
+    friend class NGraphCatalog2;
+};
+
+
+class NGraphCatalog2 {
+  public:
+    static CatalogBase2<TensorID, string, MyHash> catalog1;
+    static CatalogBase2<TensorID, shared_ptr<ng::runtime::Tensor>, MyHash> catalog2;
+};
+
+
+
+
+
 
 
 }  // ngraph_bridge
