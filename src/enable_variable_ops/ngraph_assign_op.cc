@@ -64,8 +64,8 @@ class NGraphAssignOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Constructor called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+                   << ",just looking " << PrintBool(just_looking_) << ",copy-to-tf "
+                   << PrintBool(copy_to_tf_) << " ,Graph ID " << ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -79,8 +79,8 @@ class NGraphAssignOp : public OpKernel {
     Event event_compute(oss.str().c_str(), name().c_str());
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Compute called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+                   << " ,just looking " << PrintBool(just_looking_) << " ,copy-to-tf "
+                   << PrintBool(copy_to_tf_) << " ,Graph ID " << ng_graph_id_;
 
     bool log_copies = false;
     OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));

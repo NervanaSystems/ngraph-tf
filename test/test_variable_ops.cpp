@@ -356,6 +356,7 @@ TEST(VariableTest, SmallGraph4) {
   Compare(tf_outputs3, ng_outputs3);
   Compare(tf_outputs4, ng_outputs4);
   Compare(tf_outputs5, ng_outputs5);
+  ActivateNGraph();
 }
 
 }  // namespace testing

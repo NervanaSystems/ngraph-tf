@@ -75,8 +75,8 @@ class NGraphAssignSubOp : public OpKernel {
     OP_REQUIRES_OK(context,
                    context->GetAttr("_ngraph_backend", &ng_backend_name_));
     NGRAPH_VLOG(4) << "NGraphAssignSub:: Constructor called for: "
-                   << def().name() << " ,just looking " << just_looking_
-                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << def().name() << ",just looking " << PrintBool(just_looking_)
+                   << ",copy-to-tf " << PrintBool(copy_to_tf_) << ",Graph ID "
                    << ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
@@ -92,8 +92,8 @@ class NGraphAssignSubOp : public OpKernel {
 
     Timer assign_sub_op;
     NGRAPH_VLOG(4) << "NGraphAssignSub:: Compute called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+                   << ",just looking " << PrintBool(just_looking_) << ",copy-to-tf "
+                   << PrintBool(copy_to_tf_) << ",Graph ID " << ng_graph_id_;
 
     bool log_copies = false;
     OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));

@@ -73,8 +73,8 @@ class NGraphApplyGradientDescentOp : public OpKernel {
                                         "for NGraphApplyGraidenteDescent"));
 
     NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Constructor called for: "
-                   << def().name() << " ,just looking " << just_looking_
-                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << def().name() << ",just looking " << PrintBool(just_looking_)
+                   << ",copy-to-tf " << PrintBool(copy_to_tf_) << ",Graph ID "
                    << ng_graph_id_;
 
     my_instance_id = s_instance_count;
@@ -97,8 +97,8 @@ class NGraphApplyGradientDescentOp : public OpKernel {
     Event event_compute(oss.str().c_str(), name().c_str());
 
     NGRAPH_VLOG(4) << "NGraphApplyGradientDescent:: Compute called for: "
-                   << def().name() << " ,just looking " << just_looking_
-                   << " ,copy-to-tf " << copy_to_tf_ << " ,Graph ID "
+                   << def().name() << ",just looking " << PrintBool(just_looking_)
+                   << ",copy-to-tf " << PrintBool(copy_to_tf_) << ",Graph ID "
                    << ng_graph_id_;
 
     bool log_copies = false;
