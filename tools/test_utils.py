@@ -280,6 +280,10 @@ def run_resnet50_from_artifacts(artifact_dir):
     if os.path.exists(model_save_dir) and os.path.isdir(model_save_dir):
         shutil.rmtree(model_save_dir)
 
+    eval_eventlog_dir = os.getcwd() + '/eval_eventlog_dir'
+    if os.path.exists(eval_eventlog_dir) and os.path.isdir(eval_eventlog_dir):
+        shutil.rmtree(eval_eventlog_dir)
+
     # os.environ['JUNIT_WRAP_FILE'] = "%s/junit_training_test.xml" % build_dir
     # os.environ['JUNIT_WRAP_SUITE'] = 'models'
     # os.environ['JUNIT_WRAP_TEST'] = 'resnet50-training'
@@ -290,10 +294,12 @@ def run_resnet50_from_artifacts(artifact_dir):
     #     'NCHW', '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
     #     '--num_batches', '10', '--model=resnet50', '--batch_size=128'
     # ]
+
     cmd = [
         'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
-        '--num_batches', '10', '--model=resnet50', '--batch_size=128'
+        '--num_batches', '10', '--model=resnet50', '--batch_size=128',
+        '--eval_dir=' + eval_eventlog_dir
     ]
     command_executor(cmd)
 
@@ -310,7 +316,8 @@ def run_resnet50_from_artifacts(artifact_dir):
     cmd = [
         'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
-        '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval'
+        '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval',
+        '--eval_dir=' + eval_eventlog_dir
     ]
     command_executor(cmd)
 

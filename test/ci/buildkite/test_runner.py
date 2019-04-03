@@ -62,6 +62,13 @@ def main():
         "Location of the artifacts that would be used for running the tests\n",
         action="store")
 
+    parser.add_argument(
+        '--backend',
+        type=str,
+        help=
+        "String indicating what backend to use (e.g., CPU, INTERPRETER)\n",
+        action="store")
+
     arguments = parser.parse_args()
 
     #-------------------------------
@@ -74,6 +81,10 @@ def main():
     if not arguments.artifacts_dir:
         raise Exception("Need to specify --artifacts_dir")
 
+    # Set the backend if specified
+    if (arguments.backend):
+        os.environ['NGRAPH_TF_BACKEND'] = arguments.backend
+        
     # Decide which tests to run
     if (arguments.test_cpp):
         run_ngtf_cpp_gtests(arguments.artifacts_dir, './', None)
