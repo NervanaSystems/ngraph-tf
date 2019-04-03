@@ -115,7 +115,8 @@ class NGraphAssignOp : public OpKernel {
     shared_ptr<ngraph::runtime::Tensor> ng_tensor_to_assign = var->ng_tensor();
 
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
-
+    
+    // Get input[1]
     string valkey = to_string(ng_graph_id_) + "_" + def().input(1);
     bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
     if (valref_exists) {

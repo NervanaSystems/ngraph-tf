@@ -65,25 +65,35 @@ class GraphCatalog {
 class NGraphCatalog {
  public:
   // Map keeps track of nodes whose input is a variable tensor
-  // Will be used by Assign and Encap
+  // Will be used by Assign/Optimizers and NGraphEncapsulate Op
   // Map of
   // Key string : GraphId + _ + nodename + : + input_index
   // Value : variable shared_name
   // LOCK?
   static unordered_map<string, string> input_variable_map_;
 
-  // Map keeps track of nodes whose input is a variable tensor
+  // Map keeps track of nodes whose input is a tensor computed by NGraph
+  // For e.g. if the value to be assigned was computed by NGraphEncapsulate Op
   // Will be used by Assign/Optimizers
   // Map of
   // Key
-  // when op index ==0
-  //  string : GraphId + _ + nodename
-  // otherwise
-  //  string : GraphId + _ + nodename + : + output_index
+  //   when op index ==0
+  //      string : GraphId + _ + nodename
+  //   otherwise
+  //     string : GraphId + _ + nodename + : + output_index
   // Value : shared_ptr<ng::runtime::Tensor>
   static map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map_;
 
+  // Map keeps track of output indexes of NGraphEncapsulate Op 
+  // that will be used by TF Nodes or other NGraphEncapsulate Op
+  // Will be used by NGraphEncapsulateOP
+  // Map of
+  // Key
+  //  string : nodename (nGraphEncapsulateOp name)
+  // Value : Set of indices
   static unordered_map<string, unordered_set<int>> ng_encap_output_copy_map_;
+
+  // Utility Functions for the data structures
   static void AddEncapCopyOutputCatalog(string key, unordered_set<int> val);
   static bool EncapOutputNeedsCopy(string key, int index);
 
