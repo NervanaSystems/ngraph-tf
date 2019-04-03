@@ -84,7 +84,7 @@ class NGraphCatalog {
   // Value : shared_ptr<ng::runtime::Tensor>
   static map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map_;
 
-  // Map keeps track of output indexes of NGraphEncapsulate Op 
+  // Map keeps track of output indexes of NGraphEncapsulate Op
   // that will be used by TF Nodes or other NGraphEncapsulate Op
   // Will be used by NGraphEncapsulateOP
   // Map of
