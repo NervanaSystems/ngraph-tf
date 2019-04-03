@@ -27,29 +27,17 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-template <class K, class V, class Hash>
-void CatalogBase<K, V, Hash>::AddToCatalog(V val, K key) {
-  internal_storage[key] = val;
-}
-
-template <class K, class V, class Hash>
-bool CatalogBase<K, V, Hash>::ExistsInCatalog(K key) {
-  return internal_storage.find(key) != internal_storage.end();
-}
-
 template <class K, class V, class Hash, class KeyEqual, class Allocator>
-void CatalogBase2<K, V, Hash, KeyEqual, Allocator>::AddToCatalog(V val, K key) {
+void CatalogBase<K, V, Hash, KeyEqual, Allocator>::AddToCatalog(V val, K key) {
   this->insert({key, val});
 }
 
 template <class K, class V, class Hash, class KeyEqual, class Allocator>
-bool CatalogBase2<K, V, Hash, KeyEqual, Allocator>::ExistsInCatalog(K key) {
+bool CatalogBase<K, V, Hash, KeyEqual, Allocator>::ExistsInCatalog(K key) {
   return this->find(key) != this->end();
 }
 
 CatalogBase<TensorID, string, TensorID::TensorIDHash> NGraphCatalog::catalog1;
-
-CatalogBase2<TensorID, string, TensorID::TensorIDHash> NGraphCatalog2::catalog1;
 
 }  // ngraph_bridge
 }  // tensorflow
