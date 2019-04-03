@@ -303,12 +303,7 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       NGRAPH_VLOG(1) << "Replaced " << edges.size() << " of output edges ";
 
       replaced_nodes.push_back(node);
-      // } else {
-      //   NGRAPH_VLOG(1)
-      //       << "No replacement (not just looking and all outputs ng support):
-      //       "
-      //       << node->name();
-      // }
+     
     }  // end of checking if it is NGVariableType
   }    // end of looping through the nodes in the graph
   for (auto node : replaced_nodes) {

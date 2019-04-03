@@ -38,30 +38,6 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-class GraphCatalog {
- public:
-  // Map keeps track of nodes whose input is a variable tensor
-  // Will be used by Assign and Encap
-  // Map of
-  // Key string : nodename + _ + input_index
-  // Value : variable shared_name
-  unordered_map<string, string> input_variable_map;
-
-  // Map keeps track of nodes whose input is a ng tensor
-  // Will be used by only by Assign if the value is from encap
-  // Map of
-  // Key string : nodename + _ + input_index
-  // Value : ng_tensor
-  // unordered_map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map;
-  map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map;
-
-  // Map keeps track of encap nodes whose output is used as a value to assign
-  // Map of
-  // Key string: nodename +  _ + output_index
-  // Value : ng_tensor
-  unordered_map<string, shared_ptr<ng::runtime::Tensor>> output_map;
-};
-
 class NGraphCatalog {
  public:
   // Map keeps track of nodes whose input is a variable tensor
