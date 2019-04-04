@@ -43,7 +43,6 @@ namespace ngraph_bridge {
 Status GetSharedName(Node* node, string* shared_name) {
   if (node->type_string() == "NGraphVariable") {
     TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "shared_name", shared_name));
-
     if (shared_name->empty()) {
       (*shared_name) = node->name();
     }
