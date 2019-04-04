@@ -66,17 +66,79 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   if (config::IsEnabled() == false ||
       std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
     NGRAPH_VLOG(0) << "Ngraph is disabled ";
+    graph.ToGraphDef(output);
     return Status::OK();
   }
 
   // Get the nodes to be skipped
   std::vector<string> fetch_nodes;
   for (const string& f : item.fetch) {
-    NGRAPH_VLOG(5) << "Skip fetch node: " << f;
     int pos = f.find(":");
     fetch_nodes.push_back(f.substr(0, pos));
   }
   std::vector<string>& skip_these_nodes = fetch_nodes;
+
+  // Rewrite graph to add identity node so the skip node can be encapsulated
+  // as well
+  Graph* input_graph = &graph;
+  for (auto node : input_graph->op_nodes()) {
+    bool fetch_node = false;
+    bool ref_type = false;
+    fetch_node = std::find(fetch_nodes.begin(), fetch_nodes.end(),
+                           node->name()) != fetch_nodes.end();
+    if (fetch_node) {
+      NGRAPH_VLOG(5) << "Fetch Node " << node->name();
+      // Check the number of outputs of the 'fetch_node'
+      // Only move further to create an IdentityN node
+      // if it is greater than 0
+      // Also, make sure that none of the output types is
+      // a ref type
+      if (node->num_outputs()) {
+        std::vector<NodeBuilder::NodeOut> inputs;
+        std::vector<DataType> input_types;
+        for (int i = 0; i < node->num_outputs(); i++) {
+          if (!IsRefType(node->output_type(i))) {
+            input_types.push_back(node->output_type(i));
+          } else {
+            NGRAPH_VLOG(5) << DataTypeString(node->output_type(i))
+                           << " is ref type";
+            ref_type = true;
+            break;
+          }
+          inputs.push_back(NodeBuilder::NodeOut(node, i));
+        }
+
+        if (ref_type) {
+          NGRAPH_VLOG(5) << "Cannot create an IdentityN node";
+          continue;
+        }
+
+        NGRAPH_VLOG(5) << "Creating an IdentityN node";
+        Node* identityN_node;
+        if (NodeBuilder(node->name(), "IdentityN")
+                .Attr("T", input_types)
+                .Input(inputs)
+                .Device(node->assigned_device_name())
+                .Finalize(input_graph, &identityN_node) != Status::OK()) {
+          NGRAPH_VLOG(5) << "Unsuccessful in constructing the node";
+        } else {
+          NGRAPH_VLOG(5) << "Successfully constructed IdentityN node";
+        }
+
+        identityN_node->set_assigned_device_name(node->assigned_device_name());
+
+        // Rename the skip node
+        NGRAPH_VLOG(5) << "Renaming node";
+        string new_name = node->name() + "_ng";
+        // TODO: check entire graph for duplicate names
+        node->set_name(new_name);
+        NGRAPH_VLOG(5) << "New name for skip node " << node->name();
+      } else {
+        NGRAPH_VLOG(5) << "num outputs " << node->num_outputs();
+        NGRAPH_VLOG(5) << "Cannot constructed an IdentityN node";
+      }
+    }
+  }
 
   //
   // Variable capture: Part that replaces all instances of VariableV2 with the
