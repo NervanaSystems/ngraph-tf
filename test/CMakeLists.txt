@@ -53,12 +53,9 @@ set(SRC
     test_nn_ops.cpp
     test_array_ops.cpp
     test_timer.cpp
+    test_variable_ops.cpp
     opexecuter.cpp
 )
-
-if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
-    list(APPEND SRC test_variable_ops.cpp)
-endif()
 
 message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_SUPPORT}")
 
