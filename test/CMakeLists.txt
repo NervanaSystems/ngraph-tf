@@ -57,8 +57,6 @@ set(SRC
     opexecuter.cpp
 )
 
-message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_SUPPORT}")
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 message(STATUS "Compile Flags: ${CMAKE_CXX_FLAGS}")
