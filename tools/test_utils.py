@@ -27,12 +27,14 @@ from distutils.sysconfig import get_python_lib
 
 from tools.build_utils import load_venv, command_executor
 
+
 def get_os_type():
     if platform.system() == 'Darwin':
         return 'Darwin'
-    
+
     if platform.linux_distribution():
         return platform.linux_distribution()[0]
+
 
 def install_ngraph_bridge(artifacts_dir):
     # Determine the ngraph whl
