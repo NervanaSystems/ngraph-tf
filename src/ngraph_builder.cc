@@ -16,7 +16,6 @@
 
 #include "ngraph_builder.h"
 #include "ngraph/op/util/logical_reduction.hpp"
-#include "ngraph_backend_manager.h"
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
