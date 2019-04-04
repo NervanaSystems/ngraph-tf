@@ -15,7 +15,6 @@
  *******************************************************************************/
 
 #include "ngraph_builder.h"
-#include <dlfcn.h>
 #include "ngraph/op/util/logical_reduction.hpp"
 #include "ngraph_backend_manager.h"
 #include "ngraph_conversions.h"
