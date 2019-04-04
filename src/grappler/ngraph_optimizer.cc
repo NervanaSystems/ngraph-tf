@@ -129,8 +129,9 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
 
         // Rename the skip node
         NGRAPH_VLOG(5) << "Renaming node";
-        string new_name = node->name() + "_ng";
-        // TODO: check entire graph for duplicate names
+        // Get a new name for the node with the given prefix
+        // We will use the 'original-node-name_ng' as the prefix
+        string new_name = input_graph->NewName(node->name() + "_ng");
         node->set_name(new_name);
         NGRAPH_VLOG(5) << "New name for skip node " << node->name();
       } else {
