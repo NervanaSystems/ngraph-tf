@@ -31,7 +31,8 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
   // Add Assign Op in their place
 
   for (auto node : graph->op_nodes()) {
-    if (node->type_string() == "NGraphAssignSub") {
+    if (node->type_string() == "NGraphAssignSub" ||
+        node->type_string() == "NGraphAssignAdd") {
       NodeBuilder::NodeOut input_ref;
       NodeBuilder::NodeOut input_val;
 
@@ -42,7 +43,6 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
         if (edge == NULL) {
           continue;
         }
-        // Check REF TYPE RATHER THAN NAME
         if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
             IsRefType(edge->dst()->input_type(edge->dst_input()))) {
           input_ref = NodeBuilder::NodeOut(edge->src(), edge->src_output());
@@ -50,22 +50,25 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
           input_val = NodeBuilder::NodeOut(edge->src(), edge->src_output());
         }
       }
-      NGRAPH_VLOG(1) << "Has assigned device " << node->assigned_device_name();
 
-      Node* sub_op;
-      string new_name_sub = node->name() + "_Sub";
-      TF_RETURN_IF_ERROR(NodeBuilder(new_name_sub, "Sub")
+      string op_type =
+          (node->type_string() == "NGraphAssignSub") ? "Sub" : "Add";
+      string op_name_suffix = "_" + op_type;
+      Node* compute_op;
+      string new_name_sub = node->name() + op_name_suffix;
+      TF_RETURN_IF_ERROR(NodeBuilder(new_name_sub, op_type)
                              .Input(input_ref)
                              .Input(input_val)
                              .Attr("T", dtype)
                              .Device(node->assigned_device_name())
-                             .Finalize(graph, &(sub_op)));
-      sub_op->set_assigned_device_name(node->assigned_device_name());
-      NodeBuilder::NodeOut ndef_sub_op = NodeBuilder::NodeOut(sub_op, 0);
+                             .Finalize(graph, &(compute_op)));
+      compute_op->set_assigned_device_name(node->assigned_device_name());
+      NodeBuilder::NodeOut ndef_compute_op =
+          NodeBuilder::NodeOut(compute_op, 0);
 
-      NGRAPH_VLOG(1) << "Sub op name: " << sub_op->name();
-      NGRAPH_VLOG(1) << "Sub op assigned device: "
-                     << sub_op->assigned_device_name();
+      NGRAPH_VLOG(1) << "Compute op name: " << compute_op->name();
+      NGRAPH_VLOG(1) << "Compute op assigned device: "
+                     << compute_op->assigned_device_name();
 
       Node* ngraphassign_op;
       string new_name_ngassign = node->name() + "_NGraphAssign";
@@ -76,7 +79,7 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
                              .Attr("T", dtype)
                              .Attr("ngraph_graph_id", 0)
                              .Input(input_ref)
-                             .Input(ndef_sub_op)
+                             .Input(ndef_compute_op)
                              .Device(node->assigned_device_name())
                              .Finalize(graph, &ngraphassign_op));
       ngraphassign_op->set_assigned_device_name(node->assigned_device_name());
@@ -111,84 +114,6 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
       NGRAPH_VLOG(1) << "Removing node";
 
     }  // AssignSub
-    else if (node->type_string() == "NGraphAssignAdd") {
-      NGRAPH_VLOG(1) << " Replace Optimizers ";
-      NodeBuilder::NodeOut input_ref;
-      NodeBuilder::NodeOut input_val;
-
-      DataType dtype;
-      TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
-
-      for (auto edge : node->in_edges()) {
-        if (edge == NULL) {
-          continue;
-        }
-        // Check REF TYPE RATHER THAN NAME
-        if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
-            IsRefType(edge->dst()->input_type(edge->dst_input()))) {
-          input_ref = NodeBuilder::NodeOut(edge->src(), edge->src_output());
-        } else {
-          input_val = NodeBuilder::NodeOut(edge->src(), edge->src_output());
-        }
-      }
-      NGRAPH_VLOG(1) << "Has assigned device " << node->assigned_device_name();
-
-      Node* add_op;
-      string new_name_add = node->name() + "_Add";
-      TF_RETURN_IF_ERROR(NodeBuilder(new_name_add, "Add")
-                             .Input(input_ref)
-                             .Input(input_val)
-                             .Attr("T", dtype)
-                             .Device(node->assigned_device_name())
-                             .Finalize(graph, &(add_op)));
-      add_op->set_assigned_device_name(node->assigned_device_name());
-      NodeBuilder::NodeOut ndef_add_op = NodeBuilder::NodeOut(add_op, 0);
-
-      NGRAPH_VLOG(1) << "Sub op name: " << add_op->name();
-      NGRAPH_VLOG(1) << "Sub op assigned device: "
-                     << add_op->assigned_device_name();
-
-      Node* ngraphassign_op;
-      string new_name_ngassign = node->name() + "_NGraphAssign";
-
-      TF_RETURN_IF_ERROR(NodeBuilder(new_name_ngassign, "NGraphAssign")
-                             .Attr("validate_shape", true)
-                             .Attr("use_locking", true)
-                             .Attr("T", dtype)
-                             .Attr("ngraph_graph_id", 0)
-                             .Input(input_ref)
-                             .Input(ndef_add_op)
-                             .Device(node->assigned_device_name())
-                             .Finalize(graph, &ngraphassign_op));
-      ngraphassign_op->set_assigned_device_name(node->assigned_device_name());
-      NGRAPH_VLOG(1) << "Assign op name: " << ngraphassign_op->name();
-      NGRAPH_VLOG(1) << "Assign op assigned device: "
-                     << ngraphassign_op->assigned_device_name();
-
-      for (auto edge : node->in_edges()) {
-        if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), ngraphassign_op,
-                         edge->dst_input());
-          graph->RemoveEdge(edge);
-        }
-      }
-
-      std::vector<const Edge*> edges;
-      for (auto edge : node->out_edges()) {
-        edges.push_back(edge);
-      }
-
-      for (auto edge : edges) {
-        graph->AddEdge(ngraphassign_op, edge->src_output(), edge->dst(),
-                       edge->dst_input());
-        graph->RemoveEdge(edge);
-      }
-
-      graph->RemoveNode(node);
-      NGRAPH_VLOG(1) << "Replaced AssignAdd";
-
-    }  // AssignAdd
-
     else if (node->type_string() == "NGraphApplyGradientDescent") {
       NodeBuilder::NodeOut input_var;
       NodeBuilder::NodeOut input_alpha;

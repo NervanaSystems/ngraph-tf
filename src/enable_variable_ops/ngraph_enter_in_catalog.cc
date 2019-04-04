@@ -32,14 +32,14 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// Used by only NGraphVariableType ops
+// Used by NGraphVariable or NGraphAssign op
 // They need to access the variable object from resource manager using shared
 // name
 // Here if the op is not of type NGraphVariable, then we recurse
 // over it's 1st input till we get the variable name
-// It is bound to terminate as the modifier ops like AssignAdd,
+// It is bound to terminate as the modifier ops like Assign, AssignAdd,
 // ApplyGradientDescent, etc
-// always operate on a Variable,/
+// always operate on a Variable
 Status GetSharedName(Node* node, string* shared_name) {
   if (node->type_string() == "NGraphVariable") {
     TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "shared_name", shared_name));
@@ -112,7 +112,6 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
     }  // end of node is type NGraphEncapsulate
 
     // Update the output tensor map
-
     if (IsNGVariableType(node->type_string())) {
       for (auto edge : node->in_edges()) {
         if (!edge->src()->IsOp() || edge->IsControlEdge() ||

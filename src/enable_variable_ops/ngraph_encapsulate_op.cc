@@ -616,12 +616,12 @@ class NGraphEncapsulateOp : public OpKernel {
         continue;
       }
 
-      string get_ref_var_name = NGraphCatalog::GetInputSharedName(
+      string ref_var_name = NGraphCatalog::GetInputSharedName(
           m_graph_id, def().name(), input_index);
       NGraphVar* var;
       OP_REQUIRES_OK(ctx, ctx->resource_manager()->Lookup<NGraphVar>(
                               ctx->resource_manager()->default_container(),
-                              get_ref_var_name, &var));
+                              ref_var_name, &var));
 
       if (var->need_sync_ng_tensor()) {
         number_of_copies++;
