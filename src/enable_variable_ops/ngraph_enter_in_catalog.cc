@@ -32,11 +32,13 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// Used by NGraphVariable or NGraphAssign op
-// They need to access the variable object from resource manager using shared
+// Used by Variable and other Modifier Ops (NGraphVariable, NGraphAssign)
+// for accessing the variable object from resource manager using shared
 // name
-// Here if the op is not of type NGraphVariable, then we recurse
-// over it's 1st input till we get the variable name
+// If the op is not of type NGraphVariable, 
+//    then recurse over its 1st input till we get reach the variable
+// Assumes: the Variable that is being modified is the 1st input and the only modifiable input
+// If the op has many such inputs, this function needs to be called for each of them
 // It is bound to terminate as the modifier ops like Assign, AssignAdd,
 // ApplyGradientDescent, etc
 // always operate on a Variable
@@ -49,13 +51,9 @@ Status GetSharedName(Node* node, string* shared_name) {
     return Status::OK();
   }
 
-  auto temp = node;
-  while (temp->type_string() != "NGraphVariable") {
-    Node* input_0;
-    TF_RETURN_IF_ERROR(temp->input_node(0, &input_0));
-    temp = input_0;
-  }
-  return GetSharedName(temp, shared_name);
+  Node* input_0;
+  TF_RETURN_IF_ERROR(node->input_node(0, &input_0));
+  return GetSharedName(input_0, shared_name);
 }
 
 // 1. Populate the input_variable_map

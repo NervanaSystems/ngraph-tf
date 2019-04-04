@@ -71,6 +71,11 @@ bool IsNGVariableType(string node_type) {
           node_type == "NGraphApplyGradientDescent");
 };
 
+bool IsNGSupportedType(string node_type){
+  return (node_type == "NGraphVariable" || IsNGAssignType(node_type) ||
+          node_type == "NGraphEncapsulate");
+};
+
 bool IsTFAssignType(string node_type) {
   return (node_type == "Assign" || node_type == "AssignSub" ||
           node_type == "AssignAdd");

@@ -60,6 +60,9 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 // Node-types that operate on a variable
 bool IsNGVariableType(string node_type);
 
+// Node-types that are supported by nGraph
+bool IsNGSupportedType(string node_type);
+
 // Assign series
 bool IsTFAssignType(string node_type);
 bool IsNGAssignType(string node_type);

@@ -72,19 +72,8 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
 
   (*replacement)->set_assigned_device_name(node->assigned_device_name());
 
-  // Add edge from the input nodes (to the variable node (NGraphVariable))
-  // to the new replacement node (also of type NGraphVariable)
   NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
                  << (*replacement)->DebugString();
-
-  // Though edges will be removed when we remove the node
-  // we specifically remove the edges to be sure
-  for (auto edge : node->in_edges()) {
-    NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-    graph->AddEdge(edge->src(), edge->src_output(), (*replacement),
-                   edge->dst_input());
-    graph->RemoveEdge(edge);
-  }
 
   return Status::OK();
 }
@@ -98,10 +87,6 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
 
-  // int graph_id;
-  // TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_graph_id",
-  // &graph_id));
-
   std::string backend_name;
   TF_RETURN_IF_ERROR(
       GetNodeAttr(node->attrs(), "_ngraph_backend", &backend_name));
@@ -114,8 +99,6 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
       NGRAPH_VLOG(1) << "Replacing " << node_type << ", found null edge: ";
       continue;
     }
-
-    // Check REF TYPE RATHER THAN NAME
     if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
         IsRefType(edge->dst()->input_type(edge->dst_input()))) {
       input_ref = NodeBuilder::NodeOut(edge->src(), edge->src_output());
@@ -138,16 +121,8 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
                          .Finalize(graph, &(*replacement)));
 
   (*replacement)->set_assigned_device_name(node->assigned_device_name());
-
-  NGRAPH_VLOG(4) << "Getting in edges: ";
-  for (auto edge : node->in_edges()) {
-    NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-    if (edge->IsControlEdge()) {
-      graph->AddEdge(edge->src(), edge->src_output(), (*replacement),
-                     edge->dst_input());
-      graph->RemoveEdge(edge);
-    }
-  }
+  NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
+                 << (*replacement)->DebugString();
   return Status::OK();
 }
 
@@ -226,9 +201,7 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       for (auto edge : node->out_edges()) {
         auto dst = edge->dst();
         NGRAPH_VLOG(1) << "dst node " << DebugNode(dst);
-        if (dst->IsOp() && !edge->IsControlEdge() &&
-            (ng_supported_ops.find(dst->type_string()) ==
-             ng_supported_ops.end())) {
+        if (dst->IsOp() && !edge->IsControlEdge() && !IsNGSupportedType(dst->type_string())){
           NGRAPH_VLOG(1) << "Dst node ngraph doesn't support ";
           outputs_ng_supported = false;
           break;
@@ -261,7 +234,6 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
 
       std::string node_new_name = node->name();
 
-      // if (just_looking || !outputs_ng_supported) {
       Node* replacement;
 
       if (just_looking) {
@@ -284,12 +256,20 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       } else if (IsNGAssignType(node->type_string())) {
         ReplaceNGraphAssign(graph, node, &replacement, node_new_name,
                             just_looking, outputs_ng_supported, graph_id);
-      } else if (node->type_string() == "NGraphApplyGradientDescent") {
-        ReplaceNGraphApplyGradientDescent(graph, node, &replacement,
-                                          node_new_name, just_looking,
-                                          outputs_ng_supported, graph_id);
       }
 
+      // Only add incoming control edges. Incoming data edges 
+      // are already added when building node def
+      NGRAPH_VLOG(4) << "Replacing in-edges that are control edges ";
+      for (auto edge : node->in_edges()) {
+        NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+        if (edge->IsControlEdge()) {
+          graph->AddEdge(edge->src(), edge->src_output(), replacement ,edge->dst_input());
+          graph->RemoveEdge(edge);
+        }
+      }
+
+      NGRAPH_VLOG(4) << "Replacing out-edges";
       std::vector<const Edge*> edges;
       for (auto edge : node->out_edges()) {
         edges.push_back(edge);
