@@ -27,6 +27,12 @@ from distutils.sysconfig import get_python_lib
 
 from tools.build_utils import load_venv, command_executor
 
+def get_os_type():
+    if platform.system() == 'Darwin':
+        return 'Darwin'
+    
+    if platform.linux_distribution():
+        return platform.linux_distribution()[0]
 
 def install_ngraph_bridge(artifacts_dir):
     # Determine the ngraph whl
@@ -77,7 +83,11 @@ def run_ngtf_cpp_gtests(artifacts_dir, log_dir, filters):
         raise Exception("Artifacts directory doesn't exist: " + artifacts_dir)
 
     # First run the C++ gtests
-    os.environ['LD_LIBRARY_PATH'] = os.path.join(artifacts_dir, "lib")
+    lib_dir = 'lib'
+    if 'CentOS' in get_os_type():
+        lib_dir = 'lib64'
+
+    os.environ['LD_LIBRARY_PATH'] = os.path.join(artifacts_dir, lib_dir)
     os.chdir(os.path.join(artifacts_dir, "test"))
     if (filters != None):
         gtest_filters = "--gtest_filter=" + filters
