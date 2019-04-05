@@ -70,11 +70,12 @@ class NGraphCatalog {
   static unordered_map<string, unordered_set<int>> ng_encap_output_copy_map_;
 
   // Utility Functions for the data structures
-  static void AddEncapCopyOutputCatalog(string key, unordered_set<int> val);
+  // Functions for Encapsulate Output Copy
+  static void AddToEncapOutputCopyCatalog(string key, unordered_set<int> val);
   static bool EncapOutputNeedsCopy(string key, int index);
-
   static unordered_set<int> GetEncapOutputIndexesNeedsCopy(string key);
 
+  // Functions relati Variable Output Copy
   static string GetInputSharedName(int graphid, string node_name,
                                    int input_index);
   static string CreateNodeKey(int graph_id, string node_name, int inp_index);
