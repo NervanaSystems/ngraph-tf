@@ -4187,14 +4187,65 @@ static Status TranslateSelectOp(
   TF_RETURN_IF_ERROR(
       GetInputNodes(ng_op_map, op, &ng_input1, &ng_input2, &ng_input3));
 
-  // broadcast to make all tensors same shape, as required by ngraph select op
-  std::tie(ng_input1, ng_input2) =
-      ng::builder::numpy_broadcast(std::make_pair(ng_input1, ng_input2));
-  std::tie(ng_input2, ng_input3) =
-      ng::builder::numpy_broadcast(std::make_pair(ng_input2, ng_input3));
+  int length;
+  shared_ptr<ng::Node> ng_input_new1, ng_input_new2, ng_input_new3;
+  shared_ptr<ng::Node> ng_select;
+  ng::AxisVector ng_axis_order;
 
-  auto ng_select = ConstructNgNode<ng::op::Select>(op->name(), ng_input1,
-                                                   ng_input2, ng_input3);
+  if ((ng_input1_shape.size() < ng_input2_shape.size()) &&
+      (ng_input2_shape[ng_input2_shape.size() - 1] == 1)) {
+    for (size_t i = 0; i < ng_input2_shape.size(); i++) {
+      if (ng_input1_shape[0] == ng_input2_shape[i])
+        length = ng_input2_shape.size() - i;
+    }
+    std::vector<size_t> tmp_vector(length, 1);
+    tmp_vector[0] = ng_input2_shape[0];
+    for (size_t i = 0; i < ng_input1_shape.size(); i++) {
+      ng_axis_order.push_back(i);
+    }
+    ng_input_new1 = ConstructNgNode<ng::op::Reshape>(op->name(), ng_input1,
+                                                     ng_axis_order, tmp_vector);
+    // broadcast to make all tensors same shape, as required by ngraph select op
+    std::tie(ng_input_new1, ng_input2) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_input_new1, ng_input2));
+    std::tie(ng_input2, ng_input3) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_input2, ng_input3));
+    ng_select = ConstructNgNode<ng::op::Select>(op->name(), ng_input_new1,
+                                                ng_input2, ng_input3);
+  }
+
+  else if ((ng_input1_shape.size() > ng_input2_shape.size()) &&
+           (ng_input1_shape[ng_input1_shape.size() - 1] == 1)) {
+    for (size_t i = 0; i < ng_input1_shape.size(); i++) {
+      if (ng_input2_shape[0] == ng_input1_shape[i])
+        length = ng_input1_shape.size() - i;
+    }
+    std::vector<size_t> tmp_vector(length, 1);
+    tmp_vector[0] = ng_input1_shape[0];
+    for (size_t i = 0; i < ng_input2_shape.size(); i++) {
+      ng_axis_order.push_back(i);
+    }
+    ng_input_new2 = ConstructNgNode<ng::op::Reshape>(op->name(), ng_input2,
+                                                     ng_axis_order, tmp_vector);
+    ng_input_new3 = ConstructNgNode<ng::op::Reshape>(op->name(), ng_input3,
+                                                     ng_axis_order, tmp_vector);
+    // broadcast to make all tensors same shape, as required by ngraph select op
+    std::tie(ng_input1, ng_input_new2) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_input1, ng_input_new2));
+    std::tie(ng_input_new2, ng_input_new3) = ng::builder::numpy_broadcast(
+        std::make_pair(ng_input_new2, ng_input_new3));
+    ng_select = ConstructNgNode<ng::op::Select>(op->name(), ng_input1,
+                                                ng_input_new2, ng_input_new3);
+  } else {
+    // broadcast to make all tensors same shape, as required by ngraph select op
+    std::tie(ng_input1, ng_input2) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_input1, ng_input2));
+    std::tie(ng_input2, ng_input3) =
+        ng::builder::numpy_broadcast(std::make_pair(ng_input2, ng_input3));
+
+    ng_select = ConstructNgNode<ng::op::Select>(op->name(), ng_input1,
+                                                ng_input2, ng_input3);
+  }
 
   SaveNgOp(ng_op_map, op->name(), ng_select);
   return Status::OK();

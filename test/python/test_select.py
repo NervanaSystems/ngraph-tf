@@ -64,3 +64,20 @@ class TestSelect(NgraphTest):
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
+
+    def test_select_complexshape(self):
+        a = [1, 0, 1, 0, 1, 1, 0]
+        x = [[[[4], [2], [9]], [[3], [8], [2]]],
+             [[[6], [6], [2]], [[5], [4], [1]]],
+             [[[7], [6], [0]], [[1], [1], [1]]],
+             [[[5], [0], [9]], [[8], [7], [6]]],
+             [[[1], [9], [6]], [[3], [2], [8]]],
+             [[[9], [2], [5]], [[3], [3], [6]]],
+             [[[4], [9], [3]], [[6], [1], [4]]]]
+        p = tf.placeholder(dtype=tf.bool)
+        out = tf.where(p, x, x)
+
+        def run_test(sess):
+            return (sess.run(out, feed_dict={p: a})).shape
+
+        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test))
