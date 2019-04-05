@@ -4187,6 +4187,10 @@ static Status TranslateSelectOp(
   TF_RETURN_IF_ERROR(
       GetInputNodes(ng_op_map, op, &ng_input1, &ng_input2, &ng_input3));
 
+  auto ng_input1_shape = ng_input1->get_shape();
+  auto ng_input2_shape = ng_input2->get_shape();
+  auto ng_input3_shape = ng_input3->get_shape();
+
   int length;
   shared_ptr<ng::Node> ng_input_new1, ng_input_new2, ng_input_new3;
   shared_ptr<ng::Node> ng_select;
