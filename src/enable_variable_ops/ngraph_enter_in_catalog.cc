@@ -35,10 +35,12 @@ namespace ngraph_bridge {
 // Used by Variable and other Modifier Ops (NGraphVariable, NGraphAssign)
 // for accessing the variable object from resource manager using shared
 // name
-// If the op is not of type NGraphVariable, 
+// If the op is not of type NGraphVariable,
 //    then recurse over its 1st input till we get reach the variable
-// Assumes: the Variable that is being modified is the 1st input and the only modifiable input
-// If the op has many such inputs, this function needs to be called for each of them
+// Assumes: the Variable that is being modified is the 1st input and the only
+// modifiable input
+// If the op has many such inputs, this function needs to be called for each of
+// them
 // It is bound to terminate as the modifier ops like Assign, AssignAdd,
 // ApplyGradientDescent, etc
 // always operate on a Variable
@@ -58,7 +60,6 @@ Status GetSharedName(Node* node, string* shared_name) {
 
 // 1. Populate the input_variable_map
 // 2. Attach Graph Ids to the node
-
 Status EnterInCatalog(Graph* graph, int graph_id) {
   // Topological Sort
   vector<Node*> ordered;
@@ -72,9 +73,9 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
       TF_RETURN_IF_ERROR(GetSharedName(node, &shared_name));
       NGraphCatalog::AddCatalog(node_key, shared_name);
 
-      NGRAPH_VLOG(1) << "Adding in Catalog ";
-      NGRAPH_VLOG(1) << "Key: " << node_key;
-      NGRAPH_VLOG(1) << "Value: " << shared_name;
+      NGRAPH_VLOG(4) << "Adding in Catalog ";
+      NGRAPH_VLOG(4) << "Key: " << node_key;
+      NGRAPH_VLOG(4) << "Value: " << shared_name;
 
     } else if (node->type_string() == "NGraphEncapsulate") {
       // input catalog
@@ -87,25 +88,26 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
           string shared_name;
           TF_RETURN_IF_ERROR(GetSharedName(src, &shared_name));
           NGraphCatalog::AddCatalog(node_key, shared_name);
-          NGRAPH_VLOG(1) << "Adding in Catalog ";
-          NGRAPH_VLOG(1) << "Key: " << node_key;
-          NGRAPH_VLOG(1) << "Value: " << shared_name;
+          NGRAPH_VLOG(4) << "Adding in Catalog ";
+          NGRAPH_VLOG(4) << "Key: " << node_key;
+          NGRAPH_VLOG(4) << "Value: " << shared_name;
         }
       }
 
       // output ng-copy map catalog
       unordered_set<int> op_index_to_copy;
-      NGRAPH_VLOG(1) << "Finding Output Copy required for " << node->name();
+      NGRAPH_VLOG(4) << "Finding Output Copy required for " << node->name();
       for (auto edge : node->out_edges()) {
         if (edge->dst()->IsOp() && !edge->IsControlEdge() &&
             !IsNGVariableType(edge->dst()->type_string())) {
-          NGRAPH_VLOG(1) << "Output Copy required for " << node->name()
+          NGRAPH_VLOG(4) << "Output Copy required for " << node->name()
                          << " ,index: " << edge->src_output() << " dstOpType "
                          << edge->dst()->type_string();
           op_index_to_copy.insert(edge->src_output());
         }
       }
-      NGraphCatalog::AddEncapCopyOutputCatalog(node->name(), op_index_to_copy);
+      NGraphCatalog::AddToEncapOutputCopyCatalog(node->name(),
+                                                 op_index_to_copy);
 
     }  // end of node is type NGraphEncapsulate
 
@@ -118,7 +120,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
           continue;
         }
 
-        NGRAPH_VLOG(1) << "Get " << node->type_string()
+        NGRAPH_VLOG(4) << "Get " << node->type_string()
                        << "and input is from NGraphEncapsulate";
 
         auto src = edge->src();
@@ -132,13 +134,13 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
         }
         // Will be updated with real tensors in Encapsulate
         NGraphCatalog::AddOutputCatalog(node_key, nullptr);
-        NGRAPH_VLOG(1) << "Adding in output Catalog ";
-        NGRAPH_VLOG(1) << "Key: " << node_key;
+        NGRAPH_VLOG(4) << "Adding in output Catalog ";
+        NGRAPH_VLOG(4) << "Key: " << node_key;
       }
     }  // end of if node of type NGraphAssign
   }    // enter in catalog
 
-  NGRAPH_VLOG(1) << "Entered in Catalog";
+  NGRAPH_VLOG(4) << "Entered in Catalog";
   return Status::OK();
 }
 

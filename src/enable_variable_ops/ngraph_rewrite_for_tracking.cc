@@ -201,7 +201,8 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       for (auto edge : node->out_edges()) {
         auto dst = edge->dst();
         NGRAPH_VLOG(1) << "dst node " << DebugNode(dst);
-        if (dst->IsOp() && !edge->IsControlEdge() && !IsNGSupportedType(dst->type_string())){
+        if (dst->IsOp() && !edge->IsControlEdge() &&
+            !IsNGSupportedType(dst->type_string())) {
           NGRAPH_VLOG(1) << "Dst node ngraph doesn't support ";
           outputs_ng_supported = false;
           break;
@@ -234,8 +235,6 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
 
       std::string node_new_name = node->name();
 
-      Node* replacement;
-
       if (just_looking) {
         node_new_name += "/peek";
       }
@@ -248,6 +247,7 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       NGRAPH_VLOG(1) << "Replacing " << node->name() << " New Node name "
                      << node_new_name;
 
+      Node* replacement;
       // TODO(amprocte): Do we need to copy "_" attributes?
       // TODO(mingshan): Combine this three to one helper function
       if (node->type_string() == "NGraphVariable") {
@@ -258,14 +258,18 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
                             just_looking, outputs_ng_supported, graph_id);
       }
 
-      // Only add incoming control edges. Incoming data edges 
+      // Only add incoming control edges. Incoming data edges
       // are already added when building node def
       NGRAPH_VLOG(4) << "Replacing in-edges that are control edges ";
       for (auto edge : node->in_edges()) {
-        NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+        if (edge == NULL) continue;
         if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), replacement ,edge->dst_input());
+          NGRAPH_VLOG(4) << "Added edge: " << edge->DebugString();
+          NGRAPH_VLOG(4) << "SRC " << edge->src() << " DST " << replacement;
+          graph->AddEdge(edge->src(), -1, replacement, -1);
+          NGRAPH_VLOG(4) << "Removing edge: " << edge->DebugString();
           graph->RemoveEdge(edge);
+          // NGRAPH_VLOG(4) << "Removed " << edge->DebugString();
         }
       }
 

@@ -169,23 +169,26 @@ class NGraphEncapsulateOp : public OpKernel {
       // TODO(amprocte): We should be able to unref the tracker here, but it
       // seems to screw things up in the C++ unit tests.
       // m_freshness_tracker->Unref();
+    }
 
-      // TODO(malikshr) : Delete the [Could be erroreneous we dont know if this
-      // destructor is
-      // called at the very end]
-      string node_name = "_ngraph_cluster_" + to_string(m_ngraph_cluster);
+    string node_name = "_ngraph_cluster_" + to_string(m_ngraph_cluster);
+    // TODO(malikshr) : Delete the [Could be erroreneous we dont know if this
+    // destructor is called at the very end
+    for (int i = 0; i < m_number_outputs; i++) {
+      string key;
+      if (i == 0) {
+        key = to_string(m_graph_id) + node_name;
+      } else {
+        key = NGraphCatalog::CreateNodeKey(m_graph_id, node_name, i);
+      }
 
-      for (int i = 0; i < m_number_outputs; i++) {
-        string key;
-        if (i == 0) {
-          key = to_string(m_graph_id) + node_name;
-        } else {
-          key = NGraphCatalog::CreateNodeKey(m_graph_id, node_name, i);
-        }
-
+      if (NGraphCatalog::ExistsInOutputCatalog(key)) {
+        auto temp = NGraphCatalog::GetNgTensorFromOutputCatalog(key);
+        temp.reset();
         NGraphCatalog::DeleteTensorFromEncapOutputCatalog(key);
       }
     }
+
     // Release the backend
     BackendManager::ReleaseBackend(m_op_backend_name);
     NGRAPH_VLOG(2) << "~NGraphEncapsulateOp()";
