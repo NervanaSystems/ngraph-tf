@@ -71,12 +71,12 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
 
   // Get the nodes to be skipped
-  std::vector<string> fetch_nodes;
+  std::set<string> fetch_nodes;
   for (const string& f : item.fetch) {
     int pos = f.find(":");
-    fetch_nodes.push_back(f.substr(0, pos));
+    fetch_nodes.insert(f.substr(0, pos));
   }
-  std::vector<string>& skip_these_nodes = fetch_nodes;
+  std::set<string>& skip_these_nodes = fetch_nodes;
 
   // Rewrite graph to add identity node so the skip node can be encapsulated
   // as well
@@ -84,8 +84,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   for (auto node : input_graph->op_nodes()) {
     bool fetch_node = false;
     bool ref_type = false;
-    fetch_node = std::find(fetch_nodes.begin(), fetch_nodes.end(),
-                           node->name()) != fetch_nodes.end();
+    fetch_node = fetch_nodes.find(node->name()) != fetch_nodes.end();
     if (fetch_node) {
       NGRAPH_VLOG(5) << "Fetch Node " << node->name();
       // Check the number of outputs of the 'fetch_node'
@@ -109,34 +108,29 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         }
 
         if (ref_type) {
-          NGRAPH_VLOG(5) << "Cannot create an IdentityN node";
+          NGRAPH_VLOG(5) << "Cannot construct an IdentityN node";
           continue;
         }
 
         NGRAPH_VLOG(5) << "Creating an IdentityN node";
         Node* identityN_node;
-        if (NodeBuilder(node->name(), "IdentityN")
-                .Attr("T", input_types)
-                .Input(inputs)
-                .Device(node->assigned_device_name())
-                .Finalize(input_graph, &identityN_node) != Status::OK()) {
-          NGRAPH_VLOG(5) << "Unsuccessful in constructing the node";
-        } else {
-          NGRAPH_VLOG(5) << "Successfully constructed IdentityN node";
-        }
+        TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "IdentityN")
+                               .Attr("T", input_types)
+                               .Input(inputs)
+                               .Device(node->assigned_device_name())
+                               .Finalize(input_graph, &identityN_node));
 
         identityN_node->set_assigned_device_name(node->assigned_device_name());
 
         // Rename the skip node
-        NGRAPH_VLOG(5) << "Renaming node";
         // Get a new name for the node with the given prefix
         // We will use the 'original-node-name_ng' as the prefix
-        string new_name = input_graph->NewName(node->name() + "_ng");
+        string new_name = input_graph->NewName(node->name() + "_ngraph");
         node->set_name(new_name);
         NGRAPH_VLOG(5) << "New name for skip node " << node->name();
       } else {
         NGRAPH_VLOG(5) << "num outputs " << node->num_outputs();
-        NGRAPH_VLOG(5) << "Cannot constructed an IdentityN node";
+        NGRAPH_VLOG(5) << "Cannot construct an IdentityN node";
       }
     }
   }
