@@ -24,6 +24,7 @@
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/platform/default/logging.h"
 
+#include "ngraph/event_tracing.hpp"
 #include "ngraph/runtime/backend.hpp"
 #include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
@@ -77,7 +78,7 @@ class NGraphAssignOp : public OpKernel {
   void Compute(OpKernelContext* context) override {
     std::ostringstream oss;
     oss << "Execute: Assign_" << my_instance_id << ": " << name();
-    Event event_compute(oss.str().c_str(), name().c_str());
+    ngraph::Event event_compute(oss.str(), name(), "");
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Compute called for: " << def().name()
                    << " ,just looking " << PrintBool(just_looking_)
@@ -125,21 +126,15 @@ class NGraphAssignOp : public OpKernel {
       // Value is from encap
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from catalog: " << valkey;
       auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
-      Event event_copy("D2D Copy", name().c_str());
       ng_tensor_to_assign->copy_from(*ng_val);
-      event_copy.Stop();
-      Event::WriteTrace(event_copy);
     } else {
       number_of_copies++;
       copy_log_str << " COPY_INP_VAL[0]";
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from TF : " << valkey;
       void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
-      Event event_host_2_dev_copy("H2D Copy", name().c_str());
       ng_tensor_to_assign->write(
           tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
                              ng_tensor_to_assign->get_element_type().size());
-      event_host_2_dev_copy.Stop();
-      Event::WriteTrace(event_host_2_dev_copy);
     }
 
     mutex_lock l(*context->input_ref_mutex(0));
@@ -165,7 +160,7 @@ class NGraphAssignOp : public OpKernel {
     // Unref Var
     var->Unref();
     event_compute.Stop();
-    Event::WriteTrace(event_compute);
+    ngraph::Event::write_trace(event_compute);
   }
 };
 
