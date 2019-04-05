@@ -575,7 +575,7 @@ Status MarkForClustering(Graph* graph,
       set_attributes_map["Max"] = SetStaticInputs({1});
       set_attributes_map["Mean"] = SetStaticInputs({1});
       set_attributes_map["Min"] = SetStaticInputs({1});
-      set_attributes_map["NonMaxSuppressionV4"] = SetStaticInputs({3, 4});
+      set_attributes_map["NonMaxSuppressionV4"] = SetStaticInputs({2, 3, 4});
       set_attributes_map["OneHot"] = SetStaticInputs({1});
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
@@ -751,7 +751,7 @@ bool InputIsStatic(const Node* node, int index) {
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
 }
 
-Status GetNodeBackend(Node* node, string* backend_name) {
+Status GetNodeBackend(const Node* node, string* backend_name) {
   // TODO(amprocte): move attr name to a constant
   NGRAPH_VLOG(5) << "Getting backend " << node->name();
   TF_RETURN_IF_ERROR(

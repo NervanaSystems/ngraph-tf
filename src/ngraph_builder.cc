@@ -2321,16 +2321,27 @@ static Status TranslateMaxPoolGradOp(
 }
 
 static Status TranslateNonMaxSuppressionV4Op(const Node* op, const std::vector<const Tensor*>& static_input_map, Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_boxes, ng_scores, ng_max_output_size;
+  shared_ptr<ng::Node> ng_boxes, ng_scores;
   TF_RETURN_IF_ERROR(
-      GetInputNodes(ng_op_map, op, &ng_boxes, &ng_scores, &ng_max_output_size, nullptr, nullptr));
+      GetInputNodes(ng_op_map, op, &ng_boxes, &ng_scores, nullptr, nullptr, nullptr));
 
+  std::vector<int> max_output_size;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &max_output_size));								   
   std::vector<float> iou_threshold;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 3, static_input_map, &iou_threshold));
 
   std::vector<float> score_threshold;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 4, static_input_map, &score_threshold));
 
+  bool pad_to_max_output_size;
+  if (GetNodeAttr(op->attrs(), "pad_to_max_output_size", &pad_to_max_output_size) != Status::OK()) {
+	  pad_to_max_output_size = false;
+    }
+  // max_output_size must be scalar
+  if (max_output_size.size() != 1) {
+    return errors::InvalidArgument(
+        "NonMaxSuppressionV4 Op: max_output_size of nms must be scalar ", max_output_size.size());
+  }							  
   // iou_threshold must be scalar
   if (iou_threshold.size() != 1) {
     return errors::InvalidArgument(
@@ -2355,13 +2366,18 @@ static Status TranslateNonMaxSuppressionV4Op(const Node* op, const std::vector<c
   ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
 
   shared_ptr<ng::Node> ng_nmsv4 = backend->get_backend_op(
-      "NMSv4", ng_boxes, ng_scores, ng_max_output_size, iou_threshold[0], score_threshold[0]);
+      "NonMaxSuppressionV4", ng_boxes, ng_scores, (size_t)(max_output_size[0]), (float)(iou_threshold[0]), (float)score_threshold[0],(bool)pad_to_max_output_size);
   if (ng_nmsv4 == nullptr) {
     return errors::Internal("In translating NonMaxSuppressionV4 op ", op->name(),
                             " backend could not return valid ngraph node");
   }
+  shared_ptr<ngraph::Node> ng_selected_indices =
+       ConstructNgNode<ngraph::op::GetOutputElement>(op->name(), ng_nmsv4, 0);
+   shared_ptr<ngraph::Node> ng_valid_output =
+       ConstructNgNode<ngraph::op::GetOutputElement>(op->name(), ng_nmsv4, 1);
 
-  SaveNgOp(ng_op_map, op->name(), ng_nmsv4);
+  SaveNgOp(ng_op_map, op->name(), ng_selected_indices);
+  SaveNgOp(ng_op_map, op->name(), ng_valid_output);
 
   return Status::OK();
 }
