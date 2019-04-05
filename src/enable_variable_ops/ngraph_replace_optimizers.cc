@@ -27,9 +27,11 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status ReplaceOptimizers(Graph* graph, int graph_id) {
-  // Go over the nodes and replace variable modifiers with the computation graph
-  // Add Assign Op in their place
-
+  // Go over the nodes and replace variable modifiers
+  // Each Modifier is replaced with the corresponding computational TF
+  // graph followed by NGraphAssign Op
+  // If there is an incoming control edge to the Modifier Op
+  // It is attached to the first op in the series of the computation TF graph
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "NGraphAssignSub" ||
         node->type_string() == "NGraphAssignAdd") {
@@ -89,7 +91,7 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
 
       for (auto edge : node->in_edges()) {
         if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), ngraphassign_op,
+          graph->AddEdge(edge->src(), edge->src_output(), compute_op,
                          edge->dst_input());
           graph->RemoveEdge(edge);
         }
@@ -113,14 +115,12 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
       graph->RemoveNode(node);
       NGRAPH_VLOG(1) << "Removing node";
 
-    }  // AssignSub
+    }  // AssignSub + Assign Add
     else if (node->type_string() == "NGraphApplyGradientDescent") {
       NodeBuilder::NodeOut input_var;
       NodeBuilder::NodeOut input_alpha;
       NodeBuilder::NodeOut input_delta;
 
-      // TODO(Mingshan): we may removing the control_edges to the
-      // ApplyGradientDescent node
       std::vector<const Edge*> input_edges;
       TF_RETURN_IF_ERROR(node->input_edges(&input_edges));
 
@@ -178,7 +178,7 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
 
       for (auto edge : node->in_edges()) {
         if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), ngraphassign_op,
+          graph->AddEdge(edge->src(), edge->src_output(), mul_op,
                          edge->dst_input());
           graph->RemoveEdge(edge);
         }
@@ -197,7 +197,7 @@ Status ReplaceOptimizers(Graph* graph, int graph_id) {
 
       graph->RemoveNode(node);
       NGRAPH_VLOG(1) << "Replaced ApplyGradientDescent";
-    }
+    }  // Apply Gradient Descent
   }
 
   return Status::OK();

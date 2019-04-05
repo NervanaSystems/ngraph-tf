@@ -250,6 +250,16 @@ Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
         NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
                        << replacement->DebugString();
 
+        NGRAPH_VLOG(4) << "Getting in edges: ";
+        for (auto edge : node->in_edges()) {
+          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+          if (edge->IsControlEdge()) {
+            graph->AddEdge(edge->src(), edge->src_output(), replacement,
+                           edge->dst_input());
+            graph->RemoveEdge(edge);
+          }
+        }
+
         NGRAPH_VLOG(4) << "Getting out edges: ";
         for (auto edge : node->out_edges()) {
           edges.push_back(edge);

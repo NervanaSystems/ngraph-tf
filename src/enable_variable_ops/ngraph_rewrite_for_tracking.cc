@@ -39,7 +39,6 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
 
   std::string container;
   std::string shared_name;
-  // int graph_id;
   std::string backend_name;
 
   if (GetNodeAttr(node->attrs(), "container", &container) != Status::OK()) {
@@ -48,9 +47,6 @@ Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
   if (GetNodeAttr(node->attrs(), "shared_name", &shared_name) != Status::OK()) {
     shared_name = "";
   }
-
-  // TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_graph_id",
-  // &graph_id));
 
   TF_RETURN_IF_ERROR(
       GetNodeAttr(node->attrs(), "_ngraph_backend", &backend_name));
@@ -126,69 +122,11 @@ Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
   return Status::OK();
 }
 
-// ReplaceNGraphApplyGradientDescent
-Status ReplaceNGraphApplyGradientDescent(
-    Graph* graph, Node* node, Node** replacement, std::string node_new_name,
-    bool just_looking, bool outputs_ng_supported, int graph_id) {
-  NGRAPH_VLOG(1) << "Start replacing NGraphApplyGradientDescent "
-                 << node->name();
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
-  bool use_locking;
-  TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "use_locking", &use_locking));
-  // int graph_id;
-  // TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_graph_id",
-  // &graph_id));
-  std::string backend_name;
-  TF_RETURN_IF_ERROR(
-      GetNodeAttr(node->attrs(), "_ngraph_backend", &backend_name));
-
-  NodeBuilder::NodeOut input_var;
-  NodeBuilder::NodeOut input_alpha;
-  NodeBuilder::NodeOut input_delta;
-
-  // TODO(Mingshan): we may removing the control_edges to the
-  // ApplyGradientDescent node
-  std::vector<const Edge*> input_edges;
-  TF_RETURN_IF_ERROR(node->input_edges(&input_edges));
-
-  NGRAPH_VLOG(1) << "No of input edges to ApplyGradientDescent "
-                 << input_edges.size();
-
-  input_var =
-      NodeBuilder::NodeOut(input_edges[0]->src(), input_edges[0]->src_output());
-  input_alpha =
-      NodeBuilder::NodeOut(input_edges[1]->src(), input_edges[1]->src_output());
-  input_delta =
-      NodeBuilder::NodeOut(input_edges[2]->src(), input_edges[2]->src_output());
-
-  TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "NGraphApplyGradientDescent")
-                         .Attr("T", dtype)
-                         .Attr("use_locking", use_locking)
-                         .Attr("just_looking", just_looking)
-                         .Attr("copy_to_tf", !outputs_ng_supported)
-                         .Attr("ngraph_graph_id", graph_id)
-                         .Attr("_ngraph_backend", backend_name)
-                         .Input(input_var)
-                         .Input(input_alpha)
-                         .Input(input_delta)
-                         .Device(node->assigned_device_name())
-                         .Finalize(graph, &(*replacement)));
-
-  (*replacement)->set_assigned_device_name(node->assigned_device_name());
-  return Status::OK();
-}  // end of ReplaceNGraphApplyGradientDescent
-
 //
 // Main entry point for rewrite-for-tracking.
 //
 Status RewriteForTracking(Graph* graph, int graph_id) {
   std::vector<Node*> replaced_nodes;
-  std::set<string> ng_supported_ops = {
-      "NGraphVariable",    "NGraphAssign",
-      "NGraphEncapsulate", "NGraphApplyGradientDescent",
-      "NGraphAssignSub",   "NGraphAssignAdd"};
 
   for (auto node : graph->op_nodes()) {
     if (IsNGVariableType(node->type_string())) {
@@ -249,27 +187,23 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
 
       Node* replacement;
       // TODO(amprocte): Do we need to copy "_" attributes?
-      // TODO(mingshan): Combine this three to one helper function
       if (node->type_string() == "NGraphVariable") {
-        ReplaceNGraphVariable(graph, node, &replacement, node_new_name,
-                              just_looking, outputs_ng_supported, graph_id);
+        TF_RETURN_IF_ERROR(ReplaceNGraphVariable(
+            graph, node, &replacement, node_new_name, just_looking,
+            outputs_ng_supported, graph_id));
       } else if (IsNGAssignType(node->type_string())) {
-        ReplaceNGraphAssign(graph, node, &replacement, node_new_name,
-                            just_looking, outputs_ng_supported, graph_id);
+        TF_RETURN_IF_ERROR(ReplaceNGraphAssign(graph, node, &replacement,
+                                               node_new_name, just_looking,
+                                               outputs_ng_supported, graph_id));
       }
 
       // Only add incoming control edges. Incoming data edges
       // are already added when building node def
       NGRAPH_VLOG(4) << "Replacing in-edges that are control edges ";
       for (auto edge : node->in_edges()) {
-        if (edge == NULL) continue;
         if (edge->IsControlEdge()) {
-          NGRAPH_VLOG(4) << "Added edge: " << edge->DebugString();
-          NGRAPH_VLOG(4) << "SRC " << edge->src() << " DST " << replacement;
           graph->AddEdge(edge->src(), -1, replacement, -1);
-          NGRAPH_VLOG(4) << "Removing edge: " << edge->DebugString();
           graph->RemoveEdge(edge);
-          // NGRAPH_VLOG(4) << "Removed " << edge->DebugString();
         }
       }
 
