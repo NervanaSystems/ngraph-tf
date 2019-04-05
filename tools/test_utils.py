@@ -260,7 +260,7 @@ def run_resnet50(build_dir):
     os.chdir(root_pwd)
 
 
-def run_resnet50_from_artifacts(artifact_dir):
+def run_resnet50_from_artifacts(artifact_dir, batch_size, iterations):
 
     root_pwd = os.getcwd()
     artifact_dir = os.path.abspath(artifact_dir)
@@ -310,7 +310,8 @@ def run_resnet50_from_artifacts(artifact_dir):
     cmd = [
         'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
-        '--num_batches', '10', '--model=resnet50', '--batch_size=128',
+        '--num_batches',
+        str(iterations), '--model=resnet50', '--batch_size=' + str(batch_size),
         '--eval_dir=' + eval_eventlog_dir
     ]
     command_executor(cmd)
@@ -328,8 +329,8 @@ def run_resnet50_from_artifacts(artifact_dir):
     cmd = [
         'python', 'tf_cnn_benchmarks.py', '--data_format', 'NCHW',
         '--num_inter_threads', '1', '--train_dir=' + model_save_dir,
-        '--model=resnet50', '--batch_size=128', '--num_batches', '10', '--eval',
-        '--eval_dir=' + eval_eventlog_dir
+        '--model=resnet50', '--batch_size=' + str(batch_size), '--num_batches',
+        str(iterations), '--eval', '--eval_dir=' + eval_eventlog_dir
     ]
     command_executor(cmd)
 
