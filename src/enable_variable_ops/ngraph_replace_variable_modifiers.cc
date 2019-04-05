@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#include "ngraph_replace_optimizers.h"
-#include "ngraph_api.h"
-#include "ngraph_capture_variables.h"
-#include "ngraph_utils.h"
+
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/node_builder.h"
+
+#include "ngraph_api.h"
+#include "ngraph_capture_variables.h"
+#include "ngraph_replace_variable_modifiers.h"
+#include "ngraph_utils.h"
 
 using namespace std;
 namespace ng = ngraph;
@@ -26,7 +28,7 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status ReplaceOptimizers(Graph* graph, int graph_id) {
+Status ReplaceModifiers(Graph* graph, int graph_id) {
   // Go over the nodes and replace variable modifiers
   // Each Modifier is replaced with the corresponding computational TF
   // graph followed by NGraphAssign Op

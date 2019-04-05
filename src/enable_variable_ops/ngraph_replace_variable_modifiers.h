@@ -28,7 +28,7 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status ReplaceOptimizers(Graph* graph, int graph_id);
+Status ReplaceModifiers(Graph* graph, int graph_id);
 
 }  // ngraph_bridge
 }  // tensorflow
