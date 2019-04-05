@@ -396,6 +396,7 @@ def run_bazel_build_test(venv_dir, build_dir):
     # Return to the original directory
     os.chdir(root_pwd)
 
+
 def run_bazel_build():
     # Next patch the TensorFlow so that the tests run using ngraph_bridge
     root_pwd = os.getcwd()
