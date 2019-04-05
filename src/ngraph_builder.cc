@@ -1952,8 +1952,8 @@ static Status TranslateGatherV2Op(
   auto coords = ng::Coordinate(indices);
   auto axis = (size_t)(tf_axis[0]);
 
-  shared_ptr<ng::Node> ng_gather = backend->get_backend_op(
-      "Gather", &ng_input, &coords, &axis);
+  shared_ptr<ng::Node> ng_gather =
+      backend->get_backend_op("Gather", &ng_input, &coords, &axis);
   if (ng_gather == nullptr) {
     return errors::Internal("In translating GatherV2 op ", op->name(),
                             " backend could not return valid ngraph node");
