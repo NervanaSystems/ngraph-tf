@@ -33,7 +33,7 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
-#include "ngraph_timer.h"
+
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
 
@@ -173,8 +173,9 @@ class NGraphEncapsulateOp : public OpKernel {
     }
 
     string node_name = "_ngraph_cluster_" + to_string(m_ngraph_cluster);
-    // TODO(malikshr) : Delete the [Could be erroreneous we dont know if this
-    // destructor is called at the very end
+    // TODO(malikshr) : Could be erroreneous we dont know if this
+    // destructor is called at the very end, if some modifier that uses this
+    // tensor is still active.
     for (int i = 0; i < m_number_outputs; i++) {
       string key;
       if (i == 0) {

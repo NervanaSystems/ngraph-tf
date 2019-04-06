@@ -135,7 +135,7 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       bool just_looking = true;
       bool outputs_ng_supported = true;
 
-      // Check if all the outputs of this node ngraph supports
+      // Check if all the outputs of this node are supported by nGraph
       for (auto edge : node->out_edges()) {
         auto dst = edge->dst();
         NGRAPH_VLOG(1) << "dst node " << DebugNode(dst);
@@ -154,8 +154,6 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
             IsRefType(edge->dst()->input_type(edge->dst_input()))) {
           // if the output reference is read by NGraph supported ops, do not
           // turn off just_looking
-          // NGVariableType = NGVariable || NGraphAssign ||
-          // NGraphApplyGradientDescent
           if (!IsNGVariableType(edge->dst()->type_string())) {
             NGRAPH_VLOG(1) << DebugNode(edge->dst())
                            << "needs reference, setting just_looking to false";

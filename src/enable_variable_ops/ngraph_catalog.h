@@ -14,9 +14,6 @@
  * limitations under the License.
  *******************************************************************************/
 
-// The backend manager class is a singelton class that interfaces with the
-// bridge to provide necessary backend
-
 #ifndef NGRAPH_TF_CATALOG_H_
 #define NGRAPH_TF_CATALOG_H_
 
@@ -75,7 +72,7 @@ class NGraphCatalog {
   static bool EncapOutputNeedsCopy(string key, int index);
   static unordered_set<int> GetEncapOutputIndexesNeedsCopy(string key);
 
-  // Functions relati Variable Output Copy
+  // Functions relating Variable Output Copy
   static string GetInputSharedName(int graphid, string node_name,
                                    int input_index);
   static string CreateNodeKey(int graph_id, string node_name, int inp_index);
