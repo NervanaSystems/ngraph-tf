@@ -724,7 +724,6 @@ Status MarkForClustering(Graph* graph,
     std::cout << "\n";
   }
 
-  std::cout << "current_backend:: " << current_backend << "\n";
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
