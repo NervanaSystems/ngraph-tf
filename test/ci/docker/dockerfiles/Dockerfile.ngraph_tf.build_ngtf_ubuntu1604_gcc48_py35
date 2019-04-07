@@ -18,22 +18,18 @@
 
 FROM ubuntu:16.04
 
-# Default python environment is python 2, thus python-pip and virtualenv
-# python-numpy, python-dev, and python-wheel all needed for TensorFlow build
+# Default python environment is python 3, thus python3-pip and virtualenv
+# python3-dev is needed for TensorFlow build
 # git is needed to clone tensorflow repository
 # unzip and wget are needed for installing bazel
 # sudo is required for installing the TF wheel into /usr/local/...
 # zlib1g, zlib1g-dev and bash-completion are required by bazel install
 # zip and golang-go are needed to run TensorFlow tests
 # curl and locate are needed by Tensorflow's configure command
-# enum appears to be used in the TensorFlow build
 # clang-format-3.9 is needed for code-style checks
-# python3-pil is needed to run the inception-resnet-v2 model
-# python3-tk is used by matplotlib (pip installed below)
-# libsdl1.2-dev is needed to run the A3C model
 RUN apt-get update &&  apt-get install -y \
     python3-pip virtualenv \
-    python3-numpy python3-dev python3-wheel \
+    python3-dev \
     git \
     unzip wget \
     sudo \
@@ -42,10 +38,29 @@ RUN apt-get update &&  apt-get install -y \
     libtinfo-dev \
     zip golang-go \
     locate curl \
-    clang-format-3.9 \
-    python3-pil \
-    python3-tk \
-    libsdl1.2-dev
+    clang-format-3.9
+
+# Install gcc 4.8 and configure it to be the preferred gcc XXXXX
+
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
+
+RUN apt-get install -y gcc-4.8 g++-4.8
+
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
+
+# Setup gcc-4.8 compiler per https://github.com/NervanaSystems/ngraph/blob/master/INSTALL
+# If you are using gcc-4.8, it may be necessary to add symlinksfrom `gcc` to
+# `gcc-4.8`, and from `g++` to `g++-4.8`, in your PATH, even if you have
+# specify CMAKE_C_COMPILER and CMAKE_CXX_COMPILER when building. (You should
+# NOT supply the `-DNGRAPH_USE_PREBUILT_LLVM` flag in this case, because the
+# prebuilt tarball supplied on llvm.org is not compatible with a gcc-4.8
+# based build.)
+RUN ln -f -s /usr/bin/gcc-4.8 /usr/bin/gcc || true
+RUN ln -f -s /usr/bin/g++-4.8 /usr/bin/g++ || true
+RUN which gcc && gcc --version || true
+RUN which c++ && c++ --version || true
 
 # The "locate" command uses a prepopulated index.  If this index is not built,
 # then "locate" will find absolutely nothing.  In Tensorflow's configure,
@@ -53,19 +68,9 @@ RUN apt-get update &&  apt-get install -y \
 # completion.  Therefore, updatedb MUST BE RUN to provide an index for "locate".
 RUN updatedb
 
-# six, enum34 and mock are required for building the tensorflow wheel
-# scipy, portpicker, and sklearn are needed by some TensorFlow tests
-# keras_applications and keras_preprocessing are needed for modern TensorFlow builds
-# matplotlib and librosa are needed to run inference models
-# opencv-python is used by some inference models (for import cv2)
-# yapf and futures are needed for code-format checks (ngraph-tf PR#211)
-RUN pip3 install --upgrade pip
-RUN pip3 install six enum34 mock
-RUN pip3 install scipy portpicker sklearn
-RUN pip3 install keras_applications keras_preprocessing
-RUN pip3 install matplotlib librosa opencv-python
-RUN pip3 install yapf==0.24.0
-RUN pip3 install futures
+# The pip-upgrade for pip, setuptools, and virtualenv is to avoid a nasty
+#   bug in setuptools: "_NamespacePath object has no attribute sort"
+RUN pip3 install --upgrade pip setuptools virtualenv==16.1.0
 
 # We include pytest so the Docker image can be used for daily validation
 RUN pip3 install --upgrade pytest
@@ -79,8 +84,8 @@ RUN pip3 install --upgrade pytest
 RUN apt-get update && apt-get install -y openjdk-8-jdk
 #
 # This bazel version works with current TF
-RUN wget --no-verbose -c https://github.com/bazelbuild/bazel/releases/download/0.16.0/bazel_0.16.0-linux-x86_64.deb
-RUN dpkg -i bazel_0.16.0-linux-x86_64.deb || true
+RUN wget --no-verbose -c https://github.com/bazelbuild/bazel/releases/download/0.21.0/bazel_0.21.0-linux-x86_64.deb
+RUN dpkg -i bazel_0.21.0-linux-x86_64.deb || true
 
 # Copy in the run-as-user.sh script
 # This will allow the builds, which are done in a mounted directory, to

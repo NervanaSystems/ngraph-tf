@@ -21,6 +21,9 @@ namespace ngraph_bridge {
 extern "C" {
 // Returns the ngraph-tensorflow library version
 const char* ngraph_tf_version();
+
+// Returns the nGraph version this bridge was compiled with
+const char* ngraph_lib_version();
 }
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

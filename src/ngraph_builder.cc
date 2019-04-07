@@ -15,6 +15,7 @@
  *******************************************************************************/
 
 #include "ngraph_builder.h"
+#include "ngraph/op/util/logical_reduction.hpp"
 #include "ngraph_conversions.h"
 #include "ngraph_log.h"
 #include "ngraph_utils.h"
@@ -32,12 +33,21 @@
 #include "tensorflow/core/graph/edgeset.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+#if defined(NGRAPH_DISTRIBUTED)
+#include "ngraph/distributed.hpp"
+#endif
+
 using namespace std;
 namespace ng = ngraph;
 
 namespace tensorflow {
 
 namespace ngraph_bridge {
+
+static bool VecStrCmp(const std::vector<string>& a,
+                      const std::vector<string>& b) {
+  return a == b;
+}
 
 static Status ValidateInputCount(const Node* op, size_t count) {
   if (op->num_inputs() != count) {
@@ -76,6 +86,15 @@ static void SaveNgOp(Builder::OpMap& ng_op_map, const std::string& op_name,
   // no need to try-catch, map[key] will create vector object
   // if not exists
   ng_op_map[op_name].push_back(output_node);
+}
+
+template <class TOpType, class... TArg>
+std::shared_ptr<TOpType> ConstructNgNode(const std::string& op_name,
+                                         TArg&&... Args) {
+  auto ng_node = std::make_shared<TOpType>(std::forward<TArg>(Args)...);
+  ng_node->set_friendly_name(op_name);
+  ng_node->add_provenance_tag(op_name);
+  return ng_node;
 }
 
 // Helper for fetching correct input node from ng_op_map.
@@ -288,7 +307,8 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
   ng::Shape ng_shape;
   TF_RETURN_IF_ERROR(TFTensorShapeToNGraphShape(const_shape, &ng_shape));
 
-  *ng_node = make_shared<ng::op::Constant>(et, ng_shape, const_values);
+  *ng_node =
+      ConstructNgNode<ng::op::Constant>(op->name(), et, ng_shape, const_values);
   return Status::OK();
 }
 
@@ -368,9 +388,10 @@ template <typename T>
 static Status TranslateUnaryOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  return TranslateUnaryOp(
-      op, static_input_map, ng_op_map,
-      [](std::shared_ptr<ng::Node> n) { return make_shared<T>(n); });
+  return TranslateUnaryOp(op, static_input_map, ng_op_map,
+                          [&op](std::shared_ptr<ng::Node> n) {
+                            return ConstructNgNode<T>(op->name(), n);
+                          });
 }
 
 // Helper function to translate a binary op
@@ -429,10 +450,84 @@ static Status TranslateBinaryOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   return TranslateBinaryOp(
-      op, static_input_map, ng_op_map,
-      [](std::shared_ptr<ng::Node> ng_lhs, std::shared_ptr<ng::Node> ng_rhs) {
-        return make_shared<T>(ng_lhs, ng_rhs);
+      op, static_input_map, ng_op_map, [&op](std::shared_ptr<ng::Node> ng_lhs,
+                                             std::shared_ptr<ng::Node> ng_rhs) {
+        return ConstructNgNode<T>(op->name(), ng_lhs, ng_rhs);
       });
+}
+
+// Helper function for translating QuantizedAvgPool and QuantizedMaxPool
+static Status TranslateQuantizedPoolOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map, std::string pooling_name) {
+  bool is_quantizedAvgPool = pooling_name == "QuantizedAvgPool";
+  bool is_quantizedMaxPool = pooling_name == "QuantizedMaxPool";
+
+  if (!(is_quantizedAvgPool || is_quantizedMaxPool)) {
+    return errors::InvalidArgument(
+        "Expected quantized pooling type node to be ScaledQuantizedAvgPool or "
+        "ScaledQuantizedMaxPool");
+  }
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_ksize;
+  std::string tf_padding_type;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+
+  bool is_nhwc = true;  // The input data format is always NHWC
+  ng::Strides ng_strides(2);
+  ng::Shape ng_image_shape(2);
+  ng::Shape ng_kernel_shape(2);
+  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
+                         ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph(is_nhwc, ng_input);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::Shape ng_padding_below{0, 0};
+  ng::Shape ng_padding_above{0, 0};
+  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                       ng_strides, ng_padding_below, ng_padding_above);
+
+  // Creating and passing dummy nodes to quantized pool operation because it
+  // does
+  // not use them. If it ever starts using min/max, the dummy min-max would
+  // cause it to fail
+  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
+
+  std::shared_ptr<ng::Node> ng_quant_pool;
+  if (is_quantizedAvgPool) {
+    // QuantizeAvgPool
+    // TF doesn't include padding in avg calculation
+    ng_quant_pool = ng::builder::ScaledQuantizedAvgPool(
+        ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+        ng_padding_above, false, dummy_min, dummy_max);
+  } else {
+    // QuantizeMaxPool
+    ng_quant_pool = ng::builder::ScaledQuantizedMaxPool(
+        ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+        ng_padding_above, dummy_min, dummy_max);
+  }
+
+  BatchToTensorflow(is_nhwc, ng_quant_pool);
+  SaveNgOp(ng_op_map, op->name(), ng_quant_pool);
+  // For QuantizedAvgPool and QuantizedMaxPool input min-max remains unchanged
+  // and is just propagated along
+  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_max);
+  return Status::OK();
 }
 
 static Status TranslateAllreduceOp(
@@ -441,7 +536,9 @@ static Status TranslateAllreduceOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::AllReduce>(ng_input));
+  auto ng_all_reduce = ConstructNgNode<ng::op::AllReduce>(op->name(), ng_input);
+  SaveNgOp(ng_op_map, op->name(), ng_all_reduce);
+
   return Status::OK();
 }
 
@@ -454,192 +551,57 @@ static Status TranslateAddNOp(
     TF_RETURN_IF_ERROR(
         GetInputNode(ng_op_map, op, inp_idx, &ng_arg_vec[inp_idx]));
 
+  SaveNgOp(
+      ng_op_map, op->name(),
+      std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
+                      ng_arg_vec.at(0),
+                      [&op](shared_ptr<ng::Node> a, shared_ptr<ng::Node> b) {
+                        return ConstructNgNode<ng::op::Add>(op->name(), a, b);
+                      }));  // accumulation: start with
+                            // first element. default op is
+                            // addition
+  return Status::OK();
+}
+
+template <typename T>
+static Status TranslateArgMinMaxOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  bool is_argmin = std::is_same<T, ng::op::ArgMin>::value;
+  bool is_argmax = std::is_same<T, ng::op::ArgMax>::value;
+  if (!(is_argmin || is_argmax)) {
+    return errors::InvalidArgument("Expected node to be argmin or argmax type");
+  }
+
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+
+  std::vector<int64> tf_dim;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_dim));
+
+  ng::Shape input_shape = ng_input->get_shape();
+  size_t input_rank = input_shape.size();
+
+  if (tf_dim.size() != 1) {
+    return errors::InvalidArgument(
+        (is_argmin ? "ArgMin" : "ArgMax"),
+        " Op: dimension must be scalar, operates on a single axis");
+  }
+
+  // If input dimension is negative, make it positive
+  if (tf_dim[0] < 0) {
+    tf_dim[0] = (int64)input_rank + tf_dim[0];
+  }
+  size_t input_dims = tf_dim[0];
+
+  DataType dtype;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "output_type", &dtype));
+
+  ng::element::Type ng_et;
+  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
+
   SaveNgOp(ng_op_map, op->name(),
-           std::accumulate(std::next(ng_arg_vec.begin()), ng_arg_vec.end(),
-                           ng_arg_vec.at(0)));  // accumulation: start with
-                                                // first element. default op is
-                                                // addition
-  return Status::OK();
-}
-
-static Status TranslateAnyOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = ng_input->get_shape().size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(axes.size());
-  std::transform(
-      axes.begin(), axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::vector<bool> init_val = {false};
-  auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                ng::Shape(0), init_val);
-  auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto ng_or = make_shared<ng::Function>(make_shared<ng::op::Or>(f_A, f_B),
-                                         ng::ParameterVector{f_A, f_B});
-
-  shared_ptr<ng::Node> ng_any =
-      make_shared<ng::op::Reduce>(ng_input, arg_init, ng_or, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-    ng::AxisVector ng_axis_order(ng_any->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-    ng_any = make_shared<ng::op::Reshape>(ng_any, ng_axis_order,
-                                          ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_any);
-  return Status::OK();
-}
-
-static Status TranslateAllOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> all_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &all_axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = ng_input->get_shape().size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(all_axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(all_axes.size());
-  std::transform(
-      all_axes.begin(), all_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::vector<bool> init_val = {true};
-  auto arg_init = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                ng::Shape(0), init_val);
-  auto f_A = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto f_B = make_shared<ng::op::Parameter>(ng::element::boolean, ng::Shape{});
-  auto ng_and = make_shared<ng::Function>(make_shared<ng::op::And>(f_A, f_B),
-                                          ng::ParameterVector{f_A, f_B});
-
-  shared_ptr<ng::Node> ng_all = make_shared<ng::op::Reduce>(
-      ng_input, arg_init, ng_and, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-
-    ng::AxisVector ng_axis_order(ng_all->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-    ng_all = make_shared<ng::op::Reshape>(ng_all, ng_axis_order,
-                                          ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_all);
-  return Status::OK();
-}
-
-static Status TranslateArgMaxOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_dim;
-
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_dim));
-
-  std::vector<int64> tf_dim;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_dim));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = input_shape.size();
-
-  if (tf_dim.size() != 1) {
-    return errors::InvalidArgument(
-        "ArgMax Op: dimension must be scalar, operates on a single axis");
-  }
-
-  // If input dimension is negative, make it positive
-  if (tf_dim[0] < 0) {
-    tf_dim[0] = (int64)input_rank + tf_dim[0];
-  }
-  size_t input_dims = tf_dim[0];
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "output_type", &dtype));
-
-  ng::element::Type ng_et;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
-  auto ng_argmax = make_shared<ng::op::ArgMax>(ng_input, input_dims, ng_et);
-
-  SaveNgOp(ng_op_map, op->name(), ng_argmax);
-  return Status::OK();
-}
-
-static Status TranslateArgMinOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_dim;
-
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_dim));
-
-  std::vector<int64> tf_dim;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &tf_dim));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = input_shape.size();
-
-  if (tf_dim.size() != 1) {
-    return errors::InvalidArgument(
-        "ArgMin Op:dimension must be scalar, operates on a single axis");
-  }
-
-  // If input dimension is negative, make it positive
-  if (tf_dim[0] < 0) {
-    tf_dim[0] = (int64)input_rank + tf_dim[0];
-  }
-  size_t input_dims = tf_dim[0];
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "output_type", &dtype));
-
-  ng::element::Type ng_et;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
-  auto ng_argmin = make_shared<ng::op::ArgMin>(ng_input, input_dims, ng_et);
-
-  SaveNgOp(ng_op_map, op->name(), ng_argmin);
+           ConstructNgNode<T>(op->name(), ng_input, input_dims, ng_et));
   return Status::OK();
 }
 
@@ -691,9 +653,9 @@ static Status TranslateAvgPoolOp(
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
-  std::shared_ptr<ng::Node> ng_avgpool =
-      make_shared<ng::op::AvgPool>(ng_input, ng_kernel_shape, ng_strides,
-                                   ng_padding_below, ng_padding_above, false);
+  std::shared_ptr<ng::Node> ng_avgpool = ConstructNgNode<ng::op::AvgPool>(
+      op->name(), ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+      ng_padding_above, false);
 
   BatchToTensorflow(is_nhwc, ng_avgpool);
   NGRAPH_VLOG(3) << "avgpool outshape: {" << ng::join(ng_avgpool->get_shape())
@@ -766,9 +728,9 @@ static Status TranslateAvgPoolGradOp(
                        ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_avgpool_backprop =
-      make_shared<ng::op::AvgPoolBackprop>(
-          ng_forward_arg_shape, ng_grad, ng_window_shape, ng_strides,
-          ng_padding_below, ng_padding_above, false);
+      ConstructNgNode<ng::op::AvgPoolBackprop>(
+          op->name(), ng_forward_arg_shape, ng_grad, ng_window_shape,
+          ng_strides, ng_padding_below, ng_padding_above, false);
 
   BatchToTensorflow(is_nhwc, ng_avgpool_backprop);
 
@@ -842,11 +804,12 @@ static Status TranslateBatchMatMulOp(
   }
   if (n_dims == 2) {
     SaveNgOp(ng_op_map, op->name(),
-             make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs));
+             ConstructNgNode<ngraph::op::Dot>(op->name(), ng_lhs, ng_rhs));
   } else {
     auto output_shape = ng_lhs_shape;
     output_shape[n_dims - 1] = ng_rhs_shape[1];
-    auto dot_output = make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs);
+    auto dot_output =
+        ConstructNgNode<ngraph::op::Dot>(op->name(), ng_lhs, ng_rhs);
     size_t compound_size = 1;
     for (int i = 0; i < out_axes.size(); i++) {
       compound_size *= output_shape[i];
@@ -863,8 +826,8 @@ static Status TranslateBatchMatMulOp(
     if (n_dims == 3) {
       dot_reshape = dot_output;
     } else {
-      dot_reshape =
-          make_shared<ngraph::op::Reshape>(dot_output, dot_axes, dot_shape);
+      dot_reshape = ConstructNgNode<ngraph::op::Reshape>(op->name(), dot_output,
+                                                         dot_axes, dot_shape);
     }
     ng::Shape tmp_shape = {1, ng_lhs_shape[n_dims - 2], ng_rhs_shape[1]};
     vector<shared_ptr<ngraph::Node>> tmp_tensors;
@@ -872,19 +835,21 @@ static Status TranslateBatchMatMulOp(
       const std::vector<size_t> lower_bound{i, 0, 0, i};
       const std::vector<size_t> upper_bound{i + 1, dot_shape[1], dot_shape[2],
                                             i + 1};
-      auto slice_out =
-          make_shared<ngraph::op::Slice>(dot_reshape, lower_bound, upper_bound);
-      auto reshape_out = make_shared<ngraph::op::Reshape>(
-          slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
+      auto slice_out = ConstructNgNode<ngraph::op::Slice>(
+          op->name(), dot_reshape, lower_bound, upper_bound);
+      auto reshape_out = ConstructNgNode<ngraph::op::Reshape>(
+          op->name(), slice_out, ng::AxisVector{0, 1, 2, 3}, tmp_shape);
       tmp_tensors.push_back(reshape_out);
     }
-    auto concat_op = make_shared<ngraph::op::Concat>(tmp_tensors, 0);
+    auto concat_op =
+        ConstructNgNode<ngraph::op::Concat>(op->name(), tmp_tensors, 0);
     if (n_dims == 3) {
       SaveNgOp(ng_op_map, op->name(), concat_op);
     } else {
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ngraph::op::Reshape>(
-                   concat_op, ng::AxisVector{0, 1, 2}, output_shape));
+      SaveNgOp(
+          ng_op_map, op->name(),
+          ConstructNgNode<ngraph::op::Reshape>(
+              op->name(), concat_op, ng::AxisVector{0, 1, 2}, output_shape));
     }
   }
   return Status::OK();
@@ -930,9 +895,10 @@ static Status TranslateBiasAddOp(
     }
   }
 
-  auto ng_bias_broadcasted = make_shared<ng::op::Broadcast>(
-      ng_bias, ng_input_shape, ng_broadcast_axes);
-  auto ng_add = ng_input + ng_bias_broadcasted;
+  auto ng_bias_broadcasted = ConstructNgNode<ng::op::Broadcast>(
+      op->name(), ng_bias, ng_input_shape, ng_broadcast_axes);
+  auto ng_add =
+      ConstructNgNode<ng::op::Add>(op->name(), ng_input, ng_bias_broadcasted);
 
   SaveNgOp(ng_op_map, op->name(), ng_add);
   return Status::OK();
@@ -981,7 +947,8 @@ static Status TranslateBiasAddGradOp(
     }
   }
 
-  ng_biasadd_backprop = make_shared<ng::op::Sum>(ng_input, reduction_axes);
+  ng_biasadd_backprop =
+      ConstructNgNode<ng::op::Sum>(op->name(), ng_input, reduction_axes);
 
   SaveNgOp(ng_op_map, op->name(), ng_biasadd_backprop);
   return Status::OK();
@@ -1001,7 +968,7 @@ static Status TranslateCastOp(
 
   try {
     SaveNgOp(ng_op_map, op->name(),
-             make_shared<ng::op::Convert>(ng_input, ng_et));
+             ConstructNgNode<ng::op::Convert>(op->name(), ng_input, ng_et));
   } catch (const std::out_of_range&) {
     return errors::Unimplemented("Unsupported TensorFlow data type: ",
                                  DataType_Name(dtype));
@@ -1036,7 +1003,8 @@ static Status TranslateConcatV2Op(
   }
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Concat>(ng_args, size_t(concat_axis)));
+           ConstructNgNode<ng::op::Concat>(op->name(), ng_args,
+                                           size_t(concat_axis)));
   return Status::OK();
 }
 
@@ -1133,9 +1101,9 @@ static Status TranslateConv2DOp(
                        ng_strides, ng_dilations, ng_padding_below,
                        ng_padding_above);
 
-  std::shared_ptr<ng::Node> ng_conv = make_shared<ng::op::Convolution>(
-      ng_input, ng_filter, ng_strides, ng_dilations, ng_padding_below,
-      ng_padding_above);
+  std::shared_ptr<ng::Node> ng_conv = ConstructNgNode<ng::op::Convolution>(
+      op->name(), ng_input, ng_filter, ng_strides, ng_dilations,
+      ng_padding_below, ng_padding_above);
 
   BatchToTensorflow(is_nhwc, ng_conv);
   SaveNgOp(ng_op_map, op->name(), ng_conv);
@@ -1249,8 +1217,8 @@ static Status TranslateConv2DBackpropFilterOp(
   NGRAPH_VLOG(3) << "ng padding type" << tf_padding_type;
 
   std::shared_ptr<ng::Node> ng_back_prop_filter =
-      make_shared<ng::op::ConvolutionBackpropFilters>(
-          ng_data_batch, ng_filters_shape, ng_output_delta,
+      ConstructNgNode<ng::op::ConvolutionBackpropFilters>(
+          op->name(), ng_data_batch, ng_filters_shape, ng_output_delta,
           ng_window_movement_strides_forward,
           ng_window_dilation_strides_forward, ng_padding_below_forward,
           ng_padding_above_forward, ng_data_dilation_strides_forward);
@@ -1344,14 +1312,89 @@ static Status TranslateConv2DBackpropInputOp(
                        ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_data =
-      make_shared<ng::op::ConvolutionBackpropData>(
-          ng_batch_shape, ng_filter, ng_out_backprop, ng_strides, ng_dilations,
-          ng_padding_below, ng_padding_above,
+      ConstructNgNode<ng::op::ConvolutionBackpropData>(
+          op->name(), ng_batch_shape, ng_filter, ng_out_backprop, ng_strides,
+          ng_dilations, ng_padding_below, ng_padding_above,
           ng::Strides(ng_batch_shape.size() - 2, 1));
 
   BatchToTensorflow(is_nhwc, ng_data);
 
   SaveNgOp(ng_op_map, op->name(), ng_data);
+  return Status::OK();
+}
+
+// Translate Conv3D Op
+static Status TranslateConv3DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input, ng_filter;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter));
+
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_dilations;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NDHWC" && tf_data_format != "NCDHW") {
+    return errors::InvalidArgument(
+        "Conv3D data format is neither NDHWC nor NCDHW");
+  }
+
+  bool is_ndhwc = (tf_data_format == "NDHWC");
+
+  // TODO: in 3D
+  // TF Kernel Test Checks
+  // // Strides in the batch and depth dimension is not supported
+  // if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+  //   return errors::InvalidArgument(
+  //       "Strides in batch and depth dimensions is not supported: ",
+  //       op->type_string());
+  // }
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_dilations);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(3);
+  ng::Strides ng_dilations(3);
+  ng::Shape ng_image_shape(3);
+  ng::Shape ng_kernel_shape(3);
+
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_strides, ng_strides);
+  BatchedOpParam3DToNGraph(is_ndhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_dilations, ng_dilations);
+  BatchToNGraph3D(is_ndhwc, ng_input);
+
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+  auto& ng_filter_shape = ng_filter->get_shape();
+  ng_kernel_shape[0] = ng_filter_shape[0];
+  ng_kernel_shape[1] = ng_filter_shape[1];
+  ng_kernel_shape[2] = ng_filter_shape[2];
+  Reshape3D<4, 3, 0, 1, 2>(ng_filter);
+
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  ng::CoordinateDiff ng_padding_below{0, 0, 0};
+  ng::CoordinateDiff ng_padding_above{0, 0, 0};
+
+  Builder::MakePadding3D(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_dilations, ng_padding_below,
+                         ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_conv = ConstructNgNode<ng::op::Convolution>(
+      op->name(), ng_input, ng_filter, ng_strides, ng_dilations,
+      ng_padding_below, ng_padding_above);
+
+  BatchToTensorflow3D(is_ndhwc, ng_conv);
+  SaveNgOp(ng_op_map, op->name(), ng_conv);
   return Status::OK();
 }
 
@@ -1380,10 +1423,14 @@ static Status TranslateDepthToSpaceOp(
     case 0:
       channel_dimension = 3;
       break;
-    // NCHW or NCHW_VEC_C
+    // NCHW
     case 1:
       channel_dimension = 1;
       break;
+    // NCHW_VEC_C
+    case 2:
+      return errors::InvalidArgument(
+          "NCHW_VECT_C is not supported in DepthToSpace for now");
     default:
       return errors::InvalidArgument(
           "DepthToSpace supported data format is NCHW, NHWC, or NCHW_VECT_C");
@@ -1495,12 +1542,18 @@ static Status TranslateDepthToSpaceOp(
 
   ng::AxisVector ng_axis_order(input_shape.size());
   std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-  auto reshaped =
-      make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_reshape_shape);
+  auto reshaped = ConstructNgNode<ng::op::Reshape>(
+      op->name(), ng_input, ng_axis_order, ng_reshape_shape);
 
-  auto final_result = make_shared<ng::op::Reshape>(
-      reshaped, ng_transpose_permutation, ng_output_shape);
-  SaveNgOp(ng_op_map, op->name(), final_result);
+  auto transposed =
+      ng::builder::numpy_transpose(reshaped, ng_transpose_permutation);
+
+  ng::AxisVector ng_axis_order_second_reshape(transposed->get_shape().size());
+  std::iota(ng_axis_order_second_reshape.begin(),
+            ng_axis_order_second_reshape.end(), 0);
+  auto final_reshape = ConstructNgNode<ng::op::Reshape>(
+      op->name(), transposed, ng_axis_order_second_reshape, ng_output_shape);
+  SaveNgOp(ng_op_map, op->name(), final_reshape);
 
   return Status::OK();
 }
@@ -1570,8 +1623,8 @@ static Status TranslateDepthwiseConv2dNativeOp(
     const std::vector<size_t> lower_bound{0, i, 0, 0};
     const std::vector<size_t> upper_bound{input_shape[0], i + 1, input_shape[2],
                                           input_shape[3]};
-    auto ng_sliced_input =
-        make_shared<ng::op::Slice>(ng_input, lower_bound, upper_bound);
+    auto ng_sliced_input = ConstructNgNode<ng::op::Slice>(
+        op->name(), ng_input, lower_bound, upper_bound);
 
     const std::vector<size_t> f_lower_bound{0, i, 0, 0};
     const std::vector<size_t> f_upper_bound{filter_shape[0], i + 1,
@@ -1584,15 +1637,15 @@ static Status TranslateDepthwiseConv2dNativeOp(
     NGRAPH_VLOG(3) << "filter shape "
                    << ng::join(ng_sliced_filter->get_shape());
 
-    auto ng_conv = make_shared<ng::op::Convolution>(
-        ng_sliced_input, ng_sliced_filter, ng_strides, ng_dilations,
+    auto ng_conv = ConstructNgNode<ng::op::Convolution>(
+        op->name(), ng_sliced_input, ng_sliced_filter, ng_strides, ng_dilations,
         ng_padding_below, ng_padding_above);
     ng_args.push_back(ng_conv);
   }
 
   size_t ng_concatenation_axis = 1;  // channel axis
-  std::shared_ptr<ng::Node> ng_concat =
-      make_shared<ng::op::Concat>(ng_args, ng_concatenation_axis);
+  std::shared_ptr<ng::Node> ng_concat = ConstructNgNode<ng::op::Concat>(
+      op->name(), ng_args, ng_concatenation_axis);
 
   BatchToTensorflow(is_nhwc, ng_concat);
   SaveNgOp(ng_op_map, op->name(), ng_concat);
@@ -1624,8 +1677,8 @@ static Status TranslateExpandDimsOp(
   out_shape.insert(out_shape.begin() + size_t(dim_vec[0]), 1);
   std::vector<size_t> shape_dimensions(shape.size());
   std::iota(shape_dimensions.begin(), shape_dimensions.end(), 0);
-  std::shared_ptr<ng::Node> ng_expand_dim =
-      make_shared<ng::op::Reshape>(ng_input, shape_dimensions, out_shape);
+  std::shared_ptr<ng::Node> ng_expand_dim = ConstructNgNode<ng::op::Reshape>(
+      op->name(), ng_input, shape_dimensions, out_shape);
 
   SaveNgOp(ng_op_map, op->name(), ng_expand_dim);
   return Status::OK();
@@ -1646,18 +1699,20 @@ static Status TranslateFillOp(
     ng_output_shape[i] = dims_vec[i];
     ng_axis_set.insert(i);
   }
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Broadcast>(
-                                      ng_value, ng_output_shape, ng_axis_set));
+  SaveNgOp(ng_op_map, op->name(),
+           ConstructNgNode<ng::op::Broadcast>(op->name(), ng_value,
+                                              ng_output_shape, ng_axis_set));
   return Status::OK();
 }
 
 static Status TranslateFloorDivOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  auto ng_floordiv = [](std::shared_ptr<ng::Node> ng_input1,
-                        std::shared_ptr<ng::Node> ng_input2) {
-    return std::make_shared<ng::op::Floor>(
-        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
+  auto ng_floordiv = [&op](std::shared_ptr<ng::Node> ng_input1,
+                           std::shared_ptr<ng::Node> ng_input2) {
+    return ConstructNgNode<ng::op::Floor>(
+        op->name(),
+        ConstructNgNode<ng::op::Divide>(op->name(), ng_input1, ng_input2));
   };
   return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floordiv);
 }
@@ -1665,12 +1720,14 @@ static Status TranslateFloorDivOp(
 static Status TranslateFloorModOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  auto ng_floormod = [](std::shared_ptr<ng::Node> ng_input1,
-                        std::shared_ptr<ng::Node> ng_input2) {
-    auto floordiv = std::make_shared<ng::op::Floor>(
-        std::make_shared<ng::op::Divide>(ng_input1, ng_input2));
-    return std::make_shared<ng::op::Subtract>(
-        ng_input1, std::make_shared<ng::op::Multiply>(floordiv, ng_input2));
+  auto ng_floormod = [&op](std::shared_ptr<ng::Node> ng_input1,
+                           std::shared_ptr<ng::Node> ng_input2) {
+    auto floordiv = ConstructNgNode<ng::op::Floor>(
+        op->name(),
+        ConstructNgNode<ng::op::Divide>(op->name(), ng_input1, ng_input2));
+    return ConstructNgNode<ng::op::Subtract>(
+        op->name(), ng_input1,
+        ConstructNgNode<ng::op::Multiply>(op->name(), floordiv, ng_input2));
   };
   return TranslateBinaryOp(op, static_input_map, ng_op_map, ng_floormod);
 }
@@ -1717,13 +1774,16 @@ static Status TranslateFusedBatchNormOp(
   std::shared_ptr<ng::Node> ng_batch_norm;
 
   if (tf_is_training) {
-    ng_batch_norm = make_shared<ng::op::BatchNormTraining>(tf_epsilon, ng_scale,
-                                                           ng_offset, ng_input);
+    ng_batch_norm = ConstructNgNode<ng::op::BatchNormTraining>(
+        op->name(), tf_epsilon, ng_scale, ng_offset, ng_input);
 
     shared_ptr<ngraph::Node> ng_y, ng_mean, ng_variance;
-    ng_y = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 0);
-    ng_mean = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 1);
-    ng_variance = make_shared<ng::op::GetOutputElement>(ng_batch_norm, 2);
+    ng_y =
+        ConstructNgNode<ng::op::GetOutputElement>(op->name(), ng_batch_norm, 0);
+    ng_mean =
+        ConstructNgNode<ng::op::GetOutputElement>(op->name(), ng_batch_norm, 1);
+    ng_variance =
+        ConstructNgNode<ng::op::GetOutputElement>(op->name(), ng_batch_norm, 2);
     // This is for Bessel's correction in ng_variance:
     int ng_input_size = ng::shape_size(ng_input->get_shape());
     int num_channels = ng::shape_size(ng_variance->get_shape());
@@ -1731,10 +1791,11 @@ static Status TranslateFusedBatchNormOp(
     int sample_size_minus_one = sample_size > 1 ? (sample_size - 1) : 1;
     float factor = float(sample_size) / float(sample_size_minus_one);
     std::vector<float> Bessel_factor(num_channels, factor);
-    auto Bessel_scale = std::make_shared<ng::op::Constant>(
-        ng_variance->get_element_type(), ng_variance->get_shape(),
+    auto Bessel_scale = ConstructNgNode<ng::op::Constant>(
+        op->name(), ng_variance->get_element_type(), ng_variance->get_shape(),
         Bessel_factor);
-    auto variance = ng_variance * Bessel_scale;
+    auto variance = ConstructNgNode<ng::op::Multiply>(op->name(), ng_variance,
+                                                      Bessel_scale);
 
     BatchToTensorflow(is_nhwc, ng_y);
 
@@ -1749,8 +1810,9 @@ static Status TranslateFusedBatchNormOp(
     // computation.
     SaveNgOp(ng_op_map, op->name(), ng_variance);
   } else {
-    ng_batch_norm = make_shared<ng::op::BatchNormInference>(
-        tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean, ng_variance);
+    ng_batch_norm = ConstructNgNode<ng::op::BatchNormInference>(
+        op->name(), tf_epsilon, ng_scale, ng_offset, ng_input, ng_mean,
+        ng_variance);
     BatchToTensorflow(is_nhwc, ng_batch_norm);
     SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
   }
@@ -1807,8 +1869,8 @@ static Status TranslateFusedBatchNormGradOp(
   // beta to us. This should work because nGraph should not actually use beta.
   // The nGraph op may change to discard this parameter. Update this when nGraph
   // does.
-  shared_ptr<ng::Node> ng_beta = std::make_shared<ngraph::op::Constant>(
-      ng_scale->get_element_type(), ng_scale->get_shape(),
+  shared_ptr<ng::Node> ng_beta = ConstructNgNode<ngraph::op::Constant>(
+      op->name(), ng_scale->get_element_type(), ng_scale->get_shape(),
       std::vector<std::string>{ng::shape_size(ng_scale->get_shape()), "0"});
 
   BatchToNGraph(is_nhwc, ng_input);
@@ -1816,15 +1878,19 @@ static Status TranslateFusedBatchNormGradOp(
 
   std::shared_ptr<ng::Node> ng_batch_norm_backprop;
 
-  ng_batch_norm_backprop = make_shared<ng::op::BatchNormTrainingBackprop>(
-      tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance, ng_delta);
+  ng_batch_norm_backprop = ConstructNgNode<ng::op::BatchNormTrainingBackprop>(
+      op->name(), tf_epsilon, ng_scale, ng_beta, ng_input, ng_mean, ng_variance,
+      ng_delta);
 
   shared_ptr<ngraph::Node> ng_input_delta_op =
-      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 0);
+      ConstructNgNode<ng::op::GetOutputElement>(op->name(),
+                                                ng_batch_norm_backprop, 0);
   shared_ptr<ngraph::Node> ng_scale_delta_op =
-      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 1);
+      ConstructNgNode<ng::op::GetOutputElement>(op->name(),
+                                                ng_batch_norm_backprop, 1);
   shared_ptr<ngraph::Node> ng_beta_delta_op =
-      make_shared<ng::op::GetOutputElement>(ng_batch_norm_backprop, 2);
+      ConstructNgNode<ng::op::GetOutputElement>(op->name(),
+                                                ng_batch_norm_backprop, 2);
 
   BatchToTensorflow(is_nhwc, ng_input_delta_op);
 
@@ -1833,16 +1899,178 @@ static Status TranslateFusedBatchNormGradOp(
   SaveNgOp(ng_op_map, op->name(), ng_beta_delta_op);
   // Output reserve_space_3: Unused placeholder to match the mean input
   // in FusedBatchNorm.
-  std::shared_ptr<ng::Node> output_mean = make_shared<ngraph::op::Constant>(
-      ng_mean->get_element_type(), ng::Shape{}, std::vector<std::string>{""});
+  std::shared_ptr<ng::Node> output_mean = ConstructNgNode<ngraph::op::Constant>(
+      op->name(), ng_mean->get_element_type(), ng::Shape{},
+      std::vector<std::string>{""});
   SaveNgOp(ng_op_map, op->name(), output_mean);
   // Output reserve_space_4: Unused placeholder to match the variance input
   // in FusedBatchNorm.
-  std::shared_ptr<ng::Node> output_variance = make_shared<ngraph::op::Constant>(
-      ng_variance->get_element_type(), ng::Shape{},
-      std::vector<std::string>{""});
+  std::shared_ptr<ng::Node> output_variance =
+      ConstructNgNode<ngraph::op::Constant>(
+          op->name(), ng_variance->get_element_type(), ng::Shape{},
+          std::vector<std::string>{""});
   SaveNgOp(ng_op_map, op->name(), output_variance);
 
+  return Status::OK();
+}
+
+static Status TranslateFusedConv2DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  int num_args;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "num_args", &num_args));
+
+  std::vector<string> fused_ops;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "fused_ops", &fused_ops));
+
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+  bool is_nhwc = (tf_data_format == "NHWC");
+
+  auto CreateNgConv = [&](shared_ptr<ng::Node>& ng_input,
+                          shared_ptr<ng::Node>& ng_filter,
+                          shared_ptr<ng::Node>& ng_conv) {
+    std::vector<int32> tf_strides;
+    std::vector<int32> tf_dilations;
+    std::string tf_padding_type;
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "dilations", &tf_dilations));
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+
+    if (tf_data_format != "NHWC" && tf_data_format != "NCHW") {
+      return errors::InvalidArgument(
+          "Conv2D data format is neither NHWC nor NCHW");
+    }
+
+    // TF Kernel Test Checks
+    // Strides in the batch and depth dimension is not supported
+    if (tf_strides[0] != 1 || tf_strides[is_nhwc ? 3 : 1] != 1) {
+      return errors::InvalidArgument(
+          "Strides in batch and depth dimensions is not supported: ",
+          op->type_string());
+    }
+
+    NGRAPH_VLOG(3) << ng::join(tf_strides);
+    NGRAPH_VLOG(3) << ng::join(tf_dilations);
+    NGRAPH_VLOG(3) << tf_padding_type;
+    NGRAPH_VLOG(3) << tf_data_format;
+
+    ng::Strides ng_strides(2);
+    ng::Strides ng_dilations(2);
+    ng::Shape ng_image_shape(2);
+    ng::Shape ng_kernel_shape(2);
+
+    BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
+    BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+    BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
+    BatchToNGraph(is_nhwc, ng_input);
+
+    NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+    NGRAPH_VLOG(3) << "ng_dilations: " << ng::join(ng_dilations);
+    NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+
+    auto& ng_filter_shape = ng_filter->get_shape();
+    ng_kernel_shape[0] = ng_filter_shape[0];
+    ng_kernel_shape[1] = ng_filter_shape[1];
+    Reshape<3, 2, 0, 1>(ng_filter);
+
+    NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+    ng::CoordinateDiff ng_padding_below{0, 0};
+    ng::CoordinateDiff ng_padding_above{0, 0};
+
+    Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_dilations, ng_padding_below,
+                         ng_padding_above);
+
+    ng_conv = ConstructNgNode<ng::op::Convolution>(
+        op->name(), ng_input, ng_filter, ng_strides, ng_dilations,
+        ng_padding_below, ng_padding_above);
+
+    return Status::OK();
+  };
+
+  if (VecStrCmp(fused_ops, {"BiasAdd"}) ||
+      VecStrCmp(fused_ops, {"BiasAdd", "Relu"})) {
+    if (num_args != 1) {
+      return errors::InvalidArgument(
+          "FusedConv2DBiasAdd has incompatible num_args");
+    }
+
+    shared_ptr<ng::Node> ng_input, ng_filter, ng_bias, ng_conv;
+    TF_RETURN_IF_ERROR(
+        GetInputNodes(ng_op_map, op, &ng_input, &ng_filter, &ng_bias));
+
+    TF_RETURN_IF_ERROR(CreateNgConv(ng_input, ng_filter, ng_conv));
+
+    BatchToTensorflow(is_nhwc, ng_conv);
+
+    auto ng_conv_shape = ng_conv->get_shape();
+    auto ng_bias_shape = ng_bias->get_shape();
+    if (ng_bias_shape.size() != 1) {
+      return errors::InvalidArgument(
+          "Bias argument to BiasAdd does not have one dimension");
+    }
+
+    ng::AxisSet ng_broadcast_axes;
+
+    if (is_nhwc) {
+      for (size_t i = 0; i < ng_conv_shape.size() - 1; i++) {
+        ng_broadcast_axes.insert(i);
+      }
+    } else {
+      for (size_t i = 0; i < ng_conv_shape.size(); i++) {
+        if (i != 1) {
+          ng_broadcast_axes.insert(i);
+        }
+      }
+    }
+
+    auto ng_bias_broadcasted = ConstructNgNode<ng::op::Broadcast>(
+        op->name(), ng_bias, ng_conv_shape, ng_broadcast_axes);
+    auto ng_add =
+        ConstructNgNode<ng::op::Add>(op->name(), ng_conv, ng_bias_broadcasted);
+
+    if (VecStrCmp(fused_ops, {"BiasAdd", "Relu"})) {
+      SaveNgOp(ng_op_map, op->name(),
+               ConstructNgNode<ng::op::Relu>(op->name(), ng_add));
+    } else {
+      SaveNgOp(ng_op_map, op->name(), ng_add);
+    }
+  } else if (VecStrCmp(fused_ops, {"FusedBatchNorm"}) ||
+             VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
+    if (num_args != 4) {
+      return errors::InvalidArgument(
+          "FusedConv2D with FusedBatchNorm has incompatible num_args");
+    }
+
+    shared_ptr<ng::Node> ng_input, ng_filter, ng_conv, ng_scale, ng_offset,
+        ng_mean, ng_variance;
+    TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_filter,
+                                     &ng_scale, &ng_offset, &ng_mean,
+                                     &ng_variance));
+    TF_RETURN_IF_ERROR(CreateNgConv(ng_input, ng_filter, ng_conv));
+
+    float tf_epsilon;
+    TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "epsilon", &tf_epsilon));
+
+    std::shared_ptr<ng::Node> ng_batch_norm =
+        ConstructNgNode<ng::op::BatchNormInference>(
+            op->name(), tf_epsilon, ng_scale, ng_offset, ng_conv, ng_mean,
+            ng_variance);
+
+    BatchToTensorflow(is_nhwc, ng_batch_norm);
+
+    if (VecStrCmp(fused_ops, {"FusedBatchNorm", "Relu"})) {
+      SaveNgOp(ng_op_map, op->name(),
+               ConstructNgNode<ng::op::Relu>(op->name(), ng_batch_norm));
+    } else {
+      SaveNgOp(ng_op_map, op->name(), ng_batch_norm);
+    }
+  } else {
+    return errors::Unimplemented("Unsupported _FusedConv2D " +
+                                 str_util::Join(fused_ops, ","));
+  }
   return Status::OK();
 }
 
@@ -1861,11 +2089,12 @@ static Status TranslateL2LossOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  auto const_2 = make_shared<ng::op::Constant>(
-      ng_input->get_element_type(), ng::Shape{}, std::vector<std::string>{"2"});
+  auto const_2 = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), ng::Shape{},
+      std::vector<std::string>{"2"});
 
   std::shared_ptr<ng::Node> ng_pow =
-      make_shared<ng::op::Multiply>(ng_input, ng_input);
+      ConstructNgNode<ng::op::Multiply>(op->name(), ng_input, ng_input);
 
   size_t input_rank = ng_input->get_shape().size();
   ng::AxisSet axes;
@@ -1873,9 +2102,10 @@ static Status TranslateL2LossOp(
     axes.insert(i);
   }
 
-  std::shared_ptr<ng::Node> ng_sum = make_shared<ng::op::Sum>(ng_pow, axes);
+  std::shared_ptr<ng::Node> ng_sum =
+      ConstructNgNode<ng::op::Sum>(op->name(), ng_pow, axes);
   std::shared_ptr<ng::Node> ng_l2loss =
-      make_shared<ng::op::Divide>(ng_sum, const_2);
+      ConstructNgNode<ng::op::Divide>(op->name(), ng_sum, const_2);
   SaveNgOp(ng_op_map, op->name(), ng_l2loss);
   return Status::OK();
 }
@@ -1901,56 +2131,8 @@ static Status TranslateMatMulOp(
 
   // The default axis count for nGraph's Dot op is 1, which is just what
   // we need here.
-  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Dot>(ng_lhs, ng_rhs));
-  return Status::OK();
-}
-
-static Status TranslateMaxOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_max_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_max_op));
-
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> max_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &max_axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = input_shape.size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(max_axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(max_axes.size());
-  std::transform(
-      max_axes.begin(), max_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::shared_ptr<ng::Node> ng_max =
-      make_shared<ng::op::Max>(ng_input, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-
-    ng::AxisVector ng_axis_order(ng_max->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-
-    ng_max = make_shared<ng::op::Reshape>(ng_max, ng_axis_order,
-                                          ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_max);
+  SaveNgOp(ng_op_map, op->name(),
+           ConstructNgNode<ngraph::op::Dot>(op->name(), ng_lhs, ng_rhs));
   return Status::OK();
 }
 
@@ -2003,11 +2185,73 @@ static Status TranslateMaxPoolOp(
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_padding_below, ng_padding_above);
 
-  std::shared_ptr<ng::Node> ng_maxpool =
-      make_shared<ng::op::MaxPool>(ng_input, ng_kernel_shape, ng_strides,
-                                   ng_padding_below, ng_padding_above);
+  std::shared_ptr<ng::Node> ng_maxpool = ConstructNgNode<ng::op::MaxPool>(
+      op->name(), ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+      ng_padding_above);
 
   BatchToTensorflow(is_nhwc, ng_maxpool);
+
+  NGRAPH_VLOG(3) << "maxpool outshape: {" << ng::join(ng_maxpool->get_shape())
+                 << "}";
+
+  SaveNgOp(ng_op_map, op->name(), ng_maxpool);
+  return Status::OK();
+}
+
+static Status TranslateMaxPool3DOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  std::vector<int32> tf_strides;
+  std::vector<int32> tf_ksize;
+  std::string tf_padding_type;
+  std::string tf_data_format;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "data_format", &tf_data_format));
+
+  if (tf_data_format != "NDHWC" && tf_data_format != "NCDHW") {
+    return errors::InvalidArgument(
+        "MaxPool3D data format is neither NDHWC nor NCDHW");
+  }
+
+  bool is_ndhwc = (tf_data_format == "NDHWC");
+
+  NGRAPH_VLOG(3) << ng::join(tf_strides);
+  NGRAPH_VLOG(3) << ng::join(tf_ksize);
+  NGRAPH_VLOG(3) << tf_padding_type;
+  NGRAPH_VLOG(3) << tf_data_format;
+
+  ng::Strides ng_strides(3);
+  ng::Shape ng_image_shape(3);
+  ng::Shape ng_kernel_shape(3);
+
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_strides, ng_strides);
+  BatchedOpParam3DToNGraph(is_ndhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParam3DToNGraph(is_ndhwc, tf_ksize, ng_kernel_shape);
+  BatchToNGraph3D(is_ndhwc, ng_input);
+  NGRAPH_VLOG(3) << "ng_strides: " << ng::join(ng_strides);
+  NGRAPH_VLOG(3) << "ng_image_shape: " << ng::join(ng_image_shape);
+  NGRAPH_VLOG(3) << "ng_kernel_shape: " << ng::join(ng_kernel_shape);
+
+  // TODO: change this once nGraph supports negative padding
+  // (CoordinateDiff) for MaxPool
+  // ng::CoordinateDiff ng_padding_below{0,0};
+  // ng::CoordinateDiff ng_padding_above{0,0};
+  ng::Shape ng_padding_below{0, 0, 0};
+  ng::Shape ng_padding_above{0, 0, 0};
+
+  Builder::MakePadding3D(tf_padding_type, ng_image_shape, ng_kernel_shape,
+                         ng_strides, ng_padding_below, ng_padding_above);
+
+  std::shared_ptr<ng::Node> ng_maxpool = ConstructNgNode<ng::op::MaxPool>(
+      op->name(), ng_input, ng_kernel_shape, ng_strides, ng_padding_below,
+      ng_padding_above);
+
+  BatchToTensorflow3D(is_ndhwc, ng_maxpool);
 
   NGRAPH_VLOG(3) << "maxpool outshape: {" << ng::join(ng_maxpool->get_shape())
                  << "}";
@@ -2064,9 +2308,9 @@ static Status TranslateMaxPoolGradOp(
                        ng_strides, ng_padding_below, ng_padding_above);
 
   std::shared_ptr<ng::Node> ng_maxpool_backprop =
-      make_shared<ng::op::MaxPoolBackprop>(ng_input, ng_grad, ng_fwd,
-                                           ng_kernel_shape, ng_strides,
-                                           ng_padding_below, ng_padding_above);
+      ConstructNgNode<ng::op::MaxPoolBackprop>(
+          op->name(), ng_input, ng_grad, ng_fwd, ng_kernel_shape, ng_strides,
+          ng_padding_below, ng_padding_above);
   BatchToTensorflow(is_nhwc, ng_maxpool_backprop);
   NGRAPH_VLOG(3) << "maxpoolbackprop outshape: {"
                  << ng::join(ng_maxpool_backprop->get_shape()) << "}";
@@ -2074,82 +2318,35 @@ static Status TranslateMaxPoolGradOp(
   return Status::OK();
 }
 
-static Status TranslateMeanOp(
+static Status TranslateReduceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-
+    Builder::OpMap& ng_op_map,
+    std::function<std::shared_ptr<ng::Node>(std::shared_ptr<ng::Node>,
+                                            ng::AxisSet)>
+        create_ng_node) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
   bool tf_keep_dims;
   if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
     tf_keep_dims = false;
   }
 
-  std::vector<int64> mean_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &mean_axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = ng_input->get_shape().size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(mean_axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(mean_axes.size());
-  std::transform(
-      mean_axes.begin(), mean_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::shared_ptr<ng::Node> ng_mean =
-      ng::builder::mean(ng_input, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-
-    ng::AxisVector ng_axis_order(ng_mean->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-
-    ng_mean = make_shared<ng::op::Reshape>(ng_mean, ng_axis_order,
-                                           ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_mean);
-  return Status::OK();
-}
-
-static Status TranslateMinOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_min_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min_op));
-
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> min_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &min_axes));
+  std::vector<int64> axes;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &axes));
 
   ng::Shape input_shape = ng_input->get_shape();
   size_t input_rank = input_shape.size();
 
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(min_axes, input_rank));
+  TF_RETURN_IF_ERROR(CheckAxisDimInRange(axes, input_rank));
 
-  std::vector<size_t> ng_reduction_axes_vect(min_axes.size());
+  std::vector<size_t> ng_reduction_axes_vect(axes.size());
   std::transform(
-      min_axes.begin(), min_axes.end(), ng_reduction_axes_vect.begin(),
+      axes.begin(), axes.end(), ng_reduction_axes_vect.begin(),
       [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
   ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
 
-  std::shared_ptr<ng::Node> ng_min =
-      make_shared<ng::op::Min>(ng_input, ng_reduction_axes);
+  std::shared_ptr<ng::Node> ng_node =
+      create_ng_node(ng_input, ng_reduction_axes);
 
   // If keep_dims is specified we need to reshape to put back the reduced
   // axes, with length 1.
@@ -2161,14 +2358,95 @@ static Status TranslateMinOp(const Node* op,
           ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
     }
 
-    ng::AxisVector ng_axis_order(ng_min->get_shape().size());
+    ng::AxisVector ng_axis_order(ng_node->get_shape().size());
     std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
 
-    ng_min = make_shared<ng::op::Reshape>(ng_min, ng_axis_order,
-                                          ng_result_shape_with_keep);
+    ng_node = ConstructNgNode<ng::op::Reshape>(
+        op->name(), ng_node, ng_axis_order, ng_result_shape_with_keep);
   }
 
-  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_node);
+  return Status::OK();
+}
+
+static Status TranslateMeanOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return TranslateReduceOp(
+      op, static_input_map, ng_op_map,
+      [](std::shared_ptr<ng::Node> ng_input, ng::AxisSet ng_reduction_axes) {
+        return ng::builder::mean(ng_input, ng_reduction_axes);
+      });
+}
+
+template <typename T>
+static Status TranslateDirectReduceOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  // ensure its Any, All, Min, Max, Sum or Product
+  if (!(std::is_same<T, ng::op::Sum>::value ||
+        std::is_same<T, ng::op::Product>::value ||
+        std::is_same<T, ng::op::Max>::value ||
+        std::is_same<T, ng::op::Min>::value ||
+        std::is_base_of<ngraph::op::util::LogicalReduction, T>::value)) {
+    return errors::InvalidArgument(
+        "Expected node to be Any, All, Min, Max, Sum or Product type");
+  }
+  return TranslateReduceOp(
+      op, static_input_map, ng_op_map,
+      [&op](std::shared_ptr<ng::Node> ng_input, ng::AxisSet ng_reduction_axes) {
+        return ConstructNgNode<T>(op->name(), ng_input, ng_reduction_axes);
+      });
+}
+
+static Status TranslateOneHotOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_features, ng_on, ng_off;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_features, nullptr, &ng_on, &ng_off));
+
+  auto ng_features_shape = ng_features->get_shape();
+  auto ng_features_rank = ng_features_shape.size();
+
+  std::vector<int> depth;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &depth));
+
+  // Depth must be scalar
+  if (depth.size() != 1) {
+    return errors::InvalidArgument(
+        "OneHot Op: depth of one hot dimension must be scalar ", depth.size());
+  }
+
+  int one_hot_axis;
+  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "axis", &one_hot_axis));
+
+  ng::Shape output_shape(ng_features_shape);
+  auto pos = output_shape.begin();
+  if (one_hot_axis == -1) {
+    one_hot_axis = ng_features_rank;
+    pos = output_shape.end();
+  } else {
+    pos = output_shape.begin() + one_hot_axis;
+  }
+  output_shape.insert(pos, depth[0]);
+
+  auto ng_onehot_labels = ConstructNgNode<ng::op::OneHot>(
+      op->name(), ng_features, output_shape, one_hot_axis);
+
+  shared_ptr<ng::Node> ng_onehot_bool = ConstructNgNode<ng::op::Convert>(
+      op->name(), ng_onehot_labels, ng::element::boolean);
+
+  // broadcast to make all tensors same shape, as required by ngraph select op
+  std::tie(ng_onehot_bool, ng_on) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_on));
+  std::tie(ng_onehot_bool, ng_off) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_onehot_bool, ng_off));
+
+  auto ng_onehot = ConstructNgNode<ng::op::Select>(op->name(), ng_onehot_bool,
+                                                   ng_on, ng_off);
+
+  SaveNgOp(ng_op_map, op->name(), ng_onehot);
   return Status::OK();
 }
 
@@ -2213,15 +2491,17 @@ static Status TranslatePackOp(
     ng::Shape extended_shape = input_shape;
     extended_shape.push_back(1);
     for (size_t i = 0; i < ng_concat_inputs.size(); ++i) {
-      ng_concat_inputs[i] = make_shared<ng::op::Reshape>(
-          ng_concat_inputs[i], ng_axis_order, extended_shape);
+      ng_concat_inputs[i] = ConstructNgNode<ng::op::Reshape>(
+          op->name(), ng_concat_inputs[i], ng_axis_order, extended_shape);
     }
     ng_axis_order.push_back(input_rank);
   }
 
-  auto concat = make_shared<ng::op::Concat>(ng_concat_inputs, concat_axis);
+  auto concat = ConstructNgNode<ng::op::Concat>(op->name(), ng_concat_inputs,
+                                                concat_axis);
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Reshape>(concat, ng_axis_order, output_shape));
+           ConstructNgNode<ng::op::Reshape>(op->name(), concat, ng_axis_order,
+                                            output_shape));
   return Status::OK();
 }
 
@@ -2242,9 +2522,10 @@ static Status TranslatePadOp(const Node* op,
         "elements");
   }
 
-  ng::Shape padding_below(paddings.size() / 2);
-  ng::Shape padding_above(paddings.size() / 2);
+  ng::CoordinateDiff padding_below(paddings.size() / 2);
+  ng::CoordinateDiff padding_above(paddings.size() / 2);
   ng::Shape padding_interior(paddings.size() / 2);
+  auto pad_mode = ng::op::PadMode::CONSTANT;
 
   for (size_t i = 0; i < paddings.size() / 2; i++) {
     padding_below[i] = paddings[2 * i];
@@ -2256,61 +2537,13 @@ static Status TranslatePadOp(const Node* op,
   NGRAPH_VLOG(3) << "{" << ng::join(padding_above) << "}";
 
   // For PadV1 it seems the value is always zero.
-  auto pad_val_op = make_shared<ng::op::Constant>(
-      ng_input->get_element_type(), ng::Shape{}, std::vector<std::string>{"0"});
-  auto pad_op = make_shared<ng::op::Pad>(ng_input, pad_val_op, padding_below,
-                                         padding_above, padding_interior);
+  auto pad_val_op = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), ng::Shape{},
+      std::vector<std::string>{"0"});
+  auto pad_op = ConstructNgNode<ng::op::Pad>(
+      op->name(), ng_input, pad_val_op, padding_below, padding_above, pad_mode);
 
   SaveNgOp(ng_op_map, op->name(), pad_op);
-  return Status::OK();
-}
-
-static Status TranslateProdOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> prod_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &prod_axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = input_shape.size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(prod_axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(prod_axes.size());
-  std::transform(
-      prod_axes.begin(), prod_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::shared_ptr<ng::Node> ng_prod =
-      make_shared<ng::op::Product>(ng_input, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-
-    ng::AxisVector ng_axis_order(ng_prod->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-
-    ng_prod = make_shared<ng::op::Reshape>(ng_prod, ng_axis_order,
-                                           ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_prod);
   return Status::OK();
 }
 
@@ -2324,8 +2557,9 @@ static Status TranslateRankOp(
   ng::Shape input_shape = ng_input->get_shape();
   auto input_rank = static_cast<int>(input_shape.size());
 
-  auto ng_rank = std::make_shared<ng::op::Constant>(
-      ng::element::i32, ng::Shape(), std::vector<int>({input_rank}));
+  auto ng_rank = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng::element::i32, ng::Shape(),
+      std::vector<int>({input_rank}));
 
   SaveNgOp(ng_op_map, op->name(), ng_rank);
   return Status::OK();
@@ -2335,78 +2569,18 @@ static Status TranslateReciprocalOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   return TranslateUnaryOp(
-      op, static_input_map, ng_op_map, [](std::shared_ptr<ng::Node> n) {
+      op, static_input_map, ng_op_map, [&op](std::shared_ptr<ng::Node> n) {
         // Create a constant tensor populated with the value -1.
         // (1/x = x^(-1))
         auto et = n->get_element_type();
         auto shape = n->get_shape();
         std::vector<std::string> constant_values(ng::shape_size(shape), "-1");
-        auto ng_exponent =
-            std::make_shared<ng::op::Constant>(et, shape, constant_values);
+        auto ng_exponent = ConstructNgNode<ng::op::Constant>(
+            op->name(), et, shape, constant_values);
 
         // Raise each element of the input to the power -1.
-        return std::make_shared<ng::op::Power>(n, ng_exponent);
+        return ConstructNgNode<ng::op::Power>(op->name(), n, ng_exponent);
       });
-}
-
-static void ComputeScaleOffsetFolded(const uint& num_bits,
-                                     const bool& unsigned_type,
-                                     const bool& scaled, const float min_range,
-                                     const float max_range, float* scale,
-                                     int* offset) {
-  // ======= 1. Definitions =======
-  // min<Q>, max<Q>: the min and max of the quantized data type
-  // range<Q> = qmax<Q> - qmin<Q> (eg, 255 for u8, i8)
-  // max<R>, min<R>: The max and min of the real type
-  // range<R> = max<R> - min<R>
-  // ======= 2. Unquantized maths =======
-  // In what follows, we discuss the computations assuming
-  // Q and R are unquantized to simplify the discussion
-  // 2.1 In min-max representation:
-  // max<R> maps to max<Q>, min<R> maps to min<Q>, R x maps to Q y
-  // y = max<Q> - ((max<R> - x) * range<Q>) / range<R>
-  // or, y = (range<Q> * x / range<R>) - ((min<R> * range<Q>) / range<R>)
-  // 2.2 In scale-zero representation: y = (x/s) + z
-  // Therefore, s = range<R> / range<Q>
-  // and z = min<Q> - (min<R> / s)
-  // ======= 3. Quantized maths =======
-  // 3.1 Quantize: y = cast<Q>(clamp(round(x / s) + z, min<Q>, max<Q>)))
-  // 3.2 Dequantize: x = cast<R>(y - z) * s
-  // ======= 4. Notes  =======
-  // 4.1 Scale s is of type R, zero/offset z is of type Q
-  // 4.2 Type matching dictates, (min<R> / s) must evaluate to type Q
-  // Hence, it needs to be rounded to integral type
-  // 4.3 Scaled mode. Consider Q = int8, which represents [-128, 127]
-  // But scaled mode is symmetric. Hence it represents [-127, 127]
-  // 4.4 By definition, scaled mode includes 0. For others, we force the
-  // inclusion of 0 in the range
-
-  int scaled_elide = scaled ? 1 : 0;
-  int min_type = 0;
-  if (!unsigned_type) {
-    min_type = -((1 << (num_bits - 1)) - scaled_elide);
-  }
-  uint raise_to = num_bits - (unsigned_type ? 0 : 1);
-  int max_type = (1 << raise_to) - 1;
-  float adj_min_range, adj_max_range;
-  if (scaled) {
-    auto abs_min_range = std::abs(min_range);
-    auto abs_max_range = std::abs(max_range);
-    auto range_boundary = std::max(abs_min_range, abs_max_range);
-    adj_min_range = unsigned_type ? 0 : -range_boundary;
-    adj_max_range = range_boundary;
-  } else {
-    // TODO: Adjust range or fail?
-    adj_min_range = std::min(min_range, 0.0f);
-    adj_max_range = std::max(max_range, 0.0f);
-  }
-  *scale = (adj_max_range - adj_min_range) / (max_type - min_type);
-  // TODO: should it be: round(adj_min_range / *scale) (or floor)?
-  *offset = min_type - std::lround(adj_min_range / *scale);
-
-  // TODO: currently both TranslateQuantizeV2Op and TranslateDequantizeOp assume
-  // static input and we compute the scale-offset into ng_consts. Later we need
-  // to support converting min-max to scale-offset using a ngraph subgraph
 }
 
 template <typename T>
@@ -2459,14 +2633,14 @@ Status QuantizeAndDequantizeV2Helper(
   const T scale_from_max_side = (max_quantized * max_range > 0)
                                     ? max_quantized / max_range
                                     : std::numeric_limits<T>::max();
-  T scale, inverse_scale;
+  T inverse_scale;
   if (scale_from_min_side < scale_from_max_side && min_quantized != 0) {
     // min_quantized != 0 is not really necessary but klocwork complains
-    scale = scale_from_min_side;
+    // T scale = scale_from_min_side;
     inverse_scale = min_range / min_quantized;
     // max_range = max_quantized * inverse_scale;
   } else {
-    scale = scale_from_max_side;
+    // T scale = scale_from_max_side;
     inverse_scale = max_range / max_quantized;
     // min_range = min_quantized * inverse_scale;
   }
@@ -2522,42 +2696,160 @@ static Status TranslateQuantizeAndDequantizeV2Op(
           "Expected QuantizeAndDequantizeV2's num_bits to be 8, but got ",
           num_bits);
   }
-  auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng_r_et, ng::Shape(), std::vector<float>({scale}));
-  auto ng_offset = std::make_shared<ng::op::Constant>(ng_q_et, ng::Shape(),
-                                                      std::vector<int>({0}));
+  auto ng_scale = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_r_et, ng::Shape(), std::vector<float>({scale}));
+  auto ng_offset = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_q_et, ng::Shape(), std::vector<int>({0}));
   ng::op::Quantize::RoundMode ng_round_mode =
       ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
-  auto ng_quant = make_shared<ng::op::Quantize>(
-      ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(), ng_round_mode);
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Dequantize>(ng_quant, ng_scale, ng_offset,
-                                           ng_r_et, ng::AxisSet()));
+  auto ng_quant = ConstructNgNode<ng::op::Quantize>(
+      op->name(), ng_input, ng_scale, ng_offset, ng_q_et, ng::AxisSet(),
+      ng_round_mode);
+  SaveNgOp(ng_op_map, op->name(), ConstructNgNode<ng::op::Dequantize>(
+                                      op->name(), ng_quant, ng_scale, ng_offset,
+                                      ng_r_et, ng::AxisSet()));
 
   // TODO: what of clamping?
   return Status::OK();
 }
 
-static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
+static Status TranslateQuantizedAvgPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_filter, ng_bias;
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 1, &ng_filter));
-  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 2, &ng_bias));
-  std::vector<std::shared_ptr<ng::op::Constant>> static_inps(6);
-  for (int i = 0; i < static_inps.size(); i++) {
-    std::vector<float> tmp_vect;
-    TF_RETURN_IF_ERROR(
-        GetStaticInputVector(op, 3 + i, static_input_map, &tmp_vect));
-    if (tmp_vect.size() != 1) {
-      return errors::InvalidArgument(
-          "QuantizedConv2DWithBiasAndReluAndRequantize Op: Input number ",
-          (3 + i), " must be scalar. Got a vector of size, ", tmp_vect.size());
-    }
-    static_inps[i] = std::make_shared<ng::op::Constant>(
-        ng::element::f32, ng::Shape({}), tmp_vect);
+  return TranslateQuantizedPoolOp(op, static_input_map, ng_op_map,
+                                  "QuantizedAvgPool");
+}
+
+// Helper function to translate QuantizedConcat and QuantizedConcatV2
+static Status TranslateQuantizedConcatOpHelper(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map, std::string op_name) {
+  int axis_index;         // index for concat_axis input
+  int value_start_index;  // start index for N tensor inputs
+  auto num_of_tensors_to_concat = (op->num_inputs() - 1) / 3;
+
+  if (op_name == "QuantizedConcat") {
+    axis_index = 0;
+    value_start_index = 1;
+  } else if (op_name == "QuantizedConcatV2") {
+    axis_index = num_of_tensors_to_concat;
+    value_start_index = 0;
+  } else {
+    return errors::InvalidArgument(
+        "This helper function is only used for QuantizedConcat and "
+        "QuantizedConcatV2 ops");
   }
+
+  auto collect_nodes = [&op, &ng_op_map](int start, int end,
+                                         ng::NodeVector* p_ng_args) {
+    for (int i = start; i < end; i++) {
+      shared_ptr<ng::Node> ng_arg;
+      TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, i, &ng_arg));
+      (*p_ng_args).push_back(ng_arg);
+    }
+    return Status::OK();
+  };
+
+  // Collect the N input tensors to concat with
+  ng::NodeVector ng_args;
+  if (op_name == "QuantizedConcat") {
+    TF_RETURN_IF_ERROR(collect_nodes(value_start_index,
+                                     num_of_tensors_to_concat + 1, &ng_args));
+  } else if (op_name == "QuantizedConcatV2") {
+    TF_RETURN_IF_ERROR(
+        collect_nodes(value_start_index, num_of_tensors_to_concat, &ng_args));
+  }
+
+  // Get the input concat_axis
+  std::vector<int64> tf_concat_axis_vec;
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, axis_index, static_input_map,
+                                          &tf_concat_axis_vec));
+
+  // QuantizedConcat doesn't have negative concat_axis
+  int64 concat_axis = tf_concat_axis_vec[0];
+
+  // Get input_mins and input_maxs
+  std::vector<float> all_mins(num_of_tensors_to_concat),
+      all_maxs(num_of_tensors_to_concat);
+
+  // Construct input parameters to ScaledQuantizedConcat op
+  ng::NodeVector ng_all_mins, ng_all_maxs;
+  std::vector<float> min_tmp, max_tmp;
+
+  // Collect the N input mins and input maxes
+  for (int idx = 0; idx < num_of_tensors_to_concat; idx++) {
+    TF_RETURN_IF_ERROR(GetStaticInputVector(
+        op, num_of_tensors_to_concat + 1 + idx, static_input_map, &min_tmp));
+    TF_RETURN_IF_ERROR(
+        GetStaticInputVector(op, 2 * num_of_tensors_to_concat + 1 + idx,
+                             static_input_map, &max_tmp));
+
+    all_mins[idx] = min_tmp[0];
+    all_maxs[idx] = max_tmp[0];
+
+    auto min_node =
+        make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_tmp);
+    auto max_node =
+        make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_tmp);
+
+    ng_all_mins.push_back(std::make_shared<ngraph::op::Reshape>(
+        min_node, ngraph::AxisVector{}, ngraph::Shape{1}));
+    ng_all_maxs.push_back(std::make_shared<ngraph::op::Reshape>(
+        max_node, ngraph::AxisVector{}, ngraph::Shape{1}));
+  }
+
+  // return the min among the input_mins, and the max among the input_maxs
+  // TODO: TF has a different way of determine the output_min and output_max
+  // TF reference:
+  // https://github.com/tensorflow/tensorflow/blob/86950c2c440be956a9fcb3a25868a1df15444467/tensorflow/core/kernels/quantized_concat_op.cc#L78
+  std::vector<float> min_of_mins(
+      1, *std::min_element(all_mins.begin(), all_mins.end()));
+  std::vector<float> max_of_maxs(
+      1, *std::max_element(all_maxs.begin(), all_maxs.end()));
+
+  // construct output_min and output_max
+  shared_ptr<ng::Node> ng_min_of_mins =
+      make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, min_of_mins);
+  shared_ptr<ng::Node> ng_max_of_maxs =
+      make_shared<ng::op::Constant>(ng::element::f32, ng::Shape{}, max_of_maxs);
+
+  auto ng_qconcat = ng::builder::ScaledQuantizedConcat(
+      ng_args, size_t(concat_axis), ng_all_mins, ng_all_maxs);
+
+  SaveNgOp(ng_op_map, op->name(), ng_qconcat);
+  SaveNgOp(ng_op_map, op->name(), ng_min_of_mins);
+  SaveNgOp(ng_op_map, op->name(), ng_max_of_maxs);
+  return Status::OK();
+}
+
+static Status TranslateQuantizedConcatOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return TranslateQuantizedConcatOpHelper(op, static_input_map, ng_op_map,
+                                          "QuantizedConcat");
+}
+
+static Status TranslateQuantizedConcatV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  return TranslateQuantizedConcatOpHelper(op, static_input_map, ng_op_map,
+                                          "QuantizedConcatV2");
+}
+
+static Status TranslateQuantizedConv(
+    const Node* op, Builder::OpMap& ng_op_map,
+    std::function<std::shared_ptr<ng::Node>(
+        std::vector<std::shared_ptr<ng::Node>>, ng::Strides, ng::Strides,
+        ng::CoordinateDiff, ng::CoordinateDiff, ng::Strides)>
+        create_quantized_conv_node) {
+  size_t num_tf_op_inputs = op->num_inputs();
+  size_t num_node_inputs = num_tf_op_inputs;
+  std::vector<std::shared_ptr<ng::Node>> node_inps(num_node_inputs);
+  for (size_t inp_idx = 0; inp_idx < num_tf_op_inputs; inp_idx++) {
+    TF_RETURN_IF_ERROR(
+        GetInputNode(ng_op_map, op, inp_idx, &(node_inps[inp_idx])));
+  }
+
   std::vector<int32> tf_strides;
   std::vector<int32> tf_dilations;
   std::string tf_padding_type;
@@ -2571,266 +2863,135 @@ static Status TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp(
   ng::Shape ng_image_shape(2);
   ng::Shape ng_kernel_shape(2);
   BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_input->get_shape(), ng_image_shape);
+  BatchedOpParamToNGraph(is_nhwc, node_inps[0]->get_shape(), ng_image_shape);
   BatchedOpParamToNGraph(is_nhwc, tf_dilations, ng_dilations);
-  BatchToNGraph(is_nhwc, ng_input);
-  auto& ng_filter_shape = ng_filter->get_shape();
+  // Generally, the mapping is: 0->input, 1->filter, 2->bias, 3->sum input
+  BatchToNGraph(is_nhwc, node_inps[0]);
+  // QconvBiasAdd variants
+  if (num_node_inputs == 12) {
+    BatchToNGraph(is_nhwc, node_inps[9]);
+  }
+  auto& ng_filter_shape = node_inps[1]->get_shape();
   ng_kernel_shape[0] = ng_filter_shape[0];
   ng_kernel_shape[1] = ng_filter_shape[1];
-  Reshape<3, 2, 0, 1>(ng_filter);
+  Reshape<3, 2, 0, 1>(node_inps[1]);
   ng::CoordinateDiff ng_padding_below{0, 0};
   ng::CoordinateDiff ng_padding_above{0, 0};
   Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
                        ng_strides, ng_dilations, ng_padding_below,
                        ng_padding_above);
-  // It is expected by ScaledQuantizedConvolutionBias that the min max inputs be
-  // constant nodes
+
+  // It is expected by ScaledQuantizedConvolutionBias (and other builder
+  // functions) that the min max inputs be constant nodes
   // Hence declaring them static, reading their values and converting to
   // constant nodes
-  std::shared_ptr<ng::Node> ng_quant_conv_bias =
-      ng::builder::ScaledQuantizedConvolutionBias(
-          ng_input, ng_filter, ng_bias, ng_strides, ng_dilations,
-          ng_padding_below, ng_padding_above, ng_data_dilations, static_inps[0],
-          static_inps[1], static_inps[2], static_inps[3], static_inps[4],
-          static_inps[5], true);
+  std::shared_ptr<ng::Node> ng_quant_conv_bias = create_quantized_conv_node(
+      node_inps, ng_strides, ng_dilations, ng_padding_below, ng_padding_above,
+      ng_data_dilations);
+
   BatchToTensorflow(is_nhwc, ng_quant_conv_bias);
   SaveNgOp(ng_op_map, op->name(), ng_quant_conv_bias);
+  // QconvBiasAdd variants have summand and its min/max as the last input nodes
+  auto adjust_idx = num_node_inputs == 12 ? 3 : 0;
   // Forward the min_freezed_output input to output min
-  SaveNgOp(ng_op_map, op->name(), static_inps[4]);
+  SaveNgOp(ng_op_map, op->name(), node_inps[num_node_inputs - 2 - adjust_idx]);
   // Forward the max_freezed_output input to output max
-  SaveNgOp(ng_op_map, op->name(), static_inps[5]);
+  SaveNgOp(ng_op_map, op->name(), node_inps[num_node_inputs - 1 - adjust_idx]);
   return Status::OK();
+}
+
+template <bool IsRelu>
+static Status TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  auto create_quantized_conv_node = [](
+      std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides,
+      ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below,
+      ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations) {
+    return ng::builder::ScaledQuantizedConvolutionBias(
+        node_inps[0], node_inps[1], node_inps[2], ng_strides, ng_dilations,
+        ng_padding_below, ng_padding_above, ng_data_dilations, node_inps[3],
+        node_inps[4], node_inps[5], node_inps[6], node_inps[7], node_inps[8],
+        IsRelu);
+  };
+  return TranslateQuantizedConv(op, ng_op_map, create_quantized_conv_node);
+}
+
+static Status TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  auto create_quantized_conv_node = [](
+      std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides,
+      ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below,
+      ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations) {
+    return ng::builder::ScaledQuantizedConvolutionBiasAdd(
+        node_inps[0], node_inps[1], node_inps[2], node_inps[9], ng_strides,
+        ng_dilations, ng_padding_below, ng_padding_above, ng_data_dilations,
+        node_inps[3], node_inps[4], node_inps[5], node_inps[6], node_inps[7],
+        node_inps[8], node_inps[10], node_inps[11], true);
+  };
+  return TranslateQuantizedConv(op, ng_op_map, create_quantized_conv_node);
+}
+
+static Status TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  auto create_quantized_conv_node = [](
+      std::vector<std::shared_ptr<ng::Node>> node_inps, ng::Strides ng_strides,
+      ng::Strides ng_dilations, ng::CoordinateDiff ng_padding_below,
+      ng::CoordinateDiff ng_padding_above, ng::Strides ng_data_dilations) {
+    return ng::builder::ScaledQuantizedConvolutionBiasSignedAdd(
+        node_inps[0], node_inps[1], node_inps[2], node_inps[9], ng_strides,
+        ng_dilations, ng_padding_below, ng_padding_above, ng_data_dilations,
+        node_inps[3], node_inps[4], node_inps[5], node_inps[6], node_inps[7],
+        node_inps[8], node_inps[10], node_inps[11], true);
+  };
+  return TranslateQuantizedConv(op, ng_op_map, create_quantized_conv_node);
 }
 
 static Status TranslateQuantizedMaxPoolOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
-  std::vector<int32> tf_strides;
-  std::vector<int32> tf_ksize;
-  std::string tf_padding_type;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "strides", &tf_strides));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "ksize", &tf_ksize));
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "padding", &tf_padding_type));
-  bool is_nhwc = true;  // TODO, is this correct?
-  ng::Strides ng_strides(2);
-  ng::Shape ng_image_shape(2);
-  ng::Shape ng_kernel_shape(2);
-  BatchedOpParamToNGraph(is_nhwc, tf_strides, ng_strides);
-  BatchedOpParamToNGraph(is_nhwc, ng_input->get_output_shape(0),
-                         ng_image_shape);
-  BatchedOpParamToNGraph(is_nhwc, tf_ksize, ng_kernel_shape);
-  BatchToNGraph(is_nhwc, ng_input);
-  ng::Shape ng_padding_below{0, 0};
-  ng::Shape ng_padding_above{0, 0};
-  Builder::MakePadding(tf_padding_type, ng_image_shape, ng_kernel_shape,
-                       ng_strides, ng_padding_below, ng_padding_above);
-
-  // Creating and passing dummy nodes to ScaledQuantizedMaxPool because it does
-  // not use them. If it ever starts using min/max, the dummy min-max would
-  // cause it to fail
-  shared_ptr<ng::Node> dummy_min(nullptr), dummy_max(nullptr);
-  std::shared_ptr<ng::Node> ng_quant_maxpool =
-      ng::builder::ScaledQuantizedMaxPool(ng_input, ng_kernel_shape, ng_strides,
-                                          ng_padding_below, ng_padding_above,
-                                          dummy_min, dummy_max);
-  BatchToTensorflow(is_nhwc, ng_quant_maxpool);
-  SaveNgOp(ng_op_map, op->name(), ng_quant_maxpool);
-  // For maxpool input min-max remains unchanged and is just propagated along
-  // https://github.com/tensorflow/tensorflow/blob/9590c4c32dd4346ea5c35673336f5912c6072bf2/tensorflow/core/kernels/quantized_pooling_ops.cc#L99
-  SaveNgOp(ng_op_map, op->name(), ng_min);
-  SaveNgOp(ng_op_map, op->name(), ng_max);
-  return Status::OK();
+  return TranslateQuantizedPoolOp(op, static_input_map, ng_op_map,
+                                  "QuantizedMaxPool");
 }
 
 static Status TranslateQuantizeV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
-
-  std::vector<float> ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Min must be scalar. Got a vector of size, ",
-        ng_min.size());
-  }
-  if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "QuantizeV2 Op: Max must be scalar. Got a vector of size, ",
-        ng_max.size());
-  }
-
-  if (ng_min[0] > ng_max[0]) {
-    return errors::InvalidArgument(
-        "Expected QuantizeV2's min <= max but got, "
-        "min = ",
-        ng_min[0], " and max = ", ng_max[0]);
-  }
-
-  string mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
-
-  // TODO: Since, currently only ng::ROUND_NEAREST_TOWARD_INFINITY is supported,
-  // just reading this value here, but not using it for now.
-  string round_mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "round_mode", &round_mode));
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
   DataType dtype;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
 
-  int num_bits;
-  bool unsigned_type;
-  switch (dtype) {
-    case DT_QINT8:
-      num_bits = 8;
-      unsigned_type = false;
-      break;
-    case DT_QUINT8:
-      num_bits = 8;
-      unsigned_type = true;
-      break;
-    default:
-      return errors::InvalidArgument(
-          "Expected QuantizeV2's datatype to be of int8 or uint8 but got ",
-          DataTypeString(dtype));
-  }
-
-  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/quantize_op.cc#L107
-  // Form this line here, we see that min and max is a single value.
-  // Hence picking only the first element from the ng_min, ng_max vectors
-
-  float ng_scale_val;
-  int ng_offset_val;
-  try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type,
-                             (mode.compare("SCALED") == 0), ng_min[0],
-                             ng_max[0], &ng_scale_val, &ng_offset_val);
-  } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
-  }
-
-  auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
-
   ng::element::Type ng_et;
   TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
 
-  // Cast offset appropriately? Currently using int
-  auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
-
-  // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_INFINITY is supported, for now.
-  // Support HALF_TO_EVEN later
+  // TODO: Only RoundMode = ROUND_NEAREST_TOWARD_EVEN is supported, for now.
+  // Support other modes later
   ng::op::Quantize::RoundMode ng_round_mode =
-      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_INFINITY;
+      ng::op::Quantize::RoundMode::ROUND_NEAREST_TOWARD_EVEN;
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Quantize>(ng_input, ng_scale, ng_offset, ng_et,
-                                         ng::AxisSet(), ng_round_mode));
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_min[0]})));
-  // TODO: For quantizev2 revisit output min-max (which would change in case
-  // input min-max are too close. For now just propagating inputs
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(ng::element::f32, ng::Shape(),
-                                         std::vector<float>({ng_max[0]})));
+           ng::builder::ScaledQuantize(ng_input, ng_min, ng_max, ng_et,
+                                       ng::AxisSet(), ng_round_mode));
+  SaveNgOp(ng_op_map, op->name(), ng_min);
+  SaveNgOp(ng_op_map, op->name(), ng_max);
+
   return Status::OK();
 }
 
 static Status TranslateDequantizeOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, nullptr, nullptr));
+  shared_ptr<ng::Node> ng_input, ng_min, ng_max;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_min, &ng_max));
 
-  std::vector<float> ng_min, ng_max;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_min));
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &ng_max));
-  if (ng_min.size() != 1) {
-    return errors::InvalidArgument(
-        "Dequantize Op: Min must be scalar. Got a vector of size, ",
-        ng_min.size());
-  }
-  if (ng_max.size() != 1) {
-    return errors::InvalidArgument(
-        "Dequantize Op: Max must be scalar. Got a vector of size, ",
-        ng_max.size());
-  }
-
-  if (ng_min[0] > ng_max[0]) {
-    return errors::InvalidArgument(
-        "Expected Dequantize's min <= max but got, "
-        "min = ",
-        ng_min[0], " and max = ", ng_max[0]);
-  }
-
-  string mode;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "mode", &mode));
-
-  DataType dtype;
-  TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "T", &dtype));
-
-  int num_bits;
-  bool unsigned_type;
-  switch (dtype) {
-    case DT_QINT8:
-      num_bits = 8;
-      unsigned_type = false;
-      break;
-    case DT_QUINT8:
-      num_bits = 8;
-      unsigned_type = true;
-      break;
-    default:
-      return errors::InvalidArgument(
-          "Expected Dequantize's datatype to be of int8 or uint8 but got ",
-          dtype);
-  }
-
-  float ng_scale_val;
-  int ng_offset_val;
-  try {
-    ComputeScaleOffsetFolded(num_bits, unsigned_type,
-                             (mode.compare("SCALED") == 0), ng_min[0],
-                             ng_max[0], &ng_scale_val, &ng_offset_val);
-  } catch (const std::exception& e) {
-    return errors::Internal("Unhandled exception in ComputeScaleOffset: ",
-                            op->name(), " (", op->type_string(), ")\n",
-                            op->def().DebugString(), "\n", "what(): ",
-                            e.what());
-  }
-
-  auto ng_scale = std::make_shared<ng::op::Constant>(
-      ng::element::f32, ng::Shape(), std::vector<float>({ng_scale_val}));
-
-  ng::element::Type ng_et;
-  TF_RETURN_IF_ERROR(TFDataTypeToNGraphElementType(dtype, &ng_et));
-
-  // Cast offset appropriately? Currently using int
-  auto ng_offset = std::make_shared<ng::op::Constant>(
-      ng_et, ng::Shape(), std::vector<int>({ng_offset_val}));
-
+  // TF only dequantizes to fp32
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Dequantize>(ng_input, ng_scale, ng_offset,
-                                           ng::element::f32, ng::AxisSet()));
-  return Status::OK();
-}
-
-static Status TranslateReluOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
-
-  SaveNgOp(ng_op_map, op->name(), make_shared<ng::op::Relu>(ng_input));
+           ng::builder::ScaledDequantize(ng_input, ng_min, ng_max,
+                                         ng::element::f32, ng::AxisSet()));
   return Status::OK();
 }
 
@@ -2840,11 +3001,12 @@ static Status TranslateRelu6Op(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  auto constant_6 = make_shared<ng::op::Constant>(
-      ng_input->get_element_type(), ng_input->get_shape(),
+  auto constant_6 = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), ng_input->get_shape(),
       std::vector<std::string>(ng::shape_size(ng_input->get_shape()), "6"));
-  auto relu6_op = make_shared<ng::op::Minimum>(
-      make_shared<ng::op::Relu>(ng_input), constant_6);
+  auto relu6_op = ConstructNgNode<ng::op::Minimum>(
+      op->name(), ConstructNgNode<ng::op::Relu>(op->name(), ng_input),
+      constant_6);
 
   SaveNgOp(ng_op_map, op->name(), relu6_op);
   return Status::OK();
@@ -2856,7 +3018,8 @@ static Status TranslateReluGradOp(
   shared_ptr<ng::Node> ng_arg, ng_delta;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_delta, &ng_arg));
 
-  auto ng_relu_grad = std::make_shared<ng::op::ReluBackprop>(ng_arg, ng_delta);
+  auto ng_relu_grad =
+      ConstructNgNode<ng::op::ReluBackprop>(op->name(), ng_arg, ng_delta);
   SaveNgOp(ng_op_map, op->name(), ng_relu_grad);
   return Status::OK();
 }
@@ -2923,7 +3086,8 @@ static Status TranslateReshapeOp(
   std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, ng_shape));
+           ConstructNgNode<ng::op::Reshape>(op->name(), ng_input, ng_axis_order,
+                                            ng_shape));
   return Status::OK();
 }
 
@@ -2931,17 +3095,17 @@ static Status TranslateRsqrtOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   return TranslateUnaryOp(
-      op, static_input_map, ng_op_map, [](std::shared_ptr<ng::Node> n) {
+      op, static_input_map, ng_op_map, [&op](std::shared_ptr<ng::Node> n) {
         // Create a constant tensor populated with the value -1/2.
         // (1/sqrt(x) = x^(-1/2))
         auto et = n->get_element_type();
         auto shape = n->get_shape();
         std::vector<std::string> constant_values(ng::shape_size(shape), "-0.5");
-        auto ng_exponent =
-            std::make_shared<ng::op::Constant>(et, shape, constant_values);
+        auto ng_exponent = ConstructNgNode<ng::op::Constant>(
+            op->name(), et, shape, constant_values);
 
         // Raise each element of the input to the power -0.5.
-        return std::make_shared<ng::op::Power>(n, ng_exponent);
+        return ConstructNgNode<ng::op::Power>(op->name(), n, ng_exponent);
       });
 }
 
@@ -2971,7 +3135,7 @@ static Status TranslateShapeOp(
     values[i] = input_shape[i];
   }
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Constant>(type, shape, values));
+           ConstructNgNode<ng::op::Constant>(op->name(), type, shape, values));
   return Status::OK();
 }
 
@@ -2983,9 +3147,9 @@ static Status TranslateSigmoidGradOp(
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_delta));
 
   auto ng_mul = ng_input * ng_delta;
-  auto ng_subtract = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                   ng_input->get_shape(),
-                                                   std::vector<int>({1})) -
+  auto ng_subtract = ConstructNgNode<ng::op::Constant>(
+                         op->name(), ng_input->get_element_type(),
+                         ng_input->get_shape(), std::vector<int>({1})) -
                      ng_input;
   auto ng_result = ng_mul * ng_subtract;
 
@@ -2999,16 +3163,17 @@ static Status TranslateSigmoidOp(
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
 
-  auto exp_op =
-      make_shared<ng::op::Exp>(make_shared<ng::op::Negative>(ng_input));
-  auto constant_1 = make_shared<ng::op::Constant>(
-      ng_input->get_element_type(), ng_input->get_shape(),
+  auto exp_op = ConstructNgNode<ng::op::Exp>(
+      op->name(), ConstructNgNode<ng::op::Negative>(op->name(), ng_input));
+  auto constant_1 = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), ng_input->get_shape(),
       std::vector<std::string>(ng::shape_size(ng_input->get_shape()), "1"));
 
-  auto denominator_op = make_shared<ng::op::Add>(constant_1, exp_op);
+  auto denominator_op =
+      ConstructNgNode<ng::op::Add>(op->name(), constant_1, exp_op);
 
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Divide>(constant_1, denominator_op));
+  SaveNgOp(ng_op_map, op->name(), ConstructNgNode<ng::op::Divide>(
+                                      op->name(), constant_1, denominator_op));
   return Status::OK();
 }
 
@@ -3033,8 +3198,8 @@ static Status TranslateSizeOp(
   }
 
   // make a scalar with value equals to result
-  auto ng_result = make_shared<ng::op::Constant>(type, ng::Shape(0),
-                                                 std::vector<int64>({result}));
+  auto ng_result = ConstructNgNode<ng::op::Constant>(
+      op->name(), type, ng::Shape(0), std::vector<int64>({result}));
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
@@ -3092,18 +3257,8 @@ static Status TranslateSliceOp(
 
   std::vector<size_t> l(lower_vec.begin(), lower_vec.end());
   std::vector<size_t> u(upper_vec.begin(), upper_vec.end());
-  auto ng_slice = make_shared<ng::op::Slice>(ng_input, l, u);
+  auto ng_slice = ConstructNgNode<ng::op::Slice>(op->name(), ng_input, l, u);
   SaveNgOp(ng_op_map, op->name(), ng_slice);
-  return Status::OK();
-}
-
-static Status TranslateSnapshotOp(
-    const Node* op, const std::vector<const Tensor*>& static_input_map,
-    Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_arg;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_arg));
-
-  SaveNgOp(ng_op_map, op->name(), ng_arg);
   return Status::OK();
 }
 
@@ -3121,8 +3276,8 @@ static Status TranslateSoftmaxOp(
   }
   auto rank = ng_input->get_shape().size();
   ng_axes_softmax.insert(rank - 1);
-  SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Softmax>(ng_input, ng_axes_softmax));
+  SaveNgOp(ng_op_map, op->name(), ConstructNgNode<ng::op::Softmax>(
+                                      op->name(), ng_input, ng_axes_softmax));
   return Status::OK();
 }
 
@@ -3154,12 +3309,16 @@ static Status TranslateSpaceToDepthOp(
       width_index = 2;
       channel_index = 3;
       break;
-    // NCHW or NCHW_VEC_C
+    // NCHW
     case 1:
       height_index = 2;
       width_index = 3;
       channel_index = 1;
       break;
+    // NCHW_VEC_C
+    case 2:
+      return errors::InvalidArgument(
+          "NCHW_VECT_C is not supported in SpaceToDepth for now");
     default:
       return errors::InvalidArgument(
           "SpaceToDepth supported data format is NCHW, NHWC, or NCHW_VECT_C");
@@ -3194,13 +3353,14 @@ static Status TranslateSpaceToDepthOp(
       std::vector<size_t> strides = {1, 1, 1, 1};
       strides[width_index] = size_t(block_size);
       strides[height_index] = size_t(block_size);
-      strided_slice_result.push_back(
-          make_shared<ng::op::Slice>(ng_input, begin, upper, strides));
+      strided_slice_result.push_back(ConstructNgNode<ng::op::Slice>(
+          op->name(), ng_input, begin, upper, strides));
     }
   }
 
-  SaveNgOp(ng_op_map, op->name(), make_shared<ngraph::op::Concat>(
-                                      strided_slice_result, channel_index));
+  SaveNgOp(ng_op_map, op->name(),
+           ConstructNgNode<ngraph::op::Concat>(op->name(), strided_slice_result,
+                                               channel_index));
   return Status::OK();
 }
 
@@ -3269,42 +3429,48 @@ static Status TranslateSparseSoftmaxCrossEntropyWithLogitsOp(
   ng_axes_class.insert(1);
 
   // compute max(logits) and broadcast to shape [B, NC]
-  auto max_logits = make_shared<ng::op::Broadcast>(
-      make_shared<ng::op::Max>(ng_features, ng_axes_class), ng_features_shape,
-      ng_axes_class);
+  auto max_logits = ConstructNgNode<ng::op::Broadcast>(
+      op->name(),
+      ConstructNgNode<ng::op::Max>(op->name(), ng_features, ng_axes_class),
+      ng_features_shape, ng_axes_class);
 
   // logits_normalized : (logits - max_logits)
   auto logits_normalized =
-      make_shared<ng::op::Subtract>(ng_features, max_logits);
+      ConstructNgNode<ng::op::Subtract>(op->name(), ng_features, max_logits);
 
   // y_pred = exp(logits_normalized) / sum(exp(logits_normalized))
-  auto exp_logits = make_shared<ng::op::Exp>(logits_normalized);
-  auto sum_exp_logits = make_shared<ng::op::Broadcast>(
-      make_shared<ng::op::Sum>(exp_logits, ng_axes_class), ng_features_shape,
-      ng_axes_class);
-  auto predicted_prob = make_shared<ng::op::Divide>(exp_logits, sum_exp_logits);
+  auto exp_logits = ConstructNgNode<ng::op::Exp>(op->name(), logits_normalized);
+  auto sum_exp_logits = ConstructNgNode<ng::op::Broadcast>(
+      op->name(),
+      ConstructNgNode<ng::op::Sum>(op->name(), exp_logits, ng_axes_class),
+      ng_features_shape, ng_axes_class);
+  auto predicted_prob =
+      ConstructNgNode<ng::op::Divide>(op->name(), exp_logits, sum_exp_logits);
 
   // y_true : one_hot_float_labels
-  auto ng_onehot_labels =
-      make_shared<ng::op::OneHot>(ng_labels, ng_features_shape, 1);
+  auto ng_onehot_labels = ConstructNgNode<ng::op::OneHot>(op->name(), ng_labels,
+                                                          ng_features_shape, 1);
 
-  auto ng_onehot_labels_float = make_shared<ng::op::Convert>(
-      ng_onehot_labels, ng_features->get_element_type());
+  auto ng_onehot_labels_float = ConstructNgNode<ng::op::Convert>(
+      op->name(), ng_onehot_labels, ng_features->get_element_type());
 
   // Output 1
   // loss = sum[labels * {sum(log(exp(logits_normalized)))
   // - logits_normalized }]
-  auto ng_loss = make_shared<ng::op::Sum>(
-      make_shared<ng::op::Multiply>(
-          make_shared<ng::op::Subtract>(
-              make_shared<ng::op::Log>(sum_exp_logits), logits_normalized),
+  auto ng_loss = ConstructNgNode<ng::op::Sum>(
+      op->name(),
+      ConstructNgNode<ng::op::Multiply>(
+          op->name(), ConstructNgNode<ng::op::Subtract>(
+                          op->name(), ConstructNgNode<ng::op::Log>(
+                                          op->name(), sum_exp_logits),
+                          logits_normalized),
           ng_onehot_labels_float),
       ng_axes_class);
 
   // Output 2
   // backprop = y_pred - y_true
-  auto ng_backprop =
-      make_shared<ng::op::Subtract>(predicted_prob, ng_onehot_labels_float);
+  auto ng_backprop = ConstructNgNode<ng::op::Subtract>(
+      op->name(), predicted_prob, ng_onehot_labels_float);
 
   SaveNgOp(ng_op_map, op->name(), ng_loss);
   SaveNgOp(ng_op_map, op->name(), ng_backprop);
@@ -3343,8 +3509,8 @@ static Status TranslateSplitOp(
     upper[split_dim] = cursor;
 
     std::string output_name = op->name();
-    SaveNgOp(ng_op_map, op->name(),
-             make_shared<ng::op::Slice>(ng_input, lower, upper));
+    SaveNgOp(ng_op_map, op->name(), ConstructNgNode<ng::op::Slice>(
+                                        op->name(), ng_input, lower, upper));
   }
   return Status::OK();
 }
@@ -3420,8 +3586,8 @@ static Status TranslateSplitVOp(
       lower[split_dim] = cursor;
       cursor += lengths[i];
       upper[split_dim] = cursor;
-      SaveNgOp(ng_op_map, op->name(),
-               make_shared<ng::op::Slice>(ng_input, lower, upper));
+      SaveNgOp(ng_op_map, op->name(), ConstructNgNode<ng::op::Slice>(
+                                          op->name(), ng_input, lower, upper));
     }
   } else {
     SaveNgOp(ng_op_map, op->name(), ng_input);
@@ -3433,20 +3599,21 @@ static Status TranslateSplitVOp(
 static Status TranslateSquareOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-  return TranslateUnaryOp(op, static_input_map, ng_op_map,
-                          [](std::shared_ptr<ng::Node> n) {
-                            return std::make_shared<ng::op::Multiply>(n, n);
-                          });
+  return TranslateUnaryOp(
+      op, static_input_map, ng_op_map, [&op](std::shared_ptr<ng::Node> n) {
+        return ConstructNgNode<ng::op::Multiply>(op->name(), n, n);
+      });
 }
 
 static Status TranslateSquaredDifferenceOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
   return TranslateBinaryOp(
-      op, static_input_map, ng_op_map,
-      [](std::shared_ptr<ng::Node> input1, std::shared_ptr<ng::Node> input2) {
-        auto ng_diff = std::make_shared<ng::op::Subtract>(input1, input2);
-        return std::make_shared<ng::op::Multiply>(ng_diff, ng_diff);
+      op, static_input_map, ng_op_map, [&op](std::shared_ptr<ng::Node> input1,
+                                             std::shared_ptr<ng::Node> input2) {
+        auto ng_diff =
+            ConstructNgNode<ng::op::Subtract>(op->name(), input1, input2);
+        return ConstructNgNode<ng::op::Multiply>(op->name(), ng_diff, ng_diff);
       });
 }
 
@@ -3455,13 +3622,17 @@ static Status TranslateSqueezeOp(
     Builder::OpMap& ng_op_map) {
   shared_ptr<ng::Node> ng_input;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+  size_t input_dims = ng_input->get_shape().size();
 
   std::vector<int32> tf_axis;
   TF_RETURN_IF_ERROR(GetNodeAttr(op->attrs(), "squeeze_dims", &tf_axis));
+
+  // If input dimension is negative, make it positive
+  for (int i = 0; i < tf_axis.size(); i++) {
+    tf_axis[i] = tf_axis[i] < 0 ? (int32)(input_dims) + tf_axis[i] : tf_axis[i];
+  }
+
   std::set<int> axis_set(tf_axis.begin(), tf_axis.end());
-
-  size_t input_dims = ng_input->get_shape().size();
-
   ng::Shape input_shape = ng_input->get_shape();
   std::vector<int> dims;
 
@@ -3499,7 +3670,8 @@ static Status TranslateSqueezeOp(
   std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
 
   SaveNgOp(ng_op_map, op->name(),
-           make_shared<ng::op::Reshape>(ng_input, ng_axis_order, output_shape));
+           ConstructNgNode<ng::op::Reshape>(op->name(), ng_input, ng_axis_order,
+                                            output_shape));
   return Status::OK();
 }
 
@@ -3747,14 +3919,15 @@ static Status TranslateStridedSliceOp(
 
   // atleast one stride was negative, in which case reverse the input
   if (neg_strides.size() > 0)
-    ng_input = make_shared<ng::op::Reverse>(ng_input, neg_strides);
+    ng_input =
+        ConstructNgNode<ng::op::Reverse>(op->name(), ng_input, neg_strides);
   NGRAPH_VLOG(3) << "NG Lower Vector " << ng::join(ng_begin_vec);
   NGRAPH_VLOG(3) << "NG End Vector " << ng::join(ng_end_vec);
   NGRAPH_VLOG(3) << "NG Stride Vector " << ng::join(ng_stride_vec);
   NGRAPH_VLOG(3) << "NG Needs Reversal: " << ng::join(ng_needs_reversal);
 
-  std::shared_ptr<ng::Node> ng_strided_slice = make_shared<ng::op::Slice>(
-      ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
+  std::shared_ptr<ng::Node> ng_strided_slice = ConstructNgNode<ng::op::Slice>(
+      op->name(), ng_input, ng_begin_vec, ng_end_vec, ng_stride_vec);
 
   if (tf_shrink_axis_mask) {
     int64 shrink_axis_mask = tf_shrink_axis_mask;
@@ -3788,8 +3961,8 @@ static Status TranslateStridedSliceOp(
     NGRAPH_VLOG(3) << " Output  shape " << ng::join(output_shape);
     NGRAPH_VLOG(3) << " NG  axis order " << ng::join(ng_axis_order);
 
-    ng_strided_slice = make_shared<ng::op::Reshape>(
-        ng_strided_slice, ng_axis_order, ng_final_shape);
+    ng_strided_slice = ConstructNgNode<ng::op::Reshape>(
+        op->name(), ng_strided_slice, ng_axis_order, ng_final_shape);
   }
 
   // TODO: assert size in this dim was 1
@@ -3798,55 +3971,6 @@ static Status TranslateStridedSliceOp(
   // TODO: tf_new_axis_mask can exceed rank
 
   SaveNgOp(ng_op_map, op->name(), ng_strided_slice);
-  return Status::OK();
-}
-
-static Status TranslateSumOp(const Node* op,
-                             const std::vector<const Tensor*>& static_input_map,
-                             Builder::OpMap& ng_op_map) {
-  shared_ptr<ng::Node> ng_input, ng_axes_op;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_axes_op));
-
-  bool tf_keep_dims;
-  if (GetNodeAttr(op->attrs(), "keep_dims", &tf_keep_dims) != Status::OK()) {
-    tf_keep_dims = false;
-  }
-
-  std::vector<int64> sum_axes;
-  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &sum_axes));
-
-  ng::Shape input_shape = ng_input->get_shape();
-  size_t input_rank = input_shape.size();
-
-  TF_RETURN_IF_ERROR(CheckAxisDimInRange(sum_axes, input_rank));
-
-  std::vector<size_t> ng_reduction_axes_vect(sum_axes.size());
-  std::transform(
-      sum_axes.begin(), sum_axes.end(), ng_reduction_axes_vect.begin(),
-      [input_rank](int idx) { return idx + (idx < 0 ? (int)input_rank : 0); });
-  ng::AxisSet ng_reduction_axes(ng_reduction_axes_vect);
-
-  std::shared_ptr<ng::Node> ng_sum =
-      make_shared<ng::op::Sum>(ng_input, ng_reduction_axes);
-
-  // If keep_dims is specified we need to reshape to put back the reduced
-  // axes, with length 1.
-  if (tf_keep_dims) {
-    ng::Shape ng_result_shape_with_keep(input_rank);
-
-    for (size_t i = 0; i < input_rank; i++) {
-      ng_result_shape_with_keep[i] =
-          ng_reduction_axes.count(i) == 0 ? input_shape[i] : 1;
-    }
-
-    ng::AxisVector ng_axis_order(ng_sum->get_shape().size());
-    std::iota(ng_axis_order.begin(), ng_axis_order.end(), 0);
-
-    ng_sum = make_shared<ng::op::Reshape>(ng_sum, ng_axis_order,
-                                          ng_result_shape_with_keep);
-  }
-
-  SaveNgOp(ng_op_map, op->name(), ng_sum);
   return Status::OK();
 }
 
@@ -3859,13 +3983,15 @@ static Status TranslateTanhGradOp(
   shared_ptr<ng::Node> ng_input, ng_delta;
   TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_delta));
 
-  auto ng_sq = std::make_shared<ng::op::Multiply>(ng_input, ng_input);
+  auto ng_sq =
+      ConstructNgNode<ng::op::Multiply>(op->name(), ng_input, ng_input);
   ng::Shape input_shape = ng_input->get_shape();
   std::vector<std::string> const_values(ng::shape_size(input_shape), "1");
-  auto ng_const = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                input_shape, const_values);
-  auto ng_sub = make_shared<ng::op::Subtract>(ng_const, ng_sq);
-  auto ng_result = make_shared<ng::op::Multiply>(ng_delta, ng_sub);
+  auto ng_const = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), input_shape, const_values);
+  auto ng_sub = ConstructNgNode<ng::op::Subtract>(op->name(), ng_const, ng_sq);
+  auto ng_result =
+      ConstructNgNode<ng::op::Multiply>(op->name(), ng_delta, ng_sub);
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
@@ -3896,8 +4022,8 @@ static Status TranslateTileOp(
   }
   if (is_empty) {
     SaveNgOp(ng_op_map, op->name(),
-             make_shared<ngraph::op::Constant>(
-                 ng_input->get_element_type(), output_shape,
+             ConstructNgNode<ngraph::op::Constant>(
+                 op->name(), ng_input->get_element_type(), output_shape,
                  std::vector<std::string>(ng::shape_size(output_shape), "0")));
   } else {
     for (int i = 0; i < ng_input_shape.size(); i++) {
@@ -3909,11 +4035,49 @@ static Status TranslateTileOp(
       for (int k = 0; k < multiples[i]; k++) {
         tmp_tensors.push_back(ng_output);
       }
-      auto ng_concat = make_shared<ngraph::op::Concat>(tmp_tensors, i);
+      auto ng_concat =
+          ConstructNgNode<ngraph::op::Concat>(op->name(), tmp_tensors, i);
       ng_output = ng_concat;
     }
     SaveNgOp(ng_op_map, op->name(), ng_output);
   }
+  return Status::OK();
+}
+
+// Translate TopKV2 Op using ngraph core op TopK
+static Status TranslateTopKV2Op(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ngraph::Node> ng_input;
+  ValidateInputCount(op, 2);
+  TF_RETURN_IF_ERROR(GetInputNode(ng_op_map, op, 0, &ng_input));
+
+  size_t k_axis = ng_input->get_shape().size() - 1;
+
+  std::vector<int32> ng_k;
+  size_t k;
+  bool sorted = true;
+
+  TF_RETURN_IF_ERROR(GetStaticInputVector(op, 1, static_input_map, &ng_k));
+  k = ng_k[0];
+
+  // sorted = false is not supported right now, it falls back to TF if set to
+  // false.
+  GetNodeAttr(op->attrs(), "sorted", &sorted);
+
+  // index element type - currently only int32 or int64 are supported by ngraph
+
+  shared_ptr<ngraph::Node> ng_result = ConstructNgNode<ngraph::op::TopK>(
+      op->name(), ng_input, k_axis, ng::element::i32, k, sorted);
+
+  shared_ptr<ngraph::Node> ng_values =
+      ConstructNgNode<ngraph::op::GetOutputElement>(op->name(), ng_result, 1);
+  shared_ptr<ngraph::Node> ng_indices =
+      ConstructNgNode<ngraph::op::GetOutputElement>(op->name(), ng_result, 0);
+
+  SaveNgOp(ng_op_map, op->name(), ng_values);
+  SaveNgOp(ng_op_map, op->name(), ng_indices);
+
   return Status::OK();
 }
 
@@ -4007,12 +4171,32 @@ static Status TranslateUnpackOp(
   for (int i = 0; i < num_outputs; ++i) {
     lower_bound[unpack_axis] = i;
     upper_bound[unpack_axis] = i + 1;
-    auto slice =
-        make_shared<ngraph::op::Slice>(ng_input, lower_bound, upper_bound);
-    auto reshaped =
-        make_shared<ng::op::Reshape>(slice, ng_axis_order, output_shape);
+    auto slice = ConstructNgNode<ngraph::op::Slice>(op->name(), ng_input,
+                                                    lower_bound, upper_bound);
+    auto reshaped = ConstructNgNode<ng::op::Reshape>(
+        op->name(), slice, ng_axis_order, output_shape);
     SaveNgOp(ng_op_map, op->name(), reshaped);
   }
+  return Status::OK();
+}
+
+static Status TranslateSelectOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input1, ng_input2, ng_input3;
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_input1, &ng_input2, &ng_input3));
+
+  // broadcast to make all tensors same shape, as required by ngraph select op
+  std::tie(ng_input1, ng_input2) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_input1, ng_input2));
+  std::tie(ng_input2, ng_input3) =
+      ng::builder::numpy_broadcast(std::make_pair(ng_input2, ng_input3));
+
+  auto ng_select = ConstructNgNode<ng::op::Select>(op->name(), ng_input1,
+                                                   ng_input2, ng_input3);
+
+  SaveNgOp(ng_op_map, op->name(), ng_select);
   return Status::OK();
 }
 
@@ -4024,8 +4208,8 @@ static Status TranslateZerosLikeOp(
 
   ng::Shape input_shape = ng_input->get_shape();
   std::vector<std::string> const_values(ng::shape_size(input_shape), "0");
-  auto ng_result = make_shared<ng::op::Constant>(ng_input->get_element_type(),
-                                                 input_shape, const_values);
+  auto ng_result = ConstructNgNode<ng::op::Constant>(
+      op->name(), ng_input->get_element_type(), input_shape, const_values);
 
   SaveNgOp(ng_op_map, op->name(), ng_result);
   return Status::OK();
@@ -4039,10 +4223,10 @@ const static std::map<
         {"Abs", TranslateUnaryOp<ngraph::op::Abs>},
         {"Add", TranslateBinaryOp<ngraph::op::Add>},
         {"AddN", TranslateAddNOp},
-        {"Any", TranslateAnyOp},
-        {"All", TranslateAllOp},
-        {"ArgMax", TranslateArgMaxOp},
-        {"ArgMin", TranslateArgMinOp},
+        {"Any", TranslateDirectReduceOp<ng::op::Any>},
+        {"All", TranslateDirectReduceOp<ng::op::All>},
+        {"ArgMax", TranslateArgMinMaxOp<ng::op::ArgMax>},
+        {"ArgMin", TranslateArgMinMaxOp<ng::op::ArgMin>},
         {"AvgPool", TranslateAvgPoolOp},
         {"AvgPoolGrad", TranslateAvgPoolGradOp},
         {"BatchMatMul", TranslateBatchMatMulOp},
@@ -4054,6 +4238,7 @@ const static std::map<
         {"Conv2D", TranslateConv2DOp},
         {"Conv2DBackpropFilter", TranslateConv2DBackpropFilterOp},
         {"Conv2DBackpropInput", TranslateConv2DBackpropInputOp},
+        {"Conv3D", TranslateConv3DOp},
         {"DepthToSpace", TranslateDepthToSpaceOp},
         {"DepthwiseConv2dNative", TranslateDepthwiseConv2dNativeOp},
         {"Dequantize", TranslateDequantizeOp},
@@ -4067,6 +4252,7 @@ const static std::map<
         {"FusedBatchNorm", TranslateFusedBatchNormOp},
         {"FusedBatchNormV2", TranslateFusedBatchNormOp},
         {"FusedBatchNormGrad", TranslateFusedBatchNormGradOp},
+        {"_FusedConv2D", TranslateFusedConv2DOp},
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
         {"HorovodAllreduce", TranslateAllreduceOp},
@@ -4079,12 +4265,13 @@ const static std::map<
         {"LogicalNot", TranslateUnaryOp<ngraph::op::Not>},
         {"LogicalOr", TranslateBinaryOp<ngraph::op::Or>},
         {"MatMul", TranslateMatMulOp},
-        {"Max", TranslateMaxOp},
+        {"Max", TranslateDirectReduceOp<ng::op::Max>},
         {"Maximum", TranslateBinaryOp<ngraph::op::Maximum>},
         {"MaxPool", TranslateMaxPoolOp},
+        {"MaxPool3D", TranslateMaxPool3DOp},
         {"MaxPoolGrad", TranslateMaxPoolGradOp},
         {"Mean", TranslateMeanOp},
-        {"Min", TranslateMinOp},
+        {"Min", TranslateDirectReduceOp<ng::op::Min>},
         {"Minimum", TranslateBinaryOp<ngraph::op::Minimum>},
         {"Mul", TranslateBinaryOp<ngraph::op::Multiply>},
         {"Neg", TranslateUnaryOp<ngraph::op::Negative>},
@@ -4092,32 +4279,43 @@ const static std::map<
         // reasons, but they have no data flow inputs or outputs.
         {"NoOp", [](const Node*, const std::vector<const Tensor*>&,
                     Builder::OpMap&) { return Status::OK(); }},
+        {"OneHot", TranslateOneHotOp},
         {"Pack", TranslatePackOp},
         {"Pad", TranslatePadOp},
         {"Pow", TranslateBinaryOp<ngraph::op::Power>},
         // PreventGradient is just Identity in data-flow terms, so reuse that.
         {"PreventGradient", TranslateIdentityOp},
-        {"Prod", TranslateProdOp},
+        {"Prod", TranslateDirectReduceOp<ng::op::Product>},
         {"QuantizeAndDequantizeV2", TranslateQuantizeAndDequantizeV2Op},
+        {"QuantizedAvgPool", TranslateQuantizedAvgPoolOp},
+        {"QuantizedConcat", TranslateQuantizedConcatOp},
+        {"QuantizedConcatV2", TranslateQuantizedConcatV2Op},
         {"QuantizedConv2DWithBiasAndReluAndRequantize",
-         TranslateQuantizedConv2DWithBiasAndReluAndRequantizeOp},
+         TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<true>},
+        {"QuantizedConv2DWithBiasAndRequantize",
+         TranslateQuantizedConv2DWithBiasMaybeReluAndRequantizeOp<false>},
+        {"QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSignedSumAndReluAndRequantizeOp},
+        {"QuantizedConv2DWithBiasSumAndReluAndRequantize",
+         TranslateQuantizedConv2DWithBiasSumAndReluAndRequantizeOp},
         {"QuantizedMaxPool", TranslateQuantizedMaxPoolOp},
         {"QuantizeV2", TranslateQuantizeV2Op},
         {"Rank", TranslateRankOp},
         {"RealDiv", TranslateBinaryOp<ngraph::op::Divide>},
         {"Reciprocal", TranslateReciprocalOp},
-        {"Relu", TranslateReluOp},
+        {"Relu", TranslateUnaryOp<ngraph::op::Relu>},
         {"Relu6", TranslateRelu6Op},
         {"ReluGrad", TranslateReluGradOp},
         {"Reshape", TranslateReshapeOp},
         {"Rsqrt", TranslateRsqrtOp},
+        {"Select", TranslateSelectOp},
         {"Shape", TranslateShapeOp},
         {"Sigmoid", TranslateSigmoidOp},
         {"SigmoidGrad", TranslateSigmoidGradOp},
         {"Size", TranslateSizeOp},
         {"Sign", TranslateUnaryOp<ngraph::op::Sign>},
         {"Slice", TranslateSliceOp},
-        {"Snapshot", TranslateSnapshotOp},
+        {"Snapshot", TranslateIdentityOp},
         {"Softmax", TranslateSoftmaxOp},
         {"SpaceToDepth", TranslateSpaceToDepthOp},
         {"SparseSoftmaxCrossEntropyWithLogits",
@@ -4130,10 +4328,11 @@ const static std::map<
         {"Squeeze", TranslateSqueezeOp},
         {"StridedSlice", TranslateStridedSliceOp},
         {"Sub", TranslateBinaryOp<ngraph::op::Subtract>},
-        {"Sum", TranslateSumOp},
+        {"Sum", TranslateDirectReduceOp<ng::op::Sum>},
         {"Tanh", TranslateUnaryOp<ngraph::op::Tanh>},
         {"TanhGrad", TranslateTanhGradOp},
         {"Tile", TranslateTileOp},
+        {"TopKV2", TranslateTopKV2Op},
         {"Transpose", TranslateTransposeOp},
         {"Unpack", TranslateUnpackOp},
         {"ZerosLike", TranslateZerosLikeOp}};
@@ -4174,6 +4373,14 @@ Status Builder::TranslateGraph(
       tf_ret_vals.push_back(n);
     } else {
       tf_ops.push_back(n);
+#if defined(NGRAPH_DISTRIBUTED)
+      ngraph::Distributed dist;
+      int rank_id;
+      rank_id = dist.get_rank();
+      if (n->type_string() == "HorovodAllreduce") {
+        NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << rank_id << "]: " << n->name();
+      }
+#endif
     }
   }
 
@@ -4270,6 +4477,10 @@ Status Builder::TranslateGraph(
   // Create the nGraph function.
   //
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
+
+#if defined NGRAPH_DISTRIBUTED
+  AllreduceOpControlOrder(ng_function);
+#endif
 
   //
   // Request row-major layout on results.
