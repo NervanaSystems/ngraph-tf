@@ -146,7 +146,7 @@ def main():
 
     # The cxx_abi flag is translated to _GLIBCXX_USE_CXX11_ABI
     # For gcc 4.8 - this flag is set to 0 and newer ones, this is set to 1
-    # The scpeific value is determined from the TensorFlow build
+    # The specific value is determined from the TensorFlow build
     # Normally the shipped TensorFlow is built with gcc 4.8 and thus this
     # flag is set to 0
     cxx_abi = "0"
