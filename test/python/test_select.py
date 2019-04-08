@@ -73,9 +73,10 @@ class TestSelect(NgraphTest):
         out = tf.where(p, x, x)
 
         def run_test(sess):
-            return (sess.run(out, feed_dict={p: a})).shape
+            return (sess.run(out, feed_dict={p: a}))
 
-        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test))
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
 
     def test_select_complexshape2(self):
         a = np.random.randint(2, size=[5])
@@ -85,9 +86,10 @@ class TestSelect(NgraphTest):
         out = tf.where(p, x, x)
 
         def run_test(sess):
-            return (sess.run(out, feed_dict={p: a})).shape
+            return (sess.run(out, feed_dict={p: a}))
 
-        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test))
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
 
     #failin test case
     @pytest.mark.skip(
@@ -102,6 +104,7 @@ class TestSelect(NgraphTest):
         out = tf.where(p, x, x)
 
         def run_test(sess):
-            return (sess.run(out, feed_dict={p: a})).shape
+            return (sess.run(out, feed_dict={p: a}))
 
-        assert (self.with_ngraph(run_test) == self.without_ngraph(run_test))
+        assert (
+            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
