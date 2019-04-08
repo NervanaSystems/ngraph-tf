@@ -107,7 +107,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
         }
       }
       NGraphCatalog::AddToEncapOutputCopyIndexesCatalog(node->name(),
-                                                 op_index_to_copy);
+                                                        op_index_to_copy);
 
     }  // end of node is type NGraphEncapsulate
 

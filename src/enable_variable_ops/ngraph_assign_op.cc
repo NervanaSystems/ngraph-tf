@@ -93,8 +93,8 @@ class NGraphAssignOp : public OpKernel {
                  << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
 
-    bool ref_exists =
-        NGraphCatalog::ExistsInInputSharedNameCatalog(ng_graph_id_, def().name(), 0);
+    bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+        ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
                   errors::Internal(

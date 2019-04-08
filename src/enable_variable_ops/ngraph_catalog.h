@@ -64,23 +64,26 @@ class NGraphCatalog {
   // Key
   //  string : nodename (nGraphEncapsulateOp name)
   // Value : Set of indices
-  static unordered_map<string, unordered_set<int>> encap_output_copy_indexes_map_;
+  static unordered_map<string, unordered_set<int>>
+      encap_output_copy_indexes_map_;
 
-  public:
+ public:
   // Utility Functions for the data structures
   // Functions for Encapsulate Output Copy Indexes Map
-  static void AddToEncapOutputCopyIndexesCatalog(string key, unordered_set<int> val);
+  static void AddToEncapOutputCopyIndexesCatalog(string key,
+                                                 unordered_set<int> val);
   static bool EncapOutputIndexNeedsCopy(string key, int index);
   static unordered_set<int> GetEncapOutputIndexesThatNeedCopy(string key);
 
   // Functions relating Input Variable Shared Name Map
   static string GetInputSharedName(int graphid, string node_name,
                                    int input_index);
-  
+
   static void AddToInputSharedNameCatalog(string key, string val);
 
   static bool ExistsInInputSharedNameCatalog(string key);
-  static bool ExistsInInputSharedNameCatalog(int graphid, string node_name, int input_index);
+  static bool ExistsInInputSharedNameCatalog(int graphid, string node_name,
+                                             int input_index);
 
   static string CreateNodeKey(int graph_id, string node_name, int inp_index);
 

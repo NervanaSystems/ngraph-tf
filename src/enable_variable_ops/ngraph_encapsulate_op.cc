@@ -490,8 +490,8 @@ class NGraphEncapsulateOp : public OpKernel {
     int number_of_copies = 0;
 
     for (int i = 0; i < input_shapes.size(); i++) {
-      bool ref_exists =
-          NGraphCatalog::ExistsInInputSharedNameCatalog(m_graph_id, def().name(), i);
+      bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+          m_graph_id, def().name(), i);
 
       if (ref_exists) {
         NGRAPH_VLOG(4) << "NGraphEncapsulateOp:: Input from Variable Node";
@@ -611,8 +611,8 @@ class NGraphEncapsulateOp : public OpKernel {
 
     for (int input_index = 0; input_index < input_shapes.size();
          input_index++) {
-      bool ref_exists =
-          NGraphCatalog::ExistsInInputSharedNameCatalog(m_graph_id, def().name(), input_index);
+      bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+          m_graph_id, def().name(), input_index);
 
       if (!ref_exists) {
         OP_REQUIRES(ctx, ng_inputs[input_index] != nullptr,

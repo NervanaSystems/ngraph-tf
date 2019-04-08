@@ -34,11 +34,12 @@ unordered_map<string, unordered_set<int>>
 
 // Functions for Encapsulate Output Copy Indexes Map
 void NGraphCatalog::AddToEncapOutputCopyIndexesCatalog(string key,
-                                                unordered_set<int> val) {
+                                                       unordered_set<int> val) {
   NGraphCatalog::encap_output_copy_indexes_map_[key] = val;
 }
 
-unordered_set<int> NGraphCatalog::GetEncapOutputIndexesThatNeedCopy(string key) {
+unordered_set<int> NGraphCatalog::GetEncapOutputIndexesThatNeedCopy(
+    string key) {
   return NGraphCatalog::encap_output_copy_indexes_map_[key];
 }
 
@@ -99,8 +100,9 @@ bool NGraphCatalog::ExistsInInputSharedNameCatalog(string key) {
   return itr != NGraphCatalog::input_variable_sharedname_map_.end();
 }
 
-bool NGraphCatalog::ExistsInInputSharedNameCatalog(int graphid, string node_name,
-                                    int input_index) {
+bool NGraphCatalog::ExistsInInputSharedNameCatalog(int graphid,
+                                                   string node_name,
+                                                   int input_index) {
   return NGraphCatalog::ExistsInInputSharedNameCatalog(
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index));
 }
