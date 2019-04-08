@@ -42,13 +42,13 @@ declare REQUIRED_CLANG_FORMAT_VERSION=3.9
 declare YAPF_FORMAT_BASENAME="yapf"
 declare REQUIRED_YAPF_FORMAT_VERSION=0.26.0
 
-# Check the YAPH format
-declare YAPH_VERSION=`python -c "import yapf; print(yapf.__version__)"`
+# Check the YAPF format
+declare YAPF_VERSION=`python -c "import yapf; print(yapf.__version__)"`
 
-if [[ "${YAPH_VERSION}" != "${REQUIRED_YAPF_FORMAT_VERSION}" ]] ; then
+if [[ "${YAPF_VERSION}" != "${REQUIRED_YAPF_FORMAT_VERSION}" ]] ; then
     echo -n "Unable to match version for ${YAPF_FORMAT_BASENAME}"
     echo -n " Required: ${REQUIRED_YAPF_FORMAT_VERSION}"
-    echo  " Installed: ${YAPH_VERSION}"
+    echo  " Installed: ${YAPF_VERSION}"
     exit -1
 fi
 

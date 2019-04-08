@@ -118,7 +118,7 @@ def main():
 
     pwd = os.getcwd()
     ngraph_tf_src_dir = os.path.abspath(pwd)
-
+    build_dir_abs = os.path.abspath(build_dir)
     os.chdir(build_dir)
 
     venv_dir = 'venv-tf-py3'
@@ -166,12 +166,12 @@ def main():
             print("Building TensorFlow")
             # Download TensorFlow
             download_repo("tensorflow",
-                        "https://github.com/tensorflow/tensorflow.git",
-                        tf_version)
+                          "https://github.com/tensorflow/tensorflow.git",
+                          tf_version)
 
             # Build TensorFlow
             build_tensorflow(venv_dir, "tensorflow", artifacts_location,
-                            target_arch, verbosity)
+                             target_arch, verbosity)
 
             # Install tensorflow
             # Note that if gcc 4.8 is used for building TensorFlow this flag
@@ -182,7 +182,7 @@ def main():
             print('Version information:')
             print('TensorFlow version: ', tf.__version__)
             print('C Compiler version used in building TensorFlow: ',
-                tf.__compiler_version__)
+                  tf.__compiler_version__)
             cxx_abi = str(tf.__cxx11_abi_flag__)
 
     # Download nGraph
@@ -277,6 +277,14 @@ def main():
                                 ngraph_tf_cmake_flags, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
+    print("PWD: " + os.getcwd())
+
+    # Copy the TensorFlow Python code tree to artifacts directory so that they can
+    # be used for running TensorFlow Python unit tests
+    command_executor([
+        'cp', '-r', build_dir_abs + '/tensorflow/tensorflow/python',
+        os.path.join(artifacts_location, "tensorflow")
+    ])
 
     # Run a quick test
     install_ngraph_tf(venv_dir, os.path.join(artifacts_location, ng_tf_whl))
