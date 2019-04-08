@@ -1950,7 +1950,14 @@ static Status TranslateGatherV2Op(
 
   ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
   auto coords = ng::Coordinate(indices);
-  auto axis = (size_t)(tf_axis[0]);
+  // Negative axis is supported. Accounting for that
+  size_t ng_input_rank = ng_input->get_shape().size();
+  size_t axis;
+  if (tf_axis[0] >= 0) {
+    axis = tf_axis[0];
+  } else {
+    axis = tf_axis[0] + ng_input_rank;
+  }
 
   shared_ptr<ng::Node> ng_gather =
       backend->get_backend_op("Gather", &ng_input, &coords, &axis);
@@ -1960,6 +1967,8 @@ static Status TranslateGatherV2Op(
   }
 
   SaveNgOp(ng_op_map, op->name(), ng_gather);
+
+  return Status::OK();
 }
 
 static Status TranslateFusedConv2DOp(
