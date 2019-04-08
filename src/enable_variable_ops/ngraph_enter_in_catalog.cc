@@ -71,9 +71,9 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
       string node_key = NGraphCatalog::CreateNodeKey(graph_id, node->name(), 0);
       string shared_name;
       TF_RETURN_IF_ERROR(GetSharedName(node, &shared_name));
-      NGraphCatalog::AddToInputSharedNameCatalog(node_key, shared_name);
+      NGraphCatalog::AddToInputVariableSharedNameMap(node_key, shared_name);
 
-      NGRAPH_VLOG(4) << "Adding in Catalog ";
+      NGRAPH_VLOG(4) << "Adding in InputVariableSharedNameMap ";
       NGRAPH_VLOG(4) << "Key: " << node_key;
       NGRAPH_VLOG(4) << "Value: " << shared_name;
 
@@ -87,8 +87,8 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
                                                          edge->dst_input());
           string shared_name;
           TF_RETURN_IF_ERROR(GetSharedName(src, &shared_name));
-          NGraphCatalog::AddToInputSharedNameCatalog(node_key, shared_name);
-          NGRAPH_VLOG(4) << "Adding in Catalog ";
+          NGraphCatalog::AddToInputVariableSharedNameMap(node_key, shared_name);
+          NGRAPH_VLOG(4) << "Adding in InputVariableSharedNameMap ";
           NGRAPH_VLOG(4) << "Key: " << node_key;
           NGRAPH_VLOG(4) << "Value: " << shared_name;
         }
@@ -106,8 +106,8 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
           op_index_to_copy.insert(edge->src_output());
         }
       }
-      NGraphCatalog::AddToEncapOutputCopyIndexesCatalog(node->name(),
-                                                        op_index_to_copy);
+      NGraphCatalog::AddToEncapOutputCopyIndexesMap(node->name(),
+                                                    op_index_to_copy);
 
     }  // end of node is type NGraphEncapsulate
 
@@ -133,8 +133,8 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
               NGraphCatalog::CreateNodeKey(graph_id, src->name(), src_output);
         }
         // Will be updated with real tensors in Encapsulate
-        NGraphCatalog::AddOutputCatalog(node_key, nullptr);
-        NGRAPH_VLOG(4) << "Adding in output Catalog ";
+        NGraphCatalog::AddToEncapOutputTensorMap(node_key, nullptr);
+        NGRAPH_VLOG(4) << "Adding in Output Tensor Map";
         NGRAPH_VLOG(4) << "Key: " << node_key;
       }
     }  // end of if node of type NGraphAssign

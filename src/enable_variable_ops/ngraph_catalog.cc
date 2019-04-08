@@ -33,8 +33,8 @@ unordered_map<string, unordered_set<int>>
     NGraphCatalog::encap_output_copy_indexes_map_;
 
 // Functions for Encapsulate Output Copy Indexes Map
-void NGraphCatalog::AddToEncapOutputCopyIndexesCatalog(string key,
-                                                       unordered_set<int> val) {
+void NGraphCatalog::AddToEncapOutputCopyIndexesMap(string key,
+                                                   unordered_set<int> val) {
   NGraphCatalog::encap_output_copy_indexes_map_[key] = val;
 }
 
@@ -53,57 +53,57 @@ bool NGraphCatalog::EncapOutputIndexNeedsCopy(string key, int index) {
   return true;
 }
 
-string NGraphCatalog::CreateNodeKey(int graph_id, string node_name,
-                                    int inp_index) {
-  return to_string(graph_id) + "_" + node_name + ":" + to_string(inp_index);
+string NGraphCatalog::CreateNodeKey(int graph_id, string node_name, int index) {
+  return to_string(graph_id) + "_" + node_name + ":" + to_string(index);
 }
 
-void NGraphCatalog::AddOutputCatalog(string key,
-                                     shared_ptr<ng::runtime::Tensor> ng_val) {
+// Functions for OutputTensorMap
+void NGraphCatalog::AddToEncapOutputTensorMap(
+    string key, shared_ptr<ng::runtime::Tensor> ng_val) {
   NGraphCatalog::output_tensor_map_[key] = ng_val;
 }
 
-bool NGraphCatalog::ExistsInOutputCatalog(string key) {
+bool NGraphCatalog::ExistsInEncapOutputTensorMap(string key) {
   auto itr = NGraphCatalog::output_tensor_map_.find(key);
   return itr != NGraphCatalog::output_tensor_map_.end();
 }
 
-bool NGraphCatalog::ExistsInOutputCatalog(int graphid, string node_name,
-                                          int input_index) {
-  return NGraphCatalog::ExistsInOutputCatalog(
+bool NGraphCatalog::ExistsInEncapOutputTensorMap(int graphid, string node_name,
+                                                 int input_index) {
+  return NGraphCatalog::ExistsInEncapOutputTensorMap(
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index));
 }
 
-shared_ptr<ng::runtime::Tensor> NGraphCatalog::GetNgTensorFromOutputCatalog(
-    string key) {
+shared_ptr<ng::runtime::Tensor>
+NGraphCatalog::GetTensorFromEncapOutputTensorMap(string key) {
   return NGraphCatalog::output_tensor_map_[key];
 }
 
-void NGraphCatalog::DeleteTensorFromEncapOutputCatalog(string key) {
+void NGraphCatalog::DeleteFromEncapOutputTensorMap(string key) {
   NGraphCatalog::output_tensor_map_.erase(key);
 }
 
 // Functions relating Input Variable Shared Name Map
-string NGraphCatalog::GetInputSharedName(int graphid, string node_name,
-                                         int input_index) {
+string NGraphCatalog::GetInputVariableSharedName(int graphid, string node_name,
+                                                 int input_index) {
   std::string node_key =
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index);
   return NGraphCatalog::input_variable_sharedname_map_[node_key];
 }
 
-void NGraphCatalog::AddToInputSharedNameCatalog(string key, string val) {
+void NGraphCatalog::AddToInputVariableSharedNameMap(string key, string val) {
   NGraphCatalog::input_variable_sharedname_map_[key] = val;
 }
 
-bool NGraphCatalog::ExistsInInputSharedNameCatalog(string key) {
+bool NGraphCatalog::ExistsInInputVariableSharedNameMap(string key) {
   auto itr = NGraphCatalog::input_variable_sharedname_map_.find(key);
   return itr != NGraphCatalog::input_variable_sharedname_map_.end();
 }
 
-bool NGraphCatalog::ExistsInInputSharedNameCatalog(int graphid,
-                                                   string node_name,
-                                                   int input_index) {
-  return NGraphCatalog::ExistsInInputSharedNameCatalog(
+bool NGraphCatalog::ExistsInInputVariableSharedNameMap(int graphid,
+                                                       string node_name,
+                                                       int input_index) {
+  return NGraphCatalog::ExistsInInputVariableSharedNameMap(
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index));
 }
 

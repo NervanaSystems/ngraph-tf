@@ -69,33 +69,35 @@ class NGraphCatalog {
 
  public:
   // Utility Functions for the data structures
-  // Functions for Encapsulate Output Copy Indexes Map
-  static void AddToEncapOutputCopyIndexesCatalog(string key,
-                                                 unordered_set<int> val);
+  // Functions for EncapsulateOutputCopyIndexes Map
+  static void AddToEncapOutputCopyIndexesMap(string key,
+                                             unordered_set<int> val);
   static bool EncapOutputIndexNeedsCopy(string key, int index);
   static unordered_set<int> GetEncapOutputIndexesThatNeedCopy(string key);
 
-  // Functions relating Input Variable Shared Name Map
-  static string GetInputSharedName(int graphid, string node_name,
-                                   int input_index);
+  // Functions for InputVariableSharedName Map
+  static string GetInputVariableSharedName(int graphid, string node_name,
+                                           int input_index);
 
-  static void AddToInputSharedNameCatalog(string key, string val);
+  static void AddToInputVariableSharedNameMap(string key, string val);
 
-  static bool ExistsInInputSharedNameCatalog(string key);
-  static bool ExistsInInputSharedNameCatalog(int graphid, string node_name,
-                                             int input_index);
+  static bool ExistsInInputVariableSharedNameMap(string key);
+  static bool ExistsInInputVariableSharedNameMap(int graphid, string node_name,
+                                                 int input_index);
 
-  static string CreateNodeKey(int graph_id, string node_name, int inp_index);
+  // Functions for OutputTensorMap
+  static void AddToEncapOutputTensorMap(string key,
+                                        shared_ptr<ng::runtime::Tensor> ng_val);
+  static bool ExistsInEncapOutputTensorMap(string key);
+  static bool ExistsInEncapOutputTensorMap(int graphid, string node_name,
+                                           int input_index);
 
-  static void AddOutputCatalog(string key,
-                               shared_ptr<ng::runtime::Tensor> ng_val);
-  static bool ExistsInOutputCatalog(string key);
-  static bool ExistsInOutputCatalog(int graphid, string node_name,
-                                    int input_index);
-
-  static shared_ptr<ng::runtime::Tensor> GetNgTensorFromOutputCatalog(
+  static shared_ptr<ng::runtime::Tensor> GetTensorFromEncapOutputTensorMap(
       string key);
-  static void DeleteTensorFromEncapOutputCatalog(string key);
+  static void DeleteFromEncapOutputTensorMap(string key);
+
+  // Utility to create key to query the maps
+  static string CreateNodeKey(int graph_id, string node_name, int index);
 };
 
 }  // ngraph_bridge

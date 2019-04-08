@@ -184,10 +184,10 @@ class NGraphEncapsulateOp : public OpKernel {
         key = NGraphCatalog::CreateNodeKey(m_graph_id, node_name, i);
       }
 
-      if (NGraphCatalog::ExistsInOutputCatalog(key)) {
-        auto temp = NGraphCatalog::GetNgTensorFromOutputCatalog(key);
+      if (NGraphCatalog::ExistsInEncapOutputTensorMap(key)) {
+        auto temp = NGraphCatalog::GetTensorFromEncapOutputTensorMap(key);
         temp.reset();
-        NGraphCatalog::DeleteTensorFromEncapOutputCatalog(key);
+        NGraphCatalog::DeleteFromEncapOutputTensorMap(key);
       }
     }
 
@@ -490,7 +490,7 @@ class NGraphEncapsulateOp : public OpKernel {
     int number_of_copies = 0;
 
     for (int i = 0; i < input_shapes.size(); i++) {
-      bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+      bool ref_exists = NGraphCatalog::ExistsInInputVariableSharedNameMap(
           m_graph_id, def().name(), i);
 
       if (ref_exists) {
@@ -611,7 +611,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     for (int input_index = 0; input_index < input_shapes.size();
          input_index++) {
-      bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+      bool ref_exists = NGraphCatalog::ExistsInInputVariableSharedNameMap(
           m_graph_id, def().name(), input_index);
 
       if (!ref_exists) {
@@ -621,7 +621,7 @@ class NGraphEncapsulateOp : public OpKernel {
         continue;
       }
 
-      string ref_var_name = NGraphCatalog::GetInputSharedName(
+      string ref_var_name = NGraphCatalog::GetInputVariableSharedName(
           m_graph_id, def().name(), input_index);
       NGraphVar* var;
       OP_REQUIRES_OK(ctx, ctx->resource_manager()->Lookup<NGraphVar>(
@@ -725,14 +725,14 @@ class NGraphEncapsulateOp : public OpKernel {
         } else {
           key = NGraphCatalog::CreateNodeKey(m_graph_id, def().name(), i);
         }
-        bool ref_exists = NGraphCatalog::ExistsInOutputCatalog(key);
+        bool ref_exists = NGraphCatalog::ExistsInEncapOutputTensorMap(key);
         void* dst_ptr;
         std::shared_ptr<ng::runtime::Tensor> dst_tv;
         std::tie(dst_ptr, dst_tv) = output_caches[i];
 
         if (ref_exists) {
           NGRAPH_VLOG(4) << "Saving output in Catalog " << key << dst_tv;
-          NGraphCatalog::AddOutputCatalog(key, dst_tv);
+          NGraphCatalog::AddToEncapOutputTensorMap(key, dst_tv);
         }
 
         if (m_op_backend_name != "CPU" &&

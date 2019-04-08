@@ -93,15 +93,15 @@ class NGraphAssignOp : public OpKernel {
                  << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
 
-    bool ref_exists = NGraphCatalog::ExistsInInputSharedNameCatalog(
+    bool ref_exists = NGraphCatalog::ExistsInInputVariableSharedNameMap(
         ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
                   errors::Internal(
                       "Caught exception : RefInput to NGAssign not found \n"));
     }
-    string get_ref_var_name =
-        NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+    string get_ref_var_name = NGraphCatalog::GetInputVariableSharedName(
+        ng_graph_id_, def().name(), 0);
 
     NGraphVar* var;
     OP_REQUIRES_OK(context,
@@ -121,11 +121,11 @@ class NGraphAssignOp : public OpKernel {
 
     // Get input[1]
     string valkey = to_string(ng_graph_id_) + "_" + def().input(1);
-    bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
+    bool valref_exists = NGraphCatalog::ExistsInEncapOutputTensorMap(valkey);
     if (valref_exists) {
       // Value is from encap
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from catalog: " << valkey;
-      auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
+      auto ng_val = NGraphCatalog::GetTensorFromEncapOutputTensorMap(valkey);
       ng_tensor_to_assign->copy_from(*ng_val);
     } else {
       number_of_copies++;
