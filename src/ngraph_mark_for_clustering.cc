@@ -628,7 +628,6 @@ Status MarkForClustering(Graph* graph,
     current_backend = backend_env;
     // TODO: set backend. Then don't use current_backend
   }
-  cout << "Found NG Backend " << current_backend << "\n";
 
   // Right now it cannot be inside the if(!initialized) block, because it is
   // backend dependent, which might change with different sess.run()s
