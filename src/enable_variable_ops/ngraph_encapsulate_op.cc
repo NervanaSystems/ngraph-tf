@@ -177,13 +177,7 @@ class NGraphEncapsulateOp : public OpKernel {
     // destructor is called at the very end, if some modifier that uses this
     // tensor is still active.
     for (int i = 0; i < m_number_outputs; i++) {
-      string key;
-      if (i == 0) {
-        key = to_string(m_graph_id) + node_name;
-      } else {
-        key = NGraphCatalog::CreateNodeKey(m_graph_id, node_name, i);
-      }
-
+      string key = NGraphCatalog::CreateNodeKey(m_graph_id, node_name, i);
       if (NGraphCatalog::ExistsInEncapOutputTensorMap(key)) {
         auto temp = NGraphCatalog::GetTensorFromEncapOutputTensorMap(key);
         temp.reset();
@@ -719,12 +713,7 @@ class NGraphEncapsulateOp : public OpKernel {
       size_t output_tensor_count = output_caches.size();
       std::vector<std::unique_ptr<ngraph::Event>> events;
       for (size_t i = 0; i < output_tensor_count; ++i) {
-        string key;
-        if (i == 0) {
-          key = to_string(m_graph_id) + "_" + def().name();
-        } else {
-          key = NGraphCatalog::CreateNodeKey(m_graph_id, def().name(), i);
-        }
+        string key = NGraphCatalog::CreateNodeKey(m_graph_id, def().name(), i);
         bool ref_exists = NGraphCatalog::ExistsInEncapOutputTensorMap(key);
         void* dst_ptr;
         std::shared_ptr<ng::runtime::Tensor> dst_tv;

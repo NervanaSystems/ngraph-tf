@@ -54,6 +54,9 @@ bool NGraphCatalog::EncapOutputIndexNeedsCopy(string key, int index) {
 }
 
 string NGraphCatalog::CreateNodeKey(int graph_id, string node_name, int index) {
+  if (index == 0) {
+    return to_string(graph_id) + "_" + node_name;
+  }
   return to_string(graph_id) + "_" + node_name + ":" + to_string(index);
 }
 

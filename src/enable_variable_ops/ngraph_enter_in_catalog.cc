@@ -125,13 +125,9 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
 
         auto src = edge->src();
         int src_output = edge->src_output();
-        string node_key;
-        if (src_output == 0) {
-          node_key = to_string(graph_id) + "_" + src->name();
-        } else {
-          node_key =
-              NGraphCatalog::CreateNodeKey(graph_id, src->name(), src_output);
-        }
+        string node_key =
+            NGraphCatalog::CreateNodeKey(graph_id, src->name(), src_output);
+
         // Will be updated with real tensors in Encapsulate
         NGraphCatalog::AddToEncapOutputTensorMap(node_key, nullptr);
         NGRAPH_VLOG(4) << "Adding in Output Tensor Map";
