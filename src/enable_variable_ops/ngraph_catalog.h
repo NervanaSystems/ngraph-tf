@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2020 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,14 +36,14 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 class NGraphCatalog {
- public:
+ private:
   // Map keeps track of nodes whose input is a variable tensor
   // Will be used by Assign/Optimizers and NGraphEncapsulate Op
   // Map of
   // Key string : GraphId + _ + nodename + : + input_index
   // Value : variable shared_name
   // LOCK?
-  static unordered_map<string, string> input_variable_map_;
+  static unordered_map<string, string> input_variable_sharedname_map_;
 
   // Map keeps track of nodes whose input is a tensor computed by NGraph
   // For e.g. if the value to be assigned was computed by NGraphEncapsulate Op
@@ -64,23 +64,25 @@ class NGraphCatalog {
   // Key
   //  string : nodename (nGraphEncapsulateOp name)
   // Value : Set of indices
-  static unordered_map<string, unordered_set<int>> ng_encap_output_copy_map_;
+  static unordered_map<string, unordered_set<int>> encap_output_copy_indexes_map_;
 
+  public:
   // Utility Functions for the data structures
-  // Functions for Encapsulate Output Copy
-  static void AddToEncapOutputCopyCatalog(string key, unordered_set<int> val);
-  static bool EncapOutputNeedsCopy(string key, int index);
-  static unordered_set<int> GetEncapOutputIndexesNeedsCopy(string key);
+  // Functions for Encapsulate Output Copy Indexes Map
+  static void AddToEncapOutputCopyIndexesCatalog(string key, unordered_set<int> val);
+  static bool EncapOutputIndexNeedsCopy(string key, int index);
+  static unordered_set<int> GetEncapOutputIndexesThatNeedCopy(string key);
 
-  // Functions relating Variable Output Copy
+  // Functions relating Input Variable Shared Name Map
   static string GetInputSharedName(int graphid, string node_name,
                                    int input_index);
+  
+  static void AddToInputSharedNameCatalog(string key, string val);
+
+  static bool ExistsInInputSharedNameCatalog(string key);
+  static bool ExistsInInputSharedNameCatalog(int graphid, string node_name, int input_index);
+
   static string CreateNodeKey(int graph_id, string node_name, int inp_index);
-
-  static void AddCatalog(string key, string val);
-
-  static bool ExistsInCatalog(string key);
-  static bool ExistsInCatalog(int graphid, string node_name, int input_index);
 
   static void AddOutputCatalog(string key,
                                shared_ptr<ng::runtime::Tensor> ng_val);

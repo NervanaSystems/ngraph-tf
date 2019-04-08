@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
-
+#include "ngraph_timer.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
 
@@ -491,7 +491,7 @@ class NGraphEncapsulateOp : public OpKernel {
 
     for (int i = 0; i < input_shapes.size(); i++) {
       bool ref_exists =
-          NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), i);
+          NGraphCatalog::ExistsInInputSharedNameCatalog(m_graph_id, def().name(), i);
 
       if (ref_exists) {
         NGRAPH_VLOG(4) << "NGraphEncapsulateOp:: Input from Variable Node";
@@ -612,7 +612,7 @@ class NGraphEncapsulateOp : public OpKernel {
     for (int input_index = 0; input_index < input_shapes.size();
          input_index++) {
       bool ref_exists =
-          NGraphCatalog::ExistsInCatalog(m_graph_id, def().name(), input_index);
+          NGraphCatalog::ExistsInInputSharedNameCatalog(m_graph_id, def().name(), input_index);
 
       if (!ref_exists) {
         OP_REQUIRES(ctx, ng_inputs[input_index] != nullptr,
@@ -736,7 +736,7 @@ class NGraphEncapsulateOp : public OpKernel {
         }
 
         if (m_op_backend_name != "CPU" &&
-            NGraphCatalog::EncapOutputNeedsCopy(def().name(), i)) {
+            NGraphCatalog::EncapOutputIndexNeedsCopy(def().name(), i)) {
           number_of_copies++;
           copy_log_str << " COPY_OP_VAL[" << i << "]";
 

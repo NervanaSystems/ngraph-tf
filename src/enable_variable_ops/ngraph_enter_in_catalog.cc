@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2020 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
       string node_key = NGraphCatalog::CreateNodeKey(graph_id, node->name(), 0);
       string shared_name;
       TF_RETURN_IF_ERROR(GetSharedName(node, &shared_name));
-      NGraphCatalog::AddCatalog(node_key, shared_name);
+      NGraphCatalog::AddToInputSharedNameCatalog(node_key, shared_name);
 
       NGRAPH_VLOG(4) << "Adding in Catalog ";
       NGRAPH_VLOG(4) << "Key: " << node_key;
@@ -87,7 +87,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
                                                          edge->dst_input());
           string shared_name;
           TF_RETURN_IF_ERROR(GetSharedName(src, &shared_name));
-          NGraphCatalog::AddCatalog(node_key, shared_name);
+          NGraphCatalog::AddToInputSharedNameCatalog(node_key, shared_name);
           NGRAPH_VLOG(4) << "Adding in Catalog ";
           NGRAPH_VLOG(4) << "Key: " << node_key;
           NGRAPH_VLOG(4) << "Value: " << shared_name;
@@ -106,7 +106,7 @@ Status EnterInCatalog(Graph* graph, int graph_id) {
           op_index_to_copy.insert(edge->src_output());
         }
       }
-      NGraphCatalog::AddToEncapOutputCopyCatalog(node->name(),
+      NGraphCatalog::AddToEncapOutputCopyIndexesCatalog(node->name(),
                                                  op_index_to_copy);
 
     }  // end of node is type NGraphEncapsulate

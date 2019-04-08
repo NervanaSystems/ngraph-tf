@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2020 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use thi0s file except in compliance with the License.
@@ -94,7 +94,7 @@ class NGraphAssignOp : public OpKernel {
     int number_of_copies = 0;
 
     bool ref_exists =
-        NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
+        NGraphCatalog::ExistsInInputSharedNameCatalog(ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
                   errors::Internal(
