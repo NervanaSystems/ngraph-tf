@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
 #include "ngraph_var.h"
+
+#include "ngraph/event_tracing.hpp"
 
 using namespace std;
 namespace ng = ngraph;
@@ -68,9 +70,13 @@ class NGraphVariableOp : public OpKernel {
   mutex init_mu_;
   ContainerInfo cinfo_ GUARDED_BY(init_mu_);
   bool initialized_ GUARDED_BY(init_mu_){false};
+  static int s_instance_count;
+  int my_instance_id{0};
 
   TF_DISALLOW_COPY_AND_ASSIGN(NGraphVariableOp);
 };
+
+int NGraphVariableOp::s_instance_count = 0;
 
 NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
     : OpKernel(context),
@@ -78,6 +84,9 @@ NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
       just_looking_(false),
       copy_to_tf_(false),
       dtype_(RemoveRefType(context->output_type(0))) {
+  my_instance_id = s_instance_count;
+  s_instance_count++;
+
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   OP_REQUIRES_OK(context, context->GetAttr("copy_to_tf", &copy_to_tf_));
@@ -99,6 +108,10 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
                  << " ,just looking " << just_looking_ << " ,copy-to-tf "
                  << copy_to_tf_ << " ,Graph ID " << ng_graph_id_
                  << " ,backend_name " << ng_backend_name_;
+
+  std::ostringstream oss;
+  oss << "NGraphVariable: " << my_instance_id << ": " << name();
+  ngraph::Event event_compute(oss.str(), name(), "");
 
   bool log_copies = false;
   OP_REQUIRES_OK(ctx, IsCopyLogEnabled(ng_graph_id_, log_copies));
@@ -209,9 +222,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
       NGRAPH_VLOG(4) << "Copying to TF Tensor";
     }
 
-    if (just_looking_) {
-      // Some tf op will just use the val
-    } else {
+    if (!just_looking_) {
       // Some tf op might update the tf-tensor
       // So we need to sync_it_later
       var->sync_ng_tensor(true);
@@ -247,6 +258,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     ctx->record_persistent_memory_allocation(var->tensor()->AllocatedBytes());
   }
   var->Unref();
+  ngraph::Event::write_trace(event_compute);
 }
 
 REGISTER_OP("NGraphVariable")

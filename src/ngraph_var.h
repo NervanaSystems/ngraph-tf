@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,6 @@ class NGraphVar : public ResourceBase {
         BackendManager::GetBackend(ng_backend_name_);
 
     // Create nGTensor
-    // void* current_src_ptr = (void*)DMAHelper::base(&tf_tensor_);
     ng_tensor_ = op_backend->create_tensor(ng_element_type, ng_shape);
   }
   // Not copyable or movable.
@@ -77,6 +76,10 @@ class NGraphVar : public ResourceBase {
 
   bool need_sync_ng_tensor() { return sync_ng_tensor_; }
   void sync_ng_tensor(bool sync_ng_tensor) { sync_ng_tensor_ = sync_ng_tensor; }
+
+  // TODO(malikshr): Implement syncing utility functions here
+  Status copy_ng_to_tf();
+  Status copy_tf_to_ng();
 
  private:
   mutex mu_;

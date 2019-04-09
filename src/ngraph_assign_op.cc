@@ -1,8 +1,8 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * you may not use thi0s file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
@@ -24,6 +24,7 @@
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/platform/default/logging.h"
 
+#include "ngraph/event_tracing.hpp"
 #include "ngraph/runtime/backend.hpp"
 #include "ngraph_catalog.h"
 #include "ngraph_freshness_tracker.h"
@@ -64,8 +65,9 @@ class NGraphAssignOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("ngraph_graph_id", &ng_graph_id_));
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Constructor called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+                   << ",just looking " << PrintBool(just_looking_)
+                   << ",copy-to-tf " << PrintBool(copy_to_tf_) << " ,Graph ID "
+                   << ng_graph_id_;
 
     OP_REQUIRES(context, IsRefType(context->input_type(0)),
                 errors::InvalidArgument("lhs input needs to be a ref type"));
@@ -76,11 +78,12 @@ class NGraphAssignOp : public OpKernel {
   void Compute(OpKernelContext* context) override {
     std::ostringstream oss;
     oss << "Execute: Assign_" << my_instance_id << ": " << name();
-    Event event_compute(oss.str().c_str(), name().c_str());
+    ngraph::Event event_compute(oss.str(), name(), "");
 
     NGRAPH_VLOG(4) << "NGraphAssign:: Compute called for: " << def().name()
-                   << " ,just looking " << just_looking_ << " ,copy-to-tf "
-                   << copy_to_tf_ << " ,Graph ID " << ng_graph_id_;
+                   << " ,just looking " << PrintBool(just_looking_)
+                   << " ,copy-to-tf " << PrintBool(copy_to_tf_) << " ,Graph ID "
+                   << ng_graph_id_;
 
     bool log_copies = false;
     OP_REQUIRES_OK(context, IsCopyLogEnabled(ng_graph_id_, log_copies));
@@ -90,15 +93,15 @@ class NGraphAssignOp : public OpKernel {
                  << PrintBool(just_looking_) << "\n";
     int number_of_copies = 0;
 
-    bool ref_exists =
-        NGraphCatalog::ExistsInCatalog(ng_graph_id_, def().name(), 0);
+    bool ref_exists = NGraphCatalog::ExistsInInputVariableSharedNameMap(
+        ng_graph_id_, def().name(), 0);
     if (!ref_exists) {
       OP_REQUIRES(context, ref_exists,
                   errors::Internal(
                       "Caught exception : RefInput to NGAssign not found \n"));
     }
-    string get_ref_var_name =
-        NGraphCatalog::GetInputSharedName(ng_graph_id_, def().name(), 0);
+    string get_ref_var_name = NGraphCatalog::GetInputVariableSharedName(
+        ng_graph_id_, def().name(), 0);
 
     NGraphVar* var;
     OP_REQUIRES_OK(context,
@@ -116,27 +119,22 @@ class NGraphAssignOp : public OpKernel {
 
     // DO NOT CARE ABOUT SYNCING AS WE ARE ALWAYS SETTING THE NGTENSOR
 
+    // Get input[1]
     string valkey = to_string(ng_graph_id_) + "_" + def().input(1);
-    bool valref_exists = NGraphCatalog::ExistsInOutputCatalog(valkey);
+    bool valref_exists = NGraphCatalog::ExistsInEncapOutputTensorMap(valkey);
     if (valref_exists) {
       // Value is from encap
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from catalog: " << valkey;
-      auto ng_val = NGraphCatalog::GetNgTensorFromOutputCatalog(valkey);
-      Event event_copy("D2D Copy", name().c_str());
+      auto ng_val = NGraphCatalog::GetTensorFromEncapOutputTensorMap(valkey);
       ng_tensor_to_assign->copy_from(*ng_val);
-      event_copy.Stop();
-      Event::WriteTrace(event_copy);
     } else {
       number_of_copies++;
       copy_log_str << " COPY_INP_VAL[0]";
       NGRAPH_VLOG(4) << "NGraphAssign::Getting from TF : " << valkey;
       void* tf_src_ptr = (void*)DMAHelper::base(&rhs);
-      Event event_host_2_dev_copy("H2D Copy", name().c_str());
       ng_tensor_to_assign->write(
           tf_src_ptr, 0, ng_tensor_to_assign->get_element_count() *
                              ng_tensor_to_assign->get_element_type().size());
-      event_host_2_dev_copy.Stop();
-      Event::WriteTrace(event_host_2_dev_copy);
     }
 
     mutex_lock l(*context->input_ref_mutex(0));
@@ -147,9 +145,7 @@ class NGraphAssignOp : public OpKernel {
       copy_log_str << " COPY_TF ";
       ReadNGTensor(ng_tensor_to_assign, &old_lhs);
 
-      if (just_looking_) {
-        // Some tf op will just use the val
-      } else {
+      if (!just_looking_) {
         // Some tf op might update the ng-tensor value so mark it stale
         copy_log_str << " SET_SYNC ";
         var->sync_ng_tensor(true);
@@ -164,7 +160,7 @@ class NGraphAssignOp : public OpKernel {
     // Unref Var
     var->Unref();
     event_compute.Stop();
-    Event::WriteTrace(event_compute);
+    ngraph::Event::write_trace(event_compute);
   }
 };
 

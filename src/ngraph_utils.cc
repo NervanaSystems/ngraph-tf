@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,10 @@ namespace ngraph_bridge {
 
 Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled) {
   const char* copy_env_var = std::getenv("NGRAPH_TF_LOG_COPIES");
-  if (copy_env_var == nullptr) return Status::OK();
+  if (copy_env_var == nullptr) {
+    is_copy_log_enabled = false;
+    return Status::OK();
+  }
   int test_graph_id;
 
   try {
@@ -67,27 +70,12 @@ std::string DebugNode(Node* node) {
 std::string PrintBool(bool var) { return (var ? "Yes" : "No"); }
 
 bool IsNGVariableType(string node_type) {
-  return (node_type == "NGraphVariable" || IsNGAssignType(node_type) ||
-          node_type == "NGraphApplyGradientDescent");
+  return (node_type == "NGraphVariable" || node_type == "NGraphAssign");
 };
 
-bool IsTFAssignType(string node_type) {
-  return (node_type == "Assign" || node_type == "AssignSub" ||
-          node_type == "AssignAdd");
+bool IsNGSupportedType(string node_type) {
+  return (IsNGVariableType(node_type) || node_type == "NGraphEncapsulate");
 };
-
-bool IsNGAssignType(string node_type) {
-  return (node_type == "NGraphAssign" || node_type == "NGraphAssignSub" ||
-          node_type == "NGraphAssignAdd");
-};
-
-string GetNGAssignType(string tf_node_type) {
-  static map<string, string> assing_ops_replacement_map = {
-      {"Assign", "NGraphAssign"},
-      {"AssignSub", "NGraphAssignSub"},
-      {"AssignAdd", "NGraphAssignAdd"}};
-  return assing_ops_replacement_map[tf_node_type];
-}
 
 // Read from this ng_tensor into tf_tensor
 void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,

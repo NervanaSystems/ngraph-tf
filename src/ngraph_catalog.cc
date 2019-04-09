@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2020 Intel Corporation
+ * Copyright 2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,23 +27,25 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-unordered_map<string, string> NGraphCatalog::input_variable_map_;
+unordered_map<string, string> NGraphCatalog::input_variable_sharedname_map_;
 map<string, shared_ptr<ng::runtime::Tensor>> NGraphCatalog::output_tensor_map_;
 unordered_map<string, unordered_set<int>>
-    NGraphCatalog::ng_encap_output_copy_map_;
+    NGraphCatalog::encap_output_copy_indexes_map_;
 
-void NGraphCatalog::AddEncapCopyOutputCatalog(string key,
-                                              unordered_set<int> val) {
-  NGraphCatalog::ng_encap_output_copy_map_[key] = val;
+// Functions for Encapsulate Output Copy Indexes Map
+void NGraphCatalog::AddToEncapOutputCopyIndexesMap(string key,
+                                                   unordered_set<int> val) {
+  NGraphCatalog::encap_output_copy_indexes_map_[key] = val;
 }
 
-unordered_set<int> NGraphCatalog::GetEncapOutputIndexesNeedsCopy(string key) {
-  return NGraphCatalog::ng_encap_output_copy_map_[key];
+unordered_set<int> NGraphCatalog::GetEncapOutputIndexesThatNeedCopy(
+    string key) {
+  return NGraphCatalog::encap_output_copy_indexes_map_[key];
 }
 
-bool NGraphCatalog::EncapOutputNeedsCopy(string key, int index) {
-  auto itr = NGraphCatalog::ng_encap_output_copy_map_.find(key);
-  if (itr != NGraphCatalog::ng_encap_output_copy_map_.end()) {
+bool NGraphCatalog::EncapOutputIndexNeedsCopy(string key, int index) {
+  auto itr = NGraphCatalog::encap_output_copy_indexes_map_.find(key);
+  if (itr != NGraphCatalog::encap_output_copy_indexes_map_.end()) {
     auto op_copy_indexes = itr->second;
     return (op_copy_indexes.find(index) != op_copy_indexes.end());
   }
@@ -51,55 +53,60 @@ bool NGraphCatalog::EncapOutputNeedsCopy(string key, int index) {
   return true;
 }
 
-string NGraphCatalog::CreateNodeKey(int graph_id, string node_name,
-                                    int inp_index) {
-  return to_string(graph_id) + "_" + node_name + ":" + to_string(inp_index);
+string NGraphCatalog::CreateNodeKey(int graph_id, string node_name, int index) {
+  if (index == 0) {
+    return to_string(graph_id) + "_" + node_name;
+  }
+  return to_string(graph_id) + "_" + node_name + ":" + to_string(index);
 }
 
-void NGraphCatalog::AddOutputCatalog(string key,
-                                     shared_ptr<ng::runtime::Tensor> ng_val) {
+// Functions for OutputTensorMap
+void NGraphCatalog::AddToEncapOutputTensorMap(
+    string key, shared_ptr<ng::runtime::Tensor> ng_val) {
   NGraphCatalog::output_tensor_map_[key] = ng_val;
 }
 
-bool NGraphCatalog::ExistsInOutputCatalog(string key) {
+bool NGraphCatalog::ExistsInEncapOutputTensorMap(string key) {
   auto itr = NGraphCatalog::output_tensor_map_.find(key);
   return itr != NGraphCatalog::output_tensor_map_.end();
 }
 
-bool NGraphCatalog::ExistsInOutputCatalog(int graphid, string node_name,
-                                          int input_index) {
-  return NGraphCatalog::ExistsInOutputCatalog(
+bool NGraphCatalog::ExistsInEncapOutputTensorMap(int graphid, string node_name,
+                                                 int input_index) {
+  return NGraphCatalog::ExistsInEncapOutputTensorMap(
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index));
 }
 
-shared_ptr<ng::runtime::Tensor> NGraphCatalog::GetNgTensorFromOutputCatalog(
-    string key) {
+shared_ptr<ng::runtime::Tensor>
+NGraphCatalog::GetTensorFromEncapOutputTensorMap(string key) {
   return NGraphCatalog::output_tensor_map_[key];
 }
 
-void NGraphCatalog::DeleteTensorFromEncapOutputCatalog(string key) {
+void NGraphCatalog::DeleteFromEncapOutputTensorMap(string key) {
   NGraphCatalog::output_tensor_map_.erase(key);
 }
 
-string NGraphCatalog::GetInputSharedName(int graphid, string node_name,
-                                         int input_index) {
+// Functions relating Input Variable Shared Name Map
+string NGraphCatalog::GetInputVariableSharedName(int graphid, string node_name,
+                                                 int input_index) {
   std::string node_key =
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index);
-  return NGraphCatalog::input_variable_map_[node_key];
+  return NGraphCatalog::input_variable_sharedname_map_[node_key];
 }
 
-void NGraphCatalog::AddCatalog(string key, string val) {
-  NGraphCatalog::input_variable_map_[key] = val;
+void NGraphCatalog::AddToInputVariableSharedNameMap(string key, string val) {
+  NGraphCatalog::input_variable_sharedname_map_[key] = val;
 }
 
-bool NGraphCatalog::ExistsInCatalog(string key) {
-  auto itr = NGraphCatalog::input_variable_map_.find(key);
-  return itr != NGraphCatalog::input_variable_map_.end();
+bool NGraphCatalog::ExistsInInputVariableSharedNameMap(string key) {
+  auto itr = NGraphCatalog::input_variable_sharedname_map_.find(key);
+  return itr != NGraphCatalog::input_variable_sharedname_map_.end();
 }
 
-bool NGraphCatalog::ExistsInCatalog(int graphid, string node_name,
-                                    int input_index) {
-  return NGraphCatalog::ExistsInCatalog(
+bool NGraphCatalog::ExistsInInputVariableSharedNameMap(int graphid,
+                                                       string node_name,
+                                                       int input_index) {
+  return NGraphCatalog::ExistsInInputVariableSharedNameMap(
       NGraphCatalog::CreateNodeKey(graphid, node_name, input_index));
 }
 

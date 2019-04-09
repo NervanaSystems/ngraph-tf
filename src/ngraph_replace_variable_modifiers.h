@@ -13,27 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-#ifndef NGRAPH_TF_ENTER_IN_CATALOG_H_
-#define NGRAPH_TF_ENTER_IN_CATALOG_H_
+
 #pragma once
 
-#include "tensorflow/core/graph/graph.h"
+#ifndef NGRAPH_TF_REPLACE_OPTIMIZERS_H_
+#define NGRAPH_TF_REPLACE_OPTIMIZERS_H_
 
-#include "ngraph/ngraph.hpp"
-#include "ngraph_catalog.h"
+#include "ngraph/runtime/backend.hpp"
+#include "tensorflow/core/graph/graph.h"
 
 using namespace std;
 namespace ng = ngraph;
-
 namespace tensorflow {
 
 namespace ngraph_bridge {
 
-// 1. Populate the input_variable_map
-// 2. Attach Graph Ids to the node
-Status EnterInCatalog(Graph* graph, int graph_id);
+Status ReplaceModifiers(Graph* graph, int graph_id);
 
 }  // ngraph_bridge
 }  // tensorflow
 
-#endif
+#endif  // NGRAPH_TF_REPLACE_OPTIMIZERS_H_

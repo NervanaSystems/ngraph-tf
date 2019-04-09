@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 #include "ngraph_enter_in_catalog.h"
 #include "ngraph_log.h"
 #include "ngraph_mark_for_clustering.h"
-#include "ngraph_replace_optimizers.h"
+#include "ngraph_replace_variable_modifiers.h"
 #include "ngraph_rewrite_for_tracking.h"
 #include "tf_graph_writer.h"
 
@@ -169,7 +169,9 @@ class NGraphVariableCapturePass : public NGraphRewritePass {
     }
 
     // Do variable capture then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(CaptureVariables(options.graph->get()));
+    std::vector<string> skip_these_nodes = {};
+    TF_RETURN_IF_ERROR(
+        CaptureVariables(options.graph->get(), skip_these_nodes));
     if (DumpCapturedGraphs()) {
       DumpGraphs(options, idx, "captured", "Graph With Variables Captured");
     }
@@ -236,14 +238,16 @@ class NGraphEncapsulationPass : public NGraphRewritePass {
     }
 
     // 0. Replace optimizers then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(ReplaceOptimizers(options.graph->get(), idx));
+    TF_RETURN_IF_ERROR(ReplaceModifiers(options.graph->get(), idx));
     if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "replaced_modifier",
                  "Graph with Modifiers replaced");
     }
 
     // 1. Mark for clustering then, if requested, dump the graphs.
-    TF_RETURN_IF_ERROR(MarkForClustering(options.graph->get()));
+    std::vector<string> skip_these_nodes = {};
+    TF_RETURN_IF_ERROR(
+        MarkForClustering(options.graph->get(), skip_these_nodes));
     if (DumpMarkedGraphs()) {
       DumpGraphs(options, idx, "marked", "Graph Marked for Clustering");
     }
