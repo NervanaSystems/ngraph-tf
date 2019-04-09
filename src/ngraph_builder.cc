@@ -1965,7 +1965,7 @@ static Status TranslateGatherV2Op(
                                    "), but got ", tf_axis[0]);
   }
 
-  for (int indices_idx = 0; indices_idx < indices.size(); indices_idx++) {
+  for (size_t indices_idx = 0; indices_idx < indices.size(); indices_idx++) {
     if (indices[indices_idx] >= ng_input_shape[axis]) {
       // TODO: this error returnign must be generalized when indices = vector of
       // vectors is supported
@@ -1975,14 +1975,27 @@ static Status TranslateGatherV2Op(
     }
   }
 
-  shared_ptr<ng::Node> ng_gather =
-      backend->get_backend_op("Gather", &ng_input, &coords, &axis);
-  if (ng_gather == nullptr) {
-    return errors::Internal("In translating GatherV2 op ", op->name(),
-                            " backend could not return valid ngraph node");
-  }
+  vector<size_t> possibly_empty_node_size(ng_input_shape);
+  possibly_empty_node_size[axis] = indices.size();
 
-  SaveNgOp(ng_op_map, op->name(), ng_gather);
+  if (std::any_of(possibly_empty_node_size.begin(),
+                  possibly_empty_node_size.end(),
+                  [](size_t x) { return x == 0; })) {
+    std::vector<std::string> const_values(
+        ng::shape_size(possibly_empty_node_size), "0");
+    auto ng_empty = ConstructNgNode<ng::op::Constant>(
+        op->name(), ng_input->get_element_type(),
+        ng::Shape(possibly_empty_node_size), const_values);
+    SaveNgOp(ng_op_map, op->name(), ng_empty);
+  } else {
+    shared_ptr<ng::Node> ng_gather =
+        backend->get_backend_op("Gather", &ng_input, &coords, &axis);
+    if (ng_gather == nullptr) {
+      return errors::Internal("In translating GatherV2 op ", op->name(),
+                              " backend could not return valid ngraph node");
+    }
+    SaveNgOp(ng_op_map, op->name(), ng_gather);
+  }
 
   return Status::OK();
 }

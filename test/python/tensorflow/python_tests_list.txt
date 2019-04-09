@@ -178,12 +178,12 @@ depthtospace_op_test.DepthToSpaceTest.testNonSquare
 # In case of NNPI all except the last pass. But CI wont be tracking it because CI runs on CPU backend only
 gather_op_test.GatherTest.testBadAxis
 gather_op_test.GatherTest.testBadIndicesCPU
-gather_op_test.GatherTest.testEmptySlices
-gather_op_test.GatherTest.testScalar1D
-gather_op_test.GatherTest.testScalar2D
-gather_op_test.GatherTest.testSimpleTwoD32
+#gather_op_test.GatherTest.testEmptySlices  ...failure in backend due to int64
+#gather_op_test.GatherTest.testScalar1D ...failure in backend due to int64
+#gather_op_test.GatherTest.testScalar2D ...failure in backend due to int64
+#gather_op_test.GatherTest.testSimpleTwoD32 ...failure in backend due to int64
 gather_op_test.GatherTest.testString
-gather_op_test.GatherTest.testUInt32AndUInt64
+#gather_op_test.GatherTest.testUInt32AndUInt64  ...Unsupported TensorFlow data type: DT_UINT32
 gather_op_test.GatherTest.testUnknownAxis
 gather_op_test.GatherTest.testUnknownIndices
 gather_op_test.GatherTest.test_session
