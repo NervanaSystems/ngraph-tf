@@ -40,6 +40,7 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
   // graph followed by NGraphAssign Op
   // If there is an incoming control edge to the Modifier Op
   // It is attached to the first op in the series of the computation TF graph
+  vector<Node*> remove_nodes;
   for (auto node : graph->op_nodes()) {
     if (node->type_string() == "NGraphAssignSub" ||
         node->type_string() == "NGraphAssignAdd") {
@@ -118,7 +119,7 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
 
       NGRAPH_VLOG(1) << "Replaced output edges";
 
-      graph->RemoveNode(node);
+      remove_nodes.push_back(node);
       NGRAPH_VLOG(1) << "Removing node";
 
     }  // AssignSub + Assign Add
@@ -201,9 +202,14 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
         graph->RemoveEdge(edge);
       }
 
-      graph->RemoveNode(node);
+      remove_nodes.push_back(node);
+     
       NGRAPH_VLOG(1) << "Replaced ApplyGradientDescent";
     }  // Apply Gradient Descent
+  }
+
+  for(auto node : remove_nodes){
+    graph->RemoveNode(node);
   }
 
   return Status::OK();
