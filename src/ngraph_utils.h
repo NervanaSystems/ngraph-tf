@@ -185,9 +185,6 @@ void print_node_histogram(const std::unordered_map<string, int>&,
 std::ostream& DumpNGTensor(std::ostream& s, const std::string& name,
                            const std::shared_ptr<ngraph::runtime::Tensor>& t);
 
-Status NGraphElementTypeToTFDataType(DataType* tf_dt,
-                                     ngraph::element::Type ng_et);
-
 // Converts a TensorFlow DataType to an nGraph element::Type. Returns
 // errors::Unimplemented if the element type is not supported by nGraph
 // Core. Otherwise returns Status::OK().
