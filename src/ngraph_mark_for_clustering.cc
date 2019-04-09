@@ -292,11 +292,6 @@ Status MarkForClustering(Graph* graph,
       confirmation_function_map["Minimum"] = SimpleConfirmationFunction();
       confirmation_function_map["Mul"] = SimpleConfirmationFunction();
       confirmation_function_map["Neg"] = SimpleConfirmationFunction();
-      confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n,
-                                                            bool* result) {
-        *result = (BackendManager::GetCurrentlySetBackendName() == "NNPI");
-        return Status::OK();
-      };
       confirmation_function_map["OneHot"] = SimpleConfirmationFunction();
       confirmation_function_map["Pad"] = SimpleConfirmationFunction();
       confirmation_function_map["Pow"] = SimpleConfirmationFunction();
@@ -635,8 +630,6 @@ Status MarkForClustering(Graph* graph,
     }
     current_backend = backend_env;
   }
-  NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
-  // TODO: set backend. Then don't use current_backend
 
   // Right now it cannot be inside the if(!initialized) block, because it is
   // backend dependent, which might change with different sess.run()s
@@ -644,6 +637,11 @@ Status MarkForClustering(Graph* graph,
                                                              bool* result) {
     // TODO: replace current_backend ->
     // BackendManager::GetCurrentlySetBackendName()
+    *result = (current_backend == "NNPI");
+    return Status::OK();
+  };
+
+  confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n, bool* result) {
     *result = (current_backend == "NNPI");
     return Status::OK();
   };
