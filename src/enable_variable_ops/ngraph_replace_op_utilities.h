@@ -16,7 +16,6 @@
 #ifndef NGRAPH_TF_REPLACE_OP_UTILITIES_H_
 #define NGRAPH_TF_REPLACE_OP_UTILITIES_H_
 
-
 #pragma once
 
 #include "tensorflow/core/graph/graph.h"
@@ -26,20 +25,24 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status ReplaceNGraphAssign(Graph* graph, Node* node, Node** replacement,
-                           std::string node_new_name, bool just_looking,
-                           bool outputs_ng_supported, int graph_id);
-Status ReplaceNGraphVariable(Graph* graph, Node* node, Node** replacement,
-                             std::string node_new_name, bool just_looking,
-                             bool outputs_ng_supported, int graph_id);
-Status ReplaceNGraphApplyGradientDescent(Graph* graph, Node* node,
-                                         Node** replacement,
-                                         std::string node_new_name,
-                                         bool just_looking,
-                                         bool outputs_ng_supported, int graph_id);
+Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
+                                   std::string replacement_node_name,
+                                   std::string replacement_op_type,
+                                   bool just_looking, bool outputs_ng_supported,
+                                   int graph_id);
+
+Status ReplaceAssign(Graph* graph, Node* node, Node** replacement,
+                     std::string replacement_node_name,
+                     std::string replacement_op_type, bool just_looking,
+                     bool outputs_ng_supported, int graph_id);
+
+Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
+                       std::string replacement_node_name,
+                       std::string replacement_op_type, bool just_looking,
+                       bool outputs_ng_supported, int graph_id);
 
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow
 
-#endif// NGRAPH_TF_REPLACE_OP_UTILITIES_H_
+#endif  // NGRAPH_TF_REPLACE_OP_UTILITIES_H_

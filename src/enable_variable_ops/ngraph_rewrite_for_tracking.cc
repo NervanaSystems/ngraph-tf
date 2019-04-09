@@ -17,9 +17,9 @@
 #include "tensorflow/core/graph/node_builder.h"
 #include "tensorflow/core/graph/types.h"
 
+#include "ngraph_replace_op_utilities.h"
 #include "ngraph_rewrite_for_tracking.h"
 #include "ngraph_utils.h"
-#include "ngraph_replace_op_utilities.h"
 
 using namespace std;
 
@@ -91,13 +91,13 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       Node* replacement;
       // TODO(amprocte): Do we need to copy "_" attributes?
       if (node->type_string() == "NGraphVariable") {
-        TF_RETURN_IF_ERROR(ReplaceNGraphVariable(
-            graph, node, &replacement, node_new_name, just_looking,
-            outputs_ng_supported, graph_id));
+        TF_RETURN_IF_ERROR(ReplaceVariable(
+            graph, node, &replacement, node_new_name, node->type_string(),
+            just_looking, outputs_ng_supported, graph_id));
       } else if (IsNGAssignType(node->type_string())) {
-        TF_RETURN_IF_ERROR(ReplaceNGraphAssign(graph, node, &replacement,
-                                               node_new_name, just_looking,
-                                               outputs_ng_supported, graph_id));
+        TF_RETURN_IF_ERROR(ReplaceAssign(
+            graph, node, &replacement, node_new_name, node->type_string(),
+            just_looking, outputs_ng_supported, graph_id));
       }
 
       // Only add incoming control edges. Incoming data edges
