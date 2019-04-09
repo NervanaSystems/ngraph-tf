@@ -37,7 +37,7 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
           Graph * graph, Node * node, Node * *replacement,
           const string replacement_node_name, const string replacement_op_type,
           const bool just_looking, const bool outputs_ng_supported,
-          const int graph_id)>>
+          const int graph_id, const bool is_backend_set)>>
       REWRITE_REPLACE_OP_MAP{{"NGraphAssign", ReplaceAssign},
                              {"NGraphVariable", ReplaceVariable}};
 
@@ -100,10 +100,10 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
 
       Node* replacement;
 
-      // Create the replacement node
+      // Create and add the replacement node
       TF_RETURN_IF_ERROR((itr->second)(graph, node, &replacement, node_new_name,
                                        node->type_string(), just_looking,
-                                       outputs_ng_supported, graph_id));
+                                       outputs_ng_supported, graph_id, true));
 
       // Only add incoming control edges. Incoming data edges
       // are already added when building node def
