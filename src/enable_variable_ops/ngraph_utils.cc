@@ -40,7 +40,10 @@ namespace ngraph_bridge {
 
 Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled) {
   const char* copy_env_var = std::getenv("NGRAPH_TF_LOG_COPIES");
-  if (copy_env_var == nullptr) return Status::OK();
+  if (copy_env_var == nullptr) {
+    is_copy_log_enabled = false;
+    return Status::OK();
+  }
   int test_graph_id;
 
   try {
