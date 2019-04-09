@@ -73,10 +73,9 @@ def main():
         status = print_results(test_result, test_list[1])
         if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = test_result[key]
+                test_name = test_result[key][0][0][0].id()
                 print('\n')
-                raise Exception(
-                    str(test_name[0][0][0]) + ' failed due to ' + key)
+                raise Exception(test_name + ' failed due to ' + key)
 
     if (arguments.run_tests_from_file):
         all_test_list = []
@@ -94,10 +93,9 @@ def main():
         status = print_results(test_result, invalid_list)
         if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = test_result[key]
+                test_name = test_result[key][0][0][0].id()
                 print('\n')
-                raise Exception(
-                    str(test_name[0][0][0]) + ' failed due to ' + key)
+                raise Exception(test_name + ' failed due to ' + key)
 
 
 def get_test_list(tf_path, test_regex):
