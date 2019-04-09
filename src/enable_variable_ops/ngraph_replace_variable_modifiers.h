@@ -19,8 +19,8 @@
 #ifndef NGRAPH_TF_REPLACE_OPTIMIZERS_H_
 #define NGRAPH_TF_REPLACE_OPTIMIZERS_H_
 
-#include "ngraph/runtime/backend.hpp"
 #include "tensorflow/core/graph/graph.h"
+#include "ngraph/runtime/backend.hpp"
 
 using namespace std;
 namespace ng = ngraph;
