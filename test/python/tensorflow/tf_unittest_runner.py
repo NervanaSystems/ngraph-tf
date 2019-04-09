@@ -69,16 +69,14 @@ def main():
         print('\n'.join(test_list[0]))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
-        status_list = run_test(test_list[0], xml_report)
-        try:
-            print_results(status_list, test_list[1])
-        except:
-            print('\n')
+        test_result = run_test(test_list[0], xml_report)
+        status = print_results(test_result, test_list[1])
+        if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = status_list[key]
-                if key is "ERRORS" or key is "FAILED":
-                    raise Exception(
-                        str(test_name[0][0][0]) + ' failed due to ' + key)
+                test_name = test_result[key]
+                print('\n')
+                raise Exception(
+                    str(test_name[0][0][0]) + ' failed due to ' + key)
 
     if (arguments.run_tests_from_file):
         all_test_list = []
@@ -92,16 +90,14 @@ def main():
             test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
-        status_list = run_test(all_test_list, xml_report)
-        try:
-            print_results(status_list, invalid_list)
-        except:
-            print('\n')
+        test_result = run_test(all_test_list, xml_report)
+        status = print_results(test_result, invalid_list)
+        if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = status_list[key]
-                if key is "ERRORS" or key is "FAILED":
-                    raise Exception(
-                        str(test_name[0][0][0]) + ' failed due to ' + key)
+                test_name = test_result[key]
+                print('\n')
+                raise Exception(
+                    str(test_name[0][0][0]) + ' failed due to ' + key)
 
 
 def get_test_list(tf_path, test_regex):
@@ -278,20 +274,21 @@ def run_test(test_list, xml_report, verbosity=2):
         return summary
 
 
-def print_results(status_list, invalid_list):
+def print_results(test_result, invalid_list):
     """
     Prints the results of the tests run and the stats.
     Prints the list of invalid tests if any.
 
     Args:
-    status_list: This is a list of test cases that ran along with their 
+    test_result: This is a list of test cases that ran along with their 
     status Pass, Fail or Error. 
     invalid_list: When tests are run from file, if there is an invalid test 
     name this list is printed along with summary.
     """
+    status = True
     print('\033[1m' + '\n==SUMMARY==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
-        test_name = status_list[key]
+        test_name = test_result[key]
         for test in test_name:
             if key is "PASSED":
                 print(test + '\033[92m' + ' ..PASS' + '\033[0m')
@@ -309,7 +306,7 @@ def print_results(status_list, invalid_list):
     print('\033[1m' + '\n==STATS==' + '\033[0m')
     for key in ["PASSED", "ERRORS", "FAILED"]:
         test_class_name = {}
-        test_name = status_list[key]
+        test_name = test_result[key]
         for test in test_name:
             if key is "PASSED":
                 module, classname, testcase = test.split('.')
@@ -317,13 +314,14 @@ def print_results(status_list, invalid_list):
                 test_class_name[module_classname] = test_class_name.get(
                     module_classname, 0) + 1
             if key is "FAILED" or key is "ERRORS":
+                status = False
                 module, classname, testcase = test[0][0].id().split('.')
                 module_classname = module + '.' + classname
                 test_class_name[module_classname] = test_class_name.get(
                     module_classname, 0) + 1
         for k in test_class_name:
             print('Number of tests ' + key + ' ' + k, test_class_name[k])
-    assert False
+    return status
 
 
 if __name__ == '__main__':
