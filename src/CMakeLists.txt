@@ -51,9 +51,9 @@ set(SRC
    version.cc
 )
 
-message(STATUS "NGRAPH_TF_ENABLE_VARIABLE_SUPPORT: ${NGRAPH_TF_ENABLE_VARIABLE_SUPPORT}")
+message(STATUS "NGRAPH_TF_ENABLE_VARIABLES_AND_OPTIMIZERS: ${NGRAPH_TF_ENABLE_VARIABLES_AND_OPTIMIZERS}")
 
-if(NGRAPH_TF_ENABLE_VARIABLE_SUPPORT)
+if(NGRAPH_TF_ENABLE_VARIABLES_AND_OPTIMIZERS)
     # common files
     list(REMOVE_ITEM SRC ngraph_capture_variables.cc)
     list(APPEND SRC enable_variable_ops/ngraph_capture_variables.cc)

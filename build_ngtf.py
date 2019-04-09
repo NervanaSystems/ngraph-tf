@@ -70,7 +70,7 @@ def main():
         action="store")
 
     parser.add_argument(
-        '--enable_variable_support',
+        '--enable_variables_and_optimizers',
         help="Ops like variable and optimizers are supported by nGraph in this version of the bridge\n",
         action="store_true")    
         
@@ -269,10 +269,10 @@ def main():
     else:
         ngraph_tf_cmake_flags.extend(["-DNGRAPH_DISTRIBUTED_ENABLE=FALSE"])
 
-    if (arguments.enable_variable_support):
-        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=TRUE"])
+    if (arguments.enable_variables_and_optimizers):
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLES_AND_OPTIMIZERS=TRUE"])
     else:
-        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLE_SUPPORT=FALSE"])
+        ngraph_tf_cmake_flags.extend(["-DNGRAPH_TF_ENABLE_VARIABLES_AND_OPTIMIZERS=FALSE"])
         
     if (arguments.use_grappler_optimizer):
         ngraph_tf_cmake_flags.extend(
