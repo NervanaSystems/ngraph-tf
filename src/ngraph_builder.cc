@@ -2459,9 +2459,9 @@ static Status TranslateNonMaxSuppressionV4Op(
   ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
 
   shared_ptr<ng::Node> ng_nmsv4 = backend->get_backend_op(
-      "NonMaxSuppressionV4", ng_boxes, ng_scores, (size_t)(max_output_size[0]),
-      (float)(iou_threshold[0]), (float)score_threshold[0],
-      (bool)pad_to_max_output_size);
+      "NonMaxSuppressionV4", &ng_boxes, &ng_scores,
+      (size_t)(max_output_size[0]), (float)(iou_threshold[0]),
+      (float)score_threshold[0], (bool)pad_to_max_output_size);
   if (ng_nmsv4 == nullptr) {
     return errors::Internal("In translating NonMaxSuppressionV4 op ",
                             op->name(),
