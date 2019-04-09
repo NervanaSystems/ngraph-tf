@@ -641,7 +641,8 @@ Status MarkForClustering(Graph* graph,
     return Status::OK();
   };
 
-  confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n, bool* result) {
+  confirmation_function_map["NonMaxSuppressionV4"] = [&current_backend](
+      Node* n, bool* result) {
     *result = (current_backend == "NNPI");
     return Status::OK();
   };
