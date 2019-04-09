@@ -77,7 +77,7 @@ Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
 
         TF_RETURN_IF_ERROR(ReplaceInputControlEdges(graph, node, replacement));
         TF_RETURN_IF_ERROR(ReplaceOutputEdges(graph, node, replacement));
-        
+
         replaced_nodes.push_back(node);
       }
 

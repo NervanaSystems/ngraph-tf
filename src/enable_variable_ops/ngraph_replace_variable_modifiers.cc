@@ -19,6 +19,7 @@
 
 #include "ngraph_api.h"
 #include "ngraph_capture_variables.h"
+#include "ngraph_replace_op_utilities.h"
 #include "ngraph_replace_variable_modifiers.h"
 #include "ngraph_utils.h"
 
@@ -98,26 +99,8 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
       NGRAPH_VLOG(1) << "Assign op assigned device: "
                      << ngraphassign_op->assigned_device_name();
 
-      for (auto edge : node->in_edges()) {
-        if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), compute_op,
-                         edge->dst_input());
-          graph->RemoveEdge(edge);
-        }
-      }
-      NGRAPH_VLOG(1) << "Added input control edges";
-      std::vector<const Edge*> edges;
-      for (auto edge : node->out_edges()) {
-        edges.push_back(edge);
-      }
-
-      for (auto edge : edges) {
-        graph->AddEdge(ngraphassign_op, edge->src_output(), edge->dst(),
-                       edge->dst_input());
-        graph->RemoveEdge(edge);
-      }
-
-      NGRAPH_VLOG(1) << "Replaced output edges";
+      TF_RETURN_IF_ERROR(ReplaceInputControlEdges(graph, node, compute_op));
+      TF_RETURN_IF_ERROR(ReplaceOutputEdges(graph, node, ngraphassign_op));
 
       remove_nodes.push_back(node);
       NGRAPH_VLOG(1) << "Removing node";
@@ -183,32 +166,16 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
       NGRAPH_VLOG(1) << "Assign op assigned device: "
                      << ngraphassign_op->assigned_device_name();
 
-      for (auto edge : node->in_edges()) {
-        if (edge->IsControlEdge()) {
-          graph->AddEdge(edge->src(), edge->src_output(), mul_op,
-                         edge->dst_input());
-          graph->RemoveEdge(edge);
-        }
-      }
-
-      std::vector<const Edge*> edges;
-      for (auto edge : node->out_edges()) {
-        edges.push_back(edge);
-      }
-
-      for (auto edge : edges) {
-        graph->AddEdge(ngraphassign_op, edge->src_output(), edge->dst(),
-                       edge->dst_input());
-        graph->RemoveEdge(edge);
-      }
+      TF_RETURN_IF_ERROR(ReplaceInputControlEdges(graph, node, mul_op));
+      TF_RETURN_IF_ERROR(ReplaceOutputEdges(graph, node, ngraphassign_op));
 
       remove_nodes.push_back(node);
-     
+
       NGRAPH_VLOG(1) << "Replaced ApplyGradientDescent";
     }  // Apply Gradient Descent
   }
 
-  for(auto node : remove_nodes){
+  for (auto node : remove_nodes) {
     graph->RemoveNode(node);
   }
 
