@@ -69,11 +69,12 @@ def main():
         print('\n'.join(test_list[0]))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
-        test_result = run_test(test_list[0], xml_report)
-        status = print_results(test_result, test_list[1])
+        test_list, test_result = run_test(test_list[0], xml_report)
+        results = parse_test_results(test_list, test_result)
+        status = print_results(results, test_list[1])
         if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = test_result[key][0][0][0].id()
+                test_name = results[key][0][0][0].id()
                 print('\n')
                 raise Exception(test_name + ' failed due to ' + key)
 
@@ -89,11 +90,12 @@ def main():
             test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
-        test_result = run_test(all_test_list, xml_report)
-        status = print_results(test_result, invalid_list)
+        test_list, test_result = run_test(all_test_list, xml_report)
+        results = parse_test_results(test_list, test_result)
+        status = print_results(results, invalid_list)
         if status == False:
             for key in ["ERRORS", "FAILED"]:
-                test_name = test_result[key][0][0][0].id()
+                test_name = results[key][0][0][0].id()
                 print('\n')
                 raise Exception(test_name + ' failed due to ' + key)
 
@@ -235,9 +237,6 @@ def run_test(test_list, xml_report, verbosity=2):
     verbosity: Python verbose logging is set to 2. You get the help string 
     of every test and the result.
     """
-    succeeded = []
-    failures = []
-    errors = []
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     if xml_report is not None:
@@ -247,29 +246,37 @@ def run_test(test_list, xml_report, verbosity=2):
         with open(xml_report, 'wb') as output:
             test_result = xmlrunner.XMLTestRunner(
                 verbosity=verbosity, output=output).run(suite)
-        for test in test_list:
-            test_result = unittest.TextTestRunner(verbosity=verbosity).run(
-                loader.loadTestsFromName(test))
-            if test_result.wasSuccessful():
-                succeeded.append(test)
-            elif test_result.failures:
-                failures.append(test_result.failures)
-            elif test_result.errors:
-                errors.append(test_result.errors)
-        summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
-        return summary
     else:
         for test in test_list:
             test_result = unittest.TextTestRunner(verbosity=verbosity).run(
                 loader.loadTestsFromName(test))
-            if test_result.wasSuccessful():
-                succeeded.append(test)
-            elif test_result.failures:
-                failures.append(test_result.failures)
-            elif test_result.errors:
-                errors.append(test_result.errors)
-        summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
-        return summary
+    return test_list, test_result
+
+
+def parse_test_results(test_list, test_result):
+    """
+    Parses the test_result object returned by TestRunner.
+    Seperates the tests based on PASS/ERROR/FAIL in lists.
+
+    Args:
+    test_list: This is the list of tests to run,filtered based on the
+    regex_input passed as an argument.
+    test_result: This is a list of test cases that ran along with their
+    status Pass, Fail or Error.
+    """
+    succeeded = []
+    failures = []
+    errors = []
+    for test in test_list:
+        if test_result.wasSuccessful():
+            succeeded.append(test)
+        elif test_result.failures:
+            failures.append(test_result.failures)
+        elif test_result.errors:
+            errors.append(test_result.errors)
+
+    summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
+    return summary
 
 
 def print_results(test_result, invalid_list):
