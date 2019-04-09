@@ -31,10 +31,20 @@ namespace ngraph_bridge {
 // Main entry point for rewrite-for-tracking.
 //
 Status RewriteForTracking(Graph* graph, int graph_id) {
-  std::vector<Node*> replaced_nodes;
+  const static std::map<
+      const string,
+      const function<Status(
+          Graph * graph, Node * node, Node * *replacement,
+          const string replacement_node_name, const string replacement_op_type,
+          const bool just_looking, const bool outputs_ng_supported,
+          const int graph_id)>>
+      REWRITE_REPLACE_OP_MAP{{"NGraphAssign", ReplaceAssign},
+                             {"NGraphVariable", ReplaceVariable}};
 
+  std::vector<Node*> replaced_nodes;
   for (auto node : graph->op_nodes()) {
-    if (IsNGVariableType(node->type_string())) {
+    auto itr = REWRITE_REPLACE_OP_MAP.find(node->type_string());
+    if (itr != REWRITE_REPLACE_OP_MAP.end()) {
       NGRAPH_VLOG(1) << "Checking: " << DebugNode(node) << " " << node->name();
 
       bool just_looking = true;
@@ -89,16 +99,11 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
                      << node_new_name;
 
       Node* replacement;
-      // TODO(amprocte): Do we need to copy "_" attributes?
-      if (node->type_string() == "NGraphVariable") {
-        TF_RETURN_IF_ERROR(ReplaceVariable(
-            graph, node, &replacement, node_new_name, node->type_string(),
-            just_looking, outputs_ng_supported, graph_id));
-      } else if (IsNGAssignType(node->type_string())) {
-        TF_RETURN_IF_ERROR(ReplaceAssign(
-            graph, node, &replacement, node_new_name, node->type_string(),
-            just_looking, outputs_ng_supported, graph_id));
-      }
+
+      // Create the replacement node
+      TF_RETURN_IF_ERROR((itr->second)(graph, node, &replacement, node_new_name,
+                                       node->type_string(), just_looking,
+                                       outputs_ng_supported, graph_id));
 
       // Only add incoming control edges. Incoming data edges
       // are already added when building node def

@@ -26,8 +26,10 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
-                                   std::string node_new_name, bool just_looking,
-                                   bool outputs_ng_supported, int graph_id) {
+                                   const string node_new_name,
+                                   const bool just_looking,
+                                   const bool outputs_ng_supported,
+                                   const int graph_id) {
   NGRAPH_VLOG(1) << "Start replacing NGraphApplyGradientDescent "
                  << node->name();
 
@@ -35,9 +37,7 @@ Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "T", &dtype));
   bool use_locking;
   TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "use_locking", &use_locking));
-  // int graph_id;
-  // TF_RETURN_IF_ERROR(GetNodeAttr(node->attrs(), "ngraph_graph_id",
-  // &graph_id));
+
   std::string backend_name;
   TF_RETURN_IF_ERROR(
       GetNodeAttr(node->attrs(), "_ngraph_backend", &backend_name));
@@ -46,8 +46,6 @@ Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
   NodeBuilder::NodeOut input_alpha;
   NodeBuilder::NodeOut input_delta;
 
-  // TODO(Mingshan): we may removing the control_edges to the
-  // ApplyGradientDescent node
   std::vector<const Edge*> input_edges;
   TF_RETURN_IF_ERROR(node->input_edges(&input_edges));
 
@@ -76,12 +74,13 @@ Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
 
   (*replacement)->set_assigned_device_name(node->assigned_device_name());
   return Status::OK();
-}  // end of ReplaceNGraphApplyGradientDescent
+}  // end of ReplaceApplyGradientDescent
 
 Status ReplaceAssign(Graph* graph, Node* node, Node** replacement,
-                     std::string replacement_node_name,
-                     std::string replacement_node_type, bool just_looking,
-                     bool outputs_ng_supported, int graph_id) {
+                     const string replacement_node_name,
+                     const string replacement_node_type,
+                     const bool just_looking, const bool outputs_ng_supported,
+                     const int graph_id) {
   NGRAPH_VLOG(1) << "Replacing  " << node->name();
 
   DataType dtype;
@@ -128,9 +127,10 @@ Status ReplaceAssign(Graph* graph, Node* node, Node** replacement,
 }
 
 Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
-                       std::string replacement_node_name,
-                       std::string replacement_node_type, bool just_looking,
-                       bool outputs_ng_supported, int graph_id) {
+                       const string replacement_node_name,
+                       const string replacement_node_type,
+                       const bool just_looking, const bool outputs_ng_supported,
+                       const int graph_id) {
   NGRAPH_VLOG(1) << "Replacing NGraphVariable " << node->name();
 
   TensorShape shape;
@@ -152,7 +152,6 @@ Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
   TF_RETURN_IF_ERROR(
       GetNodeAttr(node->attrs(), "_ngraph_backend", &backend_name));
 
-  // NGRAPHVARIABLE
   TF_RETURN_IF_ERROR(
       NodeBuilder(replacement_node_name, replacement_node_type)
           .Attr("shape", shape)

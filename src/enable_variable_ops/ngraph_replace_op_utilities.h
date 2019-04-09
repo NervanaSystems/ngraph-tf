@@ -26,20 +26,22 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 Status ReplaceApplyGradientDescent(Graph* graph, Node* node, Node** replacement,
-                                   std::string replacement_node_name,
-                                   std::string replacement_op_type,
-                                   bool just_looking, bool outputs_ng_supported,
-                                   int graph_id);
+                                   const string replacement_node_name,
+                                   const string replacement_op_type,
+                                   const bool just_looking,
+                                   const bool outputs_ng_supported,
+                                   const int graph_id);
 
 Status ReplaceAssign(Graph* graph, Node* node, Node** replacement,
-                     std::string replacement_node_name,
-                     std::string replacement_op_type, bool just_looking,
-                     bool outputs_ng_supported, int graph_id);
+                     const string replacement_node_name,
+                     const string replacement_op_type, const bool just_looking,
+                     const bool outputs_ng_supported, const int graph_id);
 
 Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
-                       std::string replacement_node_name,
-                       std::string replacement_op_type, bool just_looking,
-                       bool outputs_ng_supported, int graph_id);
+                       const string replacement_node_name,
+                       const string replacement_op_type,
+                       const bool just_looking, const bool outputs_ng_supported,
+                       const int graph_id);
 
 }  // namespace ngraph_bridge
 
