@@ -40,7 +40,11 @@ class NGraphCatalog {
   // Map keeps track of nodes whose input is a variable tensor
   // Will be used by Assign/Optimizers and NGraphEncapsulate Op
   // Map of
-  // Key string : GraphId + _ + nodename + : + input_index
+  // Key
+  //   when op index ==0
+  //      string : GraphId + _ + nodename
+  //   otherwise
+  //     string : GraphId + _ + nodename + : + input_index
   // Value : variable shared_name
   // LOCK?
   static unordered_map<string, string> input_variable_sharedname_map_;
