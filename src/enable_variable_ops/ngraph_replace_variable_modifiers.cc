@@ -28,6 +28,12 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
+// TODO (malikshr) :: Currently we are not checking whether the new op name is
+// unique
+// New Op names are added in
+// 1. ReplaceModifiers
+// 2. RewriteForTracking
+
 Status ReplaceModifiers(Graph* graph, int graph_id) {
   // Go over the nodes and replace variable modifiers
   // Each Modifier is replaced with the corresponding computational TF
@@ -103,8 +109,6 @@ Status ReplaceModifiers(Graph* graph, int graph_id) {
       for (auto edge : node->out_edges()) {
         edges.push_back(edge);
       }
-
-      NGRAPH_VLOG(1) << "Got output edges";
 
       for (auto edge : edges) {
         graph->AddEdge(ngraphassign_op, edge->src_output(), edge->dst(),

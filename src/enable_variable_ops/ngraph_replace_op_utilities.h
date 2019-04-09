@@ -45,6 +45,9 @@ Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
                        const bool just_looking, const bool outputs_ng_supported,
                        const int graph_id, const bool is_backend_set);
 
+Status ReplaceInputControlEdges(Graph* graph, Node* node, Node* replacement);
+Status ReplaceOutputEdges(Graph* graph, Node* node, Node* replacement);
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

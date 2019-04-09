@@ -185,6 +185,37 @@ Status ReplaceVariable(Graph* graph, Node* node, Node** replacement,
   return Status::OK();
 }
 
+// Though edges will be removed when we remove the node
+// we specifically remove the edges to be sure
+Status ReplaceInputControlEdges(Graph* graph, Node* node, Node* replacement) {
+  for (auto edge : node->in_edges()) {
+    NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+    if (!edge->IsControlEdge()) continue;
+    graph->AddEdge(edge->src(), edge->src_output(), replacement,
+                   edge->dst_input());
+    graph->RemoveEdge(edge);
+  }
+  return Status::OK();
+}
+
+// Though edges will be removed when we remove the node
+// we specifically remove the edges to be sure
+Status ReplaceOutputEdges(Graph* graph, Node* node, Node* replacement) {
+  std::vector<const Edge*> edges;
+  for (auto edge : node->out_edges()) {
+    edges.push_back(edge);
+  }
+
+  for (auto edge : edges) {
+    NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+    graph->AddEdge(replacement, edge->src_output(), edge->dst(),
+                   edge->dst_input());
+    graph->RemoveEdge(edge);
+  }
+
+  return Status::OK();
+}
+
 }  // namespace ngraph_bridge
 
 }  // namespace tensorflow

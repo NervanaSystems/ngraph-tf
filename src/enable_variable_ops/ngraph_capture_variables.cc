@@ -75,28 +75,28 @@ Status CaptureVariables(Graph* graph, std::vector<string> skip_these_nodes) {
         NGRAPH_VLOG(4) << "Replacing Node " << node->DebugString() << " with "
                        << replacement->DebugString();
 
-        // Though edges will be removed when we remove the node
-        // we specifically remove the edges to be sure
-        // We only add incoming control edges. Input data edges are
-        // added via node def
-        for (auto edge : node->in_edges()) {
-          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-          if (!edge->IsControlEdge()) continue;
-          graph->AddEdge(edge->src(), edge->src_output(), replacement,
-                         edge->dst_input());
-          graph->RemoveEdge(edge);
-        }
+        TF_RETURN_IF_ERROR(ReplaceInputControlEdges(graph, node, replacement));
+        TF_RETURN_IF_ERROR(ReplaceOutputEdges(graph, node, replacement));
+        // // We only add incoming control edges. Input data edges are
+        // // added via node def
+        // for (auto edge : node->in_edges()) {
+        //   NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+        //   if (!edge->IsControlEdge()) continue;
+        //   graph->AddEdge(edge->src(), edge->src_output(), replacement,
+        //                  edge->dst_input());
+        //   graph->RemoveEdge(edge);
+        // }
 
-        for (auto edge : node->out_edges()) {
-          edges.push_back(edge);
-        }
+        // for (auto edge : node->out_edges()) {
+        //   edges.push_back(edge);
+        // }
 
-        for (auto edge : edges) {
-          NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
-          graph->AddEdge(replacement, edge->src_output(), edge->dst(),
-                         edge->dst_input());
-          graph->RemoveEdge(edge);
-        }
+        // for (auto edge : edges) {
+        //   NGRAPH_VLOG(4) << "Replacing: " << edge->DebugString();
+        //   graph->AddEdge(replacement, edge->src_output(), edge->dst(),
+        //                  edge->dst_input());
+        //   graph->RemoveEdge(edge);
+        // }
 
         replaced_nodes.push_back(node);
       }
