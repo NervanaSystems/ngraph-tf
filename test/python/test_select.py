@@ -91,7 +91,7 @@ class TestSelect(NgraphTest):
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
 
-    #failin test case
+    #failing test case
     @pytest.mark.skip(
         reason=
         "First dimension of input tensor should match the shape of condition tensor"
