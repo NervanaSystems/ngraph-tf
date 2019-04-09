@@ -292,7 +292,8 @@ Status MarkForClustering(Graph* graph,
       confirmation_function_map["Minimum"] = SimpleConfirmationFunction();
       confirmation_function_map["Mul"] = SimpleConfirmationFunction();
       confirmation_function_map["Neg"] = SimpleConfirmationFunction();
-      confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n, bool* result) {
+      confirmation_function_map["NonMaxSuppressionV4"] = [](Node* n,
+                                                            bool* result) {
         *result = (BackendManager::GetCurrentlySetBackendName() == "NNPI");
         return Status::OK();
       };
@@ -434,6 +435,9 @@ Status MarkForClustering(Graph* graph,
       // DT_FLOAT
       type_constraint_map["FusedBatchNormV2"]["T"] = {DT_FLOAT};
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["GatherV2"]["Tparams"] = NGraphDTypes();
+      type_constraint_map["GatherV2"]["Tindices"] = NGraphIndexDTypes();
+      type_constraint_map["GatherV2"]["Taxis"] = NGraphIndexDTypes();
       type_constraint_map["_FusedConv2D"]["T"] = NGraphRealDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
@@ -461,7 +465,8 @@ Status MarkForClustering(Graph* graph,
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
-      type_constraint_map["NonMaxSuppressionV4"]["T"] = {DT_FLOAT}; // TF allows half too
+      type_constraint_map["NonMaxSuppressionV4"]["T"] = {
+          DT_FLOAT};  // TF allows half too
       type_constraint_map["OneHot"]["T"] = NGraphDTypes();
       type_constraint_map["Pack"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["T"] = NGraphDTypes();
@@ -572,6 +577,7 @@ Status MarkForClustering(Graph* graph,
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
+      set_attributes_map["GatherV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Max"] = SetStaticInputs({1});
       set_attributes_map["Mean"] = SetStaticInputs({1});
       set_attributes_map["Min"] = SetStaticInputs({1});
@@ -628,9 +634,19 @@ Status MarkForClustering(Graph* graph,
                               " is not supported");
     }
     current_backend = backend_env;
-    BackendManager::SetBackendName(current_backend);
   }
   NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
+  // TODO: set backend. Then don't use current_backend
+
+  // Right now it cannot be inside the if(!initialized) block, because it is
+  // backend dependent, which might change with different sess.run()s
+  confirmation_function_map["GatherV2"] = [&current_backend](Node* n,
+                                                             bool* result) {
+    // TODO: replace current_backend ->
+    // BackendManager::GetCurrentlySetBackendName()
+    *result = (current_backend == "NNPI");
+    return Status::OK();
+  };
 
   std::unordered_map<string, int> no_support_histogram;
   std::unordered_map<string, int> fail_confirmation_histogram;
@@ -715,7 +731,6 @@ Status MarkForClustering(Graph* graph,
     print_node_histogram(fail_constraint_histogram);
     std::cout << "\n";
   }
-
 
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
