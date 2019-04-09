@@ -1951,7 +1951,8 @@ static Status TranslateGatherV2Op(
   ng::runtime::Backend* backend = BackendManager::GetBackend(backend_name);
   auto coords = ng::Coordinate(indices);
   // Negative axis is supported. Accounting for that
-  size_t ng_input_rank = ng_input->get_shape().size();
+  auto ng_input_shape = ng_input->get_shape();
+  size_t ng_input_rank = ng_input_shape.size();
   size_t axis;
   if (tf_axis[0] >= 0) {
     axis = tf_axis[0];
@@ -1962,6 +1963,16 @@ static Status TranslateGatherV2Op(
     return errors::InvalidArgument("Expected axis in the range [-",
                                    ng_input_rank, ", ", ng_input_rank,
                                    "), but got ", tf_axis[0]);
+  }
+
+  for (int indices_idx = 0; indices_idx < indices.size(); indices_idx++) {
+    if (indices[indices_idx] >= ng_input_shape[axis]) {
+      // TODO: this error returnign must be generalized when indices = vector of
+      // vectors is supported
+      return errors::InvalidArgument("indices[0,", indices_idx, "] = ",
+                                     indices[indices_idx], " is not in [0, ",
+                                     ng_input_shape[axis], ")");
+    }
   }
 
   shared_ptr<ng::Node> ng_gather =
