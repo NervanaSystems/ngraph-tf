@@ -73,7 +73,13 @@ def main():
         try:
             print_results(status_list, test_list[1])
         except:
-            print("XML Report generated")
+            print('\n')
+            for key in ["ERRORS", "FAILED"]:
+                test_name = status_list[key]
+                if key is "ERRORS" or key is "FAILED":
+                    raise Exception(
+                        str(test_name[0][0][0]) + ' failed due to ' + key)
+
     if (arguments.run_tests_from_file):
         all_test_list = []
         invalid_list = []
@@ -90,7 +96,12 @@ def main():
         try:
             print_results(status_list, invalid_list)
         except:
-            print("XML Report generated")
+            print('\n')
+            for key in ["ERRORS", "FAILED"]:
+                test_name = status_list[key]
+                if key is "ERRORS" or key is "FAILED":
+                    raise Exception(
+                        str(test_name[0][0][0]) + ' failed due to ' + key)
 
 
 def get_test_list(tf_path, test_regex):
@@ -242,7 +253,17 @@ def run_test(test_list, xml_report, verbosity=2):
         with open(xml_report, 'wb') as output:
             test_result = xmlrunner.XMLTestRunner(
                 verbosity=verbosity, output=output).run(suite)
-        return None
+        for test in test_list:
+            test_result = unittest.TextTestRunner(verbosity=verbosity).run(
+                loader.loadTestsFromName(test))
+            if test_result.wasSuccessful():
+                succeeded.append(test)
+            elif test_result.failures:
+                failures.append(test_result.failures)
+            elif test_result.errors:
+                errors.append(test_result.errors)
+        summary = {"PASSED": succeeded, "FAILED": failures, "ERRORS": errors}
+        return summary
     else:
         for test in test_list:
             test_result = unittest.TextTestRunner(verbosity=verbosity).run(
@@ -302,6 +323,7 @@ def print_results(status_list, invalid_list):
                     module_classname, 0) + 1
         for k in test_class_name:
             print('Number of tests ' + key + ' ' + k, test_class_name[k])
+    assert False
 
 
 if __name__ == '__main__':
