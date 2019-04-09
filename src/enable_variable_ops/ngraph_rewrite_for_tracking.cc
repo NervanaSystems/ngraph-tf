@@ -108,29 +108,6 @@ Status RewriteForTracking(Graph* graph, int graph_id) {
       TF_RETURN_IF_ERROR(ReplaceInputControlEdges(graph, node, replacement));
       TF_RETURN_IF_ERROR(ReplaceOutputEdges(graph, node, replacement));
 
-      // // Only add incoming control edges. Incoming data edges
-      // // are already added when building node def
-      // NGRAPH_VLOG(4) << "Replacing in-edges that are control edges ";
-      // for (auto edge : node->in_edges()) {
-      //   if (edge->IsControlEdge()) {
-      //     graph->AddEdge(edge->src(), -1, replacement, -1);
-      //     graph->RemoveEdge(edge);
-      //   }
-      // }
-
-      // NGRAPH_VLOG(4) << "Replacing out-edges";
-      // std::vector<const Edge*> edges;
-      // for (auto edge : node->out_edges()) {
-      //   edges.push_back(edge);
-      // }
-
-      // for (auto edge : edges) {
-      //   graph->AddEdge(replacement, edge->src_output(), edge->dst(),
-      //                  edge->dst_input());
-      //   graph->RemoveEdge(edge);
-      // }
-      // NGRAPH_VLOG(1) << "Replaced " << edges.size() << " of output edges ";
-
       replaced_nodes.push_back(node);
 
     }  // end of checking if it is NGVariableType
