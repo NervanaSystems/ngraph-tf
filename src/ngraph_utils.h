@@ -57,17 +57,11 @@ void WriteNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
 
 void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out);
 
-// Node-types that operate on a variable
+// Node-types on a variable and are executed on nGraph
 bool IsNGVariableType(string node_type);
 
-// Node-types that are supported by nGraph
+// Node-types that are executed on nGraph
 bool IsNGSupportedType(string node_type);
-
-// Assign series
-bool IsTFAssignType(string node_type);
-bool IsNGAssignType(string node_type);
-
-string GetNGAssignType(string tf_node_type);
 
 // Taken from: tensorflow/core/grappler/optimizers/arithmetic_optimizer.cc
 // Extract values from a Const op to `values`. Returns true if succeeds.

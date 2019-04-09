@@ -67,32 +67,12 @@ std::string DebugNode(Node* node) {
 std::string PrintBool(bool var) { return (var ? "Yes" : "No"); }
 
 bool IsNGVariableType(string node_type) {
-  return (node_type == "NGraphVariable" || IsNGAssignType(node_type) ||
-          node_type == "NGraphApplyGradientDescent");
+  return (node_type == "NGraphVariable" || node_type == "NGraphAssign");
 };
 
 bool IsNGSupportedType(string node_type) {
-  return (node_type == "NGraphVariable" || IsNGAssignType(node_type) ||
-          node_type == "NGraphEncapsulate");
+  return (IsNGVariableType(node_type) || node_type == "NGraphEncapsulate");
 };
-
-bool IsTFAssignType(string node_type) {
-  return (node_type == "Assign" || node_type == "AssignSub" ||
-          node_type == "AssignAdd");
-};
-
-bool IsNGAssignType(string node_type) {
-  return (node_type == "NGraphAssign" || node_type == "NGraphAssignSub" ||
-          node_type == "NGraphAssignAdd");
-};
-
-string GetNGAssignType(string tf_node_type) {
-  static map<string, string> assing_ops_replacement_map = {
-      {"Assign", "NGraphAssign"},
-      {"AssignSub", "NGraphAssignSub"},
-      {"AssignAdd", "NGraphAssignAdd"}};
-  return assing_ops_replacement_map[tf_node_type];
-}
 
 // Read from this ng_tensor into tf_tensor
 void ReadNGTensor(shared_ptr<ng::runtime::Tensor> ng_tensor,
