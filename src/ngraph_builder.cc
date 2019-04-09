@@ -1958,6 +1958,11 @@ static Status TranslateGatherV2Op(
   } else {
     axis = tf_axis[0] + ng_input_rank;
   }
+  if (axis < 0 || axis >= ng_input_rank) {
+    return errors::InvalidArgument("Expected axis in the range [-",
+                                   ng_input_rank, ", ", ng_input_rank,
+                                   "), but got ", tf_axis[0]);
+  }
 
   shared_ptr<ng::Node> ng_gather =
       backend->get_backend_op("Gather", &ng_input, &coords, &axis);

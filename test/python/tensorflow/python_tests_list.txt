@@ -189,6 +189,9 @@ gather_op_test.GatherTest.testUnknownIndices
 gather_op_test.GatherTest.test_session
 #gather_op_test.GatherTest.testHigherRank ..ERROR
 
+# This test set fails on NNPI
+#batch_gather_op_test
+
 identity_n_op_py_test.IdentityNOpTest.testInt32String_6 
 identity_n_op_py_test.IdentityNOpTest.testInt32_shapes
 
