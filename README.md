@@ -48,7 +48,7 @@ This will produce something like this:
 
         TensorFlow version:  1.13.1
         nGraph bridge version: b'0.12.0-rc4'
-        nGraph version used for this build: b'0.17.0-rc.1+045b71e'
+        nGraph version used for this build: b'0.18.0-rc.1+045b71e'
         TensorFlow version used for this build: v1.13.1-0-g6612da8951
         CXX11_ABI flag used for this build: 1
 
