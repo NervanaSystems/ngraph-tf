@@ -1,0 +1,37 @@
+diff --git a/research/slim/eval_image_classifier.py b/research/slim/eval_image_classifier.py
+index 8a42641f..b0979a41 100644
+--- a/research/slim/eval_image_classifier.py
++++ b/research/slim/eval_image_classifier.py
+@@ -20,6 +20,7 @@ from __future__ import print_function
+ 
+ import math
+ import tensorflow as tf
++import ngraph_bridge
++from tensorflow.core.protobuf import rewriter_config_pb2
+ 
+ from datasets import dataset_factory
+ from nets import nets_factory
+@@ -183,14 +184,21 @@ def main(_):
+       checkpoint_path = FLAGS.checkpoint_path
+ 
+     tf.logging.info('Evaluating %s' % checkpoint_path)
+-
++    rewrite_options = rewriter_config_pb2.RewriterConfig(custom_optimizers=[
++        rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
++            name="ng-optimizer")
++    ])
++    config = tf.ConfigProto(
++        graph_options=tf.GraphOptions(rewrite_options=rewrite_options))
+     slim.evaluation.evaluate_once(
+         master=FLAGS.master,
+         checkpoint_path=checkpoint_path,
+         logdir=FLAGS.eval_dir,
+         num_evals=num_batches,
++        max_num_batches=2,
+         eval_op=list(names_to_updates.values()),
+-        variables_to_restore=variables_to_restore)
++        variables_to_restore=variables_to_restore,
++        session_config=config)
+ 
+ 
+ if __name__ == '__main__':
