@@ -22,7 +22,7 @@ namespace tensorflow {
 
 namespace ngraph_bridge {
 
-Status EncapsulateClusters(Graph* graph);
+Status EncapsulateClusters(Graph* graph, int graph_id);
 
 }  // namespace ngraph_bridge
 

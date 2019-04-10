@@ -103,9 +103,10 @@ def load_venv(venv_dir):
     # The execfile API is for Python 2. We keep here just in case you are on an
     # obscure system without Python 3
     # execfile(activate_this_file, dict(__file__=activate_this_file))
-    exec (compile(
-        open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
-          dict(__file__=activate_this_file), dict(__file__=activate_this_file))
+    exec(
+        compile(
+            open(activate_this_file, "rb").read(), activate_this_file, 'exec'),
+        dict(__file__=activate_this_file), dict(__file__=activate_this_file))
 
     return venv_dir
 
@@ -347,7 +348,7 @@ def install_ngraph_tf(venv_dir, ngtf_pip_whl):
     command_executor(["pip", "install", "-U", ngtf_pip_whl])
 
     import tensorflow as tf
-    print('Version information:')
+    print('\033[1;34mVersion information\033[0m')
     print('TensorFlow version: ', tf.__version__)
     print('C Compiler version used in building TensorFlow: ',
           tf.__compiler_version__)

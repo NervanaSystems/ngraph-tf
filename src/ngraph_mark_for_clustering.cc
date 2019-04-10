@@ -61,6 +61,14 @@ static Status NGraphPlacementRequested(Node* node, bool& placement_ok) {
   return Status::OK();
 }
 
+static Status CheckIfOutputNode(const Node* node,
+                                const std::vector<string> skip_these_nodes,
+                                bool& skip_it) {
+  skip_it = std::find(skip_these_nodes.begin(), skip_these_nodes.end(),
+                      node->name()) != skip_these_nodes.end();
+  return Status::OK();
+}
+
 // Checks if the node's inputs meet all the type constraints
 static Status TypeConstraintOk(Node* node,
                                TypeConstraintMap& type_constraint_map,
@@ -129,7 +137,8 @@ static ConfirmationFunction SimpleConfirmationFunction() {
 //
 // Main entry point for the marking pass.
 //
-Status MarkForClustering(Graph* graph) {
+Status MarkForClustering(Graph* graph,
+                         const std::vector<string> skip_these_nodes) {
   //
   // A map of op types (e.g. "Add") to type constraint maps. For (fake)
   // example:
@@ -257,6 +266,7 @@ Status MarkForClustering(Graph* graph) {
         TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "is_training", result));
         return Status::OK();
       };
+      confirmation_function_map["_FusedConv2D"] = SimpleConfirmationFunction();
       confirmation_function_map["Greater"] = SimpleConfirmationFunction();
       confirmation_function_map["GreaterEqual"] = SimpleConfirmationFunction();
 #if defined NGRAPH_DISTRIBUTED
@@ -284,6 +294,7 @@ Status MarkForClustering(Graph* graph) {
       confirmation_function_map["Minimum"] = SimpleConfirmationFunction();
       confirmation_function_map["Mul"] = SimpleConfirmationFunction();
       confirmation_function_map["Neg"] = SimpleConfirmationFunction();
+      confirmation_function_map["OneHot"] = SimpleConfirmationFunction();
       confirmation_function_map["Pad"] = SimpleConfirmationFunction();
       confirmation_function_map["Pow"] = SimpleConfirmationFunction();
       confirmation_function_map["PreventGradient"] =
@@ -421,6 +432,10 @@ Status MarkForClustering(Graph* graph) {
       // DT_FLOAT
       type_constraint_map["FusedBatchNormV2"]["T"] = {DT_FLOAT};
       type_constraint_map["FusedBatchNormGrad"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["GatherV2"]["Tparams"] = NGraphDTypes();
+      type_constraint_map["GatherV2"]["Tindices"] = NGraphIndexDTypes();
+      type_constraint_map["GatherV2"]["Taxis"] = NGraphIndexDTypes();
+      type_constraint_map["_FusedConv2D"]["T"] = NGraphRealDTypes();
       type_constraint_map["Greater"]["T"] = NGraphDTypes();
       type_constraint_map["GreaterEqual"]["T"] = NGraphDTypes();
 #if defined NGRAPH_DISTRIBUTED
@@ -448,6 +463,9 @@ Status MarkForClustering(Graph* graph) {
       type_constraint_map["Minimum"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Mul"]["T"] = NGraphNumericDTypes();
       type_constraint_map["Neg"]["T"] = NGraphNumericDTypes();
+      type_constraint_map["NonMaxSuppressionV4"]["T"] = {
+          DT_FLOAT};  // TF allows half too
+      type_constraint_map["OneHot"]["T"] = NGraphDTypes();
       type_constraint_map["Pack"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["T"] = NGraphDTypes();
       type_constraint_map["Pad"]["Tpaddings"] = NGraphIndexDTypes();
@@ -557,9 +575,12 @@ Status MarkForClustering(Graph* graph) {
       set_attributes_map["Conv2DBackpropInput"] = SetStaticInputs({0});
       set_attributes_map["ExpandDims"] = SetStaticInputs({1});
       set_attributes_map["Fill"] = SetStaticInputs({0});
+      set_attributes_map["GatherV2"] = SetStaticInputs({1, 2});
       set_attributes_map["Max"] = SetStaticInputs({1});
       set_attributes_map["Mean"] = SetStaticInputs({1});
       set_attributes_map["Min"] = SetStaticInputs({1});
+      set_attributes_map["NonMaxSuppressionV4"] = SetStaticInputs({2, 3, 4});
+      set_attributes_map["OneHot"] = SetStaticInputs({1});
       set_attributes_map["Pad"] = SetStaticInputs({1});
       set_attributes_map["Prod"] = SetStaticInputs({1});
       set_attributes_map["QuantizeAndDequantizeV2"] = SetStaticInputs({1, 2});
@@ -597,14 +618,62 @@ Status MarkForClustering(Graph* graph) {
     }
   }
 
+  // Set Attributes for nodes marked for clustering
+  // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
+  // 2. Set the backend for each op
+  // 3. Set any other attributes as defined in set_attribute_map
+  string current_backend = BackendManager::GetCurrentlySetBackendName();
+  const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
+  if (ng_backend_env_value != nullptr) {
+    string backend_env = std::string(ng_backend_env_value);
+    if (backend_env.empty() ||
+        !BackendManager::IsSupportedBackend(backend_env)) {
+      return errors::Internal("NGRAPH_TF_BACKEND: ", backend_env,
+                              " is not supported");
+    }
+    current_backend = backend_env;
+  }
+
+  // Right now it cannot be inside the if(!initialized) block, because it is
+  // backend dependent, which might change with different sess.run()s
+  confirmation_function_map["GatherV2"] = [&current_backend](Node* n,
+                                                             bool* result) {
+    // TODO: replace current_backend ->
+    // BackendManager::GetCurrentlySetBackendName()
+    *result = (current_backend == "NNPI");
+    return Status::OK();
+  };
+
+  confirmation_function_map["NonMaxSuppressionV4"] = [&current_backend](
+      Node* n, bool* result) {
+    *result = (current_backend == "NNPI");
+    return Status::OK();
+  };
+
   std::unordered_map<string, int> no_support_histogram;
   std::unordered_map<string, int> fail_confirmation_histogram;
   std::unordered_map<string, int> fail_constraint_histogram;
   vector<Node*> nodes_marked_for_clustering;
+  vector<Node*> variable_type_nodes;
+
   for (auto node : graph->op_nodes()) {
     bool mark_for_clustering = false;
 
+    if (IsNGVariableType(node->type_string())) {
+      variable_type_nodes.push_back(node);
+      continue;
+    }
+
     do {
+      // check if output node
+      bool skip_it = false;
+      TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
+      if (skip_it) {
+        NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+                       << " - skip marking it for clustering";
+        break;
+      }
+
       // check placement
       bool placement_ok = false;
       TF_RETURN_IF_ERROR(NGraphPlacementRequested(node, placement_ok));
@@ -672,23 +741,6 @@ Status MarkForClustering(Graph* graph) {
     std::cout << "\n";
   }
 
-  // Set Attributes for nodes marked for clustering
-  // 1. Set Attribute "_ngraph_marked_for_clustering" as "true"
-  // 2. Set the backend for each op
-  // 3. Set any other attributes as defined in set_attribute_map
-  string current_backend = BackendManager::GetCurrentlySetBackendName();
-  const char* ng_backend_env_value = std::getenv("NGRAPH_TF_BACKEND");
-  if (ng_backend_env_value != nullptr) {
-    string backend_env = std::string(ng_backend_env_value);
-    if (backend_env.empty() ||
-        !BackendManager::IsSupportedBackend(backend_env)) {
-      return errors::Internal("NGRAPH_TF_BACKEND: ", backend_env,
-                              " is not supported");
-    }
-    current_backend = backend_env;
-  }
-  NGRAPH_VLOG(5) << "Found NG Backend " << current_backend;
-
   for (auto node : nodes_marked_for_clustering) {
     // TODO(amprocte): move attr name to a constant
     node->AddAttr("_ngraph_marked_for_clustering", true);
@@ -697,6 +749,10 @@ Status MarkForClustering(Graph* graph) {
     if (it != set_attributes_map.end()) {
       TF_RETURN_IF_ERROR(it->second(node));
     }
+  }
+
+  for (auto node : variable_type_nodes) {
+    SetNodeBackend(node, current_backend);
   }
 
   return Status::OK();
@@ -723,7 +779,7 @@ bool InputIsStatic(const Node* node, int index) {
   return std::find(inputs.begin(), inputs.end(), index) != inputs.end();
 }
 
-Status GetNodeBackend(Node* node, string* backend_name) {
+Status GetNodeBackend(const Node* node, string* backend_name) {
   // TODO(amprocte): move attr name to a constant
   NGRAPH_VLOG(5) << "Getting backend " << node->name();
   TF_RETURN_IF_ERROR(
