@@ -91,8 +91,6 @@ class NGraphVar : public ResourceBase {
   bool sync_ng_tensor_;
   ~NGraphVar() override {
     // Release the backend
-    NGRAPH_VLOG(2) << "~NGraphVar";
-    // ng_tensor().reset();
     NGRAPH_VLOG(2) << "~NGraphVar::ReleaseBackend";
     BackendManager::ReleaseBackend(ng_backend_name_);
   }
