@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ static bool IsOutputNode(const Node* node,
                          const std::set<string> skip_these_nodes) {
   bool found = skip_these_nodes.find(node->name()) != skip_these_nodes.end();
   if (found) {
-    NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+    NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Found Output Node: " << node->name()
                    << " - skip capturing it";
   }
   return found;

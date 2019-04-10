@@ -40,8 +40,8 @@ namespace ngraph_bridge {
 Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                                  const tensorflow::grappler::GrapplerItem& item,
                                  GraphDef* output) {
-  NGRAPH_VLOG(5) << "Here at NgraphOptimizer ";
-  NGRAPH_VLOG(5) << "NgraphOptimizer : grappler item id " << item.id;
+  NGRAPH_VLOG(1) << "[NGTF-OPTIMIZER] Here at NgraphOptimizer ";
+  NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] NgraphOptimizer : grappler item id " << item.id;
 
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
@@ -65,7 +65,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   // passes become a no-op.
   if (config::IsEnabled() == false ||
       std::getenv("NGRAPH_TF_DISABLE") != nullptr) {
-    NGRAPH_VLOG(0) << "Ngraph is disabled ";
+    NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Ngraph is disabled ";
     graph.ToGraphDef(output);
     return Status::OK();
   }
@@ -86,7 +86,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
     bool ref_type = false;
     fetch_node = fetch_nodes.find(node->name()) != fetch_nodes.end();
     if (fetch_node) {
-      NGRAPH_VLOG(5) << "Fetch Node " << node->name();
+      NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Fetch Node " << node->name();
       // Check the number of outputs of the 'fetch_node'
       // Only move further to create an IdentityN node
       // if it is greater than 0
@@ -99,7 +99,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
           if (!IsRefType(node->output_type(i))) {
             input_types.push_back(node->output_type(i));
           } else {
-            NGRAPH_VLOG(5) << DataTypeString(node->output_type(i))
+            NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] " << DataTypeString(node->output_type(i))
                            << " is ref type";
             ref_type = true;
             break;
@@ -108,11 +108,11 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         }
 
         if (ref_type) {
-          NGRAPH_VLOG(5) << "Cannot construct an IdentityN node";
+          NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Cannot construct an IdentityN node";
           continue;
         }
 
-        NGRAPH_VLOG(5) << "Creating an IdentityN node";
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Creating an IdentityN node";
         Node* identityN_node;
         TF_RETURN_IF_ERROR(NodeBuilder(node->name(), "IdentityN")
                                .Attr("T", input_types)
@@ -127,10 +127,10 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         // We will use the 'original-node-name_ng' as the prefix
         string new_name = input_graph->NewName(node->name() + "_ngraph");
         node->set_name(new_name);
-        NGRAPH_VLOG(5) << "New name for skip node " << node->name();
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] New name for fetch node " << node->name();
       } else {
-        NGRAPH_VLOG(5) << "num outputs " << node->num_outputs();
-        NGRAPH_VLOG(5) << "Cannot construct an IdentityN node";
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] num outputs " << node->num_outputs();
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Cannot construct an IdentityN node";
       }
     }
   }
@@ -224,9 +224,9 @@ void NgraphOptimizer::DumpGraphs(Graph& graph, int idx,
   // If we have a "main" graph, dump that.
   auto dot_filename = DotFilename(filename_prefix, idx);
   auto pbtxt_filename = PbtxtFilename(filename_prefix, idx);
-  NGRAPH_VLOG(0) << "NGRAPH-TF OPTIMIZER Dumping main graph to "
+  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to "
                  << dot_filename;
-  NGRAPH_VLOG(0) << "NGRAPH-TF OPTIMIZER Dumping main graph to "
+  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to "
                  << pbtxt_filename;
 
   GraphToDotFile(&graph, dot_filename, title);

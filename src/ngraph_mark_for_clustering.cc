@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -619,7 +619,7 @@ Status MarkForClustering(Graph* graph,
       bool skip_it = false;
       TF_RETURN_IF_ERROR(CheckIfOutputNode(node, skip_these_nodes, skip_it));
       if (skip_it) {
-        NGRAPH_VLOG(5) << "Found Output Node: " << node->name()
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Found Output Node: " << node->name()
                        << " - skip marking it for clustering";
         break;
       }
