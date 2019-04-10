@@ -90,21 +90,3 @@ class TestSelect(NgraphTest):
 
         assert (
             self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()
-
-    #failing test case
-    @pytest.mark.skip(
-        reason=
-        "First dimension of input tensor should match the shape of condition tensor"
-    )
-    def test_select_fail(self):
-        a = np.random.randint(2, size=[5])
-        x = np.random.uniform(0, 11, [4, 3, 1])
-
-        p = tf.placeholder(dtype=tf.bool)
-        out = tf.where(p, x, x)
-
-        def run_test(sess):
-            return (sess.run(out, feed_dict={p: a}))
-
-        assert (
-            self.with_ngraph(run_test) == self.without_ngraph(run_test)).all()

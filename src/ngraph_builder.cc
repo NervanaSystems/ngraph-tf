@@ -4293,7 +4293,7 @@ static Status TranslateSelectOp(
         "match the size of condition.");
   }
 
-  int length;
+  int length = 0;
   shared_ptr<ng::Node> ng_input_new, ng_select;
   ng::AxisVector ng_axis_order;
 
