@@ -445,7 +445,7 @@ split_op_test.SplitOpTest.testSplitDim0
 split_op_test.SplitOpTest.testSplitRows
 
 #topk_op_test.TopKTest.testKNegative
-#topk_op_test.TopKTest.testKTooLarge
+topk_op_test.TopKTest.testKTooLarge
 topk_op_test.TopKTest.testLargeSort
 topk_op_test.TopKTest.testLargeTopK
 topk_op_test.TopKTest.testMediumTopK
