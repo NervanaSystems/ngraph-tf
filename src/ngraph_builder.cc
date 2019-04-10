@@ -4295,9 +4295,8 @@ static Status TranslateSelectOp(
 
   int length = 0;
   shared_ptr<ng::Node> ng_input_new, ng_select;
-  ng::AxisVector ng_axis_order;
 
-  // If input tensor has higher rank than condiiton, length witll be > 0.
+  // If input tensor has higher rank than condiiton, length will be > 0.
   length = ng_input2_rank - ng_input1_rank;
 
   if (length != 0) {
@@ -4307,14 +4306,11 @@ static Status TranslateSelectOp(
     // Eg: condition tensor [7], input tensor [7, 3, 2, 1]
     // After Reshape, condition tensor will be [7, 1 ,1 ,1] for auto broadcast.
 
-    std::vector<size_t> tmp_vector((length + ng_input1_rank), 1);
+    std::vector<size_t> tmp_vector((ng_input2_rank), 1);
     tmp_vector[0] = ng_input1_shape[0];
-    for (size_t i = 0; i < ng_input1_rank; i++) {
-      ng_axis_order.push_back(i);
-    }
 
-    ng_input_new = ConstructNgNode<ng::op::Reshape>(op->name(), ng_input1,
-                                                    ng_axis_order, tmp_vector);
+    ng_input_new = ConstructNgNode<ng::op::Reshape>(
+        op->name(), ng_input1, ng::AxisVector{0}, tmp_vector);
   }
 
   std::tie(ng_input1, ng_input2) = ng::builder::numpy_broadcast(std::make_pair(
