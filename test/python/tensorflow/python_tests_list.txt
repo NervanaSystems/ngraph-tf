@@ -444,19 +444,19 @@ split_op_test.SplitOpTest.testSplitCols
 split_op_test.SplitOpTest.testSplitDim0
 split_op_test.SplitOpTest.testSplitRows
 
-topk_op_test.TopKTest.testKNegative
-topk_op_test.TopKTest.testKTooLarge
+#topk_op_test.TopKTest.testKNegative
+#topk_op_test.TopKTest.testKTooLarge
 topk_op_test.TopKTest.testLargeSort
 topk_op_test.TopKTest.testLargeTopK
 topk_op_test.TopKTest.testMediumTopK
-topk_op_test.TopKTest.testStableSort
-topk_op_test.TopKTest.testTensorK
-topk_op_test.TopKTest.testTop1
+#topk_op_test.TopKTest.testStableSort
+#topk_op_test.TopKTest.testTensorK
+#topk_op_test.TopKTest.testTop1
 topk_op_test.TopKTest.testTop2
 topk_op_test.TopKTest.testTop3
 topk_op_test.TopKTest.testTop3Unsorted
-topk_op_test.TopKTest.testTop3Vector
-topk_op_test.TopKTest.testTopAll
+#topk_op_test.TopKTest.testTop3Vector
+#topk_op_test.TopKTest.testTopAll
 topk_op_test.TopKTest.testTopKGradients
 topk_op_test.TopKTest.test_session
 
