@@ -50,7 +50,11 @@ class NGraphApplyGradientDescentOp : public OpKernel {
  private:
  public:
   explicit NGraphApplyGradientDescentOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+      : OpKernel(context) {
+    OP_REQUIRES(context, false,
+                errors::Internal("This constructor should not get called",
+                                 name(), "\n"));
+  }
 
   //---------------------------------------------------------------------------
   //  ~NGraphApplyGradientDescentOp()
@@ -58,8 +62,12 @@ class NGraphApplyGradientDescentOp : public OpKernel {
   ~NGraphApplyGradientDescentOp() override {}
 
   // This will never be called
-  void Compute(OpKernelContext* context) override {}  // end of compute function
-};  // end of NGraphApplyGradientDescent class definition
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }  // end of compute function
+};   // end of NGraphApplyGradientDescent class definition
 
 REGISTER_OP("NGraphApplyGradientDescent")
     .Input("var: Ref(T)")
@@ -89,9 +97,17 @@ class NGraphAssignSubOp : public OpKernel {
 
  public:
   explicit NGraphAssignSubOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+      : OpKernel(context) {
+    OP_REQUIRES(context, false,
+                errors::Internal("This constructor should not get called",
+                                 name(), "\n"));
+  }
 
-  void Compute(OpKernelContext* context) override {}
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }
 };
 
 REGISTER_OP("NGraphAssignSub")
@@ -118,9 +134,17 @@ REGISTER_KERNEL_BUILDER(Name("NGraphAssignSub").Device(DEVICE_CPU),
 class NGraphAssignAddOp : public OpKernel {
  public:
   explicit NGraphAssignAddOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+      : OpKernel(context) {
+    OP_REQUIRES(context, false,
+                errors::Internal("This constructor should not get called",
+                                 name(), "\n"));
+  }
 
-  void Compute(OpKernelContext* context) override {}
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }
 
  private:
   ~NGraphAssignAddOp() override {}
