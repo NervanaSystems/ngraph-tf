@@ -58,8 +58,12 @@ class NGraphApplyGradientDescentOp : public OpKernel {
   ~NGraphApplyGradientDescentOp() override {}
 
   // This will never be called
-  void Compute(OpKernelContext* context) override {}  // end of compute function
-};  // end of NGraphApplyGradientDescent class definition
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }  // end of compute function
+};   // end of NGraphApplyGradientDescent class definition
 
 REGISTER_OP("NGraphApplyGradientDescent")
     .Input("var: Ref(T)")
@@ -91,7 +95,11 @@ class NGraphAssignSubOp : public OpKernel {
   explicit NGraphAssignSubOp(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext* context) override {}
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }
 };
 
 REGISTER_OP("NGraphAssignSub")
@@ -120,7 +128,11 @@ class NGraphAssignAddOp : public OpKernel {
   explicit NGraphAssignAddOp(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext* context) override {}
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES(
+        context, false,
+        errors::Internal("This kernel should not get called", name(), "\n"));
+  }
 
  private:
   ~NGraphAssignAddOp() override {}
