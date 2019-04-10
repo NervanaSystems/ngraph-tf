@@ -59,7 +59,7 @@ class NGraphCatalog {
   //   otherwise
   //     string : GraphId + _ + nodename + : + output_index
   // Value : shared_ptr<ng::runtime::Tensor>
-  static map<string, shared_ptr<ng::runtime::Tensor>> output_tensor_map_;
+  static map<string, shared_ptr<ng::runtime::Tensor>> encap_output_tensor_map_;
 
   // Map keeps track of output indexes of NGraphEncapsulate Op
   // that will be used by TF Nodes or other NGraphEncapsulate Op
@@ -89,7 +89,7 @@ class NGraphCatalog {
   static bool ExistsInInputVariableSharedNameMap(int graphid, string node_name,
                                                  int input_index);
 
-  // Functions for OutputTensorMap
+  // Functions for EncapOutputTensorMap
   static void AddToEncapOutputTensorMap(string key,
                                         shared_ptr<ng::runtime::Tensor> ng_val);
   static bool ExistsInEncapOutputTensorMap(string key);

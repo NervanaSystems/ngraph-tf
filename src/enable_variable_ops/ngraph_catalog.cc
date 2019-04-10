@@ -28,7 +28,8 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 unordered_map<string, string> NGraphCatalog::input_variable_sharedname_map_;
-map<string, shared_ptr<ng::runtime::Tensor>> NGraphCatalog::output_tensor_map_;
+map<string, shared_ptr<ng::runtime::Tensor>>
+    NGraphCatalog::encap_output_tensor_map_;
 unordered_map<string, unordered_set<int>>
     NGraphCatalog::encap_output_copy_indexes_map_;
 
@@ -63,12 +64,12 @@ string NGraphCatalog::CreateNodeKey(int graph_id, string node_name, int index) {
 // Functions for OutputTensorMap
 void NGraphCatalog::AddToEncapOutputTensorMap(
     string key, shared_ptr<ng::runtime::Tensor> ng_val) {
-  NGraphCatalog::output_tensor_map_[key] = ng_val;
+  NGraphCatalog::encap_output_tensor_map_[key] = ng_val;
 }
 
 bool NGraphCatalog::ExistsInEncapOutputTensorMap(string key) {
-  auto itr = NGraphCatalog::output_tensor_map_.find(key);
-  return itr != NGraphCatalog::output_tensor_map_.end();
+  auto itr = NGraphCatalog::encap_output_tensor_map_.find(key);
+  return itr != NGraphCatalog::encap_output_tensor_map_.end();
 }
 
 bool NGraphCatalog::ExistsInEncapOutputTensorMap(int graphid, string node_name,
@@ -79,11 +80,11 @@ bool NGraphCatalog::ExistsInEncapOutputTensorMap(int graphid, string node_name,
 
 shared_ptr<ng::runtime::Tensor>
 NGraphCatalog::GetTensorFromEncapOutputTensorMap(string key) {
-  return NGraphCatalog::output_tensor_map_[key];
+  return NGraphCatalog::encap_output_tensor_map_[key];
 }
 
 void NGraphCatalog::DeleteFromEncapOutputTensorMap(string key) {
-  NGraphCatalog::output_tensor_map_.erase(key);
+  NGraphCatalog::encap_output_tensor_map_.erase(key);
 }
 
 // Functions relating Input Variable Shared Name Map
