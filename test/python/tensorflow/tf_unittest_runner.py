@@ -69,14 +69,10 @@ def main():
         print('\n'.join(test_list[0]))
     if (arguments.run_test):
         test_list = get_test_list(arguments.tensorflow_path, arguments.run_test)
-        test_list, test_result = run_test(test_list[0], xml_report)
-        results = parse_test_results(test_list, test_result)
-        status = print_results(results, test_list[1])
-        if status == False:
-            for key in ["ERRORS", "FAILED"]:
-                test_name = results[key][0][0][0].id()
-                print('\n')
-                raise Exception(test_name + ' failed due to ' + key)
+        tests, test_result = run_test(test_list[0], xml_report)
+        results = parse_test_results(tests, test_result)
+        status = print_and_check_results(results, tests)
+        return status, results
 
     if (arguments.run_tests_from_file):
         all_test_list = []
@@ -90,14 +86,10 @@ def main():
             test_list = list(set(test_list[0]))
             for test_name in test_list:
                 all_test_list.append(test_name)
-        test_list, test_result = run_test(all_test_list, xml_report)
-        results = parse_test_results(test_list, test_result)
-        status = print_results(results, invalid_list)
-        if status == False:
-            for key in ["ERRORS", "FAILED"]:
-                test_name = results[key][0][0][0].id()
-                print('\n')
-                raise Exception(test_name + ' failed due to ' + key)
+        tests, test_result = run_test(all_test_list, xml_report)
+        results = parse_test_results(tests, test_result)
+        status = print_and_check_results(results, invalid_list)
+        return status, results
 
 
 def get_test_list(tf_path, test_regex):
@@ -279,7 +271,7 @@ def parse_test_results(test_list, test_result):
     return summary
 
 
-def print_results(test_result, invalid_list):
+def print_and_check_results(test_result, invalid_list):
     """
     Prints the results of the tests run and the stats.
     Prints the list of invalid tests if any.
@@ -330,4 +322,8 @@ def print_results(test_result, invalid_list):
 
 
 if __name__ == '__main__':
-    main()
+    status, results = main()
+    if status == False:
+        for key in ["ERRORS", "FAILED"]:
+            test_name = results[key][0][0][0].id()
+            raise Exception(test_name + ' failed due to ' + key)
