@@ -4313,8 +4313,8 @@ static Status TranslateSelectOp(
         op->name(), ng_input1, ng::AxisVector{0}, tmp_vector);
   }
 
-  std::tie(ng_input1, ng_input2) = ng::builder::numpy_broadcast(std::make_pair(
-      ng_input1 = length != 0 ? ng_input_new : ng_input1, ng_input2));
+  std::tie(ng_input1, ng_input2) = ng::builder::numpy_broadcast(
+      std::make_pair(length != 0 ? ng_input_new : ng_input1, ng_input2));
   std::tie(ng_input2, ng_input3) =
       ng::builder::numpy_broadcast(std::make_pair(ng_input2, ng_input3));
 
