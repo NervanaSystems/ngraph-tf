@@ -1,8 +1,8 @@
   
   ### To use the ngraph-optimizer, you will need to apply the corresponding patch to the model you want to run
   
-| Model        | Patch File      |
-|:------------:|:---------------:|
+| Model        | Patch File      | Notes|
+|:------------:|:---------------:|:-------:|
 | Densenet |  benchmarks_cnn_ng_optimizer.patch|
 |Inception-v3|benchmarks_cnn_ng_optimizer.patch|
 |Inception-v4| benchmarks_cnn_ng_optimizer.patch|
@@ -25,3 +25,6 @@
 |YOLO |build_ng_optimizer.patch|
 |NCF |ncf_main_ng_optimizer.patch|
 |Wide and Deep |wide_deep_ng_optimizer.patch|
+|GNMT|misc_utils_ng_optimizer.patch| Does not run currently because of the Select OP issue|
+|Squeezenet| train_squeezenet_ng_optimizer.patch| Does not run currently - Gives InvalidArgumentError: Default MaxPoolingOp only supports NHWC by default|
+|Transformer - LT| misc_utils_ng_optimizer.patch| Does not run currently - Segmentation Fault |
