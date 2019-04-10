@@ -4297,11 +4297,8 @@ static Status TranslateSelectOp(
   shared_ptr<ng::Node> ng_input_new, ng_select;
   ng::AxisVector ng_axis_order;
 
-  for (size_t i = 0; i < ng_input2_rank; i++) {
-    if (ng_input1_shape[0] == ng_input2_shape[i]) {
-      length = ng_input2_rank - i - ng_input1_rank;
-    }
-  }
+  // If input tensor has higher rank than condiiton, length witll be > 0.
+  length = ng_input2_rank - ng_input1_rank;
 
   if (length != 0) {
     // Condition tensor will be modified to align the condition tensor
