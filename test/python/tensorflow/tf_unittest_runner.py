@@ -243,7 +243,7 @@ def run_test(test_list, xml_report, verbosity=2):
                 verbosity=verbosity, output=output).run(suite)
         for test in test_list:
             if test_result.wasSuccessful():
-                succeeded.append(test_result)
+                succeeded.append(test)
             elif test_result.failures:
                 failures.append(test_result.failures)
             elif test_result.errors:
