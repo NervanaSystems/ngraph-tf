@@ -52,7 +52,7 @@ set(SRC
     test_math_ops.cpp
     test_nn_ops.cpp
     test_array_ops.cpp
-    test_timer.cpp
+    test_variable_ops.cpp
     opexecuter.cpp
 )
 
