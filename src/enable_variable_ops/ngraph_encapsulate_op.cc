@@ -173,9 +173,21 @@ class NGraphEncapsulateOp : public OpKernel {
       // m_freshness_tracker->Unref();
     }
 
+<<<<<<< HEAD
     for (int i = 0; i < m_number_outputs; i++) {
       string key = NGraphCatalog::CreateNodeKey(m_graph_id, name(), i);
       if (NGraphCatalog::ExistsInEncapOutputTensorMap(key)) {
+=======
+    // string node_name = "ngraph_cluster_" + to_string(m_ngraph_cluster);
+    // TODO(malikshr) : Could be erroreneous we dont know if this
+    // destructor is called at the very end, if some modifier that uses this
+    // tensor is still active.
+    for (int i = 0; i < m_number_outputs; i++) {
+      string key = NGraphCatalog::CreateNodeKey(m_graph_id, name(), i);
+      if (NGraphCatalog::ExistsInEncapOutputTensorMap(key)) {
+        // auto temp = NGraphCatalog::GetTensorFromEncapOutputTensorMap(key);
+        // temp.reset();
+>>>>>>> 33481d93885244c4b2ffc6aba1c5dc5df1971878
         NGraphCatalog::DeleteFromEncapOutputTensorMap(key);
         NGRAPH_VLOG(2) << "Deleting from output tensor map " << key;
       }
