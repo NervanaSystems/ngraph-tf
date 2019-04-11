@@ -1919,10 +1919,9 @@ static Status TranslateFusedBatchNormGradOp(
 static Status TranslateGatherV2Op(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
-
   shared_ptr<ng::Node> ng_input, ng_input_coords;
-  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input, &ng_input_coords,
-                                   nullptr));
+  TF_RETURN_IF_ERROR(
+      GetInputNodes(ng_op_map, op, &ng_input, &ng_input_coords, nullptr));
 
   std::vector<int64> tf_axis;
   TF_RETURN_IF_ERROR(GetStaticInputVector(op, 2, static_input_map, &tf_axis));
@@ -1962,8 +1961,8 @@ static Status TranslateGatherV2Op(
   shared_ptr<ng::Node> ng_gather =
       backend->get_backend_op("Gather", &ng_input, &ng_input_coords, &axis);
   if (ng_gather == nullptr) {
-      return errors::Internal("In translating GatherV2 op ", op->name(),
-                              " backend could not return valid ngraph node");
+    return errors::Internal("In translating GatherV2 op ", op->name(),
+                            " backend could not return valid ngraph node");
   }
   SaveNgOp(ng_op_map, op->name(), ng_gather);
 
