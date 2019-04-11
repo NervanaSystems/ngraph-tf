@@ -40,8 +40,9 @@ namespace ngraph_bridge {
 Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                                  const tensorflow::grappler::GrapplerItem& item,
                                  GraphDef* output) {
-  NGRAPH_VLOG(1) << "[NGTF-OPTIMIZER] Here at NgraphOptimizer ";
-  NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] NgraphOptimizer : grappler item id " << item.id;
+  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Here at NgraphOptimizer ";
+  NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] NgraphOptimizer : grappler item id "
+                 << item.id;
 
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
@@ -99,7 +100,8 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
           if (!IsRefType(node->output_type(i))) {
             input_types.push_back(node->output_type(i));
           } else {
-            NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] " << DataTypeString(node->output_type(i))
+            NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] "
+                           << DataTypeString(node->output_type(i))
                            << " is ref type";
             ref_type = true;
             break;
@@ -108,7 +110,8 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         }
 
         if (ref_type) {
-          NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Cannot construct an IdentityN node";
+          NGRAPH_VLOG(5)
+              << "[NGTF-OPTIMIZER] Cannot construct an IdentityN node";
           continue;
         }
 
@@ -127,9 +130,11 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         // We will use the 'original-node-name_ng' as the prefix
         string new_name = input_graph->NewName(node->name() + "_ngraph");
         node->set_name(new_name);
-        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] New name for fetch node " << node->name();
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] New name for fetch node "
+                       << node->name();
       } else {
-        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] num outputs " << node->num_outputs();
+        NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] num outputs "
+                       << node->num_outputs();
         NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] Cannot construct an IdentityN node";
       }
     }
@@ -195,13 +200,13 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
 
   // 4. Encapsulate clusters then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(EncapsulateClusters(&graph));
+  TF_RETURN_IF_ERROR(EncapsulateClusters(&graph, idx));
   if (DumpEncapsulatedGraphs()) {
     DumpGraphs(graph, idx, "encapsulated", "Graph with Clusters Encapsulated");
   }
 
   // Rewrite for tracking then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(RewriteForTracking(&graph));
+  TF_RETURN_IF_ERROR(RewriteForTracking(&graph, idx));
   if (DumpTrackedGraphs()) {
     DumpGraphs(graph, idx, "tracked",
                "Graph with Variables Rewritten for Tracking");
@@ -224,10 +229,8 @@ void NgraphOptimizer::DumpGraphs(Graph& graph, int idx,
   // If we have a "main" graph, dump that.
   auto dot_filename = DotFilename(filename_prefix, idx);
   auto pbtxt_filename = PbtxtFilename(filename_prefix, idx);
-  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to "
-                 << dot_filename;
-  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to "
-                 << pbtxt_filename;
+  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to " << dot_filename;
+  NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Dumping main graph to " << pbtxt_filename;
 
   GraphToDotFile(&graph, dot_filename, title);
   GraphToPbTextFile(&graph, pbtxt_filename);
