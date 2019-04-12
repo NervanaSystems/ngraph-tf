@@ -57,7 +57,7 @@ TensorFlow model scripts and running them the usual way:
 
         import ngraph_bridge
 
-More information on how to use ngraph_bridge is here : https://github.com/NervanaSystems/ngraph-tf/tree/master/examples
+Examples on how to use ngraph_bridge is here : https://github.com/NervanaSystems/ngraph-tf/tree/master/examples
 
 Note: The version of the ngraph-tensorflow-bridge is not going to be exactly the same as when you build from source. This is due to delay in the source release and publishing the corresponding Python wheel. 
 
