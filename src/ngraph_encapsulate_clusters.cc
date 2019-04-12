@@ -489,20 +489,9 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
   GraphDef gdef;
   graph->ToGraphDef(&gdef);
   // whats the relation betwween FunctionLibraryDefinition <-> FunctionDefLibrary
+  //FunctionDefLibrary to FunctionLibraryDefinition: https://github.com/tensorflow/tensorflow/blob/47115477d4ad5dff7c6dec5fc3c5b2f72447bfc2/tensorflow/core/framework/function.h#L328
   FunctionLibraryDefinition flib(OpRegistry::Global(), gdef.library()); // 2nd arg is FunctionDefLibrary
-  // Cretate a new graph
-  //Graph graph_new(flib);
-
-  //cout << SummarizeGraphDef(gdef) << "\n";
-  // HERE: 
-  //TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), gdef, &graph_new));
   for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
-    /*
-    status = RegisterSegmentFunctionToFunctionLibrary(
-          &graph, curr_engine.segment_graph_def, curr_engine.engine_name);
-    */
-
-   cout << cluster_idx << "\n";
     // The gdef representing the computation to be done by an encapsulate
     auto enc_gdef = NGraphClusterManager::GetClusterGraph(cluster_idx);
 
