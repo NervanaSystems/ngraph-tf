@@ -1,4 +1,8 @@
-Test PR
+---------------------------
+| This is a table | Hello |
+---------------------------
+TEST
+TEST
 
 HELO - Testing
 HELO - Testing
