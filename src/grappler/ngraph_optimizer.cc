@@ -132,6 +132,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
         // Get a new name for the node with the given prefix
         // We will use the 'original-node-name_ngraph' as the prefix
         string new_name = input_graph->NewName(node->name() + "_ngraph");
+        // TODO: Use (guaranteed) unique name here
         node->set_name(new_name);
         NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] New name for fetch node "
                        << node->name();
