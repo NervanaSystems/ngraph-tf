@@ -2,10 +2,6 @@
 | This is a table | Hello |
 ---------------------------
 
-HELO - Testing
-HELO - Testing
-HELO - Testing
-HELO - Testing
 
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/NervanaSystems/ngraph-tf/blob/master/LICENSE) 
