@@ -23,6 +23,8 @@
 #include "tensorflow/core/framework/attr_value_util.h"
 #include "tensorflow/core/framework/function.pb.h"
 #include "tensorflow/core/framework/graph.pb.h"
+#include "tensorflow/core/framework/graph_def_util.h"
+#include "tensorflow/core/framework/graph_to_functiondef.h"
 #include "tensorflow/core/framework/node_def_util.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/graph/graph.h"
@@ -481,6 +483,40 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
 
     graph->RemoveNode(node);
   }
+
+  // Pass 6.5: Experimenting with flib
+  // Convert the original graph into a graphdef
+  GraphDef gdef;
+  graph->ToGraphDef(&gdef);
+  // whats the relation betwween FunctionLibraryDefinition <-> FunctionDefLibrary
+  FunctionLibraryDefinition flib(OpRegistry::Global(), gdef.library()); // 2nd arg is FunctionDefLibrary
+  // Cretate a new graph
+  //Graph graph_new(flib);
+
+  //cout << SummarizeGraphDef(gdef) << "\n";
+  // HERE: 
+  //TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), gdef, &graph_new));
+  for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
+    /*
+    status = RegisterSegmentFunctionToFunctionLibrary(
+          &graph, curr_engine.segment_graph_def, curr_engine.engine_name);
+    */
+
+   cout << cluster_idx << "\n";
+    // The gdef representing the computation to be done by an encapsulate
+    auto enc_gdef = NGraphClusterManager::GetClusterGraph(cluster_idx);
+
+    Graph sgraph(graph->flib_def()); // flib_def returns FunctionLibraryDefinition
+    
+    // Converting the computation gdef into a graph
+    TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
+
+    FunctionDefLibrary fdeflib;
+    auto native_segment = fdeflib.add_function();
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), native_segment));
+    TF_RETURN_IF_ERROR(graph->AddFunctionLibrary(fdeflib));
+  }
+  GraphToPbTextFile(graph, "testing.pbtxt");
 
   // Pass 7 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
