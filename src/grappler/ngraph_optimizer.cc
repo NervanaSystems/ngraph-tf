@@ -41,8 +41,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                                  const tensorflow::grappler::GrapplerItem& item,
                                  GraphDef* output) {
   NGRAPH_VLOG(0) << "[NGTF-OPTIMIZER] Here at NgraphOptimizer ";
-  NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] NgraphOptimizer : grappler item id "
-                 << item.id;
+  NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] grappler item id " << item.id;
 
   // Convert the GraphDef to Graph
   GraphConstructorOptions opts;
@@ -79,7 +78,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
   std::set<string>& skip_these_nodes = fetch_nodes;
 
-  // Rewrite graph to add identity node so the skip node can be encapsulated
+  // Rewrite graph to add IdentityN node so the skip node can be encapsulated
   // as well
   Graph* input_graph = &graph;
   for (auto node : input_graph->op_nodes()) {
@@ -92,20 +91,20 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
       // Only move further to create an IdentityN node
       // if it is greater than 0
       // Also, make sure that none of the output types is
-      // a ref type
+      // a ref type because IdentityN does not support
+      // an input of type ref type
       if (node->num_outputs()) {
         std::vector<NodeBuilder::NodeOut> inputs;
         std::vector<DataType> input_types;
         for (int i = 0; i < node->num_outputs(); i++) {
-          if (!IsRefType(node->output_type(i))) {
-            input_types.push_back(node->output_type(i));
-          } else {
+          if (IsRefType(node->output_type(i))) {
             NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] "
-                           << DataTypeString(node->output_type(i))
-                           << " is ref type";
+                           << "Datatype for the node output"
+                           << " at index " << i << "is ref type";
             ref_type = true;
             break;
           }
+          input_types.push_back(node->output_type(i));
           inputs.push_back(NodeBuilder::NodeOut(node, i));
         }
 
@@ -127,7 +126,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
 
         // Rename the skip node
         // Get a new name for the node with the given prefix
-        // We will use the 'original-node-name_ng' as the prefix
+        // We will use the 'original-node-name_ngraph' as the prefix
         string new_name = input_graph->NewName(node->name() + "_ngraph");
         node->set_name(new_name);
         NGRAPH_VLOG(5) << "[NGTF-OPTIMIZER] New name for fetch node "
