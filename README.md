@@ -1,11 +1,6 @@
 ---------------------------
 | This is a table | Hello |
 ---------------------------
-TEST
-TEST
-TEST
-TEST
-TEST
 
 HELO - Testing
 HELO - Testing
