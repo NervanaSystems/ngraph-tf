@@ -78,8 +78,12 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
   std::set<string>& skip_these_nodes = fetch_nodes;
 
-  // Rewrite graph to add IdentityN node so the skip node can be encapsulated
+  // TODO [kkhanna] : Move adding IdentityN to a separate file
+  // Rewrite graph to add IdentityN node so the fetch node can be encapsulated
   // as well
+  // If the fetch node in question has 0 outputs or any of the outputs
+  // has ref type as a data type then don't add IdentityN node, but the fetch
+  // node will be skipped from capturing and marking for clustering.
   Graph* input_graph = &graph;
   for (auto node : input_graph->op_nodes()) {
     bool fetch_node = false;
