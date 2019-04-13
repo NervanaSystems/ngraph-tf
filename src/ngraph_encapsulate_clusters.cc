@@ -72,7 +72,7 @@ static void AddInput(NodeDef* dst, StringPiece src_name, int src_slot) {
 }
 // ...end code copied and pasted (and modified) from graph.cc
 
-Status EncapsulateClusters(Graph* graph, int graph_id) {
+Status EncapsulateClusters(Graph* graph, int graph_id, FunctionLibraryDefinition* flib_def) {
   // A map from cluster indices to the expected device name for nodes
   // in that cluster.
   std::map<int, std::string> device_name_map;
@@ -484,12 +484,17 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
     graph->RemoveNode(node);
   }
 
-  // Pass 6.5: Experimenting with flib
+  // Pass 7: Insert to function library
   // Convert the original graph into a graphdef
+  /******************
   GraphDef gdef;
   graph->ToGraphDef(&gdef);
   // whats the relation betwween FunctionLibraryDefinition <-> FunctionDefLibrary
   //FunctionDefLibrary to FunctionLibraryDefinition: https://github.com/tensorflow/tensorflow/blob/47115477d4ad5dff7c6dec5fc3c5b2f72447bfc2/tensorflow/core/framework/function.h#L328
+  // TODO: can we get what we need from graph, without having to create gdef
+  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/graph_to_functiondef.h
+  // GraphToFunctionDef
+  //ImportGraphDef
   FunctionLibraryDefinition flib(OpRegistry::Global(), gdef.library()); // 2nd arg is FunctionDefLibrary
   for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
     // The gdef representing the computation to be done by an encapsulate
@@ -502,12 +507,35 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
 
     FunctionDefLibrary fdeflib;
     auto native_segment = fdeflib.add_function();
+    // TODO: use UniqueFunctionName ? https://github.com/tensorflow/tensorflow/blob/a326fdb4028b3bf7a08f0420c10571a29d55263f/tensorflow/core/framework/function.h#L377
     TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), native_segment));
     TF_RETURN_IF_ERROR(graph->AddFunctionLibrary(fdeflib));
   }
-  GraphToPbTextFile(graph, "testing.pbtxt");
+  *//////////////
 
-  // Pass 7 (optional, only run if environment variable
+  for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
+    FunctionDef fdef;
+
+    auto enc_gdef = NGraphClusterManager::GetClusterGraph(cluster_idx);
+
+    Graph sgraph(flib_def);
+
+    TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), &fdef));
+
+    flib_def->AddFunctionDef(fdef);
+  }
+
+  std::unique_ptr<Graph> out(new Graph(flib_def));
+  CopyGraph(*graph, out.get());
+
+  GraphToPbTextFile(out.get(), "testing.pbtxt");
+
+
+  //EncapsulateSubgraphsInFunctions: https://github.com/tensorflow/tensorflow/blob/e9d0b39c6eb8da5aa39e78adbc193c866588909a/tensorflow/compiler/jit/encapsulate_subgraphs_pass.cc#L2466
+
+
+  // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
   // make sure we can construct a graph from it.
   if (std::getenv("NGRAPH_TF_DUMP_CLUSTERS")) {

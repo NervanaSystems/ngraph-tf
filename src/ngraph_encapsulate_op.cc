@@ -86,7 +86,45 @@ class NGraphEncapsulateOp : public OpKernel {
     GraphDef* graph_def;
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
-    graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
+    //graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
+
+    // Read graphdef from function library
+    const FunctionLibraryDefinition flib = *ctx->function_library()->GetFunctionLibraryDefinition();
+    const FunctionDef* fdef = flib.Find("Enc_" + to_string(my_instance_id) + "_native_segment");
+    if (fdef == nullptr) {
+      cout << "NOT FOUND ============ \n";
+    } else {
+      cout << "FOUND ============ \n";
+    }
+    cout << flib.num_functions() << "======\n";
+
+  //XlaCompiler::GetGraph
+  //https://github.com/tensorflow/tensorflow/blob/28f2e11366cdfebaa5257aad51124e2dd931dc1e/tensorflow/compiler/tf2xla/xla_compiler.cc#L505
+
+
+  //FunctionLibraryRuntime* GetFLR(const string& device_name) const;
+
+
+
+
+
+/*
+    const FunctionBody* fbody;
+    TF_RETURN_IF_ERROR(FindFunctionBody(function, &fbody));
+
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(CheckSignature(fbody->arg_types, args), 
+    "Signature check failure while compiling: ", function.name());
+
+    std::unique_ptr<Graph> graph = GetGraph(fbody);
+    //std::unique_ptr<Graph> graph(new Graph(options_.flib_def));
+    //CopyGraph(*fbody->graph, graph.get());
+*/
+
+
+
+
+
+
 
     GraphConstructorOptions opts;
     opts.allow_internal_ops = true;
