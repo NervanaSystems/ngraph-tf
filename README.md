@@ -57,7 +57,7 @@ TensorFlow model scripts and running them the usual way:
 
         import ngraph_bridge
 
-Examples on how to use ngraph_bridge is here : https://github.com/NervanaSystems/ngraph-tf/tree/master/examples
+Detailed examples on how to use ngraph_bridge is located in the [examples] directory.
 
 Note: The version of the ngraph-tensorflow-bridge is not going to be exactly the same as when you build from source. This is due to delay in the source release and publishing the corresponding Python wheel. 
 
@@ -170,6 +170,7 @@ See the full documentation here:  <http://ngraph.nervanasys.com/docs/latest>
 [bazel version 0.21.0]: https://github.com/bazelbuild/bazel/releases/tag/0.21.0
 [prepare environment]: https://www.tensorflow.org/install/install_sources#prepare_environment_for_linux
 [diagnostics]:diagnostics/README.md
+[examples]:examples/README.md
 [ops]:http://ngraph.nervanasys.com/docs/latest/ops/index.html
 [nGraph]:https://github.com/NervanaSystems/ngraph 
 [ngraph-tf bridge]:https://github.com/NervanaSystems/ngraph-tf 
