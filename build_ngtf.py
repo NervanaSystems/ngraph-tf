@@ -195,8 +195,8 @@ def main():
         ngraph_version = arguments.ngraph_version
 
     print("nGraph Version: ", ngraph_version)
-    download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
-                  ngraph_version)
+    #download_repo("ngraph", "https://github.com/NervanaSystems/ngraph.git",
+    #              ngraph_version)
 
     # Now build nGraph
     ngraph_cmake_flags = [
@@ -238,7 +238,7 @@ def main():
     else:
         ngraph_cmake_flags.extend(["-DNGRAPH_UNIT_TEST_ENABLE=NO"])
 
-    build_ngraph(build_dir, "./ngraph", ngraph_cmake_flags, verbosity)
+    #build_ngraph(build_dir, "./ngraph", ngraph_cmake_flags, verbosity)
 
     # Next build CMAKE options for the bridge
     tf_src_dir = os.path.abspath("tensorflow")
@@ -282,13 +282,15 @@ def main():
             ["-DNGRAPH_TF_USE_GRAPPLER_OPTIMIZER=FALSE"])
 
     # Now build the bridge
-    ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location,
-                                ngraph_tf_src_dir, venv_dir,
-                                ngraph_tf_cmake_flags, verbosity)
+    #ng_tf_whl = build_ngraph_tf(build_dir, artifacts_location,
+    #                            ngraph_tf_src_dir, venv_dir,
+    #                            ngraph_tf_cmake_flags, verbosity)
 
     print("SUCCESSFULLY generated wheel: %s" % ng_tf_whl)
     print("PWD: " + os.getcwd())
 
+    import pdb;
+    pdb.set_trace()
     # Copy the TensorFlow Python code tree to artifacts directory so that they can
     # be used for running TensorFlow Python unit tests
     command_executor([

@@ -72,7 +72,8 @@ static void AddInput(NodeDef* dst, StringPiece src_name, int src_slot) {
 }
 // ...end code copied and pasted (and modified) from graph.cc
 
-Status EncapsulateClusters(Graph* graph, int graph_id, FunctionLibraryDefinition* flib_def) {
+Status EncapsulateClusters(Graph* graph, int graph_id,
+                           FunctionLibraryDefinition* flib_def) {
   // A map from cluster indices to the expected device name for nodes
   // in that cluster.
   std::map<int, std::string> device_name_map;
@@ -511,7 +512,7 @@ Status EncapsulateClusters(Graph* graph, int graph_id, FunctionLibraryDefinition
     TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), native_segment));
     TF_RETURN_IF_ERROR(graph->AddFunctionLibrary(fdeflib));
   }
-  *//////////////
+  */  /////////////
 
   for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
     FunctionDef fdef;
@@ -520,8 +521,12 @@ Status EncapsulateClusters(Graph* graph, int graph_id, FunctionLibraryDefinition
 
     Graph sgraph(flib_def);
 
-    TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
-    TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), &fdef));
+    TF_RETURN_IF_ERROR(
+        ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(
+        sgraph,
+        strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"),
+        &fdef));
 
     flib_def->AddFunctionDef(fdef);
   }
@@ -531,9 +536,8 @@ Status EncapsulateClusters(Graph* graph, int graph_id, FunctionLibraryDefinition
 
   GraphToPbTextFile(out.get(), "testing.pbtxt");
 
-
-  //EncapsulateSubgraphsInFunctions: https://github.com/tensorflow/tensorflow/blob/e9d0b39c6eb8da5aa39e78adbc193c866588909a/tensorflow/compiler/jit/encapsulate_subgraphs_pass.cc#L2466
-
+  // EncapsulateSubgraphsInFunctions:
+  // https://github.com/tensorflow/tensorflow/blob/e9d0b39c6eb8da5aa39e78adbc193c866588909a/tensorflow/compiler/jit/encapsulate_subgraphs_pass.cc#L2466
 
   // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
