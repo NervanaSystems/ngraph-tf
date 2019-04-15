@@ -529,12 +529,28 @@ Status EncapsulateClusters(Graph* graph, int graph_id,
         &fdef));
 
     flib_def->AddFunctionDef(fdef);
+
+
+
+    Graph sgraph2(graph->flib_def()); // flib_def returns FunctionLibraryDefinition
+    
+    // Converting the computation gdef into a graph
+    TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph2));
+
+    FunctionDefLibrary fdeflib;
+    auto native_segment = fdeflib.add_function();
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(sgraph2, strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"), native_segment));
+    TF_RETURN_IF_ERROR(graph->AddFunctionLibrary(fdeflib));
+
+    //graph->flib_def().AddFunctionDef .... (constness issue)
   }
 
-  std::unique_ptr<Graph> out(new Graph(flib_def));
-  CopyGraph(*graph, out.get());
+  //std::unique_ptr<Graph> out(new Graph(flib_def));
+  //CopyGraph(*graph, out.get());
 
-  GraphToPbTextFile(out.get(), "testing.pbtxt");
+  //GraphToPbTextFile(out.get(), "testing.pbtxt");
+
+  GraphToPbTextFile(graph, "testing.pbtxt");
 
   // EncapsulateSubgraphsInFunctions:
   // https://github.com/tensorflow/tensorflow/blob/e9d0b39c6eb8da5aa39e78adbc193c866588909a/tensorflow/compiler/jit/encapsulate_subgraphs_pass.cc#L2466
