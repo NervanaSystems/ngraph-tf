@@ -24,7 +24,7 @@ def main():
     '''
 
     # Component versions
-    ngraph_version = "v0.18.0-rc.1"
+    ngraph_version = "v0.18.0-rc.2"
     tf_version = "v1.13.1"
 
     # Command line parser options
@@ -293,10 +293,11 @@ def main():
     pdb.set_trace()
     # Copy the TensorFlow Python code tree to artifacts directory so that they can
     # be used for running TensorFlow Python unit tests
-    command_executor([
-        'cp', '-r', build_dir_abs + '/tensorflow/tensorflow/python',
-        os.path.join(artifacts_location, "tensorflow")
-    ])
+    if not arguments.use_prebuilt_tensorflow:
+        command_executor([
+            'cp', '-r', build_dir_abs + '/tensorflow/tensorflow/python',
+            os.path.join(artifacts_location, "tensorflow")
+        ])
 
     # Run a quick test
     install_ngraph_tf(venv_dir, os.path.join(artifacts_location, ng_tf_whl))
