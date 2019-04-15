@@ -83,7 +83,7 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   // If the fetch node in question has 0 outputs or any of the outputs
   // has ref type as a data type then don't add IdentityN node, but the fetch
   // node will be skipped from capturing and marking for clustering.
-  AddIdentityN(&graph, skip_these_nodes);
+  TF_RETURN_IF_ERROR(AddIdentityN(&graph, skip_these_nodes));
 
   //
   // Variable capture: Part that replaces all instances of VariableV2 with the
