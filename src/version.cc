@@ -55,7 +55,7 @@ int ngraph_tf_cxx11_abi_flag() {
 #endif
 }
 
-bool ngraph_tf_is_grappler_enabled(){
+bool ngraph_tf_is_grappler_enabled() {
 #if defined(NGRAPH_TF_USE_GRAPPLER_OPTIMIZER)
   return true;
 #else

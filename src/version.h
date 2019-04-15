@@ -33,7 +33,6 @@ int ngraph_tf_cxx11_abi_flag();
 // Returns true when nGraph is using Grappler optimizer APIs for
 // graph rewriting
 bool ngraph_tf_is_grappler_enabled();
-
 }
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
