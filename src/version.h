@@ -29,6 +29,11 @@ const char* ngraph_lib_version();
 // compiler (e.g., clang or gcc pre 4.8) or the value of the
 // _GLIBCXX_USE_CXX11_ABI set during the compilation time
 int ngraph_tf_cxx11_abi_flag();
+
+// Returns true when nGraph is using Grappler optimizer APIs for
+// graph rewriting
+bool ngraph_tf_is_grappler_enabled();
+
 }
 }  // namespace ngraph_bridge
 }  // namespace tensorflow
