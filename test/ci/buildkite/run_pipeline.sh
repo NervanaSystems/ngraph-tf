@@ -5,6 +5,7 @@ set -euo pipefail
 echo "BUILDKITE_PULL_REQUEST_REPO: " $BUILDKITE_PULL_REQUEST_REPO
 echo "BUILDKITE_REPO: $BUILDKITE_REPO"
 echo "PIPELINE OS: $PIPELINE_QUEUE"
+echo "Gotcha!!!"
 
 if [[ $PIPELINE_QUEUE = 'cpu' ]]; then
    TF_PY_WHEEL=tensorflow-1.13.1-cp35-cp35m-linux_x86_64.whl
