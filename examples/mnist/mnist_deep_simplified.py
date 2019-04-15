@@ -245,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train_loop_count',
         type=int,
-        default=10,
+        default=1000,
         help='Number of training iterations')
 
     parser.add_argument('--batch_size', type=int, default=50, help='Batch Size')
