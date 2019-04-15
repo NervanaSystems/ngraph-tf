@@ -29,6 +29,7 @@ class NGraphClusterManager {
  public:
   static int NewCluster();
   static tensorflow::GraphDef* GetClusterGraph(int idx);
+  static std::vector<int> GetClusterIndexes();
 
  private:
   static std::vector<tensorflow::GraphDef*> s_cluster_graphs;

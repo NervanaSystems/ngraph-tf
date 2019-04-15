@@ -34,6 +34,8 @@
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/util/device_name_utils.h"
 
+#include "tensorflow/core/framework/graph_to_functiondef.h"
+
 #include "ngraph_api.h"
 #include "ngraph_assign_clusters.h"
 #include "ngraph_cluster_manager.h"
@@ -482,7 +484,31 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
     graph->RemoveNode(node);
   }
 
-  // Pass 7 (optional, only run if environment variable
+  // Pass 7: Insert to function library
+  auto start_flib_def = graph->flib_def();
+  for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
+    FunctionDef fdef;
+
+    auto enc_gdef = NGraphClusterManager::GetClusterGraph(cluster_idx);
+
+    Graph sgraph(start_flib_def);
+
+    TF_RETURN_IF_ERROR(
+        ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(
+        sgraph,
+        strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"),
+        &fdef));
+
+    start_flib_def.AddFunctionDef(fdef);
+  }
+
+  std::unique_ptr<Graph> out(new Graph(start_flib_def));
+  CopyGraph(*graph, out.get());
+
+  GraphToPbTextFile(graph, "testing.pbtxt");
+
+  // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and
   // make sure we can construct a graph from it.
   if (std::getenv("NGRAPH_TF_DUMP_CLUSTERS")) {
