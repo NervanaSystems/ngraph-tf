@@ -114,8 +114,8 @@ def max_pool_2x2(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    initial = tf.get_variable(name, shape)
-    return tf.Variable(initial)
+    weight_var = tf.get_variable(name, shape)
+    return weight_var
 
 
 def bias_variable(shape):
@@ -131,7 +131,7 @@ def train_mnist_cnn(FLAGS):
         log_device_placement=False,
         inter_op_parallelism_threads=1)
     # Enable the custom optimizer using the rewriter config options
-    if (FLAGS.use_grappler):
+    if ngraph_bridge.is_grappler_enabled():
         rewrite_options = rewriter_config_pb2.RewriterConfig(
             meta_optimizer_iterations=rewriter_config_pb2.RewriterConfig.ONE,
             custom_optimizers=[
@@ -261,12 +261,6 @@ if __name__ == '__main__':
         type=str,
         default='./mnist_trained/',
         help='enter model dir')
-
-    parser.add_argument(
-        '--use_grappler',
-        type=bool,
-        default=False,
-        help='Use grappler - NgraphOptimizer')
 
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
