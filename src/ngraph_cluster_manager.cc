@@ -41,7 +41,9 @@ vector<int> NGraphClusterManager::GetClusterIndexes() {
   std::lock_guard<std::mutex> guard(s_cluster_graphs_mutex);
   std::vector<int> cluster_indexes;
   for (int i = 0; i < s_cluster_graphs.size(); i++)
-    // TODO: this may need a revisit. At enc stage all entries in the s_cluster_graphs vector are valid graphs. but after deassign etc, it is not true
+    // TODO: this may need a revisit. At enc stage all entries in the
+    // s_cluster_graphs vector are valid graphs. but after deassign etc, it is
+    // not true
     cluster_indexes.push_back(i);
   return cluster_indexes;
 }

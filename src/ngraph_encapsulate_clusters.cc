@@ -72,7 +72,8 @@ static void AddInput(NodeDef* dst, StringPiece src_name, int src_slot) {
 }
 // ...end code copied and pasted (and modified) from graph.cc
 
-Status EncapsulateClusters(Graph* graph, int graph_id) {
+Status EncapsulateClusters(Graph* graph, int graph_id,
+                           FunctionDefLibrary* fdeflib) {
   // A map from cluster indices to the expected device name for nodes
   // in that cluster.
   std::map<int, std::string> device_name_map;
@@ -485,28 +486,31 @@ Status EncapsulateClusters(Graph* graph, int graph_id) {
   }
 
   // Pass 7: Insert to function library
-  auto start_flib_def = graph->flib_def();
+  // TODO: check: seems necessary/applicable only in grappler enabled ngtf,
+  // right?
+
+  // TODO: grappler also optimizes functions. maybe we have to disable that?
+  // GrapplerFunctionItem
+  // flib.ReplaceFunction
+  //  *optimized_graph->mutable_library() = flib.ToProto(); // GraphDef
+  //  *optimized_graph, FunctionLibraryDefinition* flib
+  // optimized_graph->Swap(&optimized_item.graph);
+  // for (const FunctionDef& function : optimized_graph->library().function())
+
   for (const auto& cluster_idx : NGraphClusterManager::GetClusterIndexes()) {
-    FunctionDef fdef;
-
-    auto enc_gdef = NGraphClusterManager::GetClusterGraph(cluster_idx);
-
-    Graph sgraph(start_flib_def);
-
-    TF_RETURN_IF_ERROR(
-        ConvertGraphDefToGraph(GraphConstructorOptions(), *enc_gdef, &sgraph));
+    Graph sgraph(graph->flib_def());  // TODO: whats the right flib to use in
+                                      // sgraph's constructor?
+    // TODO: if/when this works, NGraphClusterManager can go away
+    TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(
+        GraphConstructorOptions(),
+        *(NGraphClusterManager::GetClusterGraph(cluster_idx)), &sgraph));
+    FunctionDef* fdef = fdeflib->add_function();
+    // TODO: if func lib has func with same name etc?
     TF_RETURN_IF_ERROR(GraphToFunctionDef(
         sgraph,
         strings::StrCat("Enc_", to_string(cluster_idx), "_native_segment"),
-        &fdef));
-
-    start_flib_def.AddFunctionDef(fdef);
+        fdef));
   }
-
-  std::unique_ptr<Graph> out(new Graph(start_flib_def));
-  CopyGraph(*graph, out.get());
-
-  GraphToPbTextFile(graph, "testing.pbtxt");
 
   // Pass 8 (optional, only run if environment variable
   // NGRAPH_TF_DUMP_CLUSTERS is set): validate the graph def, and

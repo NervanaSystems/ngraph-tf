@@ -26,6 +26,8 @@
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/graph/graph_constructor.h"
 
+#include "tensorflow/core/common_runtime/function.h"
+
 #include "ngraph_backend_manager.h"
 #include "ngraph_builder.h"
 #include "ngraph_cluster_manager.h"
@@ -83,14 +85,37 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(1) << "NGraphEncapsulateOp: " << my_instance_id
                    << " Name: " << name();
 
-    GraphDef* graph_def;
+    //GraphDef* graph_def;
 
     OP_REQUIRES_OK(ctx, ctx->GetAttr<int>("ngraph_cluster", &m_ngraph_cluster));
-    graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
+    // graph_def = NGraphClusterManager::GetClusterGraph(m_ngraph_cluster);
 
-    GraphConstructorOptions opts;
-    opts.allow_internal_ops = true;
-    OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
+    // Read graphdef from function library
+    const FunctionLibraryDefinition flib =
+        *ctx->function_library()->GetFunctionLibraryDefinition();
+    const FunctionDef* fdef =
+        flib.Find("Enc_" + to_string(m_ngraph_cluster) + "_native_segment");
+
+    if (fdef == nullptr) {
+      // TODO: error
+    }
+
+    // how to convert from functiondef to graphdef
+    FunctionBody* fnbody;
+    const auto get_func_sig = [&flib](const string& op, const OpDef** sig) {
+      return flib.LookUpOpDef(op, sig);
+    };
+    FunctionDefToBodyHelper(*fdef, {}, &flib, get_func_sig, &fnbody);
+
+    // for (auto node : fnbody->graph->op_nodes()) {
+    //  cout << node->name() << " " << node->type_string() << "\n";
+    // }
+
+    // GraphConstructorOptions opts;
+    // opts.allow_internal_ops = true;
+    // OP_REQUIRES_OK(ctx, ConvertGraphDefToGraph(opts, *graph_def, &m_graph));
+
+    CopyGraph(*fnbody->graph, &m_graph);
 
     //
     // Initialize the "m_input_is_static" vector as follows:

@@ -132,10 +132,12 @@ def train_mnist_cnn(FLAGS):
         inter_op_parallelism_threads=1)
     # Enable the custom optimizer using the rewriter config options
     if (FLAGS.use_grappler):
-        rewrite_options = rewriter_config_pb2.RewriterConfig(custom_optimizers=[
-            rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
-                name="ngraph-optimizer")
-        ])
+        rewrite_options = rewriter_config_pb2.RewriterConfig(
+            meta_optimizer_iterations=rewriter_config_pb2.RewriterConfig.ONE,
+            custom_optimizers=[
+                rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
+                    name="ngraph-optimizer")
+            ])
         config.MergeFrom(
             tf.ConfigProto(
                 graph_options=tf.GraphOptions(rewrite_options=rewrite_options)))

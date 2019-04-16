@@ -204,7 +204,8 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
   }
 
   // 4. Encapsulate clusters then, if requested, dump the graphs.
-  TF_RETURN_IF_ERROR(EncapsulateClusters(&graph, idx));
+  TF_RETURN_IF_ERROR(
+      EncapsulateClusters(&graph, idx, output->mutable_library()));
   if (DumpEncapsulatedGraphs()) {
     DumpGraphs(graph, idx, "encapsulated", "Graph with Clusters Encapsulated");
   }
@@ -216,8 +217,22 @@ Status NgraphOptimizer::Optimize(tensorflow::grappler::Cluster* cluster,
                "Graph with Variables Rewritten for Tracking");
   }
 
+  FunctionDefLibrary* fdeflib_copy =
+      new FunctionDefLibrary(output->library());
+
   // Convert the graph back to Graphdef
   graph.ToGraphDef(output);
+
+  output->set_allocated_library(fdeflib_copy);
+
+  // TODO: remove these lines
+  GraphConstructorOptions opts2;
+  opts2.allow_internal_ops = true;
+  opts2.expect_device_spec = true;
+  Graph graph2(OpRegistry::Global());
+  TF_RETURN_IF_ERROR(ConvertGraphDefToGraph(opts, *output, &graph2));
+  GraphToPbTextFile(&graph2, "testing_grappler_2.pbtxt");
+
   return Status::OK();
 }
 
