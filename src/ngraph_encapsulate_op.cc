@@ -752,7 +752,7 @@ class NGraphEncapsulateOp : public OpKernel {
           events.push_back(std::move(event_copy_output_next));
         }
       }
-#endif
+#else
       if (m_op_backend_name != "CPU") {
         size_t output_tensor_count = output_caches.size();
         std::vector<std::unique_ptr<ngraph::Event>> events;
@@ -778,6 +778,7 @@ class NGraphEncapsulateOp : public OpKernel {
           ngraph::Event::write_trace(*next.get());
         }
       }
+#endif
     } catch (const std::exception& exp) {
       OP_REQUIRES(
           ctx, false,
