@@ -33,9 +33,13 @@ import sys
 import tempfile
 import getpass
 import time
+import pdb
 
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.core.protobuf import rewriter_config_pb2
+from google.protobuf import text_format
+from tensorflow.saved_model import simple_save 
+
 
 import tensorflow as tf
 import ngraph_bridge
@@ -151,48 +155,73 @@ def train_mnist_cnn(FLAGS):
     # Import data
     mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
-    # Create the model
-    x = tf.placeholder(tf.float32, [None, 784])
+    if len(FLAGS.input_pbtxt) == 0:
+        # Create the model
+        x = tf.placeholder(tf.float32, [None, 784])
 
-    # Define loss and optimizer
-    y_ = tf.placeholder(tf.float32, [None, 10])
+        # Define loss and optimizer
+        y_ = tf.placeholder(tf.float32, [None, 10])
 
-    # Build the graph for the deep net
-    y_conv, keep_prob = deepnn(x)
+        # Build the graph for the deep net
+        y_conv, keep_prob = deepnn(x)
 
-    with tf.name_scope('loss'):
-        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-            labels=y_, logits=y_conv)
-    cross_entropy = tf.reduce_mean(cross_entropy)
+        with tf.name_scope('loss'):
+            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+                labels=y_, logits=y_conv)
+        cross_entropy = tf.reduce_mean(cross_entropy)
 
-    with tf.name_scope('adam_optimizer'):
-        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+        with tf.name_scope('adam_optimizer'):
+            train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
-    with tf.name_scope('accuracy'):
-        correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-        correct_prediction = tf.cast(correct_prediction, tf.float32)
-    accuracy = tf.reduce_mean(correct_prediction)
-    tf.summary.scalar('Training accuracy', accuracy)
-    tf.summary.scalar('Loss function', cross_entropy)
+        with tf.name_scope('accuracy'):
+            correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+            correct_prediction = tf.cast(correct_prediction, tf.float32)
+        accuracy = tf.reduce_mean(correct_prediction)
+        tf.summary.scalar('Training accuracy', accuracy)
+        tf.summary.scalar('Loss function', cross_entropy)
 
-    graph_location = "/tmp/" + getpass.getuser(
-    ) + "/tensorboard-logs/mnist-convnet"
+        merged = tf.summary.merge_all()
+    else:
+        #x, y_, merged, accuracy, train_step, cross_entropy, keep_prob
+        #<tf.Tensor 'Placeholder:0' shape=(?, 784) dtype=float32>
+        #<tf.Tensor 'Placeholder_1:0' shape=(?, 10) dtype=float32>
+        #<tf.Tensor 'Merge/MergeSummary:0' shape=() dtype=string>
+        #<tf.Tensor 'Mean_1:0' shape=() dtype=float32>
+        #<tf.Operation 'adam_optimizer/Adam' type=NoOp>
+        #<tf.Tensor 'Mean:0' shape=() dtype=float32>
+        #<tf.Tensor 'Placeholder_2:0' shape=<unknown> dtype=float32>
+        # TODO: refactor graph reading code in verify_model and reuse here
+        graph_def = tf.GraphDef()
+        with open(FLAGS.input_pbtxt, "r") as f:
+            text_format.Merge(f.read(), graph_def)
+        tf.import_graph_def(graph_def)
+
+        get_tensor = lambda name : tf.get_default_graph().get_tensor_by_name("import/" + name)
+        x = get_tensor('Placeholder:0')
+        y_ = get_tensor('Placeholder_1:0')
+        merged = get_tensor('Merge/MergeSummary:0')
+        #accuracy = get_tensor('Mean_1:0')
+        train_step = tf.get_default_graph().get_operation_by_name("import/adam_optimizer/Adam")
+        cross_entropy = get_tensor('Mean:0')
+        keep_prob = get_tensor('Placeholder_2:0')
+
+    graph_location = "/tmp/" + getpass.getuser() + "/tensorboard-logs/mnist-convnet"
     print('Saving graph to: %s' % graph_location)
 
-    merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(graph_location)
     train_writer.add_graph(tf.get_default_graph())
 
-    saver = tf.train.Saver()
+    if (len(FLAGS.input_pbtxt) == 0):
+        saver = tf.train.Saver()
 
     with tf.Session(config=config) as sess:
 
         sess.run(tf.global_variables_initializer())
         train_loops = FLAGS.train_loop_count
-        loss_values = []
+        loss_values = []        
         for i in range(train_loops):
             batch = mnist.train.next_batch(FLAGS.batch_size)
-            if i % 10 == 0:
+            if False: #i % 10 == 0:
                 t = time.time()
                 train_accuracy = accuracy.eval(feed_dict={
                     x: batch[0],
@@ -227,6 +256,7 @@ def train_mnist_cnn(FLAGS):
         })
         print('test accuracy %g' % test_accuracy)
         saver.save(sess, FLAGS.model_dir)
+        #simple_save(sess, FLAGS.model_dir + '_SavedModel', inputs={"x": x, "y_": y_, "keep_prob": keep_prob}, outputs={"accuracy": accuracy, "merged": merged, "cross_entropy": cross_entropy})
         return loss_values, test_accuracy
 
 
@@ -260,7 +290,13 @@ if __name__ == '__main__':
         '--model_dir',
         type=str,
         default='./mnist_trained/',
-        help='enter model dir')
+        help='Enter model dir')
+
+    parser.add_argument(
+        '--input_pbtxt',
+        type=str,
+        default='',
+        help='Enter pbtxt to run')
 
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
