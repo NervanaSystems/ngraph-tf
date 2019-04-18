@@ -22,6 +22,7 @@
 
 #include "tensorflow/core/platform/default/logging.h"
 
+#include "ngraph/event_tracing.hpp"
 #include "ngraph_freshness_tracker.h"
 #include "ngraph_utils.h"
 
@@ -71,23 +72,31 @@ class NGraphVariableOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override;
 
  private:
-  DataType dtype_;
   TensorShape shape_;
   bool just_looking_;
   NGraphFreshnessTracker* tracker_;
+  DataType dtype_;
 
   mutex init_mu_;
   ContainerInfo cinfo_ GUARDED_BY(init_mu_);
   bool initialized_ GUARDED_BY(init_mu_){false};
 
+  static int s_instance_count;
+  int my_instance_id{0};
+
   TF_DISALLOW_COPY_AND_ASSIGN(NGraphVariableOp);
 };
 
+int NGraphVariableOp::s_instance_count = 0;
+
 NGraphVariableOp::NGraphVariableOp(OpKernelConstruction* context)
     : OpKernel(context),
-      tracker_(nullptr),
       just_looking_(false),
+      tracker_(nullptr),
       dtype_(RemoveRefType(context->output_type(0))) {
+  my_instance_id = s_instance_count;
+  s_instance_count++;
+
   OP_REQUIRES_OK(context, context->GetAttr("shape", &shape_));
   OP_REQUIRES_OK(context, context->GetAttr("just_looking", &just_looking_));
   NGRAPH_VLOG(5) << def().name() << ": just looking? " << just_looking_;
@@ -99,6 +108,10 @@ NGraphVariableOp::~NGraphVariableOp() { tracker_->Unref(); }
 // constructor.)
 void NGraphVariableOp::Compute(OpKernelContext* ctx) {
   mutex_lock l(init_mu_);
+  std::ostringstream oss;
+  oss << "NGraphVariable: " << my_instance_id << ": " << name();
+  ngraph::Event event_compute(oss.str(), name(), "");
+
   if (!initialized_) {
     OP_REQUIRES_OK(ctx, cinfo_.Init(ctx->resource_manager(), def(),
                                     true /* use name() */));
@@ -170,6 +183,7 @@ void NGraphVariableOp::Compute(OpKernelContext* ctx) {
     ctx->record_persistent_memory_allocation(var->tensor()->AllocatedBytes());
   }
   var->Unref();
+  ngraph::Event::write_trace(event_compute);
 }
 
 REGISTER_OP("NGraphVariable")

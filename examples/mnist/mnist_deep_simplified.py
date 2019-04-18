@@ -35,6 +35,7 @@ import getpass
 import time
 
 from tensorflow.examples.tutorials.mnist import input_data
+from tensorflow.core.protobuf import rewriter_config_pb2
 
 import tensorflow as tf
 import ngraph_bridge
@@ -113,8 +114,8 @@ def max_pool_2x2(x):
 
 def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
-    initial = tf.get_variable(name, shape)
-    return tf.Variable(initial)
+    weight_var = tf.get_variable(name, shape)
+    return weight_var
 
 
 def bias_variable(shape):
@@ -129,6 +130,17 @@ def train_mnist_cnn(FLAGS):
         allow_soft_placement=True,
         log_device_placement=False,
         inter_op_parallelism_threads=1)
+    # Enable the custom optimizer using the rewriter config options
+    if ngraph_bridge.is_grappler_enabled():
+        rewrite_options = rewriter_config_pb2.RewriterConfig(
+            meta_optimizer_iterations=rewriter_config_pb2.RewriterConfig.ONE,
+            custom_optimizers=[
+                rewriter_config_pb2.RewriterConfig.CustomGraphOptimizer(
+                    name="ngraph-optimizer")
+            ])
+        config.MergeFrom(
+            tf.ConfigProto(
+                graph_options=tf.GraphOptions(rewrite_options=rewrite_options)))
 
     # Note: Additional configuration option to boost performance is to set the
     # following environment for the run:

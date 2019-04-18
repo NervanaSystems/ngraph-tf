@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ TEST(tf_exec, hello_world) {
   LOG(INFO) << outputs[0].matrix<float>();
 }
 
-TEST(tf_exec, DISABLED_axpy) {
+TEST(tf_exec, axpy) {
   GraphDef gdef;
   // auto status = ReadTextProto(Env::Default(), "test_py.pbtxt",
   // &gdef);

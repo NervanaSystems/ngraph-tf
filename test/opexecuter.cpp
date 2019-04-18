@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  *******************************************************************************/
 #include "opexecuter.h"
+#include <cstdlib>
 
 using namespace std;
 namespace ng = ngraph;
@@ -89,7 +90,7 @@ void OpExecuter::ValidateGraph(const Graph& graph,
                                const vector<string> allowed_nodes) {
   NGRAPH_VLOG(5) << "Validate graph";
   bool found_test_op = false;
-  Node* test_op;
+  Node* test_op = nullptr;
   for (Node* node : graph.nodes()) {
     if (node->IsSource() || node->IsSink()) {
       continue;
@@ -135,6 +136,16 @@ void OpExecuter::RunTest(const string& ng_backend_name, float rtol,
   ExecuteOnNGraph(ngraph_outputs, ng_backend_name);
   vector<Tensor> tf_outputs;
   ExecuteOnTF(tf_outputs);
+
+  // Override the test result tolerance
+  if (std::getenv("NGRAPH_TF_UTEST_RTOL") != nullptr) {
+    rtol = std::atof(std::getenv("NGRAPH_TF_UTEST_RTOL"));
+  }
+
+  if (std::getenv("NGRAPH_TF_UTEST_ATOL") != nullptr) {
+    atol = std::atof(std::getenv("NGRAPH_TF_UTEST_ATOL"));
+  }
+
   Compare(tf_outputs, ngraph_outputs, rtol, atol);
 }
 
@@ -301,7 +312,6 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
 
   // Create nGraph function
   NGRAPH_VLOG(5) << " Create ng function ";
-  shared_ptr<ng::Function> ng_function;
   ASSERT_EQ(Status::OK(),
             Builder::TranslateGraph(input_shapes, static_input_map, &graph,
                                     ng_function))
@@ -355,10 +365,12 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
         << ng_et;
 
     void* src_ptr = (void*)DMAHelper::base(&tf_inputs[i]);
-    auto result = backend->create_tensor(ng_et, ng_shape, src_ptr);
-
+    std::shared_ptr<ngraph::runtime::Tensor> result;
     if (ng_backend_type != "CPU") {
+      result = backend->create_tensor(ng_et, ng_shape);
       result->write(src_ptr, 0, result->get_element_count() * ng_et.size());
+    } else {
+      result = backend->create_tensor(ng_et, ng_shape, src_ptr);
     }
 
     ng_ip_tensors.push_back(result);
@@ -395,7 +407,8 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
   NGRAPH_VLOG(5) << " Executing on nGraph ";
   BackendManager::LockBackend(ng_backend_type);
   try {
-    backend->call(backend->compile(ng_function), ng_op_tensors, ng_ip_tensors);
+    auto exec = backend->compile(ng_function);
+    exec->call(ng_op_tensors, ng_ip_tensors);
   } catch (const std::exception& exp) {
     BackendManager::UnlockBackend(ng_backend_type);
     NgraphSerialize("unit_test_error_" + test_op_type_ + ".json", ng_function);
@@ -416,6 +429,10 @@ void OpExecuter::ExecuteOnNGraph(vector<Tensor>& ngraph_outputs,
     ngraph_outputs.push_back(output_tensor);
     NGRAPH_VLOG(5) << " NGRAPH op " << i << ngraph_outputs[i].DebugString();
   }
+
+  // Clear the tesnors
+  ng_ip_tensors.clear();
+  ng_op_tensors.clear();
 
   // Release the backend
   BackendManager::ReleaseBackend(ng_backend_type);

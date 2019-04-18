@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -316,6 +316,241 @@ TEST(ArrayOps, ExpandDims) {
 
 }  // end of test op ExpandDims
 
+// Test op: Gather. vector indices
+// Test fails because of this error:
+// Not found: No attr named '_ngraph_backend' in NodeDef:
+// This is because op_executor does not go through mark_for_clustering
+TEST(ArrayOps, DISABLED_GatherV2Vector) {
+  int dim = 5;
+
+  Tensor A(DT_FLOAT, TensorShape({dim}));
+  AssignInputValuesRandom(A);
+
+  Tensor B(DT_INT32, TensorShape({2}));
+  AssignInputValues<int>(B, {2, 1});
+
+  Tensor C(DT_INT32, TensorShape({}));
+  AssignInputValues<int>(C, 0);
+
+  vector<int> static_input_indexes = {1, 2};
+  vector<DataType> output_datatypes = {DT_FLOAT};
+
+  Scope root = Scope::NewRootScope();
+  auto R = ops::GatherV2(root, A, B, C);
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "GatherV2", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+
+}  // end of test op GatherV2
+
+// Test op: OneHot
+TEST(ArrayOps, OneHot1dNegAxis) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({4}));
+
+  AssignInputValues<int>(indices, {0, 2, -1, 1});
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 3);
+  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = -1;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(ArrayOps, OneHot1d) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({4}));
+
+  AssignInputValues<int>(indices, {0, 2, -1, -50});
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 3);
+  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = 0;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(ArrayOps, OneHot2dNegAxis) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({2, 2}));
+
+  AssignInputValues<int>(indices, {0, 2, -1, 1});
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 3);
+  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = -1;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(ArrayOps, OneHot2d) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({2, 2}));
+
+  AssignInputValues<int>(indices, {0, 2, -1, 50});
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 3);
+  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = 1;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(ArrayOps, OneHot3d) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({2, 2, 3}));
+
+  AssignInputValuesRandom<int>(indices, -2, 5);
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 2);
+  AssignInputValues<float>(on_value, 5.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = 2;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}
+
+TEST(ArrayOps, OneHot3dNegAxis) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor indices(DT_INT32, TensorShape({2, 2, 3}));
+
+  AssignInputValuesRandom<int>(indices, -2, 5);
+
+  Tensor depth(DT_INT32, TensorShape({}));
+  Tensor on_value(DT_FLOAT, TensorShape({}));
+  Tensor off_value(DT_FLOAT, TensorShape({}));
+
+  AssignInputValues<int>(depth, 2);
+  AssignInputValues<float>(on_value, 1.0);
+  AssignInputValues<float>(off_value, 0.0);
+
+  auto attrs = ops::OneHot::Attrs();
+  attrs.axis_ = -1;
+
+  auto R = ops::OneHot(root, indices, depth, on_value, off_value, attrs);
+  vector<DataType> output_datatypes = {DT_FLOAT};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "OneHot", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+
+}  // end of op OneHot
+
+TEST(ArrayOps, Pad) {
+  Scope root = Scope::NewRootScope();
+
+  vector<int> static_input_indexes = {1};
+
+  Tensor input(DT_INT32, TensorShape({2, 3}));
+
+  Tensor paddings(DT_INT32, TensorShape({2, 2}));
+
+  AssignInputValuesRandom<int>(input, 1, 4);
+  AssignInputValuesRandom<int>(paddings, 2, 5);
+
+  auto R = ops::Pad(root, input, paddings);
+  vector<DataType> output_datatypes = {DT_INT32};
+  std::vector<Output> sess_run_fetchoutputs = {R};
+
+  OpExecuter opexecuter(root, "Pad", static_input_indexes, output_datatypes,
+                        sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+
+}  // end of op Pad
+
 // Test op: PreventGradient
 TEST(ArrayOps, PreventGradient) {
   Scope scope_cpu = Scope::NewRootScope();
@@ -359,6 +594,7 @@ TEST(ArrayOps, QuantizeV2i8) {
 
   auto attrs = ops::QuantizeV2::Attrs();
   attrs.mode_ = "SCALED";
+  attrs.round_mode_ = "HALF_TO_EVEN";
 
   vector<int> static_input_indexes = {1, 2};
   ops::QuantizeV2 R =
@@ -387,6 +623,7 @@ TEST(ArrayOps, DISABLED_QuantizeV2i8minmax) {
 
   auto attrs = ops::QuantizeV2::Attrs();
   attrs.mode_ = "SCALED";
+  attrs.round_mode_ = "HALF_TO_EVEN";
 
   vector<int> static_input_indexes = {1, 2};
   ops::QuantizeV2 R =
@@ -415,6 +652,7 @@ TEST(ArrayOps, QuantizeV2u8SameRange) {
 
   auto attrs = ops::QuantizeV2::Attrs();
   attrs.mode_ = "SCALED";
+  attrs.round_mode_ = "HALF_TO_EVEN";
 
   vector<int> static_input_indexes = {1, 2};
   ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0.9f, 5.0f, quant_type, attrs);
@@ -441,6 +679,7 @@ TEST(ArrayOps, QuantizeV2u8DiffRange) {
 
   auto attrs = ops::QuantizeV2::Attrs();
   attrs.mode_ = "SCALED";
+  attrs.round_mode_ = "HALF_TO_EVEN";
 
   vector<int> static_input_indexes = {1, 2};
   ops::QuantizeV2 R = ops::QuantizeV2(root, A, 0.0f, 6.0f, quant_type, attrs);
@@ -511,6 +750,86 @@ TEST(ArrayOps, QuantizeAndDequantizeV2x8xtruexfalse) {
 
   opexecuter.RunTest();
 }  // end of test op QuantizeAndDequantizeV2x8xtruexfalse
+
+// CPU only supports QuantizedConcat with DT_QINT32 and DT_QUINT8
+TEST(ArrayOps, QuantizedConcat) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(A, {5, 1, 0, 1, 5, 100});
+
+  Tensor B(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(B, {0, 2, 4, 6, 8, 10});
+
+  Tensor C(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(C, {1, 3, 5, 7, 9, 50});
+
+  vector<int> static_input_indexes = {0, 4, 5, 6, 7, 8, 9};
+
+  // TODO: NG and TF results disagress when input mins/maxes vary
+  ops::QuantizedConcat R = ops::QuantizedConcat(
+      root, 1, {A, B, C}, {-1.0f, -1.0f, -1.0f}, {3.0f, 3.0f, 3.0f});
+
+  vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.output_min,
+                                               R.output_max};
+  OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  opexecuter.RunTest();
+}  // end of test op QuantizedConcat
+
+// Disabled because for varing min/max input
+// NGraph and TF results diagree
+// For this test case: TF result is [47 46 46 0 1 2 70 72 73][46 47 55 3 3 4 75
+// 76 106]
+// NG result is [1 0 0 0 1 2 1 3 5][0 1 20 2 3 4 7 9 50]
+TEST(ArrayOps, DISABLED_QuantizedConcatVaryingMinMax) {
+  Scope root = Scope::NewRootScope();
+  int dim1 = 2;
+  int dim2 = 3;
+
+  Tensor A(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(A, {5, 1, 0, 1, 5, 100});
+
+  Tensor B(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(B, {0, 2, 4, 6, 8, 10});
+
+  Tensor C(DT_QUINT8, TensorShape({dim1, dim2}));
+  AssignInputValues<quint8>(C, {1, 3, 5, 7, 9, 50});
+
+  vector<int> static_input_indexes = {0, 4, 5, 6, 7, 8, 9};
+
+  ops::QuantizedConcat R = ops::QuantizedConcat(
+      root, 1, {A, B, C}, {1.0f, -1.0f, 2.0f}, {2.0f, 4.0f, 10.0f});
+
+  vector<DataType> output_datatypes = {DT_QUINT8, DT_FLOAT, DT_FLOAT};
+
+  std::vector<Output> sess_run_fetchoutputs = {R.output, R.output_min,
+                                               R.output_max};
+  OpExecuter opexecuter(root, "QuantizedConcat", static_input_indexes,
+                        output_datatypes, sess_run_fetchoutputs);
+
+  // vector<Tensor> tf_outputs;
+  // opexecuter.ExecuteOnTF(tf_outputs);
+
+  // vector<Tensor> ng_outputs;
+  // opexecuter.ExecuteOnNGraph(ng_outputs);
+
+  // cout << "TF outputs " << endl;
+  // for(auto i : tf_outputs){
+  //   PrintTensorAllValues(i, 100);
+  // }
+
+  // cout << "NG outputs " << endl;
+  // for(auto i : ng_outputs){
+  //   PrintTensorAllValues(i, 100);
+  // }
+  opexecuter.RunTest();
+}  // end of test op QuantizedConcatVaryingMinMax
 
 // Test op: Rank Op
 TEST(ArrayOps, Rank) {
@@ -779,7 +1098,6 @@ TEST(ArrayOps, StridedSliceTest1) {
   std::iota(data_vect.begin(), data_vect.end(), 0.0f);
   AssignInputValues<float>(input_data, data_vect);
 
-  auto rank = input_size.size();
   std::vector<int64> cstart = {0, 1};
   std::vector<int64> cend = {0, 2};
   std::vector<int64> cstride = {1, 1};
@@ -863,43 +1181,6 @@ TEST(ArrayOps, DISABLED_StridedSlice) {
       (*coord)[i] = vectorized_idx % shape_vect[i];
       vectorized_idx = vectorized_idx / shape_vect[i];
     }
-  };
-
-  // r-rank index to vector index
-  auto coordinate_to_vectorized_idx = [](std::vector<int64> coord,
-                                         std::vector<int64> shape_vect,
-                                         int64* vectorized_idx) {
-    ASSERT_TRUE(coord.size() == shape_vect.size())
-        << "In coordinate_to_int_idx size of coord(" << coord.size()
-        << ") and shape_vector(" << shape_vect.size() << ") do not match";
-    ASSERT_TRUE(std::inner_product(
-        coord.begin(), coord.end(), shape_vect.begin(), true,
-        [](bool x, bool y) { return x && y; }, std::less<int64>()))
-        << "All coordinates should be less than the lengths along their "
-           "dimensions";
-    ASSERT_TRUE(std::accumulate(
-        begin(coord), end(coord), true,
-        [](bool acc, int64 item) { return (item >= 0) && acc; }))
-        << "Expected all elements of coord to be >= 0, but found some negative "
-           "ones";
-    ASSERT_TRUE(std::accumulate(
-        begin(shape_vect), end(shape_vect), true,
-        [](bool acc, int64 item) { return (item >= 0) && acc; }))
-        << "Expected all elements of shape_vect to be >= 0, but found some "
-           "negative ones";
-    vector<int64> cum_prod(shape_vect.size());
-    // Consider an example: shape_vect = {2, 3, 4},
-    // shape_vect.rbegin(): begin at the end ie 4. shape_vect.rend()-1: iterate
-    // upto the 2nd element (which is 3). cum_prod.rbegin()+1: populate results
-    // in reverse order
-    std::partial_sum(shape_vect.rbegin(), shape_vect.rend() - 1,
-                     cum_prod.rbegin() + 1, std::multiplies<int64>());
-    cum_prod.back() = 1;
-    // cum_prod is {12, 4, 1}. partial_sum computes the cumulative product
-    // values 12 and 4, while 1 is added to the vector later
-    *vectorized_idx =
-        std::inner_product(cum_prod.begin(), cum_prod.end(), coord.begin(),
-                           0);  // vector dot product of cum_prod and coord
   };
 
   // TODO: can input_size ever have an element which is 0

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,22 @@ namespace ngraph_bridge {
 extern "C" {
 // Returns the ngraph-tensorflow library version
 const char* ngraph_tf_version();
+
+// Returns the nGraph version this bridge was compiled with
+const char* ngraph_lib_version();
+
+// Returns the 0 if _GLIBCXX_USE_CXX11_ABI wasn't set by the
+// compiler (e.g., clang or gcc pre 4.8) or the value of the
+// _GLIBCXX_USE_CXX11_ABI set during the compilation time
+int ngraph_tf_cxx11_abi_flag();
+
+// Returns true when nGraph is using Grappler optimizer APIs for
+// graph rewriting
+bool ngraph_tf_is_grappler_enabled();
+
+// Returns true when nGraph-bridge is built with
+// --enable_variables_and_optimizers flag
+bool ngraph_tf_are_variables_enabled();
 }
 }  // namespace ngraph_bridge
 }  // namespace tensorflow

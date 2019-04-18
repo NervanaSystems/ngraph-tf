@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2017-2018 Intel Corporation
+ * Copyright 2017-2019 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,17 +28,22 @@ namespace tensorflow {
 namespace ngraph_bridge {
 
 //
-// Utility function to check if placement on the NGRAPH device has been
-// requested.
-//
-// FIXME(amprocte): stubbed out for now because NGRAPH device is gone.
-//
-static bool NGraphPlacementRequested(const Node* node) { return true; }
+// Utility function to check if it is an output node
+// Skip capturing it, if yes.
+static bool IsOutputNode(const Node* node,
+                         const std::set<string> skip_these_nodes) {
+  bool found = skip_these_nodes.find(node->name()) != skip_these_nodes.end();
+  if (found) {
+    NGRAPH_VLOG(5) << "NGTF_OPTIMIZER: Found Output Node: " << node->name()
+                   << " - skip capturing it";
+  }
+  return found;
+}
 
 //
 // Main entry point for the variable-capture.
 //
-Status CaptureVariables(Graph* graph) {
+Status CaptureVariables(Graph* graph, const std::set<string> skip_these_nodes) {
   if (config::IsEnabled() == false) {
     return Status::OK();
   }
@@ -46,7 +51,7 @@ Status CaptureVariables(Graph* graph) {
   std::vector<Node*> replaced_nodes;
 
   for (auto node : graph->op_nodes()) {
-    if (NGraphPlacementRequested(node)) {
+    if (!IsOutputNode(node, skip_these_nodes)) {
       if (node->type_string() == "VariableV2") {
         NGRAPH_VLOG(4) << "Capturing: " << node->name();
 
