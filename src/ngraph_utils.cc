@@ -359,8 +359,8 @@ bool DumpTrackedGraphs() {
          std::getenv("NGRAPH_TF_DUMP_TRACKED_GRAPHS") != nullptr;
 }
 
-void OpControlOrder(
-    const std::shared_ptr<ngraph::Function>& ng_function, const std::string& op_name) {
+void OpControlOrder(const std::shared_ptr<ngraph::Function>& ng_function,
+                    const std::string& op_name) {
   // Get the serialized ops and stored the allreduce ops to a vector and
   ng::NodeVector op_list;
   for (const shared_ptr<ng::Node>& node : ng_function->get_ordered_ops()) {
