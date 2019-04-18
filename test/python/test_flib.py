@@ -20,7 +20,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pytest
+import pytest, pdb
 
 import tensorflow as tf
 import numpy as np
@@ -44,7 +44,6 @@ class TestFloorOperations(NgraphTest):
 
     def test_flib_1(self):
         graph = import_pbtxt('/localdisk/sarkars/workspace1/tf_ngtf_28_grappler/ngraph-tf/test/python/flib_graph_1.pbtxt')
-        #import pdb; pdb.set_trace()
         x = get_tensor(graph, "Placeholder:0")
         y = get_tensor(graph, "Placeholder_1:0")
         z = get_tensor(graph, "Placeholder_2:0")
@@ -60,6 +59,26 @@ class TestFloorOperations(NgraphTest):
         assert np.isclose(res1, res2).all()
         # Comparing with expected value
         assert np.isclose(res1, exp).all()
+
+    @pytest.mark.skip(reason="NGraphVariables are not initialized")
+    def test_flib_2(self):
+        graph = import_pbtxt('/localdisk/sarkars/workspace1/tf_ngtf_28_grappler/ngraph-tf/test/python/flib_graph_2.pbtxt')
+
+        a = get_tensor(graph, "add_1:0")
+        b = get_tensor(graph, "Sigmoid:0")
+        def sess_fn(sess): 
+            sess.run(tf.global_variables_initializer())
+            return sess.run([a, b], feed_dict={})
+
+        res1 = self.with_ngraph(sess_fn, graph=graph)
+        res2 = self.without_ngraph(sess_fn, graph=graph)
+        exp = [np.full((2, 3), 3.0), np.full((2, 3), 0.95257413)]
+        # Note both run on Host (because NgraphEncapsulate can only run on host)
+        pdb.set_trace()
+        assert np.isclose(res1, res2).all()
+        # Comparing with expected value
+        pdb.set_trace()
+        assert np.isclose(res1, exp).all() #fails
 
 
         
