@@ -43,7 +43,7 @@ def get_tensor(graph, tname):
 class TestFloorOperations(NgraphTest):
 
     def test_flib_1(self):
-        graph = import_pbtxt('/localdisk/sarkars/workspace1/tf_ngtf_28_grappler/ngraph-tf/examples/mnist/testing_grappler_2.pbtxt')
+        graph = import_pbtxt('/localdisk/sarkars/workspace1/tf_ngtf_28_grappler/ngraph-tf/test/python/flib_graph_1.pbtxt')
         #import pdb; pdb.set_trace()
         x = get_tensor(graph, "Placeholder:0")
         y = get_tensor(graph, "Placeholder_1:0")
