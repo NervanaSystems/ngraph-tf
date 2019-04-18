@@ -4554,6 +4554,9 @@ Status Builder::TranslateGraph(
       if (n->type_string() == "HorovodAllreduce") {
         NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << rank_id << "]: " << n->name();
       }
+      if (n->type_string() == "HorovodBroadcast") {
+        NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << rank_id << "]: " << n->name();
+      }
 #endif
     }
   }
@@ -4653,7 +4656,8 @@ Status Builder::TranslateGraph(
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
 
 #if defined NGRAPH_DISTRIBUTED
-  AllreduceOpControlOrder(ng_function);
+  OpControlOrder(ng_function, "AllReduce");
+  OpControlOrder(ng_function, "BroadcastDistributed");
 #endif
 
   //
