@@ -87,7 +87,7 @@ def run_inference(model_name, models_dir):
             return model_name, p
 
 
-def check_accuracy(model, p):
+def check_accuracy(model, p, tolerance=0.001):
     #check if the accuracy of the model inference matches with the published numbers
     #Accuracy values picked up from here https://github.com/tensorflow/models/tree/master/research/slim
     accuracy = \
@@ -112,7 +112,7 @@ def check_accuracy(model, p):
             # Tolerance check
             diff = float(data[i]["accuracy"]) - float(top1_accuracy)
             print('\033[1m' + '\nModel Accuracy Verification' + '\033[0m')
-            if (diff > 0.001):
+            if (diff > tolerance):
                 print('\033[91m' + 'FAIL' + '\033[0m' +
                       " Functional accuracy " + top1_accuracy +
                       " is not as expected for " + data[i]["model_name"] +
@@ -156,5 +156,5 @@ if __name__ == '__main__':
     try:
         model_name, p = run_inference(args.model_name, models_dir)
         check_accuracy(model_name, p)
-    except:
-        print("Model accuracy verification failed.")
+    except Exception as ex:
+        print("Model accuracy verification failed. Exception: %s" % str(ex))
