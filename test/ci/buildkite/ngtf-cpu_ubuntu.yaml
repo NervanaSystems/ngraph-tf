@@ -72,6 +72,7 @@
     agents:
     - "queue=cpu"
 
+  - wait
   - command: |
       source /localdisk/buildkite/artifacts/$BUILDKITE_BUILD_ID/venv/bin/activate 
       pip install pytest
@@ -83,6 +84,7 @@
     agents:
     - "queue=cpu"
 
+  - wait
   - command: |
       source /localdisk/buildkite/artifacts/$BUILDKITE_BUILD_ID/venv/bin/activate 
       pip install pytest
@@ -94,6 +96,7 @@
     agents:
     - "queue=cpu"
 
+  - wait
   - command: |
       source /localdisk/buildkite/artifacts/$BUILDKITE_BUILD_ID/venv/bin/activate 
       PYTHONPATH=`pwd` python3 test/ci/buildkite/test_runner.py \
