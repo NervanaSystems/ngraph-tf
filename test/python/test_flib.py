@@ -44,9 +44,6 @@ def get_tensor(graph, tname):
 class TestFlibOperations(NgraphTest):
 
     def test_flib_1(self):
-        import os
-        cwd = os.getcwd()
-        print(cwd)
         graph = import_pbtxt('flib_graph_1.pbtxt')
         with graph.as_default() as g:
 
