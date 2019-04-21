@@ -68,8 +68,6 @@ class TestFlibOperations(NgraphTest):
     @pytest.mark.skip(reason="Not passing through grappler")
     def test_flib_2(self):
         graph = import_pbtxt('flib_graph_2.pbtxt')
-
-        graph = import_pbtxt('flib_graph_1.pbtxt')
         with graph.as_default() as g:
 
             x = get_tensor(g, "Variable_2/peek/_2:0")
