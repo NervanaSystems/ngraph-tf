@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # ==============================================================================
-"""nGraph TensorFlow bridge floor operation test
+"""nGraph TensorFlow bridge function library test
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -41,7 +41,7 @@ def get_tensor(graph, tname):
     return graph.get_tensor_by_name("import/" + tname)
 
 
-class TestFloorOperations(NgraphTest):
+class TestFlibOperations(NgraphTest):
 
     def test_flib_1(self):
         import os
