@@ -1654,6 +1654,18 @@ static Status TranslateDepthwiseConv2dNativeOp(
   return Status::OK();
 }
 
+static Status TranslateBroadcastDistributedOp(
+    const Node* op, const std::vector<const Tensor*>& static_input_map,
+    Builder::OpMap& ng_op_map) {
+  shared_ptr<ng::Node> ng_input;
+  TF_RETURN_IF_ERROR(GetInputNodes(ng_op_map, op, &ng_input));
+
+  auto ng_broadcast_distributed =
+      ConstructNgNode<ng::op::BroadcastDistributed>(op->name(), ng_input);
+  SaveNgOp(ng_op_map, op->name(), ng_broadcast_distributed);
+  return Status::OK();
+}
+
 static Status TranslateExpandDimsOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
@@ -4425,6 +4437,7 @@ const static std::map<
         {"Greater", TranslateBinaryOp<ngraph::op::Greater>},
         {"GreaterEqual", TranslateBinaryOp<ngraph::op::GreaterEq>},
         {"HorovodAllreduce", TranslateAllreduceOp},
+        {"HorovodBroadcast", TranslateBroadcastDistributedOp},
         {"Identity", TranslateIdentityOp},
         {"L2Loss", TranslateL2LossOp},
         {"Less", TranslateBinaryOp<ngraph::op::Less>},
@@ -4550,6 +4563,9 @@ Status Builder::TranslateGraph(
       if (n->type_string() == "HorovodAllreduce") {
         NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << rank_id << "]: " << n->name();
       }
+      if (n->type_string() == "HorovodBroadcast") {
+        NGRAPH_VLOG(1) << "[NGRAPH_TF RANK: " << rank_id << "]: " << n->name();
+      }
 #endif
     }
   }
@@ -4649,7 +4665,8 @@ Status Builder::TranslateGraph(
   ng_function = make_shared<ng::Function>(ng_result_list, ng_parameter_list);
 
 #if defined NGRAPH_DISTRIBUTED
-  AllreduceOpControlOrder(ng_function);
+  OpControlOrder(ng_function, "AllReduce");
+  OpControlOrder(ng_function, "BroadcastDistributed");
 #endif
 
   //
