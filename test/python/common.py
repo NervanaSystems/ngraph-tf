@@ -51,6 +51,7 @@ class NgraphTest(object):
         os.environ['NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS'] = '1'
         ngraph_bridge.enable()
         with tf.Session(config=config) as sess:
+            #import pdb; pdb.set_trace()
             retval = l(sess)
 
         os.environ.pop('NGRAPH_TF_DISABLE_DEASSIGN_CLUSTERS', None)

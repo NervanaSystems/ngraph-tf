@@ -44,18 +44,21 @@ def get_tensor(graph, tname):
 class TestFlibOperations(NgraphTest):
 
     def test_flib_1(self):
+        tf.reset_default_graph()
         graph = import_pbtxt('flib_graph_1.pbtxt')
         with graph.as_default() as g:
+            import pdb#; pdb.set_trace()
 
-            x = get_tensor(g, "Placeholder:0")
-            y = get_tensor(g, "Placeholder_1:0")
-            z = get_tensor(g, "Placeholder_2:0")
+            xx = get_tensor(g, "Placeholder:0")
+            yy = get_tensor(g, "Placeholder_1:0")
+            zz = get_tensor(g, "Placeholder_2:0")
 
-            a = get_tensor(g, "add_1:0")
-            b = get_tensor(g, "Sigmoid:0")
+            aa = get_tensor(g, "add_1:0")
+            bb = get_tensor(g, "Sigmoid:0")
 
-            sess_fn = lambda sess: sess.run(
-                [a, b], feed_dict={i: np.full((2, 3), 1.0) for i in [x, y, z]})
+            sess_fn = lambda sess: sess.run([aa, bb], feed_dict={i: np.full((2, 3), 1.0) for i in [xx, yy, zz]})
+            #sess=tf.Session(graph=g)
+            #pdb.set_trace()
 
             res1 = self.with_ngraph(sess_fn)
             res2 = self.without_ngraph(sess_fn)
