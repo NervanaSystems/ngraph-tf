@@ -58,7 +58,7 @@ def run_inference(model_name, models_dir):
                 python eval_image_classifier.py --alsologtostderr \
                 --checkpoint_path=/nfs/fm/disks/aipg_trained_dataset/ngraph_tensorflow/fully_trained/resnet50_v1_slim/resnet_v1_50.ckpt \
                 --dataset_dir=/mnt/data/TF_ImageNet_latest/ --dataset_name=imagenet \
-                --dataset_split_name=validation --model_name=resnet_v1_50 --labels_offset=1"}, \
+                --dataset_split_name=validation --model_name=resnet_v1_50 --labels_offset=1 --max_num_batches=50"}, \
      {"model_type" : "Object Detection", "model_name" : "SSD-MobileNet_v1", \
         "cmd" : "OMP_NUM_THREADS=28 KMP_AFFINITY=granularity=fine,compact,1,0 \
                 python object_detection/model_main.py --logtostderr \
@@ -101,11 +101,13 @@ def check_accuracy(model, p, tolerance=0.001):
         print(line.decode())
         if ('eval/Accuracy'.encode() in line):
             accuracy = re.split("eval/Accuracy", line.decode())[1]
-            top1_accuracy = re.search(r'\[(.*)\]', accuracy).group(1)
+            top1_accuracy = re.search(r'\[([0-9.]+)]', accuracy).group(1)
+            print(top1_accuracy)
         #for now we just validate top 1 accuracy, but calculating top5 anyway.
         if ('eval/Recall_5'.encode() in line):
             accuracy = re.split("eval/Recall_5", line.decode())[1]
-            top5_accuracy = float(re.search("\[(.*?)\]", accuracy).group(1))
+            top5_accuracy = re.search(r'\[([0-9.]+)]', accuracy).group(1)
+            print(top5_accuracy)
 
     for i, d in enumerate(data):
         if (model in data[i]["model_name"]):
