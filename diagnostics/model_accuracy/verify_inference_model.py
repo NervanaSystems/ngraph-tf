@@ -158,5 +158,7 @@ if __name__ == '__main__':
     try:
         model_name, p = run_inference(args.model_name, models_dir)
         check_accuracy(model_name, p)
+        sys.exit(0)
     except Exception as ex:
         print("Model accuracy verification failed. Exception: %s" % str(ex))
+        sys.exit(1)
