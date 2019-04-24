@@ -270,6 +270,8 @@ class NGraphEncapsulateOp : public OpKernel {
     std::lock_guard<std::mutex> lock(m_compute_lock);
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
+    cout << "NGraphEncapsulateOp::Compute starting for cluster "
+                   << m_ngraph_cluster <<endl;
 
     NGRAPH_VLOG(4) << "Got backend of type: " << m_op_backend_name;
     ng::runtime::Backend* op_backend =
@@ -296,6 +298,9 @@ class NGraphEncapsulateOp : public OpKernel {
       const Tensor& input_tensor = ctx->input(i);
       if (m_input_is_static[i]) {
         static_input_map[i] = &input_tensor;
+        if(m_ngraph_cluster>248){
+             cout<< "Static input "<< i << input_tensor.DebugString() <<endl;
+          }
         OP_REQUIRES_OK(ctx, TensorToStream(signature_ss, input_tensor));
         signature_ss << ";";
       }
@@ -322,6 +327,7 @@ class NGraphEncapsulateOp : public OpKernel {
       MemoryProfile(vm0, rss0);
 
       NGRAPH_VLOG(1) << "Compilation cache miss: " << ctx->op_kernel().name();
+      cout << "Compilation cache miss: " << endl;
       OP_REQUIRES_OK(
           ctx, Builder::TranslateGraph(input_shapes, static_input_map, &m_graph,
                                        ng_function));
@@ -441,6 +447,7 @@ class NGraphEncapsulateOp : public OpKernel {
         m_lru.remove(signature);
         m_lru.push_front(signature);
       }
+       cout << "No Compilation cache miss: " << endl;
       ng_exec = it->second;
     }
 
@@ -689,6 +696,13 @@ class NGraphEncapsulateOp : public OpKernel {
           << m_ngraph_cluster;
       try {
         ng_exec->call(ng_outputs, ng_inputs);
+        if(m_ngraph_cluster>248 && ng_outputs.size()>2){
+            std::ostream& text = std::cout;
+            cout<<"After call ";
+            DumpNGTensor(text, def().name() + "::ngop_2", ng_outputs[2]);
+            cout<<endl;
+          }
+
       } catch (const std::exception& exp) {
         ng_function = m_ng_function_map[ng_exec];
         BackendManager::UnlockBackend(m_op_backend_name);
@@ -768,6 +782,12 @@ class NGraphEncapsulateOp : public OpKernel {
               new ngraph::Event(event_name, name(), ""));
           dst_tv->read(dst_ptr, 0,
                        dst_tv->get_element_count() * ng_element_type.size());
+          if(m_ngraph_cluster>248){
+            cout<<"Just before copy ";
+            std::ostream& text = std::cout;
+            DumpNGTensor(text, def().name() + "::" + to_string(i), dst_tv);
+            cout<<endl;
+          }
           event_copy_output_next->Stop();
           output_copy_events.push_back(std::move(event_copy_output_next));
         }

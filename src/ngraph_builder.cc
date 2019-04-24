@@ -311,6 +311,10 @@ static Status MakeConstOp(const Node* op, ng::element::Type et,
 
   *ng_node =
       ConstructNgNode<ng::op::Constant>(op->name(), et, ng_shape, const_values);
+  if(op->name()=="ConstantFolding/Sum_1-reduction_indices")
+  {
+    cout<<op->name() << "Size  "<< const_values.size() <<" Const Values "<< const_values[0] <<endl;
+  }
   return Status::OK();
 }
 
@@ -2466,6 +2470,11 @@ static Status TranslateReduceOp(
   ng::Shape input_shape = ng_input->get_shape();
   size_t input_rank = input_shape.size();
 
+  if(op->name()=="average_loss/Mean")
+  {
+    cout<<op->name() << " Axes Size  "<< axes.size() <<" Const Values "<< axes[0] <<endl;
+  }
+  
   TF_RETURN_IF_ERROR(CheckAxisDimInRange(axes, input_rank));
 
   std::vector<size_t> ng_reduction_axes_vect(axes.size());
@@ -2501,6 +2510,10 @@ static Status TranslateReduceOp(
 static Status TranslateMeanOp(
     const Node* op, const std::vector<const Tensor*>& static_input_map,
     Builder::OpMap& ng_op_map) {
+      if(op->name()=="average_loss/Mean")
+  {
+    cout<<"Translate" << op->name() <<endl;
+  }
   return TranslateReduceOp(
       op, static_input_map, ng_op_map,
       [](std::shared_ptr<ng::Node> ng_input, ng::AxisSet ng_reduction_axes) {
@@ -4611,6 +4624,7 @@ Status Builder::TranslateGraph(
     }
 
     try {
+      //cout<<"Translate Op: "<< op->name() <<" ["<<op->type_string()<<"]"<<endl;
       TF_RETURN_IF_ERROR((*op_fun)(op, static_input_map, ng_op_map));
     } catch (const std::exception& e) {
       return errors::Internal("Unhandled exception in op handler: ", op->name(),
