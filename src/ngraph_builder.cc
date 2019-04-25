@@ -1041,6 +1041,12 @@ static Status TranslateConstOp(
   }
 
   SaveNgOp(ng_op_map, op->name(), ng_node);
+
+  if(op->name()=="ConstantFolding/Sum_1-reduction_indices")
+  {
+    cout<<"Setting node name : TESTNODE"<<endl;
+    ng_node->set_friendly_name("TESTNODE");
+  }
   return Status::OK();
 }
 

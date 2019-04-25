@@ -38,6 +38,38 @@ namespace testing {
 #define ASSERT_OK(x) ASSERT_EQ((x), ::tensorflow::Status::OK());
 #define ASSERT_NOT_OK(x) ASSERT_NE((x), ::tensorflow::Status::OK());
 
+
+TEST(VariableTest, DummyGraph){
+  Scope root = Scope::NewRootScope();
+  auto axis = ops::Const(root.WithOpName("ConstantFolding/Sum_1-reduction_indices"), {0});
+
+  auto input = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
+  auto mean = ops::Mean(root.WithOpName("average_loss/Mean"), input, axis);
+
+  tensorflow::SessionOptions options;
+  options.config.mutable_graph_options()
+      ->mutable_optimizer_options()
+      ->set_opt_level(tensorflow::OptimizerOptions_Level_L0);
+  options.config.mutable_graph_options()
+      ->mutable_rewrite_options()
+      ->set_constant_folding(tensorflow::RewriterConfig::OFF);
+
+  // Run on nGraph
+  ActivateNGraph();
+  ClientSession ng_session(root, options);
+  std::vector<tensorflow::Tensor> ng_outputs1;
+ for(int i=0; i<10; i++){
+ASSERT_OK(ng_session.Run(
+      {
+          mean,
+      },
+      &ng_outputs1));
+ }
+
+
+}
+
+
 // Simple Graph
 TEST(VariableTest, SmallGraph1) {
   Scope root = Scope::NewRootScope();

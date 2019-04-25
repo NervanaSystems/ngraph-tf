@@ -695,6 +695,25 @@ class NGraphEncapsulateOp : public OpKernel {
           << "NGraphEncapsulateOp::Compute call starting for cluster "
           << m_ngraph_cluster;
       try {
+        ng_function = m_ng_function_map[ng_exec];
+        cout<<"Getting NG Exec constant node: TESTNODE"<<endl;
+        for(auto ng_node: ng_function->get_ops()){
+          if(ng_node->get_friendly_name()=="TESTNODE"){
+            ngraph::op::Constant* test_const_node =
+                    static_cast<ngraph::op::Constant*>(ng_node.get());
+            for(auto str: test_const_node->get_value_strings()){
+                cout<<"val "<<str <<endl;
+            }
+          }
+        }
+
+        if(m_ngraph_cluster>248 && ng_outputs.size()>2){
+            std::ostream& text = std::cout;
+            cout<<"Before call ";
+            DumpNGTensor(text, def().name() + "::ngop_2", ng_outputs[2]);
+            cout<<endl;
+          }
+
         ng_exec->call(ng_outputs, ng_inputs);
         if(m_ngraph_cluster>248 && ng_outputs.size()>2){
             std::ostream& text = std::cout;
