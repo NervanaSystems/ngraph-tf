@@ -57,43 +57,75 @@ void SummarizeOp(OpKernelConstruction* ctx, std::ostream& out) {
 std::ostream& DumpNGTensor(std::ostream& s, const string& name,
                            const std::shared_ptr<ngraph::runtime::Tensor>& t) {
   // std::shared_ptr<ngraph::runtime::Tensor> t{get_tensor()};
-  const ngraph::Shape& shape = t->get_shape();
+  const ngraph::Shape& ng_tensor_shape = t->get_shape();
+  auto ng_element_type = t->get_element_type();
   s << "Tensor<" << name << ": ";
 
-  for (size_t i = 0; i < shape.size(); ++i) {
-    s << shape.at(i);
-    if (i + 1 < shape.size()) {
+  for (size_t i = 0; i < ng_tensor_shape.size(); ++i) {
+    s << ng_tensor_shape.at(i);
+    if (i + 1 < ng_tensor_shape.size()) {
       s << ", ";
     }
   }
   size_t pos = 0;
   s << ">{";
-  size_t rank = shape.size();
-  if (rank == 0) {
-    s << GetScalarFromTensor<float>(t, pos++);
-  } else if (rank <= 2) {
-    s << "[";
-    for (size_t i = 0; i < shape.at(0); ++i) {
-      if (rank == 1) {
-        s << GetScalarFromTensor<float>(t, pos++);
-      } else if (rank == 2) {
-        s << "[";
-        for (size_t j = 0; j < shape.at(1); ++j) {
-          s << GetScalarFromTensor<float>(t, pos++);
+  size_t rank = ng_tensor_shape.size();
 
-          if (j + 1 < shape.at(1)) {
-            s << ", ";
+  if (ng_element_type == ng::element::f32) {
+    if (rank == 0) {
+      s << GetScalarFromTensor<float>(t, pos++);
+    } else if (rank <= 2) {
+      s << "[";
+      for (size_t i = 0; i < ng_tensor_shape.at(0); ++i) {
+        if (rank == 1) {
+          s << GetScalarFromTensor<float>(t, pos++);
+        } else if (rank == 2) {
+          s << "[";
+          for (size_t j = 0; j < ng_tensor_shape.at(1); ++j) {
+            s << GetScalarFromTensor<float>(t, pos++);
+
+            if (j + 1 < ng_tensor_shape.at(1)) {
+              s << ", ";
+            }
           }
+          s << "]";
         }
-        s << "]";
+        if (i + 1 < ng_tensor_shape.at(0)) {
+          s << ", ";
+        }
       }
-      if (i + 1 < shape.at(0)) {
-        s << ", ";
-      }
+      s << "]";
     }
-    s << "]";
+    s << "}";
+  } else if (ng_element_type == ng::element::i32 ||
+             ng_element_type == ng::element::i64) {
+    if (rank == 0) {
+      s << GetScalarFromTensor<int>(t, pos++);
+    } else if (rank <= 2) {
+      s << "[";
+      for (size_t i = 0; i < ng_tensor_shape.at(0); ++i) {
+        if (rank == 1) {
+          s << GetScalarFromTensor<int>(t, pos++);
+        } else if (rank == 2) {
+          s << "[";
+          for (size_t j = 0; j < ng_tensor_shape.at(1); ++j) {
+            s << GetScalarFromTensor<int>(t, pos++);
+
+            if (j + 1 < ng_tensor_shape.at(1)) {
+              s << ", ";
+            }
+          }
+          s << "]";
+        }
+        if (i + 1 < ng_tensor_shape.at(0)) {
+          s << ", ";
+        }
+      }
+      s << "]";
+    }
+    s << "}";
   }
-  s << "}";
+
   return s;
 }
 

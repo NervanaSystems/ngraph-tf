@@ -271,7 +271,7 @@ class NGraphEncapsulateOp : public OpKernel {
     NGRAPH_VLOG(4) << "NGraphEncapsulateOp::Compute starting for cluster "
                    << m_ngraph_cluster;
     cout << "NGraphEncapsulateOp::Compute starting for cluster "
-                   << m_ngraph_cluster <<endl;
+         << m_ngraph_cluster << endl;
 
     NGRAPH_VLOG(4) << "Got backend of type: " << m_op_backend_name;
     ng::runtime::Backend* op_backend =
@@ -298,9 +298,11 @@ class NGraphEncapsulateOp : public OpKernel {
       const Tensor& input_tensor = ctx->input(i);
       if (m_input_is_static[i]) {
         static_input_map[i] = &input_tensor;
-        if(m_ngraph_cluster>248){
-             cout<< "Static input "<< i << input_tensor.DebugString() <<endl;
-          }
+        if ((m_ngraph_cluster == 0 || m_ngraph_cluster == 1 ||
+             m_ngraph_cluster > 248)) {
+          cout << "Static input " << i << " " << input_tensor.DebugString()
+               << endl;
+        }
         OP_REQUIRES_OK(ctx, TensorToStream(signature_ss, input_tensor));
         signature_ss << ";";
       }
@@ -447,7 +449,7 @@ class NGraphEncapsulateOp : public OpKernel {
         m_lru.remove(signature);
         m_lru.push_front(signature);
       }
-       cout << "No Compilation cache miss: " << endl;
+      cout << "No Compilation cache miss: " << endl;
       ng_exec = it->second;
     }
 
@@ -696,31 +698,44 @@ class NGraphEncapsulateOp : public OpKernel {
           << m_ngraph_cluster;
       try {
         ng_function = m_ng_function_map[ng_exec];
-        cout<<"Getting NG Exec constant node: TESTNODE"<<endl;
-        for(auto ng_node: ng_function->get_ops()){
-          if(ng_node->get_friendly_name()=="TESTNODE"){
+        cout << "Getting NG Exec constant node: TESTNODE" << endl;
+        for (auto ng_node : ng_function->get_ops()) {
+          if (ng_node->get_friendly_name() == "TESTNODE") {
             ngraph::op::Constant* test_const_node =
-                    static_cast<ngraph::op::Constant*>(ng_node.get());
-            for(auto str: test_const_node->get_value_strings()){
-                cout<<"val "<<str <<endl;
+                static_cast<ngraph::op::Constant*>(ng_node.get());
+            for (auto str : test_const_node->get_value_strings()) {
+              cout << "val " << str << endl;
             }
           }
         }
 
-        if(m_ngraph_cluster>248 && ng_outputs.size()>2){
-            std::ostream& text = std::cout;
-            cout<<"Before call ";
+        if ((m_ngraph_cluster == 0 || m_ngraph_cluster == 1 ||
+             m_ngraph_cluster > 248)) {
+          std::ostream& text = std::cout;
+          cout << "Before call " << m_ngraph_cluster << endl;
+          if (ng_outputs.size() > 0)
+            DumpNGTensor(text, def().name() + "::ngop_0", ng_outputs[0]);
+          if (ng_outputs.size() > 1)
+            DumpNGTensor(text, def().name() + "::ngop_1", ng_outputs[1]);
+          if (ng_outputs.size() > 2)
             DumpNGTensor(text, def().name() + "::ngop_2", ng_outputs[2]);
-            cout<<endl;
-          }
+          cout << endl;
+        }
 
         ng_exec->call(ng_outputs, ng_inputs);
-        if(m_ngraph_cluster>248 && ng_outputs.size()>2){
-            std::ostream& text = std::cout;
-            cout<<"After call ";
+
+        if ((m_ngraph_cluster == 0 || m_ngraph_cluster == 1 ||
+             m_ngraph_cluster > 248)) {
+          std::ostream& text = std::cout;
+          cout << "After call " << m_ngraph_cluster << endl;
+          if (ng_outputs.size() > 0)
+            DumpNGTensor(text, def().name() + "::ngop_0", ng_outputs[0]);
+          if (ng_outputs.size() > 1)
+            DumpNGTensor(text, def().name() + "::ngop_1", ng_outputs[1]);
+          if (ng_outputs.size() > 2)
             DumpNGTensor(text, def().name() + "::ngop_2", ng_outputs[2]);
-            cout<<endl;
-          }
+          cout << endl;
+        }
 
       } catch (const std::exception& exp) {
         ng_function = m_ng_function_map[ng_exec];
@@ -801,11 +816,12 @@ class NGraphEncapsulateOp : public OpKernel {
               new ngraph::Event(event_name, name(), ""));
           dst_tv->read(dst_ptr, 0,
                        dst_tv->get_element_count() * ng_element_type.size());
-          if(m_ngraph_cluster>248){
-            cout<<"Just before copy ";
+          if ((m_ngraph_cluster == 0 || m_ngraph_cluster == 1 ||
+               m_ngraph_cluster > 248)) {
+            cout << "Just before copy ";
             std::ostream& text = std::cout;
             DumpNGTensor(text, def().name() + "::" + to_string(i), dst_tv);
-            cout<<endl;
+            cout << endl;
           }
           event_copy_output_next->Stop();
           output_copy_events.push_back(std::move(event_copy_output_next));
