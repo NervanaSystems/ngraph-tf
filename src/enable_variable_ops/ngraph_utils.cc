@@ -57,6 +57,50 @@ Status IsCopyLogEnabled(int graph_id, bool& is_copy_log_enabled) {
   return Status::OK();
 }
 
+void PrintNGTensor(std::shared_ptr<ng::runtime::Tensor> ng_tensor) {
+  auto ng_element_type = ng_tensor->get_element_type();
+  cout << "Element type " <<ng_element_type.c_type_string() <<endl;
+  if (ng_element_type == ng::element::f32) {
+    cout << "Element type Float "  <<endl;
+    DataType dtype(DT_FLOAT);
+    vector<int64> dims;
+    for (auto dim : ng_tensor->get_shape()) {
+      dims.push_back(dim);
+    }
+    TensorShape tshape(dims);
+
+    Tensor tf_temp_tensor(dtype, tshape);
+    void* current_dst_ptr = DMAHelper::base(&tf_temp_tensor);
+    ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
+                                            ng_tensor->get_element_type().size());
+    cout<< "all tensor values " <<
+    (tf_temp_tensor).SummarizeValue(64)
+                  << endl;
+  }
+  else if(ng_element_type == ng::element::i32 ||
+             ng_element_type == ng::element::i64){
+               cout << "Element type Integer "  <<endl;
+    DataType dtype(DT_FLOAT);
+    vector<int64> dims;
+    for (auto dim : ng_tensor->get_shape()) {
+      dims.push_back(dim);
+    }
+    TensorShape tshape(dims);
+
+    Tensor tf_temp_tensor(dtype, tshape);
+    void* current_dst_ptr = DMAHelper::base(&tf_temp_tensor);
+    ng_tensor->read(current_dst_ptr, 0, ng_tensor->get_element_count() *
+                                            ng_tensor->get_element_type().size());
+    cout << "all tensor values " <<
+    (tf_temp_tensor).SummarizeValue(64)
+                  << endl;
+  }
+  else{
+    cout << "unsupported datat type" <<endl;
+  }
+}
+
+
 void PrintTFTensor(Tensor& T1) {
   NGRAPH_VLOG(4) << "all tensor values" << (T1).SummarizeValue(64) << endl;
 }
@@ -108,6 +152,8 @@ std::ostream& DumpNGTensor(std::ostream& s, const string& name,
   // std::shared_ptr<ngraph::runtime::Tensor> t{get_tensor()};
   const ngraph::Shape& ng_tensor_shape = t->get_shape();
   auto ng_element_type = t->get_element_type();
+  cout<<"Found  element type "<<ng_element_type.c_type_string()<<endl;
+
   s << "Tensor<" << name << ": ";
 
   for (size_t i = 0; i < ng_tensor_shape.size(); ++i) {
@@ -121,6 +167,7 @@ std::ostream& DumpNGTensor(std::ostream& s, const string& name,
   size_t rank = ng_tensor_shape.size();
 
   if (ng_element_type == ng::element::f32) {
+    cout<<"Found float element type "<<endl;
     if (rank == 0) {
       s << GetScalarFromTensor<float>(t, pos++);
     } else if (rank <= 2) {
@@ -148,6 +195,7 @@ std::ostream& DumpNGTensor(std::ostream& s, const string& name,
     s << "}";
   } else if (ng_element_type == ng::element::i32 ||
              ng_element_type == ng::element::i64) {
+    cout<<"Found integer element type "<<endl;
     if (rank == 0) {
       s << GetScalarFromTensor<int>(t, pos++);
     } else if (rank <= 2) {
@@ -173,6 +221,9 @@ std::ostream& DumpNGTensor(std::ostream& s, const string& name,
       s << "]";
     }
     s << "}";
+  }
+  else{
+    cout<<"Found unsupported element type "<< ng_element_type<<endl;
   }
 
   return s;

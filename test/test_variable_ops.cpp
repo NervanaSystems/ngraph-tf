@@ -41,7 +41,7 @@ namespace testing {
 TEST(VariableTest, DummyGraph) {
   Scope root = Scope::NewRootScope();
   auto axis = ops::Const(
-      root.WithOpName("ConstantFolding/Sum_1-reduction_indices"), {0});
+      root.WithOpName("ConstantFolding/Sum_1-reduction_indices"), {1});
 
   auto input = ops::Const(root, {{1.f, 1.f}, {1.f, 1.f}});
 
