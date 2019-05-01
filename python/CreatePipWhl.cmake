@@ -36,10 +36,10 @@ if (PYTHON)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/ngraph_bridge)
 
     # Get the list of libraries we need for the Python pip package
-    # If we are building on CentOS then it's lib64 - else lib
+    # If we are building on a 64-bits OS that uses lib64 then it's lib64 - else lib
     set(LIB_SUFFIX lib)
     if(NOT APPLE)
-        if(OS_VERSION STREQUAL "centos")
+        if(EXISTS ${NGTF_INSTALL_DIR}/lib64)
             set(LIB_SUFFIX lib64)
         endif()
     endif()

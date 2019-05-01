@@ -15,6 +15,10 @@ cmake_minimum_required(VERSION 3.1)
 
 project (ngraph_tensorflow_bridge CXX)
 
+if (UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
 # set directory where the custom finders live
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -267,7 +271,7 @@ endif()
 set(NGRAPH_INSTALL_DIR ${NGRAPH_ARTIFACTS_DIR})
 
 
-if(OS_VERSION STREQUAL "\"centos\"")
+if(EXISTS ${NGRAPH_INSTALL_DIR}/lib64)
 	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib64/${LIBNGRAPH_SO})
 else()
 	set(NGRAPH_IMPORTED_LOCATION ${NGRAPH_INSTALL_DIR}/lib/${LIBNGRAPH_SO})
