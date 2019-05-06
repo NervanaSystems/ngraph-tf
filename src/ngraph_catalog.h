@@ -43,6 +43,29 @@ template <class K, class V, class Hash, class KeyEqual, class Allocator>
 class CatalogBase;
 class NGraphCatalog;
 
+
+// Consider this case: E3<--E1-->E2.
+// Lets say a switch statement chooses which of E2 or E3 gets executed.
+// Then we cannot have a scheme where we let each member of the group set a variable that counts how many members of the group have already used the tensor, so that the last one using it can mark the "on_device" false for the next round
+// another scheme might be: the "first" op to execute in the group loads the tensor.
+// But the definition if "first" might be tricky and might not be known statically
+// So conclusion is that we probably cannot mark the "resetter" in a group statically
+
+// 
+template <class TID>
+class Group {
+ public:
+  bool is_on_device() { return on_device; }
+  bool tid_in_group(TID t) {
+    return group_members.find(t) != group_members.end();
+  }
+
+ private:
+  bool on_device = false;
+  std::set<TID> group_members;
+  
+};
+
 // TensorID classes are expected to provide a to_string()
 // and a hash functor (if necessary)
 class TensorID : public std::tuple<string, bool, int> {
